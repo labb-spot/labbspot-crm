@@ -1,10 +1,21 @@
 <!DOCTYPE html>
-<!-- saved from url=(0052)file:///C:/Users/logan/Downloads/labbspot-crm_8.html -->
+<!-- saved from url=(0052)file:///C:/Users/logan/Downloads/labbspot-crm_9.html -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LabbSpot CRM</title>
-<script src="./LabbSpot CRM_files/supabase.min.js.download"></script>
+<script>
+// Try multiple CDN sources for Supabase
+</script>
+<script src="./LabbSpot CRM_files/supabase.min.js.download" onerror="loadSupabaseFallback()"></script>
+<script>
+function loadSupabaseFallback() {
+  var s = document.createElement('script');
+  s.src = 'https://esm.sh/@supabase/supabase-js@2?bundle';
+  s.type = 'text/javascript';
+  document.head.appendChild(s);
+}
+</script>
 <link href="./LabbSpot CRM_files/css2" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -576,7 +587,19 @@ textarea{resize:vertical;min-height:80px}
 <script>
 const SUPABASE_URL = 'https://jexytttqozcdtexkxoff.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpleHl0dHRxb3pjZHRleGt4b2ZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMzQ1NDYsImV4cCI6MjA5MTgxMDU0Nn0.VDQr5hJ12x9-vy-IsEsnKHBxq6Ptmzfw8IlzbjfRpTw';
-let sb; try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { alert("Supabase init failed: " + e.message); }
+let sb;
+function initSupabase() {
+  try {
+    if (typeof supabase !== 'undefined' && supabase.createClient) {
+      sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      loadDashboard();
+    } else {
+      setTimeout(initSupabase, 200);
+    }
+  } catch(e) {
+    document.getElementById('dashboard-content').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Connection Error</div><div class="empty-sub">' + e.message + '</div></div>';
+  }
+}
 
 // ─── TWILIO CONFIG ───
 const TWILIO_SID = 'AC8c4aac97511bd5dfdddea67209124db5';
@@ -1161,7 +1184,7 @@ document.querySelector('.topbar-search').addEventListener('input',async function
 });
 
 // ─── INIT ───
-loadDashboard();
+initSupabase();
 </script>
 
 

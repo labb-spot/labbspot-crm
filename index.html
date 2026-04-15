@@ -1,1 +1,1168 @@
+<!DOCTYPE html>
+<!-- saved from url=(0052)file:///C:/Users/logan/Downloads/labbspot-crm_8.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LabbSpot CRM</title>
+<script src="./LabbSpot CRM_files/supabase.min.js.download"></script>
+<link href="./LabbSpot CRM_files/css2" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--bg2:#161b26;--bg3:#1c2333;--bg4:#242d42;--bg5:#2d3a52;
+  --accent:#6366f1;--accent-light:#818cf8;--accent-glow:rgba(99,102,241,0.2);
+  --green:#22c55e;--green-bg:rgba(34,197,94,0.1);
+  --amber:#f59e0b;--amber-bg:rgba(245,158,11,0.1);
+  --red:#ef4444;--red-bg:rgba(239,68,68,0.1);
+  --blue:#38bdf8;--blue-bg:rgba(56,189,248,0.1);
+  --pink:#ec4899;--pink-bg:rgba(236,72,153,0.1);
+  --purple:#a855f7;--purple-bg:rgba(168,85,247,0.1);
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#4a5568;--text4:#2d3748;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);--border3:rgba(255,255,255,0.15);
+  --radius:8px;--radius-lg:12px;--radius-xl:16px;
+  --shadow:0 4px 24px rgba(0,0,0,0.4);
+  --font:'DM Sans',sans-serif;--font2:'Space Grotesk',sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+/* TOP BAR */
+.topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;flex-shrink:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px;margin-right:16px}
+.logo-mark{width:30px;height:30px;background:linear-gradient(135deg,var(--accent),var(--accent-light));border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--font2);font-weight:700;font-size:13px;color:#fff}
+.logo-name{font-family:var(--font2);font-weight:600;font-size:15px;color:var(--text)}
+.logo-name span{color:var(--accent-light)}
+.topbar-nav{display:flex;gap:4px;flex:1}
+.topbar-btn{padding:6px 14px;border-radius:var(--radius);cursor:pointer;color:var(--text2);font-size:13px;font-weight:500;background:none;border:none;font-family:var(--font);transition:all .15s;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.topbar-btn:hover{background:var(--bg3);color:var(--text)}
+.topbar-btn.active{background:var(--accent-glow);color:var(--accent-light)}
+.topbar-btn svg{opacity:.7;flex-shrink:0}
+.topbar-btn.active svg{opacity:1}
+.topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+.topbar-search{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-size:13px;font-family:var(--font);width:200px;outline:none}
+.topbar-search:focus{border-color:var(--accent);background:var(--bg4)}
+.topbar-search::placeholder{color:var(--text3)}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--pink));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0}
+.notif-btn{width:30px;height:30px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative}
+.notif-dot{position:absolute;top:5px;right:5px;width:7px;height:7px;background:var(--red);border-radius:50%;border:2px solid var(--bg2)}
+/* MAIN LAYOUT */
+.main{display:flex;flex:1;overflow:hidden}
+/* SIDEBAR */
+.sidebar{width:52px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:4px;flex-shrink:0;z-index:50}
+.side-btn{width:36px;height:36px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text3);transition:all .15s;position:relative}
+.side-btn:hover{background:var(--bg3);color:var(--text2)}
+.side-btn.active{background:var(--accent-glow);color:var(--accent-light)}
+.side-divider{width:24px;height:1px;background:var(--border);margin:4px 0}
+.side-bottom{margin-top:auto}
+/* CONTENT */
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+/* VIEWS */
+.view{display:none;flex-direction:column;height:100%;overflow:hidden}
+.view.active{display:flex}
+/* PAGE HEADER */
+.page-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0}
+.page-title{font-family:var(--font2);font-size:18px;font-weight:600;color:var(--text)}
+.page-subtitle{font-size:12px;color:var(--text2);margin-top:2px}
+.page-header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+/* BUTTONS */
+.btn{padding:7px 14px;border-radius:var(--radius);font-size:13px;font-weight:500;font-family:var(--font);cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-light)}
+.btn-ghost{background:var(--bg3);color:var(--text2);border:1px solid var(--border2)}
+.btn-ghost:hover{background:var(--bg4);color:var(--text)}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,0.2)}
+.btn-danger:hover{background:rgba(239,68,68,0.2)}
+/* SCROLL AREA */
+.scroll{overflow-y:auto;flex:1;padding:20px 24px}
+.scroll::-webkit-scrollbar{width:4px}
+.scroll::-webkit-scrollbar-track{background:transparent}
+.scroll::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:4px}
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+.stat-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:8px}
+.stat-val{font-family:var(--font2);font-size:24px;font-weight:600;color:var(--text);margin-bottom:4px}
+.stat-delta{font-size:12px;display:flex;align-items:center;gap:4px}
+.delta-up{color:var(--green)}
+.delta-down{color:var(--red)}
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px}
+.card-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:13px;font-weight:600;color:var(--text)}
+/* TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text);font-size:13px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg3)}
+.td-muted{color:var(--text2)}
+/* BADGES */
+.badge{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;display:inline-flex;align-items:center;gap:4px}
+.badge-green{background:var(--green-bg);color:var(--green)}
+.badge-amber{background:var(--amber-bg);color:var(--amber)}
+.badge-red{background:var(--red-bg);color:var(--red)}
+.badge-blue{background:var(--blue-bg);color:var(--blue)}
+.badge-purple{background:var(--purple-bg);color:var(--purple)}
+.badge-pink{background:var(--pink-bg);color:var(--pink)}
+.badge-gray{background:rgba(148,163,184,0.1);color:var(--text2)}
+/* PIPELINE */
+.pipeline-board{display:flex;gap:12px;overflow-x:auto;padding:20px 24px;flex:1;align-items:flex-start}
+.pipeline-board::-webkit-scrollbar{height:4px}
+.pipeline-board::-webkit-scrollbar-track{background:transparent}
+.pipeline-board::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:4px}
+.pipeline-col{min-width:240px;max-width:240px;display:flex;flex-direction:column;gap:8px}
+.pipeline-col-header{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px 12px;display:flex;align-items:center;justify-content:space-between}
+.pipeline-col-name{font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
+.stage-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pipeline-col-count{font-size:11px;color:var(--text2);background:var(--bg3);padding:2px 7px;border-radius:20px}
+.deal-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;cursor:pointer;transition:all .15s}
+.deal-card:hover{border-color:var(--border2);background:var(--bg3)}
+.deal-card-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px}
+.deal-card-company{font-size:12px;color:var(--text2);margin-bottom:8px}
+.deal-card-footer{display:flex;align-items:center;justify-content:space-between}
+.deal-value{font-size:13px;font-weight:600;color:var(--accent-light);font-family:var(--font2)}
+.deal-prob{font-size:11px;color:var(--text2)}
+.add-deal-btn{width:100%;padding:8px;background:transparent;border:1px dashed var(--border2);border-radius:var(--radius);color:var(--text2);font-size:12px;cursor:pointer;font-family:var(--font);transition:all .15s}
+.add-deal-btn:hover{border-color:var(--accent);color:var(--accent-light);background:var(--accent-glow)}
+/* WORKFLOW */
+.workflow-list{display:flex;flex-direction:column;gap:10px}
+.workflow-item{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .15s}
+.workflow-item:hover{border-color:var(--border2);background:var(--bg3)}
+.workflow-icon{width:38px;height:38px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.workflow-info{flex:1}
+.workflow-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px}
+.workflow-desc{font-size:12px;color:var(--text2)}
+.workflow-meta{display:flex;align-items:center;gap:8px}
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);width:520px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:var(--shadow)}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-family:var(--font2);font-size:16px;font-weight:600;color:var(--text)}
+.modal-close{width:28px;height:28px;background:var(--bg3);border:none;border-radius:var(--radius);color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:var(--bg4);color:var(--text)}
+.modal-body{padding:20px 24px}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+/* FORM */
+.form-group{margin-bottom:14px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px}
+input,select,textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;color:var(--text);font-size:13px;font-family:var(--font);outline:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+input::placeholder,textarea::placeholder{color:var(--text3)}
+select option{background:var(--bg3)}
+textarea{resize:vertical;min-height:80px}
+/* CONTACT AVATAR */
+.contact-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;flex-shrink:0}
+/* WORKFLOW BUILDER */
+.wf-builder{padding:20px 24px;flex:1;overflow-y:auto}
+.wf-step{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px;cursor:pointer;transition:all .15s}
+.wf-step:hover{border-color:var(--accent)}
+.wf-step-icon{width:36px;height:36px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px}
+.wf-step-info{flex:1}
+.wf-step-type{font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.wf-step-name{font-size:13px;font-weight:500;color:var(--text)}
+.wf-connector{display:flex;justify-content:center;margin:4px 0}
+.wf-connector-line{width:2px;height:20px;background:var(--border2);border-radius:2px}
+.wf-add-step{width:100%;padding:10px;background:transparent;border:1px dashed var(--border2);border-radius:var(--radius-lg);color:var(--text2);font-size:13px;cursor:pointer;font-family:var(--font);transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px}
+.wf-add-step:hover{border-color:var(--accent);color:var(--accent-light);background:var(--accent-glow)}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:12px 16px;font-size:13px;color:var(--text);z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow);transform:translateY(100px);opacity:0;transition:all .3s;max-width:320px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success .toast-icon{color:var(--green)}
+.toast.error .toast-icon{color:var(--red)}
+/* ACTIVITY FEED */
+.activity-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.activity-content{flex:1}
+.activity-text{font-size:13px;color:var(--text);line-height:1.5}
+.activity-time{font-size:11px;color:var(--text3);margin-top:2px}
+/* EMPTY STATE */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--text2);text-align:center}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty-title{font-size:15px;font-weight:500;color:var(--text);margin-bottom:6px}
+.empty-sub{font-size:13px;color:var(--text2);margin-bottom:16px}
+/* PROGRESS BAR */
+.progress{height:4px;background:var(--bg4);border-radius:4px;overflow:hidden;margin-top:6px}
+.progress-bar{height:100%;border-radius:4px;transition:width .3s}
+/* TABS */
+.tabs{display:flex;gap:4px;padding:0 24px;border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{padding:10px 14px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent-light);border-bottom-color:var(--accent)}
+/* LOADING */
+.loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text2)}
+.spinner{width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-right:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* RESPONSIVE HIDE */
+@media(max-width:768px){.topbar-nav .topbar-btn span{display:none}.stats-row{grid-template-columns:1fr 1fr}}
+/* DETAIL PANEL */
+.detail-panel{width:380px;min-width:380px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.detail-panel.hidden{display:none}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-mark">LS</div>
+    <div class="logo-name">Labb<span>Spot</span> CRM</div>
+  </div>
+  <div class="topbar-nav">
+    <button class="topbar-btn active" onclick="showView(&#39;dashboard&#39;)" id="nav-dashboard">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="topbar-btn" onclick="showView(&#39;contacts&#39;)" id="nav-contacts">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+      <span>Contacts</span>
+    </button>
+    <button class="topbar-btn" onclick="showView(&#39;pipeline&#39;)" id="nav-pipeline">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12H3"></path><path d="M14 6l6 6-6 6"></path></svg>
+      <span>Pipeline</span>
+    </button>
+    <button class="topbar-btn" onclick="showView(&#39;tasks&#39;)" id="nav-tasks">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+      <span>Tasks</span>
+    </button>
+    <button class="topbar-btn" onclick="showView(&#39;workflows&#39;)" id="nav-workflows">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"></path></svg>
+      <span>Workflows</span>
+    </button>
+    <button class="topbar-btn" onclick="showView(&#39;reports&#39;)" id="nav-reports">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+      <span>Reports</span>
+    </button>
+  </div>
+  <div class="topbar-right">
+    <input class="topbar-search" type="text" placeholder="🔍  Search...">
+    <div class="notif-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><div class="notif-dot"></div></div>
+    <div class="avatar">LS</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div class="scroll" id="dashboard-content">
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-label">Total Contacts</div><div class="stat-val">1</div><div class="stat-delta delta-up">▲ 1 leads</div></div>
+        <div class="stat-card"><div class="stat-label">Pipeline Value</div><div class="stat-val">$0</div><div class="stat-delta delta-up">▲ 0 open deals</div></div>
+        <div class="stat-card"><div class="stat-label">Won Revenue</div><div class="stat-val">$0</div><div class="stat-delta delta-up">▲ 0 deals won</div></div>
+        <div class="stat-card"><div class="stat-label">Overdue Tasks</div><div class="stat-val">0</div><div class="stat-delta delta-up">✓ All on track</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Recent Contacts</div><button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="showView(&#39;contacts&#39;)">View all</button></div>
+          <div>
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">
+              <div class="contact-av" style="background:#6366f1;">?</div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:500">—</div><div style="font-size:11px;color:var(--text2)"></div></div>
+              <span class="badge badge-blue">lead</span>
+            </div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Recent Deals</div><button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="showView(&#39;pipeline&#39;)">View all</button></div>
+          <div><div class="empty-state"><div class="empty-icon">💼</div><div class="empty-title">No deals yet</div><button class="btn btn-primary" onclick="openModal(&#39;deal&#39;)">Add first deal</button></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Pipeline Overview</div></div>
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0">
+          <div style="padding:14px;border-right:1px solid var(--border);text-align:center">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">New</div>
+              <div style="font-size:22px;font-weight:600;font-family:var(--font2);color:#38bdf8">0</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">$0</div>
+            </div><div style="padding:14px;border-right:1px solid var(--border);text-align:center">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Qualified</div>
+              <div style="font-size:22px;font-weight:600;font-family:var(--font2);color:#a855f7">0</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">$0</div>
+            </div><div style="padding:14px;border-right:1px solid var(--border);text-align:center">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Proposal</div>
+              <div style="font-size:22px;font-weight:600;font-family:var(--font2);color:#f59e0b">0</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">$0</div>
+            </div><div style="padding:14px;border-right:1px solid var(--border);text-align:center">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Negotiation</div>
+              <div style="font-size:22px;font-weight:600;font-family:var(--font2);color:#ec4899">0</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">$0</div>
+            </div><div style="padding:14px;border-right:1px solid var(--border);text-align:center">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Won</div>
+              <div style="font-size:22px;font-weight:600;font-family:var(--font2);color:#22c55e">0</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">$0</div>
+            </div><div style="padding:14px;border-right:1px solid var(--border);text-align:center">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Lost</div>
+              <div style="font-size:22px;font-weight:600;font-family:var(--font2);color:#ef4444">0</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">$0</div>
+            </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- CONTACTS -->
+    <div class="view" id="view-contacts">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Contacts</div>
+          <div class="page-subtitle" id="contacts-count">Loading...</div>
+        </div>
+        <div class="page-header-right">
+          <select id="contacts-filter" style="width:140px" onchange="loadContacts()">
+            <option value="">All Contacts</option>
+            <option value="lead">Leads</option>
+            <option value="prospect">Prospects</option>
+            <option value="customer">Customers</option>
+            <option value="churned">Churned</option>
+          </select>
+          <button class="btn btn-primary" onclick="openModal(&#39;contact&#39;)">+ Add Contact</button>
+        </div>
+      </div>
+      <div class="scroll" style="padding:0">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th><th>Email</th><th>Phone</th><th>Company</th><th>Status</th><th>Source</th><th>Created</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="contacts-tbody">
+              <tr><td colspan="8"><div class="loading"><div class="spinner"></div> Loading...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PIPELINE -->
+    <div class="view" id="view-pipeline">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Sales Pipeline</div>
+          <div class="page-subtitle" id="pipeline-subtitle">Loading deals...</div>
+        </div>
+        <div class="page-header-right">
+          <button class="btn btn-ghost" onclick="loadPipeline()">↻ Refresh</button>
+          <button class="btn btn-primary" onclick="openModal(&#39;deal&#39;)">+ Add Deal</button>
+        </div>
+      </div>
+      <div class="pipeline-board" id="pipeline-board">
+        <div class="loading"><div class="spinner"></div> Loading pipeline...</div>
+      </div>
+    </div>
+
+    <!-- TASKS -->
+    <div class="view" id="view-tasks">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Tasks &amp; Follow-ups</div>
+          <div class="page-subtitle" id="tasks-count">Loading...</div>
+        </div>
+        <div class="page-header-right">
+          <select id="tasks-filter" style="width:140px" onchange="loadTasks()">
+            <option value="">All Tasks</option>
+            <option value="pending">Pending</option>
+            <option value="completed">Completed</option>
+            <option value="overdue">Overdue</option>
+          </select>
+          <button class="btn btn-primary" onclick="openModal(&#39;task&#39;)">+ Add Task</button>
+        </div>
+      </div>
+      <div class="scroll" style="padding:0">
+        <table>
+          <thead>
+            <tr><th>Task</th><th>Contact</th><th>Type</th><th>Priority</th><th>Due Date</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody id="tasks-tbody">
+            <tr><td colspan="7"><div class="loading"><div class="spinner"></div> Loading...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- WORKFLOWS -->
+    <div class="view" id="view-workflows">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Workflows &amp; Automation</div>
+          <div class="page-subtitle">Automate your sales and marketing processes</div>
+        </div>
+        <div class="page-header-right">
+          <button class="btn btn-primary" onclick="openWorkflowBuilder()">+ New Workflow</button>
+        </div>
+      </div>
+      <div class="scroll">
+        <div id="workflows-list">
+          <div class="loading"><div class="spinner"></div> Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div class="view" id="view-reports">
+      <div class="page-header">
+        <div class="page-title">Reports &amp; Analytics</div>
+      </div>
+      <div class="scroll" id="reports-content">
+        <div class="loading"><div class="spinner"></div> Loading...</div>
+      </div>
+    </div>
+
+  </div><!-- end content -->
+</div><!-- end main -->
+
+<!-- MODALS -->
+<div id="modal-overlay" class="modal-overlay" style="display:none" onclick="closeModal(event)">
+
+  <!-- CONTACT MODAL -->
+  <div class="modal" id="modal-contact" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title" id="contact-modal-title">Add Contact</div>
+      <button class="modal-close" onclick="closeAllModals()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="contact-id">
+      <div class="form-row">
+        <div class="form-group"><label>Full Name *</label><input id="c-name" placeholder="John Smith"></div>
+        <div class="form-group"><label>Email</label><input id="c-email" type="email" placeholder="john@example.com"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Phone</label><input id="c-phone" placeholder="+1 (555) 000-0000"></div>
+        <div class="form-group"><label>Company</label><input id="c-company" placeholder="Acme Corp"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Status</label>
+          <select id="c-status">
+            <option value="lead">Lead</option><option value="prospect">Prospect</option>
+            <option value="customer">Customer</option><option value="churned">Churned</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Source</label>
+          <select id="c-source">
+            <option value="">Select source</option>
+            <option value="website">Website</option><option value="referral">Referral</option>
+            <option value="social">Social Media</option><option value="email">Email Campaign</option>
+            <option value="cold-call">Cold Call</option><option value="event">Event</option><option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label>Tags (comma separated)</label><input id="c-tags" placeholder="vip, enterprise, follow-up"></div>
+      <div class="form-group"><label>Notes</label><textarea id="c-notes" placeholder="Add any notes about this contact..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAllModals()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveContact()">Save Contact</button>
+    </div>
+  </div>
+
+  <!-- DEAL MODAL -->
+  <div class="modal" id="modal-deal" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title" id="deal-modal-title">Add Deal</div>
+      <button class="modal-close" onclick="closeAllModals()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="deal-id">
+      <div class="form-group"><label>Deal Title *</label><input id="d-title" placeholder="Enterprise Plan - Acme Corp"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Value ($)</label><input id="d-value" type="number" placeholder="5000"></div>
+        <div class="form-group"><label>Stage</label>
+          <select id="d-stage">
+            <option value="new">New / Unqualified</option>
+            <option value="qualified">Qualified</option>
+            <option value="proposal">Proposal Sent</option>
+            <option value="negotiation">Negotiation</option>
+            <option value="won">Won</option>
+            <option value="lost">Lost</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Contact Name</label><input id="d-contact" placeholder="John Smith"></div>
+        <div class="form-group"><label>Close Date</label><input id="d-close" type="date"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Win Probability (%)</label><input id="d-prob" type="number" min="0" max="100" placeholder="50"></div>
+        <div class="form-group"><label>Owner</label><input id="d-owner" placeholder="Your name"></div>
+      </div>
+      <div class="form-group"><label>Notes</label><textarea id="d-notes" placeholder="Deal notes..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAllModals()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDeal()">Save Deal</button>
+    </div>
+  </div>
+
+  <!-- TASK MODAL -->
+  <div class="modal" id="modal-task" style="display:none">
+    <div class="modal-header">
+      <div class="modal-title" id="task-modal-title">Add Task</div>
+      <button class="modal-close" onclick="closeAllModals()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="task-id">
+      <div class="form-group"><label>Task Title *</label><input id="t-title" placeholder="Follow up with John Smith"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Type</label>
+          <select id="t-type">
+            <option value="task">Task</option><option value="call">Call</option>
+            <option value="email">Email</option><option value="meeting">Meeting</option>
+            <option value="follow-up">Follow-up</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Priority</label>
+          <select id="t-priority">
+            <option value="low">Low</option><option value="medium" selected="">Medium</option><option value="high">High</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Contact</label><input id="t-contact" placeholder="Contact name"></div>
+        <div class="form-group"><label>Due Date</label><input id="t-due" type="datetime-local"></div>
+      </div>
+      <div class="form-group"><label>Notes</label><textarea id="t-notes" placeholder="Task notes..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAllModals()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTask()">Save Task</button>
+    </div>
+  </div>
+
+  <!-- WORKFLOW BUILDER MODAL -->
+  <div class="modal" id="modal-workflow" style="display:none;width:600px;max-width:95vw">
+    <div class="modal-header">
+      <div class="modal-title">Workflow Builder</div>
+      <button class="modal-close" onclick="closeAllModals()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="wf-id">
+      <div class="form-row">
+        <div class="form-group"><label>Workflow Name *</label><input id="wf-name" placeholder="New Lead Follow-up"></div>
+        <div class="form-group"><label>Status</label>
+          <select id="wf-status"><option value="draft">Draft</option><option value="active">Active</option><option value="paused">Paused</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>Description</label><input id="wf-desc" placeholder="What does this workflow do?"></div>
+      <div style="margin-top:16px">
+        <label style="margin-bottom:10px;display:block">Trigger</label>
+        <select id="wf-trigger" style="margin-bottom:16px">
+          <option value="contact_created">Contact Created</option>
+          <option value="deal_stage_changed">Deal Stage Changed</option>
+          <option value="tag_added">Tag Added</option>
+          <option value="form_submitted">Form Submitted</option>
+          <option value="date_based">Date Based</option>
+          <option value="manual">Manual Trigger</option>
+        </select>
+        <label style="margin-bottom:10px;display:block">Steps</label>
+        <div id="wf-steps-list"></div>
+        <button class="wf-add-step" onclick="addWorkflowStep()">+ Add Step</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAllModals()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveWorkflow()">Save Workflow</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <span class="toast-icon">✓</span>
+  <span id="toast-msg">Saved!</span>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://jexytttqozcdtexkxoff.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpleHl0dHRxb3pjZHRleGt4b2ZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMzQ1NDYsImV4cCI6MjA5MTgxMDU0Nn0.VDQr5hJ12x9-vy-IsEsnKHBxq6Ptmzfw8IlzbjfRpTw';
+let sb; try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { alert("Supabase init failed: " + e.message); }
+
+// ─── TWILIO CONFIG ───
+const TWILIO_SID = 'AC8c4aac97511bd5dfdddea67209124db5';
+const TWILIO_TOKEN = '14c479ce7bd2e88b71eb56dcf95b5f1e';
+const TWILIO_FROM = '+18126096167';
+const TWILIO_API = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}`;
+
+async function sendSMS(btn){
+  var toPhone = btn.getAttribute('data-phone');
+  var contactName = btn.getAttribute('data-name');
+  if(!toPhone){showToast('No phone number for this contact','error');return}
+  var msg = prompt('SMS to ' + contactName + ' (' + toPhone + '):\n\nType your message:');
+  if(!msg)return;
+  try{
+    var creds = btoa(TWILIO_SID+':'+TWILIO_TOKEN);
+    var body = new URLSearchParams({To:toPhone,From:TWILIO_FROM,Body:msg});
+    var res = await fetch(TWILIO_API+'/Messages.json',{method:'POST',headers:{'Authorization':'Basic '+creds,'Content-Type':'application/x-www-form-urlencoded'},body:body});
+    var data = await res.json();
+    if(data.error_code){showToast('SMS Error: '+data.message,'error');return}
+    showToast('SMS sent to '+contactName+'!');
+  }catch(e){showToast('Error: '+e.message,'error')}
+}
+
+async function makeCall(btn){
+  var toPhone = btn.getAttribute('data-phone');
+  var contactName = btn.getAttribute('data-name');
+  if(!toPhone){showToast('No phone number for this contact','error');return}
+  if(!confirm('Call '+contactName+' at '+toPhone+'?'))return;
+  try{
+    var creds = btoa(TWILIO_SID+':'+TWILIO_TOKEN);
+    var twiml = '<Response><Dial>'+toPhone+'</Dial></Response>';
+    var body = new URLSearchParams({To:toPhone,From:TWILIO_FROM,Twiml:twiml});
+    var res = await fetch(TWILIO_API+'/Calls.json',{method:'POST',headers:{'Authorization':'Basic '+creds,'Content-Type':'application/x-www-form-urlencoded'},body:body});
+    var data = await res.json();
+    if(data.error_code){showToast('Call Error: '+data.message,'error');return}
+    showToast('Calling '+contactName+'...');
+  }catch(e){showToast('Error: '+e.message,'error')}
+}
+
+// ─── UTILS ───
+function fmt$(n){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n||0)}
+function fmtDate(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+function fmtDateShort(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+function initials(name){if(!name)return'?';return name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}
+function avatarColor(name){const colors=['#6366f1','#ec4899','#f59e0b','#22c55e','#38bdf8','#a855f7','#ef4444'];const i=name?name.charCodeAt(0)%colors.length:0;return colors[i]}
+function showToast(msg,type='success'){const t=document.getElementById('toast');const icon=t.querySelector('.toast-icon');document.getElementById('toast-msg').textContent=msg;t.className='toast '+type;icon.textContent=type==='success'?'✓':'✕';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000)}
+function statusBadge(s){const map={lead:'badge-blue',prospect:'badge-amber',customer:'badge-green',churned:'badge-gray',active:'badge-green',draft:'badge-gray',paused:'badge-amber'};return`<span class="badge ${map[s]||'badge-gray'}">${s||'—'}</span>`}
+function priorityBadge(p){const map={high:'badge-red',medium:'badge-amber',low:'badge-green'};return`<span class="badge ${map[p]||'badge-gray'}">${p||'medium'}</span>`}
+
+// ─── NAVIGATION ───
+let currentView='dashboard';
+function showView(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.topbar-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.getElementById('nav-'+v).classList.add('active');
+  currentView=v;
+  if(v==='dashboard')loadDashboard();
+  else if(v==='contacts')loadContacts();
+  else if(v==='pipeline')loadPipeline();
+  else if(v==='tasks')loadTasks();
+  else if(v==='workflows')loadWorkflows();
+  else if(v==='reports')loadReports();
+}
+
+// ─── DASHBOARD ───
+async function loadDashboard(){
+  const el=document.getElementById('dashboard-content');
+  el.innerHTML='<div class="loading"><div class="spinner"></div> Loading...</div>';
+  try{
+    const [conRes,dealRes,taskRes]=await Promise.all([
+      sb.from('contacts').select('id,status,created_at'),
+      sb.from('deals').select('id,value,stage,created_at'),
+      sb.from('tasks').select('id,status,due_date,priority')
+    ]);
+    const contacts=conRes.data||[];
+    const deals=dealRes.data||[];
+    const tasks=taskRes.data||[];
+    const totalRev=deals.filter(d=>d.stage==='won').reduce((s,d)=>s+(d.value||0),0);
+    const pipeline=deals.filter(d=>!['won','lost'].includes(d.stage)).reduce((s,d)=>s+(d.value||0),0);
+    const overdue=tasks.filter(t=>t.status!=='completed'&&t.due_date&&new Date(t.due_date)<new Date()).length;
+    const newLeads=contacts.filter(c=>c.status==='lead').length;
+    const recentContacts=contacts.slice(-5).reverse();
+    const recentDeals=deals.slice(-5).reverse();
+    el.innerHTML=`
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-label">Total Contacts</div><div class="stat-val">${contacts.length}</div><div class="stat-delta delta-up">▲ ${newLeads} leads</div></div>
+        <div class="stat-card"><div class="stat-label">Pipeline Value</div><div class="stat-val">${fmt$(pipeline)}</div><div class="stat-delta delta-up">▲ ${deals.filter(d=>!['won','lost'].includes(d.stage)).length} open deals</div></div>
+        <div class="stat-card"><div class="stat-label">Won Revenue</div><div class="stat-val">${fmt$(totalRev)}</div><div class="stat-delta delta-up">▲ ${deals.filter(d=>d.stage==='won').length} deals won</div></div>
+        <div class="stat-card"><div class="stat-label">Overdue Tasks</div><div class="stat-val">${overdue}</div><div class="stat-delta ${overdue>0?'delta-down':'delta-up'}">${overdue>0?'▼ Needs attention':'✓ All on track'}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Recent Contacts</div><button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="showView('contacts')">View all</button></div>
+          <div>${recentContacts.length?recentContacts.map(c=>`
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">
+              <div class="contact-av" style="background:${avatarColor(c.name||'')};">${initials(c.name||'?')}</div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:500">${c.name||'—'}</div><div style="font-size:11px;color:var(--text2)">${c.email||c.company||''}</div></div>
+              ${statusBadge(c.status)}
+            </div>`).join(''):'<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">No contacts yet</div><button class="btn btn-primary" onclick="openModal(\'contact\')">Add first contact</button></div>'}</div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Recent Deals</div><button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="showView('pipeline')">View all</button></div>
+          <div>${recentDeals.length?recentDeals.map(d=>`
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">
+              <div style="flex:1"><div style="font-size:13px;font-weight:500">${d.title||'—'}</div><div style="font-size:11px;color:var(--text2)">${d.contact_name||''}</div></div>
+              <div style="font-size:13px;font-weight:600;color:var(--accent-light);font-family:var(--font2)">${fmt$(d.value)}</div>
+              ${stageBadge(d.stage)}
+            </div>`).join(''):'<div class="empty-state"><div class="empty-icon">💼</div><div class="empty-title">No deals yet</div><button class="btn btn-primary" onclick="openModal(\'deal\')">Add first deal</button></div>'}</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Pipeline Overview</div></div>
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0">
+          ${[{s:'new',label:'New',color:'#38bdf8'},{s:'qualified',label:'Qualified',color:'#a855f7'},{s:'proposal',label:'Proposal',color:'#f59e0b'},{s:'negotiation',label:'Negotiation',color:'#ec4899'},{s:'won',label:'Won',color:'#22c55e'},{s:'lost',label:'Lost',color:'#ef4444'}].map(({s,label,color})=>{
+            const cnt=deals.filter(d=>d.stage===s).length;
+            const val=deals.filter(d=>d.stage===s).reduce((a,d)=>a+(d.value||0),0);
+            return`<div style="padding:14px;border-right:1px solid var(--border);text-align:center">
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">${label}</div>
+              <div style="font-size:22px;font-weight:600;font-family:var(--font2);color:${color}">${cnt}</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">${fmt$(val)}</div>
+            </div>`;}).join('')}
+        </div>
+      </div>`;
+  }catch(e){el.innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Connection Error</div><div class="empty-sub">${e.message}</div></div>`}
+}
+
+// ─── CONTACTS ───
+async function loadContacts(){
+  const tbody=document.getElementById('contacts-tbody');
+  tbody.innerHTML='<tr><td colspan="8"><div class="loading"><div class="spinner"></div> Loading...</div></td></tr>';
+  const filter=document.getElementById('contacts-filter').value;
+  try{
+    let q=sb.from('contacts').select('*').order('created_at',{ascending:false});
+    if(filter)q=q.eq('status',filter);
+    const {data,error}=await q;
+    if(error)throw error;
+    document.getElementById('contacts-count').textContent=`${data.length} contact${data.length!==1?'s':''}`;
+    if(!data.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">No contacts found</div><button class="btn btn-primary" onclick="openModal('contact')">Add your first contact</button></div></td></tr>`;return}
+    tbody.innerHTML=data.map(c=>`
+      <tr>
+        <td><div style="display:flex;align-items:center;gap:9px">
+          <div class="contact-av" style="background:${avatarColor(c.name||'')};">${initials(c.name||'?')}</div>
+          <span style="font-weight:500">${c.name||'—'}</span>
+        </div></td>
+        <td class="td-muted">${c.email||'—'}</td>
+        <td class="td-muted">${c.phone||'—'}</td>
+        <td class="td-muted">${c.company||'—'}</td>
+        <td>${statusBadge(c.status)}</td>
+        <td class="td-muted">${c.source||'—'}</td>
+        <td class="td-muted">${fmtDateShort(c.created_at)}</td>
+        <td><div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="btn" style="font-size:11px;padding:4px 8px;background:var(--green-bg);color:var(--green);border:1px solid rgba(34,197,94,0.2)" onclick="makeCall(this)" data-phone="${c.phone||''}" data-name="${c.name||''}">📞 Call</button>
+          <button class="btn" style="font-size:11px;padding:4px 8px;background:var(--blue-bg);color:var(--blue);border:1px solid rgba(56,189,248,0.2)" onclick="sendSMS(this)" data-phone="${c.phone||''}" data-name="${c.name||''}">💬 SMS</button>
+          <button class="btn btn-ghost" style="font-size:11px;padding:4px 8px" onclick="editContact('${c.id}')">Edit</button>
+          <button class="btn btn-danger" style="font-size:11px;padding:4px 8px" onclick="deleteContact('${c.id}')">Del</button>
+        </div></td>
+      </tr>`).join('');
+  }catch(e){tbody.innerHTML=`<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Error loading contacts</div><div class="empty-sub">${e.message}</div></div></td></tr>`}
+}
+
+// ─── PIPELINE ───
+const stages=[
+  {id:'new',label:'New / Unqualified',color:'#38bdf8'},
+  {id:'qualified',label:'Qualified',color:'#a855f7'},
+  {id:'proposal',label:'Proposal Sent',color:'#f59e0b'},
+  {id:'negotiation',label:'Negotiation',color:'#ec4899'},
+  {id:'won',label:'Won',color:'#22c55e'},
+  {id:'lost',label:'Lost',color:'#ef4444'}
+];
+function stageBadge(s){const st=stages.find(x=>x.id===s);if(!st)return`<span class="badge badge-gray">${s||'—'}</span>`;const colorMap={new:'badge-blue',qualified:'badge-purple',proposal:'badge-amber',negotiation:'badge-pink',won:'badge-green',lost:'badge-red'};return`<span class="badge ${colorMap[s]||'badge-gray'}">${st.label}</span>`}
+
+async function loadPipeline(){
+  const board=document.getElementById('pipeline-board');
+  board.innerHTML='<div class="loading"><div class="spinner"></div> Loading...</div>';
+  try{
+    const {data,error}=await sb.from('deals').select('*').order('created_at',{ascending:false});
+    if(error)throw error;
+    const total=data.reduce((s,d)=>s+(d.value||0),0);
+    document.getElementById('pipeline-subtitle').textContent=`${data.length} deals · ${fmt$(total)} total pipeline`;
+    board.innerHTML=stages.map(stage=>{
+      const deals=data.filter(d=>d.stage===stage.id);
+      const stageTotal=deals.reduce((s,d)=>s+(d.value||0),0);
+      return`<div class="pipeline-col">
+        <div class="pipeline-col-header">
+          <div class="pipeline-col-name"><div class="stage-dot" style="background:${stage.color}"></div>${stage.label}</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:10px;color:var(--text2)">${fmt$(stageTotal)}</span>
+            <span class="pipeline-col-count">${deals.length}</span>
+          </div>
+        </div>
+        ${deals.map(d=>`
+          <div class="deal-card" onclick="editDeal('${d.id}')">
+            <div class="deal-card-title">${d.title||'Untitled Deal'}</div>
+            ${d.contact_name?`<div class="deal-card-company">${d.contact_name}</div>`:''}
+            <div class="deal-card-footer">
+              <div class="deal-value">${fmt$(d.value)}</div>
+              <div class="deal-prob">${d.probability||0}% close</div>
+            </div>
+            ${d.close_date?`<div style="font-size:11px;color:var(--text2);margin-top:6px">📅 ${fmtDateShort(d.close_date)}</div>`:''}
+          </div>`).join('')}
+        <button class="add-deal-btn" onclick="openModal('deal',{stage:'${stage.id}'})">+ Add deal</button>
+      </div>`;
+    }).join('');
+  }catch(e){board.innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Error loading pipeline</div><div class="empty-sub">${e.message}</div></div>`}
+}
+
+// ─── TASKS ───
+async function loadTasks(){
+  const tbody=document.getElementById('tasks-tbody');
+  tbody.innerHTML='<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  const filter=document.getElementById('tasks-filter').value;
+  try{
+    const {data,error}=await sb.from('tasks').select('*').order('due_date',{ascending:true,nullsFirst:false});
+    if(error)throw error;
+    let tasks=data;
+    const now=new Date();
+    if(filter==='pending')tasks=data.filter(t=>t.status==='pending');
+    else if(filter==='completed')tasks=data.filter(t=>t.status==='completed');
+    else if(filter==='overdue')tasks=data.filter(t=>t.status!=='completed'&&t.due_date&&new Date(t.due_date)<now);
+    document.getElementById('tasks-count').textContent=`${tasks.length} task${tasks.length!==1?'s':''}`;
+    if(!tasks.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No tasks found</div><button class="btn btn-primary" onclick="openModal('task')">Add a task</button></div></td></tr>`;return}
+    tbody.innerHTML=tasks.map(t=>{
+      const overdue=t.status!=='completed'&&t.due_date&&new Date(t.due_date)<now;
+      return`<tr>
+        <td><div style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" ${t.status==='completed'?'checked':''} onchange="toggleTask('${t.id}',this.checked)" style="width:14px;height:14px;accent-color:var(--accent)">
+          <span style="${t.status==='completed'?'text-decoration:line-through;color:var(--text2)':'font-weight:500'}">${t.title}</span>
+        </div></td>
+        <td class="td-muted">${t.contact_name||'—'}</td>
+        <td><span class="badge badge-gray">${t.type||'task'}</span></td>
+        <td>${priorityBadge(t.priority)}</td>
+        <td style="color:${overdue?'var(--red)':''}">${t.due_date?fmtDate(t.due_date):'—'}${overdue?' ⚠️':''}</td>
+        <td>${statusBadge(t.status)}</td>
+        <td><div style="display:flex;gap:6px">
+          <button class="btn btn-ghost" style="font-size:11px;padding:4px 8px" onclick="editTask('${t.id}')">Edit</button>
+          <button class="btn btn-danger" style="font-size:11px;padding:4px 8px" onclick="deleteTask('${t.id}')">Del</button>
+        </div></td>
+      </tr>`;}).join('');
+  }catch(e){tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Error loading tasks</div><div class="empty-sub">${e.message}</div></div></td></tr>`}
+}
+
+// ─── WORKFLOWS ───
+const wfStepTypes=[
+  {type:'wait',label:'Wait / Delay',icon:'⏱️',color:'#38bdf8',bg:'#0c2740'},
+  {type:'send_email',label:'Send Email',icon:'📧',color:'#6366f1',bg:'#1e1f4a'},
+  {type:'send_sms',label:'Send SMS',icon:'💬',color:'#22c55e',bg:'#0c2a1a'},
+  {type:'add_tag',label:'Add Tag',icon:'🏷️',color:'#f59e0b',bg:'#2a200a'},
+  {type:'remove_tag',label:'Remove Tag',icon:'✂️',color:'#ef4444',bg:'#2a0c0c'},
+  {type:'move_stage',label:'Move Pipeline Stage',icon:'➡️',color:'#a855f7',bg:'#220a2a'},
+  {type:'assign_owner',label:'Assign Owner',icon:'👤',color:'#ec4899',bg:'#2a0a1c'},
+  {type:'create_task',label:'Create Task',icon:'✅',color:'#22c55e',bg:'#0c2a1a'},
+  {type:'webhook',label:'Send Webhook',icon:'🔗',color:'#38bdf8',bg:'#0c2740'},
+];
+let currentWfSteps=[];
+
+function openWorkflowBuilder(wf){
+  currentWfSteps=wf?JSON.parse(JSON.stringify(wf.steps||[])): [];
+  document.getElementById('wf-id').value=wf?wf.id:'';
+  document.getElementById('wf-name').value=wf?wf.name:'';
+  document.getElementById('wf-desc').value=wf?wf.description:'';
+  document.getElementById('wf-status').value=wf?wf.status:'draft';
+  document.getElementById('wf-trigger').value=wf?wf.trigger_type:'contact_created';
+  renderWfSteps();
+  openModal('workflow');
+}
+
+function renderWfSteps(){
+  const el=document.getElementById('wf-steps-list');
+  if(!currentWfSteps.length){el.innerHTML='<div style="text-align:center;color:var(--text2);font-size:12px;padding:12px 0">No steps yet. Add a step below.</div>';return}
+  el.innerHTML=currentWfSteps.map((step,i)=>{
+    const def=wfStepTypes.find(t=>t.type===step.type)||{icon:'⚙️',label:step.type,color:'#94a3b8',bg:'var(--bg4)'};
+    return`${i>0?'<div class="wf-connector"><div class="wf-connector-line"></div></div>':''}
+    <div class="wf-step">
+      <div class="wf-step-icon" style="background:${def.bg};color:${def.color}">${def.icon}</div>
+      <div class="wf-step-info">
+        <div class="wf-step-type">Step ${i+1} · ${def.label}</div>
+        <div class="wf-step-name">${step.config?.message||step.config?.delay||step.config?.tag||step.config?.stage||def.label}</div>
+      </div>
+      <button onclick="removeWfStep(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0 4px">×</button>
+    </div>`;}).join('');
+}
+
+function addWorkflowStep(){
+  const types=wfStepTypes.map((t,i)=>`${i+1}. ${t.icon} ${t.label}`).join('\n');
+  const choice=prompt(`Choose a step type:\n\n${types}\n\nEnter number (1-${wfStepTypes.length}):`);
+  const idx=parseInt(choice)-1;
+  if(isNaN(idx)||idx<0||idx>=wfStepTypes.length)return;
+  const def=wfStepTypes[idx];
+  let config={};
+  if(def.type==='wait'){const d=prompt('Delay duration (e.g. "1 day", "2 hours"):');if(d)config={delay:d}}
+  else if(def.type==='send_email'){const m=prompt('Email subject:');if(m)config={message:m}}
+  else if(def.type==='send_sms'){const m=prompt('SMS message:');if(m)config={message:m}}
+  else if(def.type==='add_tag'||def.type==='remove_tag'){const t=prompt('Tag name:');if(t)config={tag:t}}
+  else if(def.type==='move_stage'){const s=prompt('Stage (new/qualified/proposal/negotiation/won/lost):');if(s)config={stage:s}}
+  else if(def.type==='create_task'){const t=prompt('Task title:');if(t)config={message:t}}
+  currentWfSteps.push({type:def.type,config});
+  renderWfSteps();
+}
+
+function removeWfStep(i){currentWfSteps.splice(i,1);renderWfSteps()}
+
+async function loadWorkflows(){
+  const el=document.getElementById('workflows-list');
+  el.innerHTML='<div class="loading"><div class="spinner"></div> Loading...</div>';
+  try{
+    const {data,error}=await sb.from('workflows').select('*').order('created_at',{ascending:false});
+    if(error)throw error;
+    if(!data.length){
+      el.innerHTML=`<div class="empty-state"><div class="empty-icon">⚡</div><div class="empty-title">No workflows yet</div><div class="empty-sub">Automate your sales & marketing with trigger-based workflows</div><button class="btn btn-primary" onclick="openWorkflowBuilder()">Create first workflow</button></div>`;
+      return;
+    }
+    const triggerLabels={contact_created:'Contact Created',deal_stage_changed:'Deal Stage Changed',tag_added:'Tag Added',form_submitted:'Form Submitted',date_based:'Date Based',manual:'Manual'};
+    el.innerHTML='<div class="workflow-list">'+data.map(wf=>`
+      <div class="workflow-item" onclick="openWorkflowBuilder(${JSON.stringify(wf).replace(/"/g,'&quot;')})">
+        <div class="workflow-icon" style="background:var(--accent-glow);color:var(--accent-light)">⚡</div>
+        <div class="workflow-info">
+          <div class="workflow-name">${wf.name}</div>
+          <div class="workflow-desc">${wf.description||'No description'} · Trigger: ${triggerLabels[wf.trigger_type]||wf.trigger_type} · ${(wf.steps||[]).length} steps</div>
+        </div>
+        <div class="workflow-meta">
+          <span style="font-size:11px;color:var(--text2)">${wf.run_count||0} runs</span>
+          ${statusBadge(wf.status)}
+          <button class="btn btn-danger" style="font-size:11px;padding:4px 8px" onclick="event.stopPropagation();deleteWorkflow('${wf.id}')">Del</button>
+        </div>
+      </div>`).join('')+'</div>';
+  }catch(e){el.innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">${e.message}</div></div>`}
+}
+
+// ─── REPORTS ───
+async function loadReports(){
+  const el=document.getElementById('reports-content');
+  el.innerHTML='<div class="loading"><div class="spinner"></div> Loading...</div>';
+  try{
+    const [conRes,dealRes,taskRes]=await Promise.all([
+      sb.from('contacts').select('status,source,created_at'),
+      sb.from('deals').select('stage,value,created_at,close_date'),
+      sb.from('tasks').select('status,priority,type')
+    ]);
+    const contacts=conRes.data||[];
+    const deals=dealRes.data||[];
+    const tasks=taskRes.data||[];
+    const wonDeals=deals.filter(d=>d.stage==='won');
+    const wonRev=wonDeals.reduce((s,d)=>s+(d.value||0),0);
+    const lostDeals=deals.filter(d=>d.stage==='lost').length;
+    const winRate=deals.length?(wonDeals.length/deals.length*100).toFixed(1):0;
+    const sourceMap={};contacts.forEach(c=>{if(c.source)sourceMap[c.source]=(sourceMap[c.source]||0)+1});
+    const statusMap={};contacts.forEach(c=>{statusMap[c.status]=(statusMap[c.status]||0)+1});
+    el.innerHTML=`
+      <div class="stats-row" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat-card"><div class="stat-label">Total Revenue Won</div><div class="stat-val">${fmt$(wonRev)}</div></div>
+        <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-val">${winRate}%</div></div>
+        <div class="stat-card"><div class="stat-label">Deals Lost</div><div class="stat-val">${lostDeals}</div></div>
+        <div class="stat-card"><div class="stat-label">Total Contacts</div><div class="stat-val">${contacts.length}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Contacts by Status</div></div>
+          <div style="padding:14px">
+            ${Object.entries(statusMap).map(([s,n])=>`
+              <div style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <span style="font-size:12px;color:var(--text)">${s}</span>
+                  <span style="font-size:12px;font-weight:600;color:var(--text)">${n}</span>
+                </div>
+                <div class="progress"><div class="progress-bar" style="width:${contacts.length?(n/contacts.length*100).toFixed(0):0}%;background:var(--accent)"></div></div>
+              </div>`).join('')||'<div style="color:var(--text2);font-size:13px">No data yet</div>'}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Leads by Source</div></div>
+          <div style="padding:14px">
+            ${Object.entries(sourceMap).map(([s,n])=>`
+              <div style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <span style="font-size:12px;color:var(--text)">${s}</span>
+                  <span style="font-size:12px;font-weight:600;color:var(--text)">${n}</span>
+                </div>
+                <div class="progress"><div class="progress-bar" style="width:${contacts.length?(n/contacts.length*100).toFixed(0):0}%;background:var(--green)"></div></div>
+              </div>`).join('')||'<div style="color:var(--text2);font-size:13px">No source data yet</div>'}
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Pipeline by Stage</div></div>
+        <div style="padding:14px">
+          ${stages.map(stage=>{
+            const cnt=deals.filter(d=>d.stage===stage.id).length;
+            const val=deals.filter(d=>d.stage===stage.id).reduce((a,d)=>a+(d.value||0),0);
+            return`<div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${stage.color};display:inline-block"></span>${stage.label}</span>
+                <span style="font-size:12px;color:var(--text2)">${cnt} deals · <strong style="color:var(--text)">${fmt$(val)}</strong></span>
+              </div>
+              <div class="progress"><div class="progress-bar" style="width:${deals.length?(cnt/deals.length*100).toFixed(0):0}%;background:${stage.color}"></div></div>
+            </div>`;}).join('')}
+        </div>
+      </div>`;
+  }catch(e){el.innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">${e.message}</div></div>`}
+}
+
+// ─── MODAL CONTROLS ───
+function openModal(type, defaults={}){
+  document.getElementById('modal-overlay').style.display='flex';
+  if(type==='contact'){
+    document.getElementById('modal-contact').style.display='block';
+    document.getElementById('contact-modal-title').textContent='Add Contact';
+    document.getElementById('contact-id').value='';
+    ['name','email','phone','company','tags','notes'].forEach(f=>document.getElementById('c-'+f).value='');
+    document.getElementById('c-status').value='lead';
+    document.getElementById('c-source').value='';
+  } else if(type==='deal'){
+    document.getElementById('modal-deal').style.display='block';
+    document.getElementById('deal-modal-title').textContent='Add Deal';
+    document.getElementById('deal-id').value='';
+    ['title','contact','close','notes','owner'].forEach(f=>document.getElementById('d-'+f).value='');
+    document.getElementById('d-value').value='';
+    document.getElementById('d-prob').value='';
+    document.getElementById('d-stage').value=defaults.stage||'new';
+  } else if(type==='task'){
+    document.getElementById('modal-task').style.display='block';
+    document.getElementById('task-modal-title').textContent='Add Task';
+    document.getElementById('task-id').value='';
+    ['title','contact','notes'].forEach(f=>document.getElementById('t-'+f).value='');
+    document.getElementById('t-due').value='';
+    document.getElementById('t-type').value='task';
+    document.getElementById('t-priority').value='medium';
+  } else if(type==='workflow'){
+    document.getElementById('modal-workflow').style.display='block';
+  }
+}
+function closeAllModals(){
+  document.getElementById('modal-overlay').style.display='none';
+  document.querySelectorAll('.modal').forEach(m=>m.style.display='none');
+}
+function closeModal(e){if(e.target.id==='modal-overlay')closeAllModals()}
+
+// ─── CRUD CONTACTS ───
+async function saveContact(){
+  const id=document.getElementById('contact-id').value;
+  const name=document.getElementById('c-name').value.trim();
+  if(!name){alert('Name is required');return}
+  const tagsRaw=document.getElementById('c-tags').value;
+  const tags=tagsRaw?tagsRaw.split(',').map(t=>t.trim()).filter(Boolean):[];
+  const data={name,email:document.getElementById('c-email').value,phone:document.getElementById('c-phone').value,company:document.getElementById('c-company').value,status:document.getElementById('c-status').value,source:document.getElementById('c-source').value,notes:document.getElementById('c-notes').value,tags,updated_at:new Date().toISOString()};
+  try{
+    let err;
+    if(id){({error:err}=await sb.from('contacts').update(data).eq('id',id))}
+    else{({error:err}=await sb.from('contacts').insert(data))}
+    if(err)throw err;
+    closeAllModals();showToast(id?'Contact updated!':'Contact added!');loadContacts();
+  }catch(e){showToast('Error: '+e.message,'error')}
+}
+async function editContact(id){
+  const {data}=await sb.from('contacts').select('*').eq('id',id).single();
+  if(!data)return;
+  document.getElementById('contact-id').value=data.id;
+  document.getElementById('c-name').value=data.name||'';
+  document.getElementById('c-email').value=data.email||'';
+  document.getElementById('c-phone').value=data.phone||'';
+  document.getElementById('c-company').value=data.company||'';
+  document.getElementById('c-status').value=data.status||'lead';
+  document.getElementById('c-source').value=data.source||'';
+  document.getElementById('c-tags').value=(data.tags||[]).join(', ');
+  document.getElementById('c-notes').value=data.notes||'';
+  document.getElementById('contact-modal-title').textContent='Edit Contact';
+  openModal('contact');document.getElementById('contact-id').value=data.id;
+}
+async function deleteContact(id){
+  if(!confirm('Delete this contact?'))return;
+  const {error}=await sb.from('contacts').delete().eq('id',id);
+  if(error){showToast('Error: '+error.message,'error');return}
+  showToast('Contact deleted');loadContacts();
+}
+
+// ─── CRUD DEALS ───
+async function saveDeal(){
+  const id=document.getElementById('deal-id').value;
+  const title=document.getElementById('d-title').value.trim();
+  if(!title){alert('Title is required');return}
+  const data={title,contact_name:document.getElementById('d-contact').value,value:parseFloat(document.getElementById('d-value').value)||0,stage:document.getElementById('d-stage').value,probability:parseInt(document.getElementById('d-prob').value)||0,close_date:document.getElementById('d-close').value||null,notes:document.getElementById('d-notes').value,owner:document.getElementById('d-owner').value,updated_at:new Date().toISOString()};
+  try{
+    let err;
+    if(id){({error:err}=await sb.from('deals').update(data).eq('id',id))}
+    else{({error:err}=await sb.from('deals').insert(data))}
+    if(err)throw err;
+    closeAllModals();showToast(id?'Deal updated!':'Deal added!');loadPipeline();
+  }catch(e){showToast('Error: '+e.message,'error')}
+}
+async function editDeal(id){
+  const {data}=await sb.from('deals').select('*').eq('id',id).single();
+  if(!data)return;
+  document.getElementById('deal-id').value=data.id;
+  document.getElementById('d-title').value=data.title||'';
+  document.getElementById('d-contact').value=data.contact_name||'';
+  document.getElementById('d-value').value=data.value||'';
+  document.getElementById('d-stage').value=data.stage||'new';
+  document.getElementById('d-prob').value=data.probability||'';
+  document.getElementById('d-close').value=data.close_date||'';
+  document.getElementById('d-notes').value=data.notes||'';
+  document.getElementById('d-owner').value=data.owner||'';
+  document.getElementById('deal-modal-title').textContent='Edit Deal';
+  openModal('deal');document.getElementById('deal-id').value=data.id;
+}
+async function deleteTask(id){
+  if(!confirm('Delete this task?'))return;
+  const {error}=await sb.from('tasks').delete().eq('id',id);
+  if(error){showToast('Error: '+error.message,'error');return}
+  showToast('Task deleted');loadTasks();
+}
+
+// ─── CRUD TASKS ───
+async function saveTask(){
+  const id=document.getElementById('task-id').value;
+  const title=document.getElementById('t-title').value.trim();
+  if(!title){alert('Title is required');return}
+  const data={title,contact_name:document.getElementById('t-contact').value,type:document.getElementById('t-type').value,priority:document.getElementById('t-priority').value,due_date:document.getElementById('t-due').value||null,notes:document.getElementById('t-notes').value,status:'pending'};
+  try{
+    let err;
+    if(id){({error:err}=await sb.from('tasks').update(data).eq('id',id))}
+    else{({error:err}=await sb.from('tasks').insert(data))}
+    if(err)throw err;
+    closeAllModals();showToast(id?'Task updated!':'Task added!');loadTasks();
+  }catch(e){showToast('Error: '+e.message,'error')}
+}
+async function editTask(id){
+  const {data}=await sb.from('tasks').select('*').eq('id',id).single();
+  if(!data)return;
+  document.getElementById('task-id').value=data.id;
+  document.getElementById('t-title').value=data.title||'';
+  document.getElementById('t-contact').value=data.contact_name||'';
+  document.getElementById('t-type').value=data.type||'task';
+  document.getElementById('t-priority').value=data.priority||'medium';
+  document.getElementById('t-due').value=data.due_date?data.due_date.slice(0,16):'';
+  document.getElementById('t-notes').value=data.notes||'';
+  document.getElementById('task-modal-title').textContent='Edit Task';
+  openModal('task');document.getElementById('task-id').value=data.id;
+}
+async function toggleTask(id,done){
+  await sb.from('tasks').update({status:done?'completed':'pending'}).eq('id',id);
+  showToast(done?'Task completed!':'Task reopened');setTimeout(loadTasks,300);
+}
+
+// ─── CRUD WORKFLOWS ───
+async function saveWorkflow(){
+  const id=document.getElementById('wf-id').value;
+  const name=document.getElementById('wf-name').value.trim();
+  if(!name){alert('Name is required');return}
+  const data={name,description:document.getElementById('wf-desc').value,trigger_type:document.getElementById('wf-trigger').value,steps:currentWfSteps,status:document.getElementById('wf-status').value,updated_at:new Date().toISOString()};
+  try{
+    let err;
+    if(id){({error:err}=await sb.from('workflows').update(data).eq('id',id))}
+    else{({error:err}=await sb.from('workflows').insert(data))}
+    if(err)throw err;
+    closeAllModals();showToast(id?'Workflow updated!':'Workflow created!');loadWorkflows();
+  }catch(e){showToast('Error: '+e.message,'error')}
+}
+async function deleteWorkflow(id){
+  if(!confirm('Delete this workflow?'))return;
+  const {error}=await sb.from('workflows').delete().eq('id',id);
+  if(error){showToast('Error: '+error.message,'error');return}
+  showToast('Workflow deleted');loadWorkflows();
+}
+
+// ─── SEARCH ───
+document.querySelector('.topbar-search').addEventListener('input',async function(){
+  const q=this.value.trim();
+  if(!q||q.length<2)return;
+  if(currentView==='contacts'){
+    const tbody=document.getElementById('contacts-tbody');
+    const {data}=await sb.from('contacts').select('*').or(`name.ilike.%${q}%,email.ilike.%${q}%,company.ilike.%${q}%`).limit(20);
+    if(data){
+      tbody.innerHTML=data.map(c=>`<tr>
+        <td><div style="display:flex;align-items:center;gap:9px"><div class="contact-av" style="background:${avatarColor(c.name||'')};">${initials(c.name||'?')}</div><span style="font-weight:500">${c.name||'—'}</span></div></td>
+        <td class="td-muted">${c.email||'—'}</td><td class="td-muted">${c.phone||'—'}</td>
+        <td class="td-muted">${c.company||'—'}</td><td>${statusBadge(c.status)}</td>
+        <td class="td-muted">${c.source||'—'}</td><td class="td-muted">${fmtDateShort(c.created_at)}</td>
+        <td><button class="btn btn-ghost" style="font-size:11px;padding:4px 8px" onclick="editContact('${c.id}')">Edit</button></td>
+      </tr>`).join('');
+    }
+  }
+});
+
+// ─── INIT ───
+loadDashboard();
+</script>
+
+
+</body></html>

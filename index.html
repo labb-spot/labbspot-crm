@@ -19862,4 +19862,602 @@ function renderEmployees() {
       else if (mins < 180) label = 'Updated ' + Math.round(mins/60) + 'h ago';
       else label = 'Updated ' + Math.round(mins/60) + 'h ago — refresh?';
       freshEl.textContent = label;
-      if (mins <= 60)       { fres
+      if (mins <= 60)       { freshEl.style.background = 'rgba(16,185,129,0.15)'; freshEl.style.color = '#6ee7b7'; }
+      else if (mins <= 180) { freshEl.style.background = 'rgba(245,158,11,0.15)'; freshEl.style.color = '#fcd34d'; }
+      else                  { freshEl.style.background = 'rgba(239,68,68,0.15)'; freshEl.style.color = '#fca5a5'; }
+    }
+  }
+  const thead   = document.getElementById('emp-thead');
+  const tbody   = document.getElementById('emp-tbody');
+  const viewSel = document.getElementById('emp-view');
+  if (!thead || !tbody) return;
+
+  if (!stats.length) {
+    const lastA = window._lastAgentsResp;
+    const lastS = window._lastStatsResp;
+    const diag = (lastA || lastS)
+      ? ' · last fetch: agents ' + (lastA && lastA.error ? 'ERR ' + lastA.error.message : ((lastA && lastA.data ? lastA.data.length : '?') + ' rows')) +
+        ' · stats ' + (lastS && lastS.error ? 'ERR ' + lastS.error.message : ((lastS && lastS.data ? lastS.data.length : '?') + ' rows'))
+      : ' · loadAgentsAndStats never ran';
+    if (summary) summary.textContent = 'No agent data in cache.' + diag;
+    thead.innerHTML = '';
+    tbody.innerHTML = '<tr><td class="text-center text-[var(--text-dim)] py-6">No rows</td></tr>';
+    var emptyFoot = document.getElementById('emp-tfoot');
+    if (emptyFoot) emptyFoot.innerHTML = '';
+    return;
+  }
+
+  // Date range selector
+  const rangeEl = document.getElementById('emp-range');
+  const rangeVal = (rangeEl && rangeEl.value) || 'today';
+  const view = (viewSel && viewSel.value) || 'combined';
+
+  // Compute [startISO, endISO] inclusive, both YYYY-MM-DD strings
+  const today = new Date(); today.setHours(0,0,0,0);
+  const fmt = (d) => d.toISOString().slice(0, 10);
+  const dayMs = 24 * 60 * 60 * 1000;
+  const dayOfWeekSun = today.getDay(); // 0 = Sunday
+  let startDate, endDate;
+  switch (rangeVal) {
+    case 'yesterday': {
+      const y = new Date(today.getTime() - dayMs);
+      startDate = endDate = y; break;
+    }
+    case 'this_week': {
+      // Sunday-to-Saturday week
+      const start = new Date(today.getTime() - dayOfWeekSun * dayMs);
+      startDate = start; endDate = today; break;
+    }
+    case 'last_week': {
+      const lastSat = new Date(today.getTime() - (dayOfWeekSun + 1) * dayMs);
+      const lastSun = new Date(lastSat.getTime() - 6 * dayMs);
+      startDate = lastSun; endDate = lastSat; break;
+    }
+    case 'last_7': {
+      startDate = new Date(today.getTime() - 6 * dayMs);
+      endDate = today; break;
+    }
+    case 'last_14': {
+      startDate = new Date(today.getTime() - 13 * dayMs);
+      endDate = today; break;
+    }
+    case 'this_month': {
+      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      endDate = today; break;
+    }
+    case 'last_month': {
+      startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+      break;
+    }
+    case 'this_quarter': {
+      const q = Math.floor(today.getMonth() / 3);
+      startDate = new Date(today.getFullYear(), q * 3, 1);
+      endDate = today; break;
+    }
+    case 'last_quarter': {
+      const q = Math.floor(today.getMonth() / 3);
+      let qStartMonth = q * 3 - 3;
+      let qYear = today.getFullYear();
+      if (qStartMonth < 0) { qStartMonth += 12; qYear -= 1; }
+      startDate = new Date(qYear, qStartMonth, 1);
+      endDate = new Date(qYear, qStartMonth + 3, 0);
+      break;
+    }
+    case 'this_year': {
+      startDate = new Date(today.getFullYear(), 0, 1);
+      endDate = today; break;
+    }
+    case 'last_year': {
+      startDate = new Date(today.getFullYear() - 1, 0, 1);
+      endDate = new Date(today.getFullYear() - 1, 11, 31);
+      break;
+    }
+    case 'all':
+      startDate = new Date(1970, 0, 1);
+      endDate = today; break;
+    case 'custom': {
+      const csEl = document.getElementById('emp-custom-start');
+      const ceEl = document.getElementById('emp-custom-end');
+      const cs = csEl && csEl.value ? new Date(csEl.value + 'T00:00:00') : null;
+      const ce = ceEl && ceEl.value ? new Date(ceEl.value + 'T00:00:00') : null;
+      if (cs && ce) {
+        startDate = cs <= ce ? cs : ce;
+        endDate = cs <= ce ? ce : cs;
+      } else if (cs) {
+        startDate = endDate = cs;
+      } else if (ce) {
+        startDate = endDate = ce;
+      } else {
+        startDate = endDate = today;
+      }
+      break;
+    }
+    case 'single': {
+      const sdEl = document.getElementById('emp-single-date');
+      const sd = sdEl && sdEl.value ? new Date(sdEl.value + 'T00:00:00') : null;
+      startDate = endDate = sd || today;
+      break;
+    }
+    case 'today':
+    default:
+      startDate = endDate = today;
+  }
+  // Show/hide the custom-range and single-day inputs based on selection
+  var customWrap = document.getElementById('emp-custom-range');
+  if (customWrap) customWrap.style.display = (rangeVal === 'custom') ? '' : 'none';
+  var singleWrap = document.getElementById('emp-single-day');
+  if (singleWrap) singleWrap.style.display = (rangeVal === 'single') ? '' : 'none';
+  const startISO = fmt(startDate);
+  const endISO = fmt(endDate);
+  const rangeForDate = stats.filter(x => x.stat_date >= startISO && x.stat_date <= endISO);
+  // Apply Source filter (Live / Pre-LAB / All) based on Pre-LAB campaign prefix.
+  // Restore the user's saved preference (default 'live') the first time we read it.
+  const sourceSel = document.getElementById('emp-source');
+  if (sourceSel && !sourceSel.dataset._restored) {
+    try {
+      const saved = localStorage.getItem('emp-source');
+      if (saved && ['live','prelab','all'].includes(saved)) sourceSel.value = saved;
+    } catch (e) {}
+    sourceSel.dataset._restored = '1';
+  }
+  const sourceVal = (sourceSel && sourceSel.value) || 'live';
+  const isPreLabRow = (r) => String(r.campaign || '').toLowerCase().startsWith('pre-lab:');
+  const filteredForSource = sourceVal === 'all'
+    ? rangeForDate
+    : rangeForDate.filter(r => sourceVal === 'prelab' ? isPreLabRow(r) : !isPreLabRow(r));
+  const rowsForDate = filteredForSource;
+  // Build a friendly label for the summary
+  const rangeLabel = (function() {
+    if (rangeVal === 'today') return 'today';
+    if (rangeVal === 'yesterday') return 'yesterday';
+    if (rangeVal === 'all') return 'all time';
+    if (startISO === endISO) return startISO;
+    return startISO + ' to ' + endISO;
+  })();
+
+  const fmtPct = (v) => v === null || v === undefined ? '—' : (Math.round(Number(v)) + '%');
+
+  if (view === 'campaign') {
+    // One row per (agent, campaign). Dispositions are emitted as individual
+    // columns (union of keys present across the filtered range).
+    // The header is built dynamically after aggregation so we know the keys.
+    // Aggregate across days so same (agent, campaign) collapses into one row
+    const byPair = {};
+    rowsForDate.forEach(r => {
+      const key = (r.agent_id || '') + '||' + (r.campaign || '');
+      if (!byPair[key]) byPair[key] = {
+        agent_id: r.agent_id,
+        campaign: r.campaign || '',
+        days: 0,
+        calls_total: 0, calls_outbound: 0, calls_inbound: 0,
+        talk_time_sec: 0, on_call_sec: 0, post_call_sec: 0,
+        available_sec: 0, break_sec: 0, lunch_sec: 0,
+        connection_rate_sum: 0, connection_rate_n: 0,
+        dispositions: {}
+      };
+      const b = byPair[key];
+      b.days += 1;
+      b.calls_total    += (r.calls_total || 0);
+      b.calls_outbound += (r.calls_outbound || 0);
+      b.calls_inbound  += (r.calls_inbound || 0);
+      b.talk_time_sec  += (r.talk_time_sec || 0);
+      b.on_call_sec    += (r.on_call_sec || 0);
+      b.post_call_sec  += (r.post_call_sec || 0);
+      b.available_sec  += (r.available_sec || 0);
+      b.break_sec      += (r.break_sec || 0);
+      b.lunch_sec      += (r.lunch_sec || 0);
+      if (r.connection_rate_pct !== null && r.connection_rate_pct !== undefined) {
+        // Weighted by calls so one heavy day doesn't get outvoted by one tiny day
+        b.connection_rate_sum += Number(r.connection_rate_pct) * (r.calls_total || 0);
+        b.connection_rate_n   += (r.calls_total || 0);
+      }
+      Object.entries(r.dispositions_json || {}).forEach(([k, v]) => {
+        b.dispositions[k] = (b.dispositions[k] || 0) + Number(v || 0);
+      });
+    });
+    const aggregated = Object.values(byPair).sort((a, b) => {
+      const an = (agents[a.agent_id] && agents[a.agent_id].name) || '';
+      const bn = (agents[b.agent_id] && agents[b.agent_id].name) || '';
+      return an.localeCompare(bn) || (b.calls_total - a.calls_total);
+    });
+    // Fixed ordered list of dispositions to show as columns. Match is case-
+    // insensitive substring, so 'Wrong Numbers' matches 'Wrong Number / Hostile',
+    // etc. Missing dispositions are still shown (as 0).
+    const dispWanted = [
+      { label: 'Motivated',        match: ['motivated'] },
+      { label: 'Follow Up',        match: ['future follow up', 'follow up'] },
+      { label: 'Sold',             match: ['recently sold', 'sold'] },
+      { label: 'Listed / Listing', match: ['listed / listing', 'listing', 'listed'] },
+      { label: 'Not Interested',   match: ['not interested'] },
+      { label: 'Wrong Number',     match: ['wrong number / hostile', 'wrong number'] },
+      { label: 'Answering Machine', match: ['answering machine'] },
+    ];
+    // For each wanted label, resolve to the actual key(s) present in any row.
+    const allKeys = new Set();
+    aggregated.forEach(r => { Object.keys(r.dispositions || {}).forEach(k => allKeys.add(k)); });
+    // dispKeys stays as the list of display labels (what the user picked)
+    const dispKeys = dispWanted.map(d => d.label);
+    // dispMatchers lets us sum multiple underlying keys into one column
+    const dispMatchers = dispWanted.map(d => {
+      const hits = [];
+      allKeys.forEach(k => {
+        const kl = String(k).toLowerCase();
+        if (d.match.some(m => kl.indexOf(m) !== -1)) hits.push(k);
+      });
+      return { label: d.label, hits };
+    });
+    // Dynamic thead now (after we know the disposition keys)
+    thead.innerHTML = '<tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px">' +
+      '<th style="padding:6px 10px;text-align:left">Agent</th>' +
+      '<th style="padding:6px 10px;text-align:left">Campaign</th>' +
+      '<th style="padding:6px 10px;text-align:right">Available</th>' +
+      '<th style="padding:6px 10px;text-align:right">On-Call</th>' +
+      '<th style="padding:6px 10px;text-align:right">Post-Call</th>' +
+      '<th style="padding:6px 10px;text-align:right">Break</th>' +
+      '<th style="padding:6px 10px;text-align:right" title="Available + On-Call + Post-Call + Break">Total Time</th>' +
+      '<th style="padding:6px 10px;text-align:right">Conn%</th>' +
+      dispKeys.map(k => '<th style="padding:6px 10px;text-align:right" title="' + escapeHtml(k) + '">' + escapeHtml(k) + '</th>').join('') +
+      '</tr>';
+    tbody.innerHTML = aggregated.map(r => {
+      const a = agents[r.agent_id] || {};
+      const connRate = r.connection_rate_n > 0 ? Math.round(r.connection_rate_sum / r.connection_rate_n) : null;
+      const daysSuffix = r.days > 1 ? ' <span class="text-xs" style="color:var(--text-dim)">(' + r.days + ' days)</span>' : '';
+      const dispCells = dispMatchers.map(m => {
+        let n = 0;
+        m.hits.forEach(k => { n += (r.dispositions && r.dispositions[k]) || 0; });
+        const green = (m.label === 'Motivated') && n > 0;
+        const dim = n === 0;
+        return '<td style="padding:6px 10px;text-align:right;' + (green ? 'color:#10b981;font-weight:600' : (dim ? 'color:var(--text-dim);opacity:0.4' : '')) + '">' + n + '</td>';
+      }).join('');
+      return '<tr style="border-bottom:1px solid var(--border)">' +
+        '<td style="padding:6px 10px"><b>' + escapeHtml(a.name || '—') + '</b></td>' +
+        '<td style="padding:6px 10px">' + escapeHtml(r.campaign || '—') + daysSuffix + '</td>' +
+        '<td style="padding:6px 10px;text-align:right">' + formatSeconds(r.available_sec) + '</td>' +
+        '<td style="padding:6px 10px;text-align:right">' + formatSeconds(r.on_call_sec) + '</td>' +
+        '<td style="padding:6px 10px;text-align:right">' + formatSeconds(r.post_call_sec) + '</td>' +
+        '<td style="padding:6px 10px;text-align:right">' + formatSeconds((r.break_sec||0)+(r.lunch_sec||0)) + '</td>' +
+        '<td style="padding:6px 10px;text-align:right"><b>' + formatSeconds((r.available_sec||0)+(r.on_call_sec||0)+(r.post_call_sec||0)+(r.break_sec||0)) + '</b></td>' +
+        '<td style="padding:6px 10px;text-align:right">' + (connRate === null ? '—' : connRate + '%') + '</td>' +
+        dispCells +
+      '</tr>';
+    }).join('');
+    // Totals row
+    const campTotAvail = aggregated.reduce((s, r) => s + (r.available_sec||0), 0);
+    const campTotOnCall = aggregated.reduce((s, r) => s + (r.on_call_sec||0), 0);
+    const campTotPost = aggregated.reduce((s, r) => s + (r.post_call_sec||0), 0);
+    const campTotBreak = aggregated.reduce((s, r) => s + (r.break_sec||0) + (r.lunch_sec||0), 0);
+    const campTotTotal = campTotAvail + campTotOnCall + campTotPost + (aggregated.reduce((s,r)=>s+(r.break_sec||0),0));
+    const campTotDisp = dispMatchers.map(m => {
+      let n = 0;
+      aggregated.forEach(r => { m.hits.forEach(k => { n += (r.dispositions && r.dispositions[k]) || 0; }); });
+      return '<td style="padding:6px 10px;text-align:right">' + n.toLocaleString() + '</td>';
+    }).join('');
+    const campTotCallsSum = aggregated.reduce((s, r) => s + (r.connection_rate_n || 0), 0);
+    const campTotConnSum = aggregated.reduce((s, r) => s + (r.connection_rate_sum || 0), 0);
+    const campTotsConn = campTotCallsSum > 0 ? Math.round(campTotConnSum / campTotCallsSum) + '%' : '—';
+    (document.getElementById('emp-tfoot') || tbody).innerHTML = '<tr style="border-top:2px solid var(--border);background:var(--panel-2);font-weight:700">' +
+      '<td style="padding:6px 10px">Total</td>' +
+      '<td style="padding:6px 10px"></td>' +
+      '<td style="padding:6px 10px;text-align:right">' + formatSeconds(campTotAvail) + '</td>' +
+      '<td style="padding:6px 10px;text-align:right">' + formatSeconds(campTotOnCall) + '</td>' +
+      '<td style="padding:6px 10px;text-align:right">' + formatSeconds(campTotPost) + '</td>' +
+      '<td style="padding:6px 10px;text-align:right">' + formatSeconds(campTotBreak) + '</td>' +
+      '<td style="padding:6px 10px;text-align:right">' + formatSeconds(campTotTotal) + '</td>' +
+      '<td style="padding:6px 10px;text-align:right">' + campTotsConn + '</td>' +
+      campTotDisp +
+      '</tr>';
+    if (summary) summary.textContent = aggregated.length + ' agent+campaign rows for ' + rangeLabel + ' · ' + new Set(aggregated.map(r => r.agent_id)).size + ' agents · ' + rowsForDate.length + ' daily records combined';
+  } else {
+    // Roll up per agent across campaigns
+    const byAgent = {};
+    rowsForDate.forEach(r => {
+      const id = r.agent_id;
+      if (!byAgent[id]) byAgent[id] = {
+        agent_id: id,
+        name: (agents[id] && agents[id].name) || '—',
+        campaigns: new Set(),
+        campaignLatest: {}, // campaign -> latest stat_date string
+        calls_total: 0, calls_outbound: 0, calls_inbound: 0,
+        talk_time_sec: 0, on_call_sec: 0, post_call_sec: 0,
+        available_sec: 0, break_sec: 0, lunch_sec: 0,
+        login_sec: 0, active_sec: 0,
+        connection_rate_sum: 0, connection_rate_n: 0,
+        dispositions: {}
+      };
+      const b = byAgent[id];
+      if (r.campaign) {
+        b.campaigns.add(r.campaign);
+        const prev = b.campaignLatest[r.campaign] || '';
+        if (!prev || r.stat_date > prev) b.campaignLatest[r.campaign] = r.stat_date || '';
+      }
+      b.calls_total += r.calls_total;
+      b.calls_outbound += r.calls_outbound;
+      b.calls_inbound += r.calls_inbound;
+      b.talk_time_sec += r.talk_time_sec;
+      b.on_call_sec += r.on_call_sec;
+      b.post_call_sec += r.post_call_sec;
+      b.available_sec += r.available_sec;
+      b.break_sec += r.break_sec;
+      b.lunch_sec += r.lunch_sec;
+      b.login_sec = Math.max(b.login_sec, r.login_sec || 0);
+      b.active_sec = Math.max(b.active_sec, r.active_sec || 0);
+      if (r.connection_rate_pct !== null && r.connection_rate_pct !== undefined) {
+        b.connection_rate_sum += Number(r.connection_rate_pct) * r.calls_total;
+        b.connection_rate_n += r.calls_total;
+      }
+      Object.entries(r.dispositions_json || {}).forEach(([k, v]) => {
+        b.dispositions[k] = (b.dispositions[k] || 0) + Number(v || 0);
+      });
+    });
+
+    const rowsArr = Object.values(byAgent).sort((a,b) => b.calls_total - a.calls_total);
+    // Fixed ordered list of dispositions to show as columns. Match is case-
+    // insensitive substring, so 'Wrong Numbers' matches 'Wrong Number / Hostile',
+    // etc. Missing dispositions are still shown (as 0).
+    const dispWanted = [
+      { label: 'Motivated',        match: ['motivated'] },
+      { label: 'Follow Up',        match: ['future follow up', 'follow up'] },
+      { label: 'Sold',             match: ['recently sold', 'sold'] },
+      { label: 'Listed / Listing', match: ['listed / listing', 'listing', 'listed'] },
+      { label: 'Not Interested',   match: ['not interested'] },
+      { label: 'Wrong Number',     match: ['wrong number / hostile', 'wrong number'] },
+      { label: 'Answering Machine', match: ['answering machine'] },
+    ];
+    // For each wanted label, resolve to the actual key(s) present in any row.
+    const allKeys = new Set();
+    rowsArr.forEach(r => { Object.keys(r.dispositions || {}).forEach(k => allKeys.add(k)); });
+    const dispKeys = dispWanted.map(d => d.label);
+    const dispMatchers = dispWanted.map(d => {
+      const hits = [];
+      allKeys.forEach(k => {
+        const kl = String(k).toLowerCase();
+        if (d.match.some(m => kl.indexOf(m) !== -1)) hits.push(k);
+      });
+      return { label: d.label, hits };
+    });
+    thead.innerHTML = '<tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px">' +
+      '<th style="padding:6px 10px;text-align:left">Agent</th>' +
+      '<th style="padding:6px 10px;text-align:left">Campaigns</th>' +
+      '<th style="padding:6px 10px;text-align:right">Available</th>' +
+      '<th style="padding:6px 10px;text-align:right">On-Call</th>' +
+      '<th style="padding:6px 10px;text-align:right">Post-Call</th>' +
+      '<th style="padding:6px 10px;text-align:right">Break</th>' +
+      '<th style="padding:6px 10px;text-align:right" title="Available + On-Call + Post-Call + Break">Total Time</th>' +
+      '<th style="padding:6px 10px;text-align:right">Conn%</th>' +
+      dispKeys.map(k => '<th style="padding:6px 10px;text-align:right" title="' + escapeHtml(k) + '">' + escapeHtml(k) + '</th>').join('') +
+      '</tr>';
+    tbody.innerHTML = rowsArr.map(b => {
+      const connRate = b.connection_rate_n > 0 ? Math.round(b.connection_rate_sum / b.connection_rate_n) : null;
+      const dispCells = dispMatchers.map(m => {
+        let n = 0;
+        m.hits.forEach(k => { n += (b.dispositions && b.dispositions[k]) || 0; });
+        const green = (m.label === 'Motivated') && n > 0;
+        const dim = n === 0;
+        return '<td style="padding:6px 10px;text-align:right;' + (green ? 'color:#10b981;font-weight:600' : (dim ? 'color:var(--text-dim);opacity:0.4' : '')) + '">' + n + '</td>';
+      }).join('');
+      return '<tr style="border-bottom:1px solid var(--border)">' +
+        '<td style="padding:6px 10px"><b>' + escapeHtml(b.name) + '</b></td>' +
+        '<td style="padding:6px 10px">' + (b.campaigns.size ? Array.from(b.campaigns).sort().map(c => escapeHtml(c)).join(', ') : '<span style="color:var(--text-dim)">—</span>') + '</td>' +
+        '<td style="padding:6px 10px;text-align:right">' + formatSeconds(b.available_sec) + '</td>' +
+        '<td style="padding:6px 10px;text-align:right">' + formatSeconds(b.on_call_sec) + '</td>' +
+        '<td style="padding:6px 10px;text-align:right">' + formatSeconds(b.post_call_sec) + '</td>' +
+        '<td style="padding:6px 10px;text-align:right">' + formatSeconds(b.break_sec + b.lunch_sec) + '</td>' +
+        '<td style="padding:6px 10px;text-align:right"><b>' + formatSeconds((b.available_sec||0)+(b.on_call_sec||0)+(b.post_call_sec||0)+(b.break_sec||0)) + '</b></td>' +
+        '<td style="padding:6px 10px;text-align:right">' + (connRate === null ? '—' : connRate + '%') + '</td>' +
+        dispCells +
+      '</tr>';
+    }).join('');
+    if (summary) summary.textContent = rowsArr.length + ' agents for ' + rangeLabel + ' · ' +
+      rowsArr.reduce((t, r) => t + r.calls_total, 0).toLocaleString() + ' total calls';
+  }
+}
+
+// ---------- Gap-finder subtabs (Non-Skiptraced / No Verified Mailing / No Phone) ----------
+function _gapBuildIndexes() {
+  const phonesByProp = {};
+  Object.values(cache.phones || {}).forEach(ph => {
+    if (!ph.property_id) return;
+    phonesByProp[ph.property_id] = (phonesByProp[ph.property_id] || 0) + 1;
+  });
+  const skipByProp = {};
+  // Real cache key is `skiptrace`, not `skiptraceRecords`. Try both for safety.
+  const skipBag = cache.skiptrace || cache.skiptraceRecords || {};
+  Object.values(skipBag).forEach(sr => {
+    if (!sr.property_id) return;
+    skipByProp[sr.property_id] = (skipByProp[sr.property_id] || 0) + 1;
+  });
+  return { phonesByProp, skipByProp };
+}
+
+function _gapListChips(p) {
+  if (!p || !Array.isArray(p._lists) || !p._lists.length) return '<span class="text-xs text-[var(--text-dim)]">—</span>';
+  return p._lists.slice(0, 4).map(lid => {
+    const n = (cache.lists && cache.lists[lid] && cache.lists[lid].name) || '';
+    return n ? '<span class="badge ok" style="font-size:11px;margin-right:3px">' + escapeHtml(n) + '</span>' : '';
+  }).join('') + (p._lists.length > 4 ? '<span class="text-xs text-[var(--text-dim)]">+' + (p._lists.length - 4) + '</span>' : '');
+}
+
+function _gapMatchesSearch(p, q) {
+  if (!q) return true;
+  const hay = [p.street, p.city, p.state, p.zip].map(x => String(x || '').toLowerCase()).join(' ');
+  return hay.indexOf(q) !== -1;
+}
+
+function renderGapNoSkip() {
+  const props = Object.values(cache.properties || {});
+  const { skipByProp } = _gapBuildIndexes();
+  const q = (document.getElementById('gap-noskip-search')?.value || '').toLowerCase().trim();
+  const filtered = props.filter(p => !skipByProp[p.id] && _gapMatchesSearch(p, q));
+  const visible = filtered.slice(0, 1000);
+  const summary = document.getElementById('gap-noskip-summary');
+  if (summary) summary.textContent = filtered.length.toLocaleString() + ' of ' + props.length.toLocaleString() + ' properties have no skiptrace data · showing top ' + visible.length.toLocaleString();
+  const badge = document.getElementById('subtab-noskip-badge');
+  if (badge) {
+    badge.style.display = filtered.length ? '' : 'none';
+    badge.textContent = filtered.length.toLocaleString();
+  }
+  const tbody = document.getElementById('gap-noskip-tbody');
+  if (!tbody) return;
+  if (!visible.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-[var(--text-dim)] py-6">🎉 Every property has at least one skiptrace record.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = visible.map(p => '<tr style="border-bottom:1px solid var(--border)">' +
+    '<td style="padding:6px 10px">' + escapeHtml(p.street || '—') + '</td>' +
+    '<td style="padding:6px 10px">' + escapeHtml(p.city || '') + '</td>' +
+    '<td style="padding:6px 10px">' + escapeHtml(p.state || '') + '</td>' +
+    '<td style="padding:6px 10px">' + escapeHtml(p.zip || '') + '</td>' +
+    '<td style="padding:6px 10px">' + _gapListChips(p) + '</td>' +
+  '</tr>').join('');
+}
+
+function renderGapNoMail() {
+  const props = Object.values(cache.properties || {});
+  const heatLookup = (typeof heatCache !== 'undefined' && heatCache && heatCache.mailLookup && heatCache.mailLookup.byProp) || {};
+  // Build a set of property_ids that have ANY mailing address from ANY skiptrace record
+  const mailFromSkip = new Set();
+  const skipBag = cache.skiptrace || cache.skiptraceRecords || {};
+  Object.values(skipBag).forEach(sr => {
+    if (!sr || !sr.property_id) return;
+    if (sr.mail_street || sr.mail_address || sr.mailing_address || sr.mailing_street) {
+      mailFromSkip.add(sr.property_id);
+    }
+  });
+  const q = (document.getElementById('gap-nomail-search')?.value || '').toLowerCase().trim();
+  const filtered = props.filter(p => {
+    if (!_gapMatchesSearch(p, q)) return false;
+    // Truly missing = no mail in heatLookup, no p.mail_street, no skiptrace record with mail
+    const heatMail = heatLookup[p.id];
+    if (heatMail && heatMail.mail_street) return false;
+    if (p.mail_street) return false;
+    if (mailFromSkip.has(p.id)) return false;
+    return true;
+  });
+  const visible = filtered.slice(0, 1000);
+  const summary = document.getElementById('gap-nomail-summary');
+  if (summary) summary.textContent = filtered.length.toLocaleString() + ' of ' + props.length.toLocaleString() + ' properties have no verified mailing address · showing top ' + visible.length.toLocaleString();
+  const badge = document.getElementById('subtab-nomail-badge');
+  if (badge) {
+    badge.style.display = filtered.length ? '' : 'none';
+    badge.textContent = filtered.length.toLocaleString();
+  }
+  const tbody = document.getElementById('gap-nomail-tbody');
+  if (!tbody) return;
+  if (!visible.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-[var(--text-dim)] py-6">🎉 Every property has a verified mailing address.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = visible.map(p => {
+    const mail = heatLookup[p.id] || { mail_street: p.mail_street, mail_city: p.mail_city, mail_state: p.mail_state, mail_zip: p.mail_zip };
+    const hasMail = !!(mail && mail.mail_street);
+    const status = !hasMail
+      ? '<span class="badge bad" style="font-size:11px">No mailing on file</span>'
+      : '<span class="badge" style="font-size:11px;background:rgba(245,158,11,0.15);color:#fcd34d">Mailing not verified</span>';
+    const mailStr = hasMail ? (escapeHtml(mail.mail_street || '') + (mail.mail_city ? '<div class="text-xs" style="color:var(--text-dim)">' + escapeHtml(mail.mail_city) + ', ' + escapeHtml(mail.mail_state || '') + ' ' + escapeHtml(mail.mail_zip || '') + '</div>' : '')) : '<span class="text-xs text-[var(--text-dim)]">—</span>';
+    return '<tr style="border-bottom:1px solid var(--border)">' +
+      '<td style="padding:6px 10px">' + escapeHtml(p.street || '—') + '<div class="text-xs" style="color:var(--text-dim)">' + escapeHtml(p.city || '') + ', ' + escapeHtml(p.state || '') + ' ' + escapeHtml(p.zip || '') + '</div></td>' +
+      '<td style="padding:6px 10px">' + mailStr + '</td>' +
+      '<td style="padding:6px 10px">' + status + '</td>' +
+      '<td style="padding:6px 10px">' + _gapListChips(p) + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function renderGapNoPhone() {
+  const props = Object.values(cache.properties || {});
+  const { phonesByProp, skipByProp } = _gapBuildIndexes();
+  const q = (document.getElementById('gap-nophone-search')?.value || '').toLowerCase().trim();
+  const filtered = props.filter(p => !phonesByProp[p.id] && _gapMatchesSearch(p, q));
+  const visible = filtered.slice(0, 1000);
+  const summary = document.getElementById('gap-nophone-summary');
+  if (summary) summary.textContent = filtered.length.toLocaleString() + ' of ' + props.length.toLocaleString() + ' properties have no phone numbers · showing top ' + visible.length.toLocaleString();
+  const badge = document.getElementById('subtab-nophone-badge');
+  if (badge) {
+    badge.style.display = filtered.length ? '' : 'none';
+    badge.textContent = filtered.length.toLocaleString();
+  }
+  const tbody = document.getElementById('gap-nophone-tbody');
+  if (!tbody) return;
+  if (!visible.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-[var(--text-dim)] py-6">🎉 Every property has at least one phone number.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = visible.map(p => {
+    const sc = skipByProp[p.id] || 0;
+    const skipBadge = sc > 0
+      ? '<span class="badge ok" style="font-size:11px">' + sc + ' skip records</span>'
+      : '<span class="badge bad" style="font-size:11px">No skip records</span>';
+    return '<tr style="border-bottom:1px solid var(--border)">' +
+      '<td style="padding:6px 10px">' + escapeHtml(p.street || '—') + '</td>' +
+      '<td style="padding:6px 10px">' + escapeHtml(p.city || '') + '</td>' +
+      '<td style="padding:6px 10px">' + escapeHtml(p.state || '') + '</td>' +
+      '<td style="padding:6px 10px">' + escapeHtml(p.zip || '') + '</td>' +
+      '<td style="padding:6px 10px">' + skipBadge + '</td>' +
+      '<td style="padding:6px 10px">' + _gapListChips(p) + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function _gapDownloadCsv(rows, headers, filename) {
+  if (!rows.length) { toast('Nothing to export', 'warn'); return; }
+  const csv = Papa.unparse([headers, ...rows]);
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+  toast('Exported ' + rows.length.toLocaleString() + ' rows', 'ok');
+}
+
+function exportGapNoSkip() {
+  const props = Object.values(cache.properties || {});
+  const { skipByProp } = _gapBuildIndexes();
+  const filtered = props.filter(p => !skipByProp[p.id]);
+  _gapDownloadCsv(
+    filtered.map(p => [p.street || '', p.city || '', p.state || '', p.zip || '', (p._lists || []).map(lid => (cache.lists && cache.lists[lid] && cache.lists[lid].name) || '').filter(Boolean).join(' | ')]),
+    ['address','city','state','zip','lists'],
+    'non-skiptraced-' + new Date().toISOString().slice(0,10) + '.csv'
+  );
+}
+
+function exportGapNoMail() {
+  const props = Object.values(cache.properties || {});
+  const heatLookup = (typeof heatCache !== 'undefined' && heatCache && heatCache.mailLookup && heatCache.mailLookup.byProp) || {};
+  const mailFromSkip = new Set();
+  const skipBag = cache.skiptrace || cache.skiptraceRecords || {};
+  Object.values(skipBag).forEach(sr => {
+    if (!sr || !sr.property_id) return;
+    if (sr.mail_street || sr.mail_address || sr.mailing_address || sr.mailing_street) {
+      mailFromSkip.add(sr.property_id);
+    }
+  });
+  const filtered = props.filter(p => {
+    const heatMail = heatLookup[p.id];
+    if (heatMail && heatMail.mail_street) return false;
+    if (p.mail_street) return false;
+    if (mailFromSkip.has(p.id)) return false;
+    return true;
+  });
+  _gapDownloadCsv(
+    filtered.map(p => {
+      const mail = heatLookup[p.id] || { mail_street: p.mail_street, mail_city: p.mail_city, mail_state: p.mail_state, mail_zip: p.mail_zip };
+      return [p.street || '', p.city || '', p.state || '', p.zip || '', mail.mail_street || '', mail.mail_city || '', mail.mail_state || '', mail.mail_zip || '', mail.mail_street ? 'Not verified' : 'No mailing on file'];
+    }),
+    ['property_street','property_city','property_state','property_zip','mail_street','mail_city','mail_state','mail_zip','status'],
+    'no-verified-mailing-' + new Date().toISOString().slice(0,10) + '.csv'
+  );
+}
+
+function exportGapNoPhone() {
+  const props = Object.values(cache.properties || {});
+  const { phonesByProp, skipByProp } = _gapBuildIndexes();
+  const filtered = props.filter(p => !phonesByProp[p.id]);
+  _gapDownloadCsv(
+    filtered.map(p => [p.street || '', p.city || '', p.state || '', p.zip || '', skipByProp[p.id] || 0, (p._lists || []).map(lid => (cache.lists && cache.lists[lid] && cache.lists[lid].name) || '').filter(Boolean).join(' | ')]),
+    ['address','city','state','zip','skip_records','lists'],
+    'no-phone-' + new Date().toISOString().slice(0,10) + '.csv'
+  );
+}
+
+</script>
+</body>
+</html>

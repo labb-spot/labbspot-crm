@@ -1694,7 +1694,10 @@
   <!-- Results table -->
   <div class="panel p-5">
     <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
-      <div class="font-semibold text-lg">Call Records</div>
+      <div class="flex items-center gap-2">
+        <div class="font-semibold text-lg">Call Records</div>
+        <button class="btn btn-primary text-sm" onclick="refreshResultsView()" id="results-refresh-btn" style="height:32px;padding:0 12px" title="Re-fetch all call results from Supabase. Use after new results have been uploaded or come in from another browser tab.">🔄 Refresh</button>
+      </div>
       <div class="flex items-center gap-2" style="flex-wrap:nowrap">
         <select id="r-disp-filter" onchange="renderResults()" style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:0 0 auto;box-sizing:border-box;width:190px" title="Filter by disposition">
           <option value="">All dispositions</option>
@@ -20638,17 +20641,34 @@ function renderResults() {
 }
 
 
-// Stubs for results-row actions (earlier truncation)
+// Refresh the Results view by re-fetching every row from Supabase. The
+// "🔄 Refresh" button in the Call Records header calls this; the smaller
+// 🔄 button in the Providers panel header also calls it. Shows a working
+// state on the Call Records button while fetching.
 async function refreshResultsView() {
+  const btn = document.getElementById('results-refresh-btn');
+  let prevLabel = '';
+  if (btn) {
+    prevLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Refreshing…';
+    btn.style.opacity = '0.7';
+  }
   try {
     const rows = await fetchAll('results', '*');
     cache.results = {};
     rows.forEach(r => cache.results[r.id] = r);
     renderResults();
-    if (typeof toast === 'function') toast('Results reloaded from DB', 'ok');
+    if (typeof toast === 'function') toast('Refreshed — ' + rows.length.toLocaleString() + ' call result' + (rows.length === 1 ? '' : 's') + ' loaded', 'ok');
   } catch (e) {
     console.warn('refreshResultsView:', e);
     if (typeof toast === 'function') toast('Reload failed: ' + (e.message || 'unknown'), 'err');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = prevLabel || '🔄 Refresh';
+      btn.style.opacity = '';
+    }
   }
 }
 async function deleteResult(id) {

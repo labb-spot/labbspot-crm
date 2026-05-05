@@ -150,15 +150,15 @@
   }
   .uw-suffix-ac input   { padding-right: 22px !important; }
   .uw-suffix-sqft input { padding-right: 32px !important; }
-  /* Comp caution flag — tiny ⚠ icon in the TOP-LEFT corner of any comp
+  /* Comp caution flag — tiny corner icon in the TOP-LEFT of any comp
      input/select, plus a soft border glow. Top-left avoids conflicts with
      <select> chevron arrows on the right and the "ac"/"sqft" suffix labels.
-       data-uw-warn="1"     → amber  (field has value but mismatches subject)
-       data-uw-warn="empty" → red    (field is empty / not filled out)
+       data-uw-warn="ok"    → green ✓ (field is filled AND matches subject)
+       data-uw-warn="1"     → amber ⚠ (field has value but mismatches subject)
+       data-uw-warn="empty" → red ⚠   (field is empty / not filled out)
      The element's own title= explains the reason on hover. No DOM wrapping —
-     works on plain <input>/<select>. Subtle box-shadow glow makes the
-     warning visible at a glance without dominating the field. */
-  [data-uw-warn="1"], [data-uw-warn="empty"] {
+     works on plain <input>/<select>. */
+  [data-uw-warn="1"], [data-uw-warn="empty"], [data-uw-warn="ok"] {
     background-repeat: no-repeat !important;
     background-position: left 3px top 3px !important;
     padding-left: 15px !important;
@@ -173,11 +173,13 @@
     box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.20) !important;
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24"><path fill="%23ef4444" d="M12 2L1 22h22L12 2zm0 4.5L19.5 20h-15L12 6.5zm-1 6v4h2v-4h-2zm0 5v2h2v-2h-2z"/></svg>') !important;
   }
+  [data-uw-warn="ok"] {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24"><path fill="%2310b981" d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>') !important;
+  }
   /* For <select> elements specifically, the browser puts a chevron on the
      RIGHT — our top-left icon already dodges it, but make sure the
-     padding-left doesn't push the option text under our icon by reducing
-     the option text padding via text-indent. */
-  select[data-uw-warn="1"], select[data-uw-warn="empty"] {
+     padding-left doesn't push option text under our icon. */
+  select[data-uw-warn="1"], select[data-uw-warn="empty"], select[data-uw-warn="ok"] {
     padding-left: 14px !important;
   }
 </style>
@@ -1934,18 +1936,16 @@
           <span class="uw-suffix-sqft" style="margin-top:4px"><input type="number" id="uw-lot-size-sqft" step="1" placeholder="7,841" oninput="_uwLotSqftInput('uw-lot-size')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%"></span>
         </label>
         <label class="text-xs col-span-1 md:col-span-2">Building Material
-          <select id="uw-prop-material" title="Primary exterior building material." style="width:100%;margin-top:4px">
+          <select id="uw-prop-material" title="Primary building material / construction type." style="width:100%;margin-top:4px">
             <option value="">—</option>
+            <option>Wood Frame</option>
             <option>Brick</option>
-            <option>Vinyl Siding</option>
-            <option>Wood Siding</option>
-            <option>Stucco</option>
-            <option>Aluminum Siding</option>
-            <option>Fiber Cement (Hardie)</option>
+            <option>Concrete</option>
+            <option>Steel Frame</option>
+            <option>Manufactured (Mobile)</option>
+            <option>Modular</option>
             <option>Stone</option>
-            <option>Block / CMU</option>
-            <option>Mixed</option>
-            <option>Other</option>
+            <option>Adobe</option>
           </select>
         </label>
         <label class="text-xs col-span-1 md:col-span-2">Parking Status<select id="uw-prop-parking" style="width:100%;margin-top:4px"><option value="">—</option><option>Driveway</option><option>Detached Garage</option><option>Attached Garage</option><option>Carport</option><option>Street Only</option><option>None</option></select></label>
@@ -2020,7 +2020,7 @@
             <span class="uw-suffix-sqft"><input type="number" id="uw-scp1-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-scp1-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-scp1-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
-          <select id="uw-scp1-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
+          <select id="uw-scp1-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
         </div>
         <div>
           <div class="text-xs font-semibold mb-1">Comp #2</div>
@@ -2042,7 +2042,7 @@
             <span class="uw-suffix-sqft"><input type="number" id="uw-scp2-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-scp2-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-scp2-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
-          <select id="uw-scp2-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
+          <select id="uw-scp2-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
         </div>
         <div>
           <div class="text-xs font-semibold mb-1">Comp #3</div>
@@ -2064,7 +2064,7 @@
             <span class="uw-suffix-sqft"><input type="number" id="uw-scp3-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-scp3-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-scp3-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
-          <select id="uw-scp3-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
+          <select id="uw-scp3-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
         </div>
       </div>
     </div>
@@ -2119,7 +2119,7 @@
             <span class="uw-suffix-sqft"><input type="number" id="uw-lcp1-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-lcp1-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-lcp1-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
-          <select id="uw-lcp1-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
+          <select id="uw-lcp1-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
         </div>
         <div>
           <div class="text-xs font-semibold mb-1">Listing #2</div>
@@ -2141,7 +2141,7 @@
             <span class="uw-suffix-sqft"><input type="number" id="uw-lcp2-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-lcp2-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-lcp2-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
-          <select id="uw-lcp2-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
+          <select id="uw-lcp2-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
         </div>
         <div>
           <div class="text-xs font-semibold mb-1">Listing #3</div>
@@ -2163,7 +2163,7 @@
             <span class="uw-suffix-sqft"><input type="number" id="uw-lcp3-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-lcp3-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-lcp3-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
-          <select id="uw-lcp3-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
+          <select id="uw-lcp3-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
         </div>
       </div>
     </div>
@@ -2222,7 +2222,7 @@
             <span class="uw-suffix-sqft"><input type="number" id="uw-rcp1-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-rcp1-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-rcp1-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
-          <select id="uw-rcp1-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
+          <select id="uw-rcp1-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
         </div>
         <div>
           <div class="text-xs font-semibold mb-1">Rental Comp #2</div>
@@ -2244,7 +2244,7 @@
             <span class="uw-suffix-sqft"><input type="number" id="uw-rcp2-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-rcp2-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-rcp2-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
-          <select id="uw-rcp2-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
+          <select id="uw-rcp2-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
         </div>
         <div>
           <div class="text-xs font-semibold mb-1">Rental Comp #3</div>
@@ -2266,7 +2266,7 @@
             <span class="uw-suffix-sqft"><input type="number" id="uw-rcp3-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-rcp3-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-rcp3-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
-          <select id="uw-rcp3-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
+          <select id="uw-rcp3-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
         </div>
       </div>
     </div>
@@ -5452,43 +5452,58 @@ function _uwHaversineMi(lat1, lng1, lat2, lng2) {
 
 // Color a distance badge by quality: ≤0.5mi green, ≤1.0mi amber, >1.0mi red
 function _uwColorDistance(inputEl, miles) {
+  // Old whole-field tinting (green/amber/red) is replaced by the unified
+  // caution-icon system (_uwUpdateCompCautions) which adds a small corner
+  // icon — green ✓ when ≤ 0.5 mi, no icon for borderline, amber/red for far.
+  // Just clear any leftover inline styles from earlier sessions and bail.
   if (!inputEl) return;
-  if (!isFinite(miles) || miles < 0) { inputEl.style.color = ''; inputEl.style.borderColor = ''; inputEl.style.background = ''; return; }
-  let color, bg;
-  if (miles <= 0.5)      { color = '#10b981'; bg = 'rgba(16,185,129,0.10)'; }
-  else if (miles <= 1.0) { color = '#f59e0b'; bg = 'rgba(245,158,11,0.10)'; }
-  else                   { color = '#ef4444'; bg = 'rgba(239,68,68,0.10)'; }
-  inputEl.style.color = color;
-  inputEl.style.borderColor = color;
-  inputEl.style.background = bg;
-  inputEl.style.fontWeight = '600';
+  inputEl.style.color = '';
+  inputEl.style.borderColor = '';
+  inputEl.style.background = '';
+  inputEl.style.fontWeight = '';
 }
 
-// Geocode a single address, returning { lat, lng } or null on failure.
-// Hard-pinned to the US Census geocoder — free, no API key, no Google calls,
-// no spend. Bypasses geocodeAddress() so the user's provider setting doesn't
-// matter for comp distance.
+// Geocode a single address for comp-distance calculation, returning
+// { lat, lng } or null. Respects the user's geocoding provider setting
+// (Settings → Geocoding → Google or Census) by routing through the shared
+// geocodeAddress() function. Falls back to the other provider if the
+// preferred one fails on this address. Results are cached per session so
+// repeat lookups (e.g. re-running Refresh Distances) don't re-call.
 async function _uwGeocodeOne(addr) {
   if (!addr) return null;
   const key = addr.trim().toLowerCase();
   if (_uwGeoCache[key]) return _uwGeoCache[key];
-  if (typeof geocodeAddressCensus !== 'function') {
-    console.warn('[uwGeocode] geocodeAddressCensus not available');
-    return null;
+  // Pick the user's provider, with the other one as fallback.
+  const preferred = (typeof geoSettings !== 'undefined' && geoSettings.provider) || 'google';
+  const tryWith = async (provider) => {
+    try {
+      let result;
+      if (provider === 'census') {
+        if (typeof geocodeAddressCensus !== 'function') return null;
+        result = await geocodeAddressCensus(addr, '', '', '');
+      } else {
+        if (typeof geocodeAddressGoogle !== 'function') return null;
+        result = await geocodeAddressGoogle(addr, '', '', '');
+      }
+      const lat = parseFloat(result?.lat);
+      const lng = parseFloat(result?.lng);
+      if (!isFinite(lat) || !isFinite(lng)) return null;
+      return { lat, lng };
+    } catch (e) {
+      console.warn('[uwGeocode]', provider, 'failed for', addr, e);
+      return null;
+    }
+  };
+  let coords = await tryWith(preferred);
+  if (!coords) {
+    // Fall back to the OTHER provider — keeps comp distance working even if
+    // one provider is down or doesn't recognize this particular address.
+    const fallback = preferred === 'census' ? 'google' : 'census';
+    coords = await tryWith(fallback);
   }
-  try {
-    // Pass the full one-line address as `street` — Census's onelineaddress
-    // mode handles street/city/state/zip in a single string fine.
-    const result = await geocodeAddressCensus(addr, '', '', '');
-    const lat = parseFloat(result?.lat);
-    const lng = parseFloat(result?.lng);
-    if (!isFinite(lat) || !isFinite(lng)) return null;
-    _uwGeoCache[key] = { lat, lng };
-    return _uwGeoCache[key];
-  } catch (e) {
-    console.warn('[uwGeocode] Census failed for', addr, e);
-    return null;
-  }
+  if (!coords) return null;
+  _uwGeoCache[key] = coords;
+  return coords;
 }
 
 // Fill the Distance field next to every comp by geocoding subject + each comp
@@ -5652,6 +5667,18 @@ function _uwUpdateCompCautions() {
       el.setAttribute('data-uw-warn-orig-title', el.title || '');
     }
   };
+  // 3-way classifier helper. Pass the field id, plus three booleans:
+  //   isEmpty   → flag red ⚠   (empty / not filled out)
+  //   isMatch   → flag amber ⚠ (filled but mismatches subject)
+  //   isOk      → flag green ✓ (filled and matches subject — only if at
+  //                            least one subject baseline is set)
+  // If none apply, clear the flag.
+  const classify = (id, isEmpty, isMismatch, isOk, emptyMsg, mismatchMsg, okMsg) => {
+    if (isEmpty)         flag(id, 'empty', emptyMsg);
+    else if (isMismatch) flag(id, '1', mismatchMsg);
+    else if (isOk)       flag(id, 'ok', okMsg);
+    else                 flag(id, null, '');
+  };
   ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3'].forEach(p => {
     ['bed','bath','year','lot','parking','material','dist'].forEach(f => cacheOrig('uw-' + p + '-' + f));
     // Skip empty-checks for an entire comp slot if the address is blank — no
@@ -5660,56 +5687,74 @@ function _uwUpdateCompCautions() {
     const skipEmpty = !addr;
     // --- Bed ---
     const bed = _uwGetN('uw-' + p + '-bed');
-    if (bed <= 0 && !skipEmpty) flag('uw-' + p + '-bed', 'empty', 'Bed not filled out');
-    else flag('uw-' + p + '-bed',
-      subjBed > 0 && bed > 0 && bed !== subjBed ? '1' : null,
-      'Bed mismatch — subject ' + subjBed + ', comp ' + bed);
+    classify('uw-' + p + '-bed',
+      bed <= 0 && !skipEmpty,
+      subjBed > 0 && bed > 0 && bed !== subjBed,
+      subjBed > 0 && bed > 0 && bed === subjBed,
+      'Bed not filled out',
+      'Bed mismatch — subject ' + subjBed + ', comp ' + bed,
+      'Bed matches subject (' + subjBed + ')');
     // --- Bath ---
     const bath = _uwGetN('uw-' + p + '-bath');
-    if (bath <= 0 && !skipEmpty) flag('uw-' + p + '-bath', 'empty', 'Bath not filled out');
-    else flag('uw-' + p + '-bath',
-      subjBath > 0 && bath > 0 && bath !== subjBath ? '1' : null,
-      'Bath mismatch — subject ' + subjBath + ', comp ' + bath);
+    classify('uw-' + p + '-bath',
+      bath <= 0 && !skipEmpty,
+      subjBath > 0 && bath > 0 && bath !== subjBath,
+      subjBath > 0 && bath > 0 && bath === subjBath,
+      'Bath not filled out',
+      'Bath mismatch — subject ' + subjBath + ', comp ' + bath,
+      'Bath matches subject (' + subjBath + ')');
     // --- Year ---
     const year = _uwGetN('uw-' + p + '-year');
-    if (year <= 0 && !skipEmpty) flag('uw-' + p + '-year', 'empty', 'Year built not filled out');
-    else flag('uw-' + p + '-year',
-      subjYear > 0 && year > 0 && Math.abs(year - subjYear) > 30 ? '1' : null,
-      'Year built ' + Math.abs(year - subjYear) + ' yrs off — subject ' + subjYear + ', comp ' + year + ' (>30 yr threshold)');
+    const yearGap = Math.abs(year - subjYear);
+    classify('uw-' + p + '-year',
+      year <= 0 && !skipEmpty,
+      subjYear > 0 && year > 0 && yearGap > 30,
+      subjYear > 0 && year > 0 && yearGap <= 30,
+      'Year built not filled out',
+      'Year built ' + yearGap + ' yrs off — subject ' + subjYear + ', comp ' + year + ' (>30 yr threshold)',
+      'Year built within 30 yrs of subject (' + yearGap + ' yr gap)');
     // --- Lot acres ---
     const lotAc = _uwGetN('uw-' + p + '-lot');
-    if (lotAc <= 0 && !skipEmpty) flag('uw-' + p + '-lot', 'empty', 'Lot size not filled out');
-    else flag('uw-' + p + '-lot',
-      subjLotAc > 0 && lotAc > 0 && lotAc > 2 * subjLotAc ? '1' : null,
-      'Lot size ' + lotAc.toFixed(2) + ' ac is more than 2× subject (' + subjLotAc.toFixed(2) + ' ac)');
+    classify('uw-' + p + '-lot',
+      lotAc <= 0 && !skipEmpty,
+      subjLotAc > 0 && lotAc > 0 && lotAc > 2 * subjLotAc,
+      subjLotAc > 0 && lotAc > 0 && lotAc <= 2 * subjLotAc,
+      'Lot size not filled out',
+      'Lot size ' + lotAc.toFixed(2) + ' ac is more than 2× subject (' + subjLotAc.toFixed(2) + ' ac)',
+      'Lot size within 2× subject');
     // --- Parking ---
     const compParkRaw = _uwGetS('uw-' + p + '-parking');
     const compPark = normParking(compParkRaw);
-    if (!compPark && !skipEmpty) flag('uw-' + p + '-parking', 'empty', 'Parking not filled out');
-    else flag('uw-' + p + '-parking',
-      subjPark && compPark && compPark !== subjPark ? '1' : null,
-      'Parking mismatch — subject "' + _uwGetS('uw-prop-parking') + '", comp "' + compParkRaw + '"');
+    classify('uw-' + p + '-parking',
+      !compPark && !skipEmpty,
+      subjPark && compPark && compPark !== subjPark,
+      subjPark && compPark && compPark === subjPark,
+      'Parking not filled out',
+      'Parking mismatch — subject "' + _uwGetS('uw-prop-parking') + '", comp "' + compParkRaw + '"',
+      'Parking matches subject');
     // --- Material ---
     const compMat = (_uwGetS('uw-' + p + '-material') || '').trim();
-    if (!compMat && !skipEmpty) flag('uw-' + p + '-material', 'empty', 'Building material not filled out');
-    else flag('uw-' + p + '-material',
-      subjMat && compMat && compMat !== subjMat ? '1' : null,
-      'Material mismatch — subject "' + subjMat + '", comp "' + compMat + '"');
+    classify('uw-' + p + '-material',
+      !compMat && !skipEmpty,
+      subjMat && compMat && compMat !== subjMat,
+      subjMat && compMat && compMat === subjMat,
+      'Building material not filled out',
+      'Material mismatch — subject "' + subjMat + '", comp "' + compMat + '"',
+      'Material matches subject');
     // --- Distance ---
     const distEl = document.getElementById('uw-' + p + '-dist');
     const distMatch = distEl ? (distEl.value || '').match(/-?\d+(\.\d+)?/) : null;
     const dist = distMatch ? parseFloat(distMatch[0]) : NaN;
-    if (!isFinite(dist) && !skipEmpty) flag('uw-' + p + '-dist', 'empty', 'Distance not filled out');
-    else flag('uw-' + p + '-dist',
-      isFinite(dist) && dist > 0.5 ? '1' : null,
-      'Distance ' + (isFinite(dist) ? dist.toFixed(2) : '?') + ' mi is > 0.5 mi from subject');
-    // --- Price field (varies by comp type) ---
-    // Sold + Listed comps use $/SqFt (uw-XXX-psf); Rental comps use Rent
-    // (uw-XXX-rent). Flag the corresponding field if empty.
-    const priceFieldId = (p[0] === 'r') ? ('uw-' + p + '-rent') : ('uw-' + p + '-psf');
-    cacheOrig(priceFieldId);
-    if (_uwGetN(priceFieldId) <= 0 && !skipEmpty) flag(priceFieldId, 'empty', (p[0] === 'r' ? 'Rent' : '$/SqFt') + ' not filled out');
-    else flag(priceFieldId, null, '');
+    classify('uw-' + p + '-dist',
+      !isFinite(dist) && !skipEmpty,
+      isFinite(dist) && dist > 0.5,
+      isFinite(dist) && dist <= 0.5,
+      'Distance not filled out',
+      'Distance ' + (isFinite(dist) ? dist.toFixed(2) : '?') + ' mi is > 0.5 mi from subject',
+      'Distance ' + (isFinite(dist) ? dist.toFixed(2) : '?') + ' mi — within 0.5 mi (close comp)');
+    // (Price field — $/SqFt for sold/listed, Rent for rental — intentionally
+    // not flagged. The user already sees those as required-looking inputs and
+    // the indicator added more visual noise than value.)
   });
 }
 window._uwUpdateCompCautions = _uwUpdateCompCautions;

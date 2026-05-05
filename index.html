@@ -137,6 +137,49 @@
     color: var(--text-dim); font-size: 12px; font-weight: 600; pointer-events: none; line-height: 1;
   }
   .uw-money input { padding-left: 18px !important; }
+  /* Lot-size suffix wrappers — show "ac" or "sqft" inside the input, right-aligned.
+     Matches the .uw-money pattern but as a suffix instead of a prefix. */
+  .uw-suffix-ac, .uw-suffix-sqft { position: relative; display: block; }
+  .uw-suffix-ac::after {
+    content: "ac"; position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    color: var(--text-dim); font-size: 11px; font-weight: 600; pointer-events: none; line-height: 1;
+  }
+  .uw-suffix-sqft::after {
+    content: "sqft"; position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    color: var(--text-dim); font-size: 11px; font-weight: 600; pointer-events: none; line-height: 1;
+  }
+  .uw-suffix-ac input   { padding-right: 22px !important; }
+  .uw-suffix-sqft input { padding-right: 32px !important; }
+  /* Comp caution flag — tiny ⚠ icon in the TOP-LEFT corner of any comp
+     input/select, plus a soft border glow. Top-left avoids conflicts with
+     <select> chevron arrows on the right and the "ac"/"sqft" suffix labels.
+       data-uw-warn="1"     → amber  (field has value but mismatches subject)
+       data-uw-warn="empty" → red    (field is empty / not filled out)
+     The element's own title= explains the reason on hover. No DOM wrapping —
+     works on plain <input>/<select>. Subtle box-shadow glow makes the
+     warning visible at a glance without dominating the field. */
+  [data-uw-warn="1"], [data-uw-warn="empty"] {
+    background-repeat: no-repeat !important;
+    background-position: left 3px top 3px !important;
+    padding-left: 15px !important;
+  }
+  [data-uw-warn="1"] {
+    border-color: rgba(245, 158, 11, 0.55) !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.20) !important;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24"><path fill="%23f59e0b" d="M12 2L1 22h22L12 2zm0 4.5L19.5 20h-15L12 6.5zm-1 6v4h2v-4h-2zm0 5v2h2v-2h-2z"/></svg>') !important;
+  }
+  [data-uw-warn="empty"] {
+    border-color: rgba(239, 68, 68, 0.55) !important;
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.20) !important;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24"><path fill="%23ef4444" d="M12 2L1 22h22L12 2zm0 4.5L19.5 20h-15L12 6.5zm-1 6v4h2v-4h-2zm0 5v2h2v-2h-2z"/></svg>') !important;
+  }
+  /* For <select> elements specifically, the browser puts a chevron on the
+     RIGHT — our top-left icon already dodges it, but make sure the
+     padding-left doesn't push the option text under our icon by reducing
+     the option text padding via text-indent. */
+  select[data-uw-warn="1"], select[data-uw-warn="empty"] {
+    padding-left: 14px !important;
+  }
 </style>
 </head>
 <body class="min-h-screen">
@@ -1879,13 +1922,39 @@
            D/F crime grade neighborhood or any high-risk FEMA flood zone.
            Hidden by default; populated by _uwUpdateRiskWarnings(). -->
       <div id="uw-risk-warnings" style="display:none;margin-top:8px"></div>
-      <!-- Row 4: lot size + parking + type + units + pictures (single row) -->
+      <!-- Row 4: lot size (two side-by-side inputs — acres & sq ft, auto-syncing
+           each other) + building material + parking + type + units. Type the
+           number you have in either box; the other auto-fills with the
+           converted value (1 acre = 43,560 sq ft). -->
       <div class="grid grid-cols-2 md:grid-cols-10 gap-2 mt-2">
-        <label class="text-xs col-span-1 md:col-span-1">Lot Size (acres)<input type="number" id="uw-lot-size" step="0.01" placeholder="0.18" style="width:100%;margin-top:4px"></label>
+        <label class="text-xs col-span-1 md:col-span-1">Lot Acres
+          <span class="uw-suffix-ac" style="margin-top:4px"><input type="number" id="uw-lot-size" step="0.001" placeholder="0.18" oninput="_uwLotAcInput('uw-lot-size')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%"></span>
+        </label>
+        <label class="text-xs col-span-1 md:col-span-2">Lot Sq Ft
+          <span class="uw-suffix-sqft" style="margin-top:4px"><input type="number" id="uw-lot-size-sqft" step="1" placeholder="7,841" oninput="_uwLotSqftInput('uw-lot-size')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%"></span>
+        </label>
+        <label class="text-xs col-span-1 md:col-span-2">Building Material
+          <select id="uw-prop-material" title="Primary exterior building material." style="width:100%;margin-top:4px">
+            <option value="">—</option>
+            <option>Brick</option>
+            <option>Vinyl Siding</option>
+            <option>Wood Siding</option>
+            <option>Stucco</option>
+            <option>Aluminum Siding</option>
+            <option>Fiber Cement (Hardie)</option>
+            <option>Stone</option>
+            <option>Block / CMU</option>
+            <option>Mixed</option>
+            <option>Other</option>
+          </select>
+        </label>
         <label class="text-xs col-span-1 md:col-span-2">Parking Status<select id="uw-prop-parking" style="width:100%;margin-top:4px"><option value="">—</option><option>Driveway</option><option>Detached Garage</option><option>Attached Garage</option><option>Carport</option><option>Street Only</option><option>None</option></select></label>
         <label class="text-xs col-span-1 md:col-span-2">Property Type<select id="uw-prop-type" style="width:100%;margin-top:4px"><option value="">—</option><option>Single Family</option><option>Duplex</option><option>Triplex</option><option>Quad</option><option>Multi-Family 5+</option><option>Condo</option><option>Townhouse</option><option>Land</option></select></label>
         <label class="text-xs col-span-1 md:col-span-1">Units<input type="number" id="uw-units" value="1" min="1" step="1" oninput="_uwSyncUnits('property'); uwRecalc()" style="width:100%;margin-top:4px"></label>
-        <label class="text-xs col-span-2 md:col-span-4">Picture Folder Link
+      </div>
+      <!-- Row 5: picture folder link (its own row so it can use the full width). -->
+      <div class="grid grid-cols-2 md:grid-cols-10 gap-2 mt-2">
+        <label class="text-xs col-span-2 md:col-span-10">Picture Folder Link
           <span style="display:flex;gap:4px;align-items:stretch;margin-top:4px">
             <input id="uw-pics" placeholder="https://..." oninput="_uwUpdatePicLinkIcon()" style="flex:1;min-width:0;margin:0">
             <button type="button" id="uw-pics-open" onclick="_uwOpenPicLink()" title="Open picture folder in a new tab" style="display:inline-flex;align-items:center;justify-content:center;width:32px;border-radius:5px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);text-decoration:none;font-size:14px;line-height:1;flex-shrink:0;box-sizing:border-box;padding:0;cursor:pointer"><span style="display:inline-block;transform:translateY(-2px)">📷</span></button>
@@ -1946,10 +2015,12 @@
             <input type="number" id="uw-scp1-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
             <input type="number" id="uw-scp1-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
-          <div class="grid grid-cols-2 gap-1" style="margin-top:4px">
-            <input type="number" id="uw-scp1-lot" step="0.01" placeholder="Lot (ac)" title="Lot size in acres" style="width:100%;font-size:12px">
+          <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+            <span class="uw-suffix-ac"><input type="number" id="uw-scp1-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-scp1-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+            <span class="uw-suffix-sqft"><input type="number" id="uw-scp1-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-scp1-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-scp1-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
+          <select id="uw-scp1-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
         </div>
         <div>
           <div class="text-xs font-semibold mb-1">Comp #2</div>
@@ -1966,10 +2037,12 @@
             <input type="number" id="uw-scp2-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
             <input type="number" id="uw-scp2-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
-          <div class="grid grid-cols-2 gap-1" style="margin-top:4px">
-            <input type="number" id="uw-scp2-lot" step="0.01" placeholder="Lot (ac)" title="Lot size in acres" style="width:100%;font-size:12px">
+          <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+            <span class="uw-suffix-ac"><input type="number" id="uw-scp2-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-scp2-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+            <span class="uw-suffix-sqft"><input type="number" id="uw-scp2-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-scp2-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-scp2-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
+          <select id="uw-scp2-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
         </div>
         <div>
           <div class="text-xs font-semibold mb-1">Comp #3</div>
@@ -1986,10 +2059,12 @@
             <input type="number" id="uw-scp3-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
             <input type="number" id="uw-scp3-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
-          <div class="grid grid-cols-2 gap-1" style="margin-top:4px">
-            <input type="number" id="uw-scp3-lot" step="0.01" placeholder="Lot (ac)" title="Lot size in acres" style="width:100%;font-size:12px">
+          <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+            <span class="uw-suffix-ac"><input type="number" id="uw-scp3-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-scp3-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+            <span class="uw-suffix-sqft"><input type="number" id="uw-scp3-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-scp3-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-scp3-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
+          <select id="uw-scp3-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
         </div>
       </div>
     </div>
@@ -2031,7 +2106,7 @@
             <a id="uw-lcp1-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
             <a id="uw-lcp1-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
           </div>
-          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-lcp1-list" oninput="uwRecalc()" placeholder="List Price" style="width:100%"></span>
+          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-lcp1-psf" oninput="uwRecalc()" placeholder="0/SqFt" title="Listed price per SqFt. Direct entry — averaged with the other two listings to drive Estimated Listed Value." style="width:100%"></span>
           <input type="text" id="uw-lcp1-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
           <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
             <input type="number" id="uw-lcp1-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
@@ -2039,10 +2114,12 @@
             <input type="number" id="uw-lcp1-sqft" oninput="uwRecalc()" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
             <input type="number" id="uw-lcp1-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
-          <div class="grid grid-cols-2 gap-1" style="margin-top:4px">
-            <input type="number" id="uw-lcp1-lot" step="0.01" placeholder="Lot (ac)" title="Lot size in acres" style="width:100%;font-size:12px">
+          <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+            <span class="uw-suffix-ac"><input type="number" id="uw-lcp1-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-lcp1-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+            <span class="uw-suffix-sqft"><input type="number" id="uw-lcp1-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-lcp1-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-lcp1-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
+          <select id="uw-lcp1-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
         </div>
         <div>
           <div class="text-xs font-semibold mb-1">Listing #2</div>
@@ -2051,7 +2128,7 @@
             <a id="uw-lcp2-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
             <a id="uw-lcp2-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
           </div>
-          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-lcp2-list" oninput="uwRecalc()" placeholder="List Price" style="width:100%"></span>
+          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-lcp2-psf" oninput="uwRecalc()" placeholder="0/SqFt" title="Listed price per SqFt. Direct entry — averaged with the other two listings to drive Estimated Listed Value." style="width:100%"></span>
           <input type="text" id="uw-lcp2-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
           <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
             <input type="number" id="uw-lcp2-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
@@ -2059,10 +2136,12 @@
             <input type="number" id="uw-lcp2-sqft" oninput="uwRecalc()" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
             <input type="number" id="uw-lcp2-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
-          <div class="grid grid-cols-2 gap-1" style="margin-top:4px">
-            <input type="number" id="uw-lcp2-lot" step="0.01" placeholder="Lot (ac)" title="Lot size in acres" style="width:100%;font-size:12px">
+          <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+            <span class="uw-suffix-ac"><input type="number" id="uw-lcp2-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-lcp2-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+            <span class="uw-suffix-sqft"><input type="number" id="uw-lcp2-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-lcp2-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-lcp2-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
+          <select id="uw-lcp2-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
         </div>
         <div>
           <div class="text-xs font-semibold mb-1">Listing #3</div>
@@ -2071,7 +2150,7 @@
             <a id="uw-lcp3-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
             <a id="uw-lcp3-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
           </div>
-          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-lcp3-list" oninput="uwRecalc()" placeholder="List Price" style="width:100%"></span>
+          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-lcp3-psf" oninput="uwRecalc()" placeholder="0/SqFt" title="Listed price per SqFt. Direct entry — averaged with the other two listings to drive Estimated Listed Value." style="width:100%"></span>
           <input type="text" id="uw-lcp3-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
           <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
             <input type="number" id="uw-lcp3-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
@@ -2079,10 +2158,12 @@
             <input type="number" id="uw-lcp3-sqft" oninput="uwRecalc()" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
             <input type="number" id="uw-lcp3-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
-          <div class="grid grid-cols-2 gap-1" style="margin-top:4px">
-            <input type="number" id="uw-lcp3-lot" step="0.01" placeholder="Lot (ac)" title="Lot size in acres" style="width:100%;font-size:12px">
+          <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+            <span class="uw-suffix-ac"><input type="number" id="uw-lcp3-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-lcp3-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+            <span class="uw-suffix-sqft"><input type="number" id="uw-lcp3-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-lcp3-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-lcp3-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
+          <select id="uw-lcp3-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
         </div>
       </div>
     </div>
@@ -2136,10 +2217,12 @@
             <input type="number" id="uw-rcp1-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
             <input type="number" id="uw-rcp1-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
-          <div class="grid grid-cols-2 gap-1" style="margin-top:4px">
-            <input type="number" id="uw-rcp1-lot" step="0.01" placeholder="Lot (ac)" title="Lot size in acres" style="width:100%;font-size:12px">
+          <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+            <span class="uw-suffix-ac"><input type="number" id="uw-rcp1-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-rcp1-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+            <span class="uw-suffix-sqft"><input type="number" id="uw-rcp1-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-rcp1-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-rcp1-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
+          <select id="uw-rcp1-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
         </div>
         <div>
           <div class="text-xs font-semibold mb-1">Rental Comp #2</div>
@@ -2156,10 +2239,12 @@
             <input type="number" id="uw-rcp2-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
             <input type="number" id="uw-rcp2-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
-          <div class="grid grid-cols-2 gap-1" style="margin-top:4px">
-            <input type="number" id="uw-rcp2-lot" step="0.01" placeholder="Lot (ac)" title="Lot size in acres" style="width:100%;font-size:12px">
+          <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+            <span class="uw-suffix-ac"><input type="number" id="uw-rcp2-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-rcp2-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+            <span class="uw-suffix-sqft"><input type="number" id="uw-rcp2-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-rcp2-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-rcp2-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
+          <select id="uw-rcp2-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
         </div>
         <div>
           <div class="text-xs font-semibold mb-1">Rental Comp #3</div>
@@ -2176,10 +2261,12 @@
             <input type="number" id="uw-rcp3-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
             <input type="number" id="uw-rcp3-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
-          <div class="grid grid-cols-2 gap-1" style="margin-top:4px">
-            <input type="number" id="uw-rcp3-lot" step="0.01" placeholder="Lot (ac)" title="Lot size in acres" style="width:100%;font-size:12px">
+          <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+            <span class="uw-suffix-ac"><input type="number" id="uw-rcp3-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-rcp3-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+            <span class="uw-suffix-sqft"><input type="number" id="uw-rcp3-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-rcp3-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
             <select id="uw-rcp3-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
           </div>
+          <select id="uw-rcp3-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Brick</option><option>Vinyl Siding</option><option>Wood Siding</option><option>Stucco</option><option>Aluminum Siding</option><option>Fiber Cement (Hardie)</option><option>Stone</option><option>Block / CMU</option><option>Mixed</option><option>Other</option></select>
         </div>
       </div>
     </div>
@@ -5478,6 +5565,155 @@ const _uwSet = (id, val) => { const el = document.getElementById(id); if (el) el
 const _uwFmt$ = (n) => isFinite(n) ? '$' + Math.round(n).toLocaleString() : '—';
 const _uwFmtPct = (n) => isFinite(n) ? (n).toFixed(1) + '%' : '—';
 
+// 1 acre = 43,560 sq ft. Read the acres value for a lot input. Now that lot
+// rows have BOTH an acres input AND a sq-ft input that auto-sync to each
+// other, the acres input always holds the canonical value — just read it.
+// Pass the lot acres input ID (e.g. 'uw-lot-size', 'uw-scp1-lot').
+function _uwLotSizeAcres(idBase) {
+  return _uwGetN(idBase);
+}
+window._uwLotSizeAcres = _uwLotSizeAcres;
+
+// User typed in the ACRES input — auto-fill the matching sq-ft input.
+// idBase is the acres input's ID (e.g. 'uw-scp1-lot'); the sq-ft sibling
+// is at idBase + '-sqft'. Empty/zero acres clears the sq-ft side.
+function _uwLotAcInput(idBase) {
+  const sqftEl = document.getElementById(idBase + '-sqft');
+  if (!sqftEl) return;
+  const ac = _uwGetN(idBase);
+  sqftEl.value = ac > 0 ? Math.round(ac * 43560).toString() : '';
+}
+window._uwLotAcInput = _uwLotAcInput;
+
+// User typed in the SQ-FT input — auto-fill the matching acres input.
+// idBase is the acres input's ID; the sq-ft input is at idBase + '-sqft'.
+function _uwLotSqftInput(idBase) {
+  const acEl = document.getElementById(idBase);
+  if (!acEl) return;
+  const sqft = _uwGetN(idBase + '-sqft');
+  acEl.value = sqft > 0 ? (sqft / 43560).toFixed(3) : '';
+}
+window._uwLotSqftInput = _uwLotSqftInput;
+
+// On deal load, both fields might come back populated (acres from save,
+// sq-ft from save). If only one is set, derive the other so they're in sync.
+function _uwRefreshAllLotConversions() {
+  ['uw-lot-size','uw-scp1-lot','uw-scp2-lot','uw-scp3-lot','uw-lcp1-lot','uw-lcp2-lot','uw-lcp3-lot','uw-rcp1-lot','uw-rcp2-lot','uw-rcp3-lot'].forEach(id => {
+    const ac = _uwGetN(id);
+    const sqft = _uwGetN(id + '-sqft');
+    if (ac > 0 && sqft <= 0) _uwLotAcInput(id);
+    else if (sqft > 0 && ac <= 0) _uwLotSqftInput(id);
+  });
+}
+window._uwRefreshAllLotConversions = _uwRefreshAllLotConversions;
+
+// Comp caution flags — for each of the 9 comps, surface a small ⚠ icon on
+// any comp field that's empty (red) or a poor match against the subject
+// (amber). The amber-mismatch triggers are:
+//   • Bed       — exact mismatch
+//   • Bath      — exact mismatch
+//   • Year      — built > 30 years apart
+//   • Lot       — comp lot > 2× subject lot
+//   • Parking   — different style (normalized to ignore "Garage"/" Only")
+//   • Material  — different building material
+//   • Distance  — > 0.5 mi from subject
+// Empty (not-filled) checks apply to: bed, bath, year, lot acres, parking,
+// material, distance, and the comp's price field (psf or rent).
+function _uwUpdateCompCautions() {
+  // Subject baselines — pulled fresh each call so the warnings stay live
+  // while the user edits Property Info.
+  const subjBed   = _uwGetN('uw-bed');
+  const subjBath  = _uwGetN('uw-bath');
+  const subjYear  = _uwGetN('uw-built');
+  const subjLotAc = _uwGetN('uw-lot-size');
+  const normParking = (s) => (s || '').toString().trim().toLowerCase().replace(/\s+garage$/, '').replace(/\s+only$/, '');
+  const subjPark  = normParking(_uwGetS('uw-prop-parking'));
+  const subjMat   = (_uwGetS('uw-prop-material') || '').trim();
+  // Helper: set/clear data-uw-warn on a field. `state` is 'empty' (red),
+  // '1' (amber mismatch), or null (no warning). title= explains the reason.
+  const flag = (id, state, reason) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (state) {
+      el.setAttribute('data-uw-warn', state);
+      el.title = '⚠ ' + reason;
+    } else {
+      el.removeAttribute('data-uw-warn');
+      const orig = el.getAttribute('data-uw-warn-orig-title');
+      if (orig != null) el.title = orig;
+      else el.title = '';
+    }
+  };
+  // Cache original titles once (so we can restore them when the warning clears).
+  const cacheOrig = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!el.hasAttribute('data-uw-warn-orig-title')) {
+      el.setAttribute('data-uw-warn-orig-title', el.title || '');
+    }
+  };
+  ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3'].forEach(p => {
+    ['bed','bath','year','lot','parking','material','dist'].forEach(f => cacheOrig('uw-' + p + '-' + f));
+    // Skip empty-checks for an entire comp slot if the address is blank — no
+    // point yelling about missing fields on a comp the user hasn't started.
+    const addr = _uwGetS('uw-' + p + '-addr').trim();
+    const skipEmpty = !addr;
+    // --- Bed ---
+    const bed = _uwGetN('uw-' + p + '-bed');
+    if (bed <= 0 && !skipEmpty) flag('uw-' + p + '-bed', 'empty', 'Bed not filled out');
+    else flag('uw-' + p + '-bed',
+      subjBed > 0 && bed > 0 && bed !== subjBed ? '1' : null,
+      'Bed mismatch — subject ' + subjBed + ', comp ' + bed);
+    // --- Bath ---
+    const bath = _uwGetN('uw-' + p + '-bath');
+    if (bath <= 0 && !skipEmpty) flag('uw-' + p + '-bath', 'empty', 'Bath not filled out');
+    else flag('uw-' + p + '-bath',
+      subjBath > 0 && bath > 0 && bath !== subjBath ? '1' : null,
+      'Bath mismatch — subject ' + subjBath + ', comp ' + bath);
+    // --- Year ---
+    const year = _uwGetN('uw-' + p + '-year');
+    if (year <= 0 && !skipEmpty) flag('uw-' + p + '-year', 'empty', 'Year built not filled out');
+    else flag('uw-' + p + '-year',
+      subjYear > 0 && year > 0 && Math.abs(year - subjYear) > 30 ? '1' : null,
+      'Year built ' + Math.abs(year - subjYear) + ' yrs off — subject ' + subjYear + ', comp ' + year + ' (>30 yr threshold)');
+    // --- Lot acres ---
+    const lotAc = _uwGetN('uw-' + p + '-lot');
+    if (lotAc <= 0 && !skipEmpty) flag('uw-' + p + '-lot', 'empty', 'Lot size not filled out');
+    else flag('uw-' + p + '-lot',
+      subjLotAc > 0 && lotAc > 0 && lotAc > 2 * subjLotAc ? '1' : null,
+      'Lot size ' + lotAc.toFixed(2) + ' ac is more than 2× subject (' + subjLotAc.toFixed(2) + ' ac)');
+    // --- Parking ---
+    const compParkRaw = _uwGetS('uw-' + p + '-parking');
+    const compPark = normParking(compParkRaw);
+    if (!compPark && !skipEmpty) flag('uw-' + p + '-parking', 'empty', 'Parking not filled out');
+    else flag('uw-' + p + '-parking',
+      subjPark && compPark && compPark !== subjPark ? '1' : null,
+      'Parking mismatch — subject "' + _uwGetS('uw-prop-parking') + '", comp "' + compParkRaw + '"');
+    // --- Material ---
+    const compMat = (_uwGetS('uw-' + p + '-material') || '').trim();
+    if (!compMat && !skipEmpty) flag('uw-' + p + '-material', 'empty', 'Building material not filled out');
+    else flag('uw-' + p + '-material',
+      subjMat && compMat && compMat !== subjMat ? '1' : null,
+      'Material mismatch — subject "' + subjMat + '", comp "' + compMat + '"');
+    // --- Distance ---
+    const distEl = document.getElementById('uw-' + p + '-dist');
+    const distMatch = distEl ? (distEl.value || '').match(/-?\d+(\.\d+)?/) : null;
+    const dist = distMatch ? parseFloat(distMatch[0]) : NaN;
+    if (!isFinite(dist) && !skipEmpty) flag('uw-' + p + '-dist', 'empty', 'Distance not filled out');
+    else flag('uw-' + p + '-dist',
+      isFinite(dist) && dist > 0.5 ? '1' : null,
+      'Distance ' + (isFinite(dist) ? dist.toFixed(2) : '?') + ' mi is > 0.5 mi from subject');
+    // --- Price field (varies by comp type) ---
+    // Sold + Listed comps use $/SqFt (uw-XXX-psf); Rental comps use Rent
+    // (uw-XXX-rent). Flag the corresponding field if empty.
+    const priceFieldId = (p[0] === 'r') ? ('uw-' + p + '-rent') : ('uw-' + p + '-psf');
+    cacheOrig(priceFieldId);
+    if (_uwGetN(priceFieldId) <= 0 && !skipEmpty) flag(priceFieldId, 'empty', (p[0] === 'r' ? 'Rent' : '$/SqFt') + ' not filled out');
+    else flag(priceFieldId, null, '');
+  });
+}
+window._uwUpdateCompCautions = _uwUpdateCompCautions;
+
 function uwReset() {
   if (!confirm('Clear all underwriting inputs?')) return;
   document.querySelectorAll('#uwview-calculator input, #uwview-calculator select').forEach(el => {
@@ -5542,6 +5778,13 @@ function uwReset() {
 function uwRecalc() {
   // Make sure comp icons are in the right state (grey vs active)
   if (typeof uwInitCompLinks === 'function') uwInitCompLinks();
+  // Refresh the per-lot opposite-unit displays (e.g. "= 0.16 ac" next to a
+  // 6,967 sq ft input). Cheap, just reads the inputs and writes text — keeps
+  // the displays in sync whenever any field changes.
+  if (typeof _uwRefreshAllLotConversions === 'function') _uwRefreshAllLotConversions();
+  // Refresh comp caution icons (bed/bath/year/lot/parking/material/distance
+  // mismatch warnings against the subject property). Cheap field comparison.
+  if (typeof _uwUpdateCompCautions === 'function') _uwUpdateCompCautions();
   // ----- Inputs -----
   const asking = _uwGetN('uw-asking');
   const offer = _uwGetN('uw-offer');
@@ -5616,17 +5859,24 @@ function uwRecalc() {
       ? sqft.toLocaleString() + ' SqFt × $' + effectiveASqft.toFixed(2) + '/SqFt = $' + autoArv.toLocaleString() + ' (rounded to nearest $1,000)'
       : 'Fills automatically once Total Livable SqFt and at least one sold-comp $/SqFt are entered.';
   }
-  // Effective ARV used in all downstream math: override wins if filled, otherwise auto.
+  // Effective ARV used in all downstream math. Priority chain (top wins):
+  //   1) ARV Override (manual entry from sold-comp panel)
+  //   2) Auto ARV from sold-comp $/SqFt × subject SqFt
+  //   3) Override Real Value from listed-comp panel  ← fallback only when 1+2 empty
+  //   4) Estimated Real Value from listed-comp panel (90% of avg listed × SqFt)
+  // The listed-comp tier (3+4) is only used when there's NO sold-comp data and
+  // NO ARV override, so a property with no recent sales can still be analyzed
+  // off the listings instead of returning 0.
+  // The listed-comp values (lrealOverride, autoRealValue) get computed below;
+  // we apply the fallback after they're known.
   const arvOverride = _uwGetN('uw-arv-override');
-  const arv = arvOverride > 0 ? arvOverride : autoArv;
+  let arv = arvOverride > 0 ? arvOverride : autoArv;
   // ===== Listed comp average + estimated listed value (mirrors sold-comp logic) =====
-  // For each listing where BOTH list price > 0 AND sqft > 0, compute its $/SqFt.
-  // Average those, then multiply by subject's Total Livable SqFt, rounded to $1k.
-  const listedPsfs = ['lcp1','lcp2','lcp3'].map(p => {
-    const lp = _uwGetN('uw-' + p + '-list');
-    const sf = _uwGetN('uw-' + p + '-sqft');
-    return (lp > 0 && sf > 0) ? lp / sf : 0;
-  }).filter(x => x > 0);
+  // Each Listing #1/2/3 has a direct $/SqFt input — exactly like Sold Comps.
+  // Average the entries that are > 0, then multiply by subject's Total Livable
+  // SqFt to get Estimated Listed Value (rounded to $1k).
+  const lcp1psf = _uwGetN('uw-lcp1-psf'), lcp2psf = _uwGetN('uw-lcp2-psf'), lcp3psf = _uwGetN('uw-lcp3-psf');
+  const listedPsfs = [lcp1psf, lcp2psf, lcp3psf].filter(x => x > 0);
   const listedAvg = listedPsfs.length ? listedPsfs.reduce((a, b) => a + b, 0) / listedPsfs.length : 0;
   const lavgEl = document.getElementById('uw-lavg-psf');
   if (lavgEl) {
@@ -5657,6 +5907,26 @@ function uwRecalc() {
     lrealEl.title = autoRealValue > 0
       ? '90% of Estimated Listed Value ($' + listedArv.toLocaleString() + ' × 0.90 = $' + autoRealValue.toLocaleString() + ', rounded to nearest $1,000) — realistic post-negotiation price'
       : 'Fills automatically once Estimated Listed Value is computed.';
+  }
+  // ===== ARV fallback to listed-comp implied value =====
+  // If neither the ARV Override nor the sold-comp average produced an ARV,
+  // fall back to the listed-comp implied real value (Override Real Value > 90%
+  // of avg listed × SqFt). This lets the calculator still produce numbers for
+  // properties with no recent sales but plenty of active listings nearby.
+  if (arvOverride <= 0 && autoArv <= 0) {
+    const listedFallback = lrealOverride > 0 ? lrealOverride : autoRealValue;
+    if (listedFallback > 0) {
+      arv = listedFallback;
+      // Reflect the fallback in the readonly Estimated ARV display so the user
+      // can see WHERE this number came from, not just an empty box.
+      const arvEl2 = document.getElementById('uw-arv');
+      if (arvEl2) {
+        arvEl2.value = listedFallback.toLocaleString();
+        arvEl2.title = 'No sold-comp data — falling back to listed-comp '
+          + (lrealOverride > 0 ? 'Override Real Value' : 'Estimated Real Value (90% of avg listed)')
+          + ': $' + listedFallback.toLocaleString();
+      }
+    }
   }
   // ===== Average Rent (mean of the 3 rental comps where rent > 0) =====
   // Rounded to whole dollars. Auto-fills the Rent /mo field for both rental
@@ -6406,9 +6676,13 @@ function uwComputeExits(ctx) {
   //         − ideal profit      (from the Ideal Flip Profit slider)
   //
   // Wholesale fee = MAO − Your Contract Price.
-  const wholesaleClosingBasis = (accepted > 0 ? accepted : (asking > 0 ? asking : buyPrice));
+  // Purchase-side closing is 3% of what the cash buyer ACTUALLY pays — i.e.
+  // 3% of MAO itself. Solving algebraically (see cashBuyerMAO below):
+  //   MAO × (1 + 3%) = ARV − rehab − sellClose − sellAgents − holding − idealProfit
+  //   MAO = (...) / 1.03
+  // Then wholesalePurchClose = 3% × MAO. This eliminates the asking-price
+  // dependency the old "basis = accepted | asking | buyPrice" formula had.
   const wholesaleClosingPct   = 3;                                        // purchase-side close %
-  const wholesalePurchClose   = wholesaleClosingBasis * (wholesaleClosingPct / 100);
   // Selling side: closing 3% of ARV + agents 5% of ARV (2.5% per agent × 2)
   const wsSellClosePct        = 3;
   const wsSellAgentsPct       = 5;
@@ -6452,8 +6726,11 @@ function uwComputeExits(ctx) {
   const _wsIfpTimeBonus       = Math.max(0, (_wsFlMonths - 3) * 0.5);
   const _wsIfpFinalPct        = _wsIfpBasePct + _wsIfpTimeBonus;
   const wsIdealProfit         = arv * (_wsIfpFinalPct / 100);
-  // New cash buyer MAO
-  const cashBuyerMAO = arv - fRehab - wholesalePurchClose - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit;
+  // New cash buyer MAO — solved algebraically so 3% purchase closing is taken
+  // off MAO itself (what the buyer pays), not asking price. Removes the
+  // circular dependency that made Max Offer drift when Asking changed.
+  const cashBuyerMAO = (arv - fRehab - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit) / (1 + wholesaleClosingPct / 100);
+  const wholesalePurchClose = cashBuyerMAO * (wholesaleClosingPct / 100);
   const wholesaleProfit = Math.max(0, cashBuyerMAO - buyPrice);
   const wholesaleDays = 30; // typical assignment timeline
   const wholesaleAnnualized = wholesaleProfit > 0 ? wholesaleProfit * (365 / wholesaleDays) : 0;
@@ -8300,15 +8577,15 @@ let _uwCurrentId = null; // null = new deal; UUID = editing existing
 const UW_FIELDS = [
   'uw-packet-status','uw-asking','uw-offer','uw-accepted',
   'uw-address','uw-city','uw-state','uw-zip','uw-legal',
-  'uw-built','uw-bed','uw-bath','uw-sqft','uw-floor1','uw-floor2','uw-floor3','uw-bsmt','uw-bsmt-include','uw-attic','uw-attic-include','uw-zsqft','uw-lot-size','uw-prop-parking',
+  'uw-built','uw-bed','uw-bath','uw-sqft','uw-floor1','uw-floor2','uw-floor3','uw-bsmt','uw-bsmt-include','uw-attic','uw-attic-include','uw-zsqft','uw-lot-size','uw-lot-size-sqft','uw-prop-parking','uw-prop-material',
   'uw-condition','uw-rehab-real','uw-rehab-expected','uw-flood','uw-crime','uw-assessor-url',
   'uw-asqft','uw-arv','uw-arv-override','uw-lavg-psf','uw-lest-arv','uw-lreal-arv','uw-lreal-override','uw-ravg-rent','uw-ravg-override',
-  'uw-scp1-addr','uw-scp1-psf','uw-scp1-dist','uw-scp1-bed','uw-scp1-bath','uw-scp1-sqft','uw-scp1-year','uw-scp1-lot','uw-scp1-parking',
-  'uw-scp2-addr','uw-scp2-psf','uw-scp2-dist','uw-scp2-bed','uw-scp2-bath','uw-scp2-sqft','uw-scp2-year','uw-scp2-lot','uw-scp2-parking',
-  'uw-scp3-addr','uw-scp3-psf','uw-scp3-dist','uw-scp3-bed','uw-scp3-bath','uw-scp3-sqft','uw-scp3-year','uw-scp3-lot','uw-scp3-parking',
-  'uw-lcp1-addr','uw-lcp1-list','uw-lcp1-dist','uw-lcp1-bed','uw-lcp1-bath','uw-lcp1-sqft','uw-lcp1-year','uw-lcp1-lot','uw-lcp1-parking',
-  'uw-lcp2-addr','uw-lcp2-list','uw-lcp2-dist','uw-lcp2-bed','uw-lcp2-bath','uw-lcp2-sqft','uw-lcp2-year','uw-lcp2-lot','uw-lcp2-parking',
-  'uw-lcp3-addr','uw-lcp3-list','uw-lcp3-dist','uw-lcp3-bed','uw-lcp3-bath','uw-lcp3-sqft','uw-lcp3-year','uw-lcp3-lot','uw-lcp3-parking',
+  'uw-scp1-addr','uw-scp1-psf','uw-scp1-dist','uw-scp1-bed','uw-scp1-bath','uw-scp1-sqft','uw-scp1-year','uw-scp1-lot','uw-scp1-lot-sqft','uw-scp1-parking','uw-scp1-material',
+  'uw-scp2-addr','uw-scp2-psf','uw-scp2-dist','uw-scp2-bed','uw-scp2-bath','uw-scp2-sqft','uw-scp2-year','uw-scp2-lot','uw-scp2-lot-sqft','uw-scp2-parking','uw-scp2-material',
+  'uw-scp3-addr','uw-scp3-psf','uw-scp3-dist','uw-scp3-bed','uw-scp3-bath','uw-scp3-sqft','uw-scp3-year','uw-scp3-lot','uw-scp3-lot-sqft','uw-scp3-parking','uw-scp3-material',
+  'uw-lcp1-addr','uw-lcp1-psf','uw-lcp1-dist','uw-lcp1-bed','uw-lcp1-bath','uw-lcp1-sqft','uw-lcp1-year','uw-lcp1-lot','uw-lcp1-lot-sqft','uw-lcp1-parking','uw-lcp1-material',
+  'uw-lcp2-addr','uw-lcp2-psf','uw-lcp2-dist','uw-lcp2-bed','uw-lcp2-bath','uw-lcp2-sqft','uw-lcp2-year','uw-lcp2-lot','uw-lcp2-lot-sqft','uw-lcp2-parking','uw-lcp2-material',
+  'uw-lcp3-addr','uw-lcp3-psf','uw-lcp3-dist','uw-lcp3-bed','uw-lcp3-bath','uw-lcp3-sqft','uw-lcp3-year','uw-lcp3-lot','uw-lcp3-lot-sqft','uw-lcp3-parking','uw-lcp3-material',
   'uw-max-ltv','uw-rehab-cost','uw-rehab-flip','uw-rehab-rental','uw-rehab-contingency-pct','uw-rehab-override',
   'uw-occupancy','uw-occupant-agreement','uw-additional-checklist','uw-kitchen','uw-bath-update','uw-parking','uw-amp','uw-breaker',
   'uw-elec-status','uw-elec-age','uw-elec-type','uw-plumb-status','uw-plumb-age','uw-plumb-type',
@@ -8318,9 +8595,9 @@ const UW_FIELDS = [
   'uw-rehab-mo','uw-listing-mo',
   'uw-sell-agent-pct','uw-buy-agent-pct',
   'uw-rent',
-  'uw-rcp1-addr','uw-rcp1-rent','uw-rcp1-dist','uw-rcp1-bed','uw-rcp1-bath','uw-rcp1-sqft','uw-rcp1-year','uw-rcp1-lot','uw-rcp1-parking',
-  'uw-rcp2-addr','uw-rcp2-rent','uw-rcp2-dist','uw-rcp2-bed','uw-rcp2-bath','uw-rcp2-sqft','uw-rcp2-year','uw-rcp2-lot','uw-rcp2-parking',
-  'uw-rcp3-addr','uw-rcp3-rent','uw-rcp3-dist','uw-rcp3-bed','uw-rcp3-bath','uw-rcp3-sqft','uw-rcp3-year','uw-rcp3-lot','uw-rcp3-parking',
+  'uw-rcp1-addr','uw-rcp1-rent','uw-rcp1-dist','uw-rcp1-bed','uw-rcp1-bath','uw-rcp1-sqft','uw-rcp1-year','uw-rcp1-lot','uw-rcp1-lot-sqft','uw-rcp1-parking','uw-rcp1-material',
+  'uw-rcp2-addr','uw-rcp2-rent','uw-rcp2-dist','uw-rcp2-bed','uw-rcp2-bath','uw-rcp2-sqft','uw-rcp2-year','uw-rcp2-lot','uw-rcp2-lot-sqft','uw-rcp2-parking','uw-rcp2-material',
+  'uw-rcp3-addr','uw-rcp3-rent','uw-rcp3-dist','uw-rcp3-bed','uw-rcp3-bath','uw-rcp3-sqft','uw-rcp3-year','uw-rcp3-lot','uw-rcp3-lot-sqft','uw-rcp3-parking','uw-rcp3-material',
   'uw-loan-rate','uw-loan-yrs',
   'uw-tenant-elec','uw-tenant-water','uw-tenant-trash','uw-tenant-net','uw-tenant-pest','uw-tenant-ins',
   'uw-wt-sale-pct','uw-wt-cap-pct','uw-wt-reno-mo','uw-wt-listed-mo','uw-wt-elec','uw-wt-water','uw-wt-ins','uw-wt-tax',
@@ -9243,8 +9520,10 @@ function _uwComputeMaxOfferFromData(data) {
   // ===== Wholesale ceiling — mirror live cascade =====
   // cashBuyerMAO = ARV − rehab − 3% buy close − 3% ARV sell close − 5% ARV
   //                agents − holding (3% ARV/yr × months + $150/mo ins) − IFP %
+  // Purchase closing is 3% of MAO itself (what the cash buyer actually pays),
+  // solved algebraically: MAO × 1.03 = ARV − rehab − sellClose − sellAgents
+  // − holding − idealProfit. This keeps Max Offer independent of asking.
   // wsBuyMax = cashBuyerMAO − $10k assignment floor
-  const wholesalePurchClose = (buyPrice > 0 ? buyPrice : arv * 0.6) * 0.03;
   const wsSellClose = arv * 0.03;
   const wsSellAgents = arv * 0.05;
   const wsFlMonths = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
@@ -9263,7 +9542,8 @@ function _uwComputeMaxOfferFromData(data) {
   }
   const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 0.5);
   const wsIdealProfit = arv * (finalPct / 100);
-  const cashBuyerMAO = arv - fRehab - wholesalePurchClose - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit;
+  const cashBuyerMAO = (arv - fRehab - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit) / 1.03;
+  const wholesalePurchClose = cashBuyerMAO * 0.03;
   const wsBuyMax = cashBuyerMAO - 10000; // $10k assignment floor
   // ===== Flip ceiling (cash mode — closest to data-only approximation) =====
   // flipBuyMax = ARV − flipCosts − IFP profit
@@ -9319,8 +9599,9 @@ function _uwComputeWholesaleProfitFromData(data) {
     }
     if (fRehab <= 0) fRehab = N('uw-rehab-flip', 0) || N('uw-rehab-cost', 0);
   }
-  // Wholesale closing/selling structure (mirrors cascade)
-  const wholesalePurchClose = buyPrice * 0.03; // 3% of buy
+  // Wholesale closing/selling structure (mirrors cascade).
+  // Purchase closing = 3% of MAO (what cash buyer actually pays), solved
+  // algebraically below so MAO is independent of buyPrice/asking.
   const wsSellClose         = arv * 0.03;      // 3% of ARV
   const wsSellAgents        = arv * 0.05;      // 5% of ARV
   // Holding: cash buyer's flip months = uw-fl-reno-mo + uw-fl-listed-mo
@@ -9342,8 +9623,8 @@ function _uwComputeWholesaleProfitFromData(data) {
   }
   const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 0.5);
   const wsIdealProfit = arv * (finalPct / 100);
-  // Cash buyer MAO + wholesale fee
-  const cashBuyerMAO = arv - fRehab - wholesalePurchClose - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit;
+  // Cash buyer MAO (algebraic — closing = 3% × MAO) + wholesale fee
+  const cashBuyerMAO = (arv - fRehab - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit) / 1.03;
   return Math.max(0, cashBuyerMAO - buyPrice);
 }
 window._uwComputeWholesaleProfitFromData = _uwComputeWholesaleProfitFromData;
@@ -10056,12 +10337,21 @@ function _uwAttachAutosave() {
   root.addEventListener('input', (e) => {
     const t = e.target;
     if (!t || !t.id || !t.id.startsWith('uw-')) return;
-    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') _uwQueueAutosave();
+    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') {
+      _uwQueueAutosave();
+      // Refresh comp caution flags whenever ANY field changes — cheap field
+      // comparison, no recalc of the heavy strategy math here.
+      if (typeof _uwUpdateCompCautions === 'function') _uwUpdateCompCautions();
+    }
   });
   root.addEventListener('change', (e) => {
     const t = e.target;
     if (!t || !t.id || !t.id.startsWith('uw-')) return;
-    if (t.tagName === 'SELECT' || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') _uwQueueAutosave();
+    if (t.tagName === 'SELECT' || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') {
+      _uwQueueAutosave();
+      // Same — selects (parking, material) need to refresh cautions too.
+      if (typeof _uwUpdateCompCautions === 'function') _uwUpdateCompCautions();
+    }
   });
   _uwAutosaveAttached = true;
 }

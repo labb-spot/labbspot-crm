@@ -1773,7 +1773,7 @@
     <div class="subtab subtab-compact" data-uwview="priority" onclick="goUwView('priority'); renderUnderwriteList();" title="Manually-flagged priority deals — toggle the ⭐ Priority button in the calculator header to add/remove a deal here.">⭐ Priority <span id="uw-priority-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
     <div class="subtab subtab-compact" data-uwview="checking" onclick="goUwView('checking'); renderUnderwriteList();" title="Deals waiting for a second underwriter to double-check the math.">🕵️ Check <span id="uw-checking-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
     <div class="subtab subtab-compact" data-uwview="analyzed" onclick="goUwView('analyzed'); renderUnderwriteList();">✅ Analyzed <span id="uw-analyzed-count" class="badge ok" style="margin-left:3px;font-size:9px;display:none"></span></div>
-    <div class="subtab subtab-compact" data-uwview="hot" onclick="goUwView('hot'); renderUnderwriteList();" title="Cross-cutting view: deals where the gap between Max Offer and Asking is ≤ $15k or ≤ 25% — i.e. the price is within striking distance.">🔥 Hot <span id="uw-hot-count" class="badge bad" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact" data-uwview="hot" onclick="goUwView('hot'); renderUnderwriteList();" title="Cross-cutting view: deals where Asking is BELOW Max Offer, OR within $15k, OR within 25% of Max Offer — i.e. priced within striking distance. Requires rehab to be priced first.">🔥 Hot <span id="uw-hot-count" class="badge bad" style="margin-left:3px;font-size:9px;display:none"></span></div>
     <div class="subtab subtab-compact" data-uwview="offered" onclick="goUwView('offered'); renderUnderwriteList();">📤 Offered <span id="uw-offered-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
     <div class="subtab subtab-compact" data-uwview="inspection" onclick="goUwView('inspection'); renderUnderwriteList();"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection <span id="uw-inspection-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
     <div class="subtab subtab-compact" data-uwview="contracted" onclick="goUwView('contracted'); renderUnderwriteList();">📝 Contracted <span id="uw-contracted-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
@@ -3035,7 +3035,7 @@
         </div>
       </div>
       <div id="uw-hot-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
-        Nothing hot right now. A deal lands here when its Max Offer is within $15,000 OR 25% of the Asking Price.
+        Nothing hot right now. A deal lands here when (1) Asking is below Max Offer, or (2) Max Offer is within $15,000 of Asking, or (3) Max Offer is within 25% of Asking — and rehab has been priced.
       </div>
       <div class="overflow-auto" style="max-height:600px">
         <table style="width:100%;font-size:13px">
@@ -13116,13 +13116,17 @@ function renderUnderwriteList() {
   });
 
   // ===== Hot list (CROSS-CUTTING) =====
-  // Computed view — purely automatic, never manually toggled. A deal lands here
-  // when its Max Offer is within $15,000 OR within 25% of Asking AND someone
-  // has actually run the rehab numbers (otherwise the Max Offer is mostly
-  // ARV-driven noise and we don't want it lighting up Hot prematurely).
+  // Computed view — purely automatic, never manually toggled. A deal lands
+  // here when ANY of these is true (and the rehab gate has been satisfied):
+  //   1. Asking is BELOW Max Offer — instant buy candidate, ANY gap size
+  //   2. |MaxOffer − Asking| ≤ $15,000 (close in dollars)
+  //   3. |MaxOffer − Asking| ÷ Asking ≤ 25% (close as a percentage)
+  // The rehab gate skips deals where nobody has priced rehab yet — $0 rehab
+  // almost always means "haven't gotten to this one", not "no work needed",
+  // and would falsely flag the deal as Hot.
   // Cross-cuts every workflow tab: a "hot" deal still appears in
-  // Analyzing/Analyzed/etc., and also gets a row in Hot. Both rows link to the
-  // same underlying deal.
+  // Analyzing/Analyzed/etc., and also gets a row in Hot. Both rows link to
+  // the same underlying deal.
   const _hotMatches = (u) => {
     if (!u) return false;
     const data = u.data || {};
@@ -13130,14 +13134,17 @@ function renderUnderwriteList() {
     const maxOffer = parseFloat(u.max_offer || data._maxOffer || 0) ||
                      (typeof _uwComputeMaxOfferFromData === 'function' ? _uwComputeMaxOfferFromData(data) : 0);
     if (asking <= 0 || maxOffer <= 0) return false;
-    // Rehab gate: skip if nobody has run the rehab numbers yet (no override
-    // entered AND no items checked in the rehab calculator). $0 rehab almost
-    // always means "we haven't priced this one yet", not "no work needed".
+    // Rehab gate: skip if nobody has run the rehab numbers yet.
     const rehabOverride = parseFloat(String(data['uw-rehab-override'] || '').replace(/,/g, '')) || 0;
     const hasCheckedRehab = Array.isArray(data._rehab) && data._rehab.some(col =>
       (col && col.items || []).some(item => item && item.needed === true)
     );
     if (rehabOverride <= 0 && !hasCheckedRehab) return false;
+    // Rule #1: Asking below Max Offer → ALWAYS Hot, regardless of gap size.
+    // Seller is already pricing it below our ceiling; this is a no-brainer
+    // we want to surface immediately.
+    if (asking < maxOffer) return true;
+    // Rules #2 + #3: close gap in dollars or percentage.
     const gap = Math.abs(maxOffer - asking);
     return gap <= 15000 || (gap / asking) <= 0.25;
   };

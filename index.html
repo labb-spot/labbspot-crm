@@ -96,6 +96,9 @@
   .subtab { padding: 6px 14px; border-radius: 8px; cursor: pointer; color: var(--text-dim); font-weight: 500; font-size: 13px; transition: all 0.15s; user-select: none; }
   .subtab:hover { color: var(--text); }
   .subtab.active { background: var(--panel-2); color: var(--text); }
+  /* Compact variant for the underwriting top-nav row so all 10 workflow
+     tabs + GIS Maps fit on one line without horizontal scrolling. */
+  .subtab-compact { padding: 5px 9px; font-size: 12px; white-space: nowrap; }
   .kpi { background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
   .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); font-weight: 600; }
   .kpi-value { font-size: 28px; font-weight: 700; color: var(--text); margin-top: 4px; }
@@ -1753,25 +1756,28 @@
   <!-- Top nav row — TWO disconnected panels on the same horizontal line:
        1) GIS Maps panel  — opens the GIS Maps subview (separate workflow,
           not part of the Help → Analyzing → ... pipeline)
-       2) Workflow subtab strip — Help / Analyzing / Priority / Double-Check
-          / Analyzed / Hot / Offered / Inspection / Contracted / Closed -->
-  <div class="flex items-center flex-wrap gap-3 mb-4">
+       2) Workflow subtab strip — Help / Analyzing / Priority / Check
+          / Analyzed / Hot / Offered / Inspection / Contracted / Closed
+       Both panels stay in ONE row that fits the viewport. The workflow
+       strip uses tighter padding + a font-size tweak so all 10 tabs +
+       GIS Maps fit on standard widescreens without scrolling. -->
+  <div class="flex items-center gap-2 mb-4" style="flex-wrap:nowrap;min-width:0">
     <!-- GIS Maps panel — its own pill, visually disconnected from the workflow tabs -->
-    <div class="flex items-center gap-1 panel p-1 w-fit">
-      <div class="subtab" data-uwview="gis-maps" onclick="goUwView('gis-maps'); renderUnderwriteList();" title="GIS Maps — county assessor / GIS portal links you've collected, organized in one place.">🗺 GIS Maps</div>
+    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
+      <div class="subtab subtab-compact" data-uwview="gis-maps" onclick="goUwView('gis-maps'); renderUnderwriteList();" title="GIS Maps — county assessor / GIS portal links you've collected, organized in one place.">🗺 GIS Maps</div>
     </div>
-    <!-- Workflow subtab bar — workflow order: Help → Analyzing → Double-Check → Analyzed -->
-    <div class="flex items-center gap-1 panel p-1 w-fit">
-    <div class="subtab" data-uwview="help" onclick="goUwView('help'); renderUnderwriteList();">❓ Help <span id="uw-help-count" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab active" data-uwview="analyzing" onclick="goUwView('analyzing'); renderUnderwriteList();">🔍 Analyzing <span id="uw-analyzing-count" class="badge bad" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-uwview="priority" onclick="goUwView('priority'); renderUnderwriteList();" title="Manually-flagged priority deals — toggle the ⭐ Priority button in the calculator header to add/remove a deal here.">⭐ Priority <span id="uw-priority-count" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-uwview="checking" onclick="goUwView('checking'); renderUnderwriteList();">🕵️ Double-Check <span id="uw-checking-count" class="badge brand" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-uwview="analyzed" onclick="goUwView('analyzed'); renderUnderwriteList();">✅ Analyzed <span id="uw-analyzed-count" class="badge ok" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-uwview="hot" onclick="goUwView('hot'); renderUnderwriteList();" title="Cross-cutting view: deals where the gap between Max Offer and Asking is ≤ $15k or ≤ 25% — i.e. the price is within striking distance.">🔥 Hot <span id="uw-hot-count" class="badge bad" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-uwview="offered" onclick="goUwView('offered'); renderUnderwriteList();">📤 Offered <span id="uw-offered-count" class="badge brand" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-uwview="inspection" onclick="goUwView('inspection'); renderUnderwriteList();"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection <span id="uw-inspection-count" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-uwview="contracted" onclick="goUwView('contracted'); renderUnderwriteList();">📝 Contracted <span id="uw-contracted-count" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-uwview="closed" onclick="goUwView('closed'); renderUnderwriteList();">🏁 Closed <span id="uw-closed-count" class="badge ok" style="margin-left:4px;font-size:10px;display:none"></span></div>
+    <!-- Workflow subtab bar — workflow order: Help → Analyzing → Check → Analyzed -->
+    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:1;min-width:0;width:fit-content;font-size:13px">
+    <div class="subtab subtab-compact" data-uwview="help" onclick="goUwView('help'); renderUnderwriteList();">❓ Help <span id="uw-help-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact active" data-uwview="analyzing" onclick="goUwView('analyzing'); renderUnderwriteList();">🔍 Analyzing <span id="uw-analyzing-count" class="badge bad" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact" data-uwview="priority" onclick="goUwView('priority'); renderUnderwriteList();" title="Manually-flagged priority deals — toggle the ⭐ Priority button in the calculator header to add/remove a deal here.">⭐ Priority <span id="uw-priority-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact" data-uwview="checking" onclick="goUwView('checking'); renderUnderwriteList();" title="Deals waiting for a second underwriter to double-check the math.">🕵️ Check <span id="uw-checking-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact" data-uwview="analyzed" onclick="goUwView('analyzed'); renderUnderwriteList();">✅ Analyzed <span id="uw-analyzed-count" class="badge ok" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact" data-uwview="hot" onclick="goUwView('hot'); renderUnderwriteList();" title="Cross-cutting view: deals where the gap between Max Offer and Asking is ≤ $15k or ≤ 25% — i.e. the price is within striking distance.">🔥 Hot <span id="uw-hot-count" class="badge bad" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact" data-uwview="offered" onclick="goUwView('offered'); renderUnderwriteList();">📤 Offered <span id="uw-offered-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact" data-uwview="inspection" onclick="goUwView('inspection'); renderUnderwriteList();"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection <span id="uw-inspection-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact" data-uwview="contracted" onclick="goUwView('contracted'); renderUnderwriteList();">📝 Contracted <span id="uw-contracted-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact" data-uwview="closed" onclick="goUwView('closed'); renderUnderwriteList();">🏁 Closed <span id="uw-closed-count" class="badge ok" style="margin-left:3px;font-size:9px;display:none"></span></div>
     </div>
   </div>
 
@@ -1889,7 +1895,7 @@
           <button type="button" data-uw-stage="help"       onclick="uwSetStage('help')"       style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">❓ Help</button>
           <button type="button" data-uw-stage="analyzing"  onclick="uwSetStage('analyzing')"  style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🔍 Analyzing</button>
           <button type="button" data-uw-stage="priority"   onclick="uwSetStage('priority')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">⭐ Priority</button>
-          <button type="button" data-uw-stage="checking"   onclick="uwSetStage('checking')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🕵️ Double-Check</button>
+          <button type="button" data-uw-stage="checking"   onclick="uwSetStage('checking')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🕵️ Check</button>
           <button type="button" data-uw-stage="analyzed"   onclick="uwSetStage('analyzed')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">✅ Analyzed</button>
           <button type="button" data-uw-stage="offered"    onclick="uwSetStage('offered')"    style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">📤 Offered</button>
           <button type="button" data-uw-stage="inspection" onclick="uwSetStage('inspection')" style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection</button>

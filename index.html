@@ -1750,8 +1750,18 @@
 <!-- SECTION: Underwriting -->
 <div id="section-underwriting" class="section-content p-6" style="display:none">
 
-  <!-- Underwriting subtab bar — workflow order: Help → Analyzing → Double-Check → Analyzed -->
-  <div class="flex items-center gap-1 mb-4 panel p-1 w-fit">
+  <!-- Top nav row — TWO disconnected panels on the same horizontal line:
+       1) GIS Maps panel  — opens the GIS Maps subview (separate workflow,
+          not part of the Help → Analyzing → ... pipeline)
+       2) Workflow subtab strip — Help / Analyzing / Priority / Double-Check
+          / Analyzed / Hot / Offered / Inspection / Contracted / Closed -->
+  <div class="flex items-center flex-wrap gap-3 mb-4">
+    <!-- GIS Maps panel — its own pill, visually disconnected from the workflow tabs -->
+    <div class="flex items-center gap-1 panel p-1 w-fit">
+      <div class="subtab" data-uwview="gis-maps" onclick="goUwView('gis-maps'); renderUnderwriteList();" title="GIS Maps — county assessor / GIS portal links you've collected, organized in one place.">🗺 GIS Maps</div>
+    </div>
+    <!-- Workflow subtab bar — workflow order: Help → Analyzing → Double-Check → Analyzed -->
+    <div class="flex items-center gap-1 panel p-1 w-fit">
     <div class="subtab" data-uwview="help" onclick="goUwView('help'); renderUnderwriteList();">❓ Help <span id="uw-help-count" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
     <div class="subtab active" data-uwview="analyzing" onclick="goUwView('analyzing'); renderUnderwriteList();">🔍 Analyzing <span id="uw-analyzing-count" class="badge bad" style="margin-left:4px;font-size:10px;display:none"></span></div>
     <div class="subtab" data-uwview="priority" onclick="goUwView('priority'); renderUnderwriteList();" title="Manually-flagged priority deals — toggle the ⭐ Priority button in the calculator header to add/remove a deal here.">⭐ Priority <span id="uw-priority-count" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
@@ -1762,6 +1772,79 @@
     <div class="subtab" data-uwview="inspection" onclick="goUwView('inspection'); renderUnderwriteList();"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection <span id="uw-inspection-count" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
     <div class="subtab" data-uwview="contracted" onclick="goUwView('contracted'); renderUnderwriteList();">📝 Contracted <span id="uw-contracted-count" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
     <div class="subtab" data-uwview="closed" onclick="goUwView('closed'); renderUnderwriteList();">🏁 Closed <span id="uw-closed-count" class="badge ok" style="margin-left:4px;font-size:10px;display:none"></span></div>
+    </div>
+  </div>
+
+  <!-- GIS Maps subview — collected county assessor / GIS portal links per
+       deal. Hidden by default; goUwView('gis-maps') flips its display. -->
+  <div id="uwview-gis-maps" class="uwview" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div>
+          <div class="font-semibold text-lg">🗺 GIS Maps</div>
+          <div class="text-xs text-[var(--text-dim)]">County assessor / GIS portal links collected from your deals. Click any link to open its parcel in a new tab.</div>
+        </div>
+        <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
+          <button class="btn btn-primary text-sm" onclick="gisMapOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new county GIS / assessor site to your input list.">+ Add Site</button>
+          <select id="gis-maps-source-filter" onchange="renderGisMapsList()" title="Filter by where the GIS link came from. 'From Input' = the master reference table you seeded. 'From Deal' = links saved on individual deals' Property Info." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
+            <option value="input">From Input</option>
+            <option value="deal">From Deal</option>
+            <option value="all">All sources</option>
+          </select>
+          <input id="gis-maps-search" type="text" placeholder="🔍 Search by city or county..." oninput="renderGisMapsList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" title="Filter by city, county, or state. Matches anywhere in the name." />
+          <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('gis-maps-search');if(i){i.value='';renderGisMapsList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
+        </div>
+      </div>
+      <div id="gis-maps-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No GIS map links yet — open a deal and paste a link into the "Assessor Site / GIS Map URL" field on Property Info to start building this list.</div>
+      <div class="overflow-auto" style="max-height:140vh">
+        <table id="gis-maps-table" style="width:100%;border-collapse:collapse">
+          <thead style="position:sticky;top:0;background:var(--panel);z-index:1">
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Location</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:120px">Source</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">GIS Map Link</th>
+              <th style="padding:10px 12px;text-align:right;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:90px">Open</th>
+            </tr>
+          </thead>
+          <tbody id="gis-maps-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add-assessor-site modal — opened by the "+ Add Site" button.
+       Creates a new row in the gis_maps Supabase table with County, City,
+       State, URL, and optional Special Instructions. Larger formatting
+       throughout for easier data entry. -->
+  <div id="gis-add-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
+    <div class="panel" style="max-width:760px;width:100%;padding:32px;box-shadow:0 14px 50px rgba(0,0,0,0.6)">
+      <div class="flex items-center justify-between" style="margin-bottom:18px">
+        <div style="font-weight:700;font-size:24px">🗺 Add Assessor Site</div>
+        <button class="btn btn-ghost" onclick="gisMapCloseAddModal()" style="padding:8px 14px;font-size:16px" title="Close without saving">✕</button>
+      </div>
+      <div style="font-size:14px;color:var(--text-dim);margin-bottom:22px;line-height:1.5">Add a new county GIS / assessor portal URL to your input list. City is optional — leave blank for county-wide references.</div>
+      <div class="grid grid-cols-2 gap-4">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">County
+          <input type="text" id="gis-add-county" placeholder="e.g. Vanderburgh County" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-1" style="font-size:14px;font-weight:600">State
+          <input type="text" id="gis-add-state" placeholder="e.g. IN" maxlength="2" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase;letter-spacing:1px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">City <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <input type="text" id="gis-add-city" placeholder="e.g. Evansville" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">GIS / Assessor URL
+          <input type="url" id="gis-add-url" placeholder="https://..." style="width:100%;margin-top:8px;height:44px;font-size:14px;padding:0 14px;font-family:monospace">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Special Instructions <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <textarea id="gis-add-notes" rows="3" placeholder="e.g. Login required, slow during business hours, etc." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        </label>
+      </div>
+      <div class="flex items-center justify-end gap-3" style="margin-top:28px">
+        <button class="btn btn-ghost" onclick="gisMapCloseAddModal()" style="padding:11px 22px;font-size:15px">Cancel</button>
+        <button class="btn btn-primary" onclick="gisMapSaveNew()" id="gis-add-save-btn" style="padding:11px 26px;font-size:15px;font-weight:600">💾 Save Site</button>
+      </div>
+    </div>
   </div>
 
   <!-- ============ Underwriting: Deal Calculator (per-property detail view) ============ -->
@@ -4469,9 +4552,9 @@ function goUwView(v) {
   // List/workflow views all toggle the subtab bar. The calculator is a
   // per-property detail view (no subtab). 'hot' is a cross-cutting computed
   // view — eligible for active-tab styling and Back-button restoration.
-  if (v === 'analyzing' || v === 'analyzed' || v === 'help' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed') {
+  if (v === 'analyzing' || v === 'analyzed' || v === 'help' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps') {
     document.querySelectorAll('#section-underwriting .subtab').forEach(t => t.classList.toggle('active', t.dataset.uwview === v));
-    if (v === 'analyzing' || v === 'analyzed' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed') _uwLastListView = v;
+    if (v === 'analyzing' || v === 'analyzed' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps') _uwLastListView = v;
   }
   document.querySelectorAll('#section-underwriting .uwview').forEach(el => el.style.display = 'none');
   const target = document.getElementById('uwview-' + v);
@@ -4480,6 +4563,10 @@ function goUwView(v) {
   // user always lands on the property + comp data first.
   if (v === 'calculator' && typeof uwSetFolderSubtab === 'function') {
     uwSetFolderSubtab(_uwFolderSubtab || 'evaluation');
+  }
+  // Refresh the GIS Maps list whenever the user lands on that subtab.
+  if (v === 'gis-maps' && typeof renderGisMapsList === 'function') {
+    renderGisMapsList();
   }
 }
 
@@ -12595,6 +12682,335 @@ function _uwBuildDateFilter(prefix) {
     return t >= minMs && t <= maxMs;
   };
 }
+
+// Lazy-load the gis_maps master reference table from Supabase. Holds the
+// county-level GIS portal URLs that aren't tied to a specific deal (the
+// "Evansville, IN → engage.xsoftinc.com/vanderburgh" master list).
+async function loadGisMaps() {
+  if (cache.gis_maps) return;
+  try {
+    if (typeof fetchAll !== 'function') { cache.gis_maps = {}; return; }
+    const rows = await fetchAll('gis_maps', '*');
+    cache.gis_maps = {};
+    rows.forEach(r => { if (r && r.id) cache.gis_maps[r.id] = r; });
+  } catch (e) {
+    // Table may not exist yet (user hasn't run supabase-gis-maps.sql).
+    // Treat as empty — deal-derived URLs still work.
+    console.warn('loadGisMaps:', e);
+    cache.gis_maps = {};
+  }
+}
+window.loadGisMaps = loadGisMaps;
+
+// Hardcoded city→county supplements for the Tri-state area cities the user
+// is most likely to underwrite in. Used as a FALLBACK when a deal's city
+// isn't already in the gis_maps master table. Format: 'state:city' →
+// 'County Name'. Lowercased for case-insensitive lookup. Extend as needed.
+const _GIS_CITY_COUNTY_FALLBACK = {
+  // Indiana
+  'in:hammond':       'Lake County',
+  'in:east chicago':  'Lake County',
+  'in:merrillville':  'Lake County',
+  'in:crown point':   'Lake County',
+  'in:hobart':        'Lake County',
+  'in:new albany':    'Floyd County',
+  'in:jeffersonville':'Clark County',
+  'in:clarksville':   'Clark County',
+  'in:fort wayne':    'Allen County',
+  'in:bloomington':   'Monroe County',
+  'in:muncie':        'Delaware County',
+  'in:anderson':      'Madison County',
+  'in:elwood':        'Madison County',
+  'in:terre haute':   'Vigo County',
+  'in:fishers':       'Hamilton County',
+  'in:carmel':        'Hamilton County',
+  'in:noblesville':   'Hamilton County',
+  'in:westfield':     'Hamilton County',
+  'in:lawrence':      'Marion County',
+  'in:speedway':      'Marion County',
+  'in:beech grove':   'Marion County',
+  'in:greenwood':     'Johnson County',
+  'in:plainfield':    'Hendricks County',
+  'in:avon':          'Hendricks County',
+  'in:columbus':      'Bartholomew County',
+  'in:kokomo':        'Howard County',
+  'in:elkhart':       'Elkhart County',
+  'in:mishawaka':     'St. Joseph County',
+  // Ohio
+  'oh:columbus':      'Franklin County',
+  'oh:youngstown':    'Mahoning County',
+  'oh:canton':        'Stark County',
+  'oh:mansfield':     'Richland County',
+  'oh:hamilton':      'Butler County',
+  'oh:middletown':    'Butler County',
+  'oh:fairfield':     'Butler County',
+  'oh:mason':         'Warren County',
+  // Kentucky
+  'ky:lexington':     'Fayette County',
+  'ky:owensboro':     'Daviess County',
+  'ky:bowling green': 'Warren County',
+  'ky:covington':     'Kenton County',
+  'ky:henderson':     'Henderson County'
+};
+
+// Build a city→county lookup from BOTH the master gis_maps table and the
+// hardcoded fallback. Returns a Map keyed 'state:city' (lowercased) → county.
+function _gisBuildCountyLookup() {
+  const m = new Map();
+  // Master table first (data the user has explicitly seeded — most authoritative).
+  Object.values(cache.gis_maps || {}).forEach(r => {
+    if (!r || !r.city || !r.state || !r.county) return;
+    const key = r.state.toLowerCase() + ':' + r.city.toLowerCase();
+    if (!m.has(key)) m.set(key, r.county);
+    // "Anderson / Elwood" style multi-city entries → register each individually.
+    r.city.split(/\s*\/\s*/).forEach(c => {
+      const k2 = r.state.toLowerCase() + ':' + c.toLowerCase().trim();
+      if (k2 && !m.has(k2)) m.set(k2, r.county);
+    });
+  });
+  // Hardcoded supplements only fill in cities the master doesn't already cover.
+  Object.entries(_GIS_CITY_COUNTY_FALLBACK).forEach(([k, v]) => {
+    if (!m.has(k)) m.set(k, v);
+  });
+  return m;
+}
+window._gisBuildCountyLookup = _gisBuildCountyLookup;
+
+// ===== Add Assessor Site modal =====
+// Opens the modal, clears any old values, and focuses the County input.
+function gisMapOpenAddModal() {
+  const modal = document.getElementById('gis-add-modal');
+  if (!modal) return;
+  ['gis-add-county', 'gis-add-state', 'gis-add-city', 'gis-add-url', 'gis-add-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  modal.style.display = 'flex';
+  setTimeout(() => {
+    const f = document.getElementById('gis-add-county');
+    if (f) f.focus();
+  }, 50);
+}
+window.gisMapOpenAddModal = gisMapOpenAddModal;
+
+function gisMapCloseAddModal() {
+  const modal = document.getElementById('gis-add-modal');
+  if (modal) modal.style.display = 'none';
+}
+window.gisMapCloseAddModal = gisMapCloseAddModal;
+
+// Save a new gis_maps row to Supabase, refresh the cache, and re-render.
+async function gisMapSaveNew() {
+  const $ = (id) => document.getElementById(id);
+  const county = ($('gis-add-county')?.value || '').trim();
+  const city   = ($('gis-add-city')?.value   || '').trim();
+  const state  = ($('gis-add-state')?.value  || '').trim().toUpperCase();
+  const url    = ($('gis-add-url')?.value    || '').trim();
+  const notes  = ($('gis-add-notes')?.value  || '').trim();
+  // Basic validation: URL is required, plus at least county OR city.
+  if (!url) {
+    if (typeof toast === 'function') toast('GIS / Assessor URL is required.', 'warn');
+    const u = $('gis-add-url'); if (u) u.focus();
+    return;
+  }
+  if (!/^https?:\/\//i.test(url)) {
+    if (typeof toast === 'function') toast('URL must start with http:// or https://', 'warn');
+    const u = $('gis-add-url'); if (u) u.focus();
+    return;
+  }
+  if (!county && !city) {
+    if (typeof toast === 'function') toast('Enter at least a County or a City.', 'warn');
+    const c = $('gis-add-county'); if (c) c.focus();
+    return;
+  }
+  if (state && state.length !== 2) {
+    if (typeof toast === 'function') toast('State must be a 2-letter code (e.g. IN, OH, KY).', 'warn');
+    const s = $('gis-add-state'); if (s) s.focus();
+    return;
+  }
+  const btn = $('gis-add-save-btn');
+  let prevLabel = '';
+  if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const payload = { county, city, state, url, special_instructions: notes };
+    const { data, error } = await sb.from('gis_maps').insert(payload).select().single();
+    if (error) throw error;
+    // Push the new row into the cache so the table reflects it immediately
+    // without a full re-fetch.
+    cache.gis_maps = cache.gis_maps || {};
+    if (data && data.id) cache.gis_maps[data.id] = data;
+    if (typeof toast === 'function') toast('Added ' + (county || city) + (state ? ', ' + state : ''), 'ok');
+    gisMapCloseAddModal();
+    if (typeof renderGisMapsList === 'function') renderGisMapsList();
+  } catch (e) {
+    console.warn('gisMapSaveNew:', e);
+    if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prevLabel || '💾 Save Site'; }
+  }
+}
+window.gisMapSaveNew = gisMapSaveNew;
+
+// Render the GIS Maps subview — merges two sources:
+//   1) Master gis_maps table (county-level reference URLs)
+//   2) Deal-level uw-assessor-url fields
+// For deals, the deal's county is auto-filled via _gisBuildCountyLookup
+// (master table + hardcoded supplements). Final dedup key is
+// (county+state+url) when county is known, else (city+state+url) — so
+// multiple cities in the same county collapse into a single row with all
+// the cities listed.
+function renderGisMapsList() {
+  if (!cache.underwrites || !cache.gis_maps) {
+    Promise.all([
+      cache.underwrites ? Promise.resolve() : (typeof loadUnderwrites === 'function' ? loadUnderwrites() : Promise.resolve()),
+      cache.gis_maps    ? Promise.resolve() : loadGisMaps()
+    ]).then(() => renderGisMapsList());
+    return;
+  }
+  const tbody = document.getElementById('gis-maps-tbody');
+  const empty = document.getElementById('gis-maps-empty');
+  const tableEl = document.getElementById('gis-maps-table');
+  if (!tbody) return;
+  const countyLookup = _gisBuildCountyLookup();
+  // Helper: lookup county for a (city, state) pair via the merged lookup.
+  const lookupCounty = (city, state) => {
+    if (!city || !state) return '';
+    return countyLookup.get(state.toLowerCase() + ':' + city.toLowerCase()) || '';
+  };
+  // ----- Source A: master gis_maps table (the user's seeded "input" list) -----
+  const masterRows = Object.values(cache.gis_maps || {})
+    .filter(r => r && typeof r.url === 'string' && r.url.trim())
+    .map(r => ({
+      source: 'input',  // master list = "from input"
+      county: (r.county || '').trim(),
+      city:   (r.city   || '').trim(),
+      state:  (r.state  || '').trim(),
+      url:    r.url.trim(),
+      addr:   ''
+    }));
+  // ----- Source B: deal-derived uw-assessor-url -----
+  const dealRows = Object.values(cache.underwrites || {})
+    .filter(u => u && u.data && typeof u.data['uw-assessor-url'] === 'string' && u.data['uw-assessor-url'].trim())
+    .map(u => {
+      const city  = (u.data['uw-city']  || '').trim();
+      const state = (u.data['uw-state'] || '').trim();
+      return {
+        source: 'deal',
+        county: lookupCounty(city, state),  // ← auto-filled from city/state
+        city,
+        state,
+        url:  u.data['uw-assessor-url'].trim(),
+        addr: (u.data['uw-address'] || u.address || '').trim() || '(no address)',
+        id:   u.id
+      };
+    })
+    .sort((a, b) => a.addr.localeCompare(b.addr));
+  // ----- Group + dedup -----
+  // Key = (county+state+url) when county is known, else (city+state+url).
+  // Each group accumulates a unique set of cities + the source(s) that
+  // contributed. Master sources win for badge precedence.
+  const groups = new Map();
+  const allRows = [...masterRows, ...dealRows];
+  for (const r of allRows) {
+    const key = r.county
+      ? ('c:' + r.county.toLowerCase() + '|' + (r.state || '').toLowerCase() + '|' + r.url.toLowerCase())
+      : ('x:' + (r.city || '').toLowerCase() + '|' + (r.state || '').toLowerCase() + '|' + r.url.toLowerCase());
+    if (!groups.has(key)) {
+      groups.set(key, {
+        county: r.county,
+        state:  r.state,
+        url:    r.url,
+        cities: new Set(),
+        sources: new Set(),
+        dealAddrs: []
+      });
+    }
+    const g = groups.get(key);
+    if (r.city) g.cities.add(r.city);
+    g.sources.add(r.source);
+    if (r.source === 'deal' && r.addr) g.dealAddrs.push(r.addr);
+  }
+  let rows = Array.from(groups.values()).sort((a, b) => {
+    const sa = (a.state || '').toLowerCase(),  sb = (b.state || '').toLowerCase();
+    if (sa !== sb) return sa.localeCompare(sb);
+    const ca = (a.county || '').toLowerCase(), cb = (b.county || '').toLowerCase();
+    if (ca !== cb) return ca.localeCompare(cb);
+    const firstCityA = Array.from(a.cities).sort()[0] || '';
+    const firstCityB = Array.from(b.cities).sort()[0] || '';
+    return firstCityA.toLowerCase().localeCompare(firstCityB.toLowerCase());
+  });
+  // Apply the source-filter dropdown.
+  //   'input' (default) → only rows that include a master-table source
+  //   'deal'            → only rows that include a deal-derived source
+  //   'all'             → no source filtering
+  const sourceEl = document.getElementById('gis-maps-source-filter');
+  const sourceFilter = sourceEl ? (sourceEl.value || 'input') : 'input';
+  if (sourceFilter === 'input') rows = rows.filter(g => g.sources.has('input'));
+  else if (sourceFilter === 'deal') rows = rows.filter(g => g.sources.has('deal'));
+  // Apply the search-box filter, if any. Matches across county, state, and
+  // every city in the row's city set — case-insensitive substring match.
+  const searchEl = document.getElementById('gis-maps-search');
+  const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
+  if (q) {
+    rows = rows.filter(g => {
+      if ((g.county || '').toLowerCase().includes(q)) return true;
+      if ((g.state  || '').toLowerCase().includes(q)) return true;
+      for (const city of g.cities) if (city.toLowerCase().includes(q)) return true;
+      return false;
+    });
+  }
+  if (rows.length === 0) {
+    if (empty) {
+      empty.style.display = '';
+      empty.textContent = q
+        ? 'No GIS maps match "' + q + '". Try a shorter or different search.'
+        : 'No GIS map links yet — open a deal and paste a link into the "Assessor Site / GIS Map URL" field on Property Info to start building this list.';
+    }
+    if (tableEl) tableEl.style.display = 'none';
+    tbody.innerHTML = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  if (tableEl) tableEl.style.display = '';
+  const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  tbody.innerHTML = rows.map(g => {
+    // Header cell: County, State (or just State if no county). Cities listed
+    // beneath in muted text — " · " separated.
+    const headline = g.county
+      ? `${esc(g.county)}${g.state ? ', ' + esc(g.state) : ''}`
+      : (g.state ? esc(g.state) : '—');
+    const cityList = Array.from(g.cities).sort().join(' · ');
+    const cityLine = cityList
+      ? `<div style="color:var(--text-dim);font-size:11px;margin-top:2px">${esc(cityList)}</div>`
+      : (g.county ? '' : '<div style="color:var(--text-dim);font-size:11px;margin-top:2px;font-style:italic">No city on file</div>');
+    // Source badge — pure input, pure deal, or mixed.
+    const isInput = g.sources.has('input');
+    const isDeal  = g.sources.has('deal');
+    const badgeText = isInput && isDeal ? 'input + deal' : (isInput ? 'from input' : 'from deal');
+    const badgeColor = isInput ? '#10b981' : '#a5b4fc';
+    const badgeTitle = isDeal && g.dealAddrs.length
+      ? 'From deals: ' + g.dealAddrs.join(', ')
+      : (isInput ? 'From the GIS Maps input reference table' : '');
+    return `
+      <tr style="border-bottom:1px solid var(--border);cursor:default">
+        <td style="padding:10px 12px;font-size:13px;vertical-align:top">
+          <div style="font-weight:600">${headline}</div>
+          ${cityLine}
+        </td>
+        <td style="padding:10px 12px;vertical-align:top">
+          <span style="color:${badgeColor};font-size:10px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="${esc(badgeTitle)}">${badgeText}</span>
+        </td>
+        <td style="padding:10px 12px;vertical-align:top">
+          <a href="${esc(g.url)}" target="_blank" rel="noopener" style="color:var(--text-dim);font-size:12px;font-family:monospace;text-decoration:none;display:inline-block;max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle" title="${esc(g.url)}">${esc(g.url)}</a>
+        </td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:right">
+          <a href="${esc(g.url)}" target="_blank" rel="noopener" class="btn btn-ghost text-xs" style="padding:5px 12px;white-space:nowrap" title="Open the GIS map in a new tab">🌐 Open</a>
+        </td>
+      </tr>`;
+  }).join('');
+}
+window.renderGisMapsList = renderGisMapsList;
 
 function renderUnderwriteList() {
   // Lazy-load on first visit to either list view

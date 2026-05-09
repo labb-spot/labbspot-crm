@@ -228,6 +228,59 @@
   .stat-label { font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
   .stat-value { font-size:22px; font-weight:600; }
   .alert-warn { background:rgba(245,158,11,0.10); border:1px solid rgba(245,158,11,0.4); border-left:4px solid var(--warn); padding:10px 14px; border-radius:8px; color:#fcd34d; font-size:13px; }
+  /* Lock column widths on every Underwriting list table so re-renders (sorting,
+     filtering, pagination) don't reflow widths based on visible content. Targets
+     any <table> whose <tbody> has an id matching uw-*-tbody. */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) { table-layout: fixed; width: 100%; }
+  /* Column widths totaling 100% — locked so sort/filter/page never reflows them */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(1),
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(1)  { width: 15%; } /* Address */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(2),
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(2)  { width: 8%; }  /* Status (room for "Accepted" / "Evaluating" / "Inspection" badges) */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(3),
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(3)  { width: 5%; }  /* Rent */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(4),
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(4)  { width: 6%; }  /* ARV */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(5),
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(5)  { width: 6%; }  /* Asking */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(6),
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(6)  { width: 7%; }  /* Max Offer */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(7),
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(7)  { width: 6%; }  /* Accepted */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(8),
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(8)  { width: 8%; }  /* Best Exit */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(9),
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(9)  { width: 7%; }  /* Best Profit */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(10),
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(10) { width: 9%; }  /* Imported (extra room for ↑/↓ arrow) */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(11),
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(11) { width: 7%; }  /* Last Edit */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(12),
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(12) { width: 16%; } /* Actions (badge + Open + Trash, compact buttons) */
+  /* Long content (addresses, exit names) gets ellipsized inside its locked-width cell */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Actions column — simple right-aligned content. The badge sits to the left
+     of Open, both stay inside the cell. */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(12) {
+    text-align: right;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  /* Compact action buttons — override the default .btn padding so 3 elements
+     (badge + Open + Trash) fit inside a narrow column width. */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(12) .btn {
+    padding: 3px 8px !important;
+    font-size: 11px !important;
+    margin-right: 4px !important;
+  }
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(12) .badge {
+    padding: 3px 6px !important;
+    font-size: 10px !important;
+    margin-right: 4px !important;
+  }
+  /* Header row stays on a SINGLE line. No overflow:hidden so the sort arrow on
+     "Imported" never gets clipped — short header text never overflows anyway. */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th { white-space: nowrap; }
 </style>
 </head>
 <body class="min-h-screen">
@@ -1811,6 +1864,7 @@
     </div>
     <!-- Workflow subtab bar — workflow order: Help → Analyzing → Check → Analyzed -->
     <div class="flex items-center gap-1 panel p-1" style="flex-shrink:1;min-width:0;width:fit-content;font-size:13px">
+    <div class="subtab subtab-compact" data-uwview="all" onclick="goUwView('all'); renderUnderwriteList();" title="All deals across every workflow stage — searchable.">📋 All <span id="uw-all-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
     <div class="subtab subtab-compact" data-uwview="help" onclick="goUwView('help'); renderUnderwriteList();">❓ Help <span id="uw-help-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
     <div class="subtab subtab-compact active" data-uwview="analyzing" onclick="goUwView('analyzing'); renderUnderwriteList();">🔍 Analyzing <span id="uw-analyzing-count" class="badge bad" style="margin-left:3px;font-size:9px;display:none"></span></div>
     <div class="subtab subtab-compact" data-uwview="priority" onclick="goUwView('priority'); renderUnderwriteList();" title="Manually-flagged priority deals — toggle the ⭐ Priority button in the calculator header to add/remove a deal here.">⭐ Priority <span id="uw-priority-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
@@ -3508,6 +3562,65 @@
     </div>
   </div><!-- /uwview-checking -->
 
+  <!-- ============ Underwriting: All subview ============
+       Cross-cutting search view — every deal across every workflow stage.
+       Useful for finding a property by address without remembering which
+       stage it lives in. ============ -->
+  <div id="uwview-all" class="uwview" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+        <div>
+          <div class="font-semibold text-lg">📋 All Deals — Search Everything</div>
+          <div class="text-sm text-[var(--text-dim)]">Every deal across every workflow stage in one searchable list. Click any row to open the property.</div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <select id="uw-all-source-filter" onchange="renderUnderwriteList()" style="width:130px" title="Filter by where the deal came from">
+            <option value="">All sources</option>
+            <option value="ghl_webhook">📥 Submission</option>
+            <option value="motivated_lead">📞 Result</option>
+            <option value="manual">✏️ Manual</option>
+          </select>
+          <select id="uw-all-date-filter" onchange="_uwToggleCustomDates('all'); renderUnderwriteList()" style="width:120px" title="Filter deals by import date">
+            <option value="">All time</option>
+            <option value="today">Imported today</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">Last year</option>
+            <option value="custom">Custom range…</option>
+          </select>
+          <input id="uw-all-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none">
+          <input id="uw-all-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none">
+          <input id="uw-all-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+        </div>
+      </div>
+      <div id="uw-all-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
+        No deals yet. Add one in the Analyzing tab.
+      </div>
+      <div class="overflow-auto" style="max-height:600px">
+        <table style="width:100%;font-size:13px">
+          <thead>
+            <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
+              <th style="padding:8px 10px;text-align:left">Address</th>
+              <th style="padding:8px 10px;text-align:left">Status</th>
+              <th style="padding:8px 10px;text-align:right">Rent</th>
+              <th style="padding:8px 10px;text-align:right">ARV</th>
+              <th style="padding:8px 10px;text-align:right">Asking</th>
+              <th style="padding:8px 10px;text-align:right">Max Offer</th>
+              <th style="padding:8px 10px;text-align:right">Accepted</th>
+              <th style="padding:8px 10px;text-align:left">Best Exit</th>
+              <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th id="uw-th-all-imp" style="padding:8px 10px;text-align:left;cursor:pointer;user-select:none" onclick="_uwToggleImpSort('all')" title="Click to sort by import date">Imported</th>
+              <th style="padding:8px 10px;text-align:left">Last Edit</th>
+              <th style="padding:8px 10px;text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="uw-all-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /uwview-all -->
+
   <!-- ============ Underwriting: Help subview ============
        Properties an employee has flagged with "🆘 Needs Help" — same table
        layout as Analyzing/Analyzed so reviewers can scan + click any row to
@@ -4720,9 +4833,9 @@ function goUwView(v) {
   // List/workflow views all toggle the subtab bar. The calculator is a
   // per-property detail view (no subtab). 'hot' is a cross-cutting computed
   // view — eligible for active-tab styling and Back-button restoration.
-  if (v === 'analyzing' || v === 'analyzed' || v === 'help' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps') {
+  if (v === 'all' || v === 'analyzing' || v === 'analyzed' || v === 'help' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps') {
     document.querySelectorAll('#section-underwriting .subtab').forEach(t => t.classList.toggle('active', t.dataset.uwview === v));
-    if (v === 'analyzing' || v === 'analyzed' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps') _uwLastListView = v;
+    if (v === 'all' || v === 'analyzing' || v === 'analyzed' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps') _uwLastListView = v;
   }
   document.querySelectorAll('#section-underwriting .uwview').forEach(el => el.style.display = 'none');
   const target = document.getElementById('uwview-' + v);
@@ -12488,7 +12601,7 @@ function _uwRenderPageNav(prefix, paged) {
 // Click the column header to cycle: desc → asc → off → desc.
 // Default is 'desc' (newest imported first) on every list — that's the
 // most useful starting view, especially right after a bulk import.
-const _uwImpSort = { analyzing: 'desc', priority: 'desc', checking: 'desc', analyzed: 'desc', help: 'desc', hot: 'desc', offered: 'desc', inspection: 'desc', contracted: 'desc', closed: 'desc' };
+const _uwImpSort = { all: 'desc', analyzing: 'desc', priority: 'desc', checking: 'desc', analyzed: 'desc', help: 'desc', hot: 'desc', offered: 'desc', inspection: 'desc', contracted: 'desc', closed: 'desc' };
 function _uwToggleImpSort(prefix) {
   const cur = _uwImpSort[prefix] || 'off';
   _uwImpSort[prefix] = cur === 'off' ? 'desc' : cur === 'desc' ? 'asc' : 'off';
@@ -12918,7 +13031,7 @@ function renderUnderwriteList() {
   // Lazy-load on first visit to either list view
   if (!cache.underwrites) {
     loadUnderwrites().then(() => renderUnderwriteList());
-    ['uw-analyzing-tbody', 'uw-priority-tbody', 'uw-analyzed-tbody', 'uw-help-tbody', 'uw-checking-tbody', 'uw-hot-tbody', 'uw-offered-tbody', 'uw-contracted-tbody', 'uw-closed-tbody'].forEach(id => {
+    ['uw-all-tbody', 'uw-analyzing-tbody', 'uw-priority-tbody', 'uw-analyzed-tbody', 'uw-help-tbody', 'uw-checking-tbody', 'uw-hot-tbody', 'uw-offered-tbody', 'uw-contracted-tbody', 'uw-closed-tbody'].forEach(id => {
       const tb = document.getElementById(id);
       if (tb) tb.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-[var(--text-dim)]"><span class="loader"></span> Loading deals…</td></tr>';
     });
@@ -13141,30 +13254,29 @@ function renderUnderwriteList() {
       })()}</td>
       <td style="padding:8px 10px;text-align:left">${fmtImported(u.created_at)}</td>
       <td style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text-dim)">${date}</td>
-      <td style="padding:8px 10px;text-align:right;white-space:nowrap" onclick="event.stopPropagation()">
-        ${(function(){
-          // Closed-only routing UI. Flow: Closed → Renovation → Holdings.
-          // From Closed you can ONLY send a property to Renovation. Holdings
-          // is reached by promoting a property from inside the Renovation tab.
-          if ((u.packet_status || '').trim() !== 'Closed') return '';
-          const hs = (u.data && u.data._holdingStatus) || null;
-          if (hs === 'holding') {
-            return `<span class="badge ok" style="margin-right:8px;padding:5px 9px;font-size:11px" title="To remove, open the Holdings tab and click ✕ Remove on this row.">✓ In Holdings</span>`;
-          }
-          if (hs === 'renovation') {
-            return `<span class="badge warn" style="margin-right:8px;padding:5px 9px;font-size:11px" title="To remove, open the Renovation tab and click ✕ Remove on this row.">✓ In Renovation</span>`;
-          }
-          // Not yet routed — only "+ Renovation" is allowed from Closed.
-          return `<button class="btn text-xs" style="background:#f97316;color:white;border:1px solid #f97316;margin-right:8px" onclick="uwSetHoldingStatus('${u.id}', 'renovation')" title="Send this property to the Renovation tab. Promote to Holdings from there once renovation is complete.">+ Renovation</button>`;
-        })()}
-        <button class="btn btn-ghost text-xs" onclick="_hrOpenDeal('${u.id}')" title="Open this deal in the Deal Calculator">📂 Open</button>
-        <button class="btn btn-ghost text-xs" style="color:#f87171" onclick="uwDelete('${u.id}')" title="Delete">🗑</button>
+      <td style="padding:8px 10px;white-space:nowrap" onclick="event.stopPropagation()">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%">
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:right">${(function(){
+            // Closed-only routing UI. Flow: Closed → Renovation → Holdings.
+            if ((u.packet_status || '').trim() !== 'Closed') return '';
+            const hs = (u.data && u.data._holdingStatus) || null;
+            if (hs === 'holding') {
+              return `<span class="badge ok" style="padding:3px 6px;font-size:10px" title="In Holdings — to remove, open the Holdings tab and click ✕ Remove on this row.">✓ Holdings</span>`;
+            }
+            if (hs === 'renovation') {
+              return `<span class="badge warn" style="padding:3px 6px;font-size:10px" title="In Renovation — to remove, open the Renovation tab and click ✕ Remove on this row.">✓ Renovation</span>`;
+            }
+            return `<button class="btn text-xs" style="background:#f97316;color:white;border:1px solid #f97316;padding:3px 8px;font-size:11px" onclick="uwSetHoldingStatus('${u.id}', 'renovation')" title="Send this property to the Renovation tab.">+ Reno</button>`;
+          })()}</span>
+          <button class="btn btn-ghost text-xs" style="flex-shrink:0;padding:3px 8px;font-size:11px" onclick="_hrOpenDeal('${u.id}')" title="Open this deal in the Deal Calculator">📂 Open</button>
+          <button class="btn btn-ghost text-xs" style="flex-shrink:0;padding:3px 8px;font-size:11px;color:#f87171" onclick="uwDelete('${u.id}')" title="Delete">🗑</button>
+        </div>
       </td>
     </tr>`;
   };
 
   // Refresh sort-arrow indicators on every render
-  ['analyzing', 'priority', 'analyzed', 'checking', 'help', 'hot', 'offered', 'inspection', 'contracted', 'closed'].forEach(_uwUpdateImpSortHeader);
+  ['all', 'analyzing', 'priority', 'analyzed', 'checking', 'help', 'hot', 'offered', 'inspection', 'contracted', 'closed'].forEach(_uwUpdateImpSortHeader);
 
   // Render Analyzing
   const aTbody = document.getElementById('uw-analyzing-tbody');
@@ -13374,6 +13486,37 @@ function renderUnderwriteList() {
       const clPaged = _uwPaginate('closed', clFiltered);
       clTbody.innerHTML = clPaged.rows.map(renderRow).join('');
       _uwRenderPageNav('closed', clPaged);
+    }
+  }
+
+  // Render All (every deal — search across every workflow stage)
+  const allTbody = document.getElementById('uw-all-tbody');
+  const allEmpty = document.getElementById('uw-all-empty');
+  if (allTbody) {
+    const allSearch = (document.getElementById('uw-all-search')?.value || '').toLowerCase().trim();
+    const allDateOk = _uwBuildDateFilter('all');
+    const allSrcOk  = _uwBuildSourceFilter('all');
+    const allFiltered = _uwApplyImpSort(all.filter(u => {
+      if (!allDateOk(u)) return false;
+      if (!allSrcOk(u)) return false;
+      if (allSearch && !((u.address || '').toLowerCase().includes(allSearch) ||
+                         (u.city || '').toLowerCase().includes(allSearch))) return false;
+      return true;
+    }), 'all');
+    if (!allFiltered.length) {
+      allTbody.innerHTML = '';
+      if (allEmpty) allEmpty.style.display = '';
+      _uwRenderPageNav('all', { rows: [], page: 1, totalPages: 1, total: 0, start: 0, end: 0 });
+    } else {
+      if (allEmpty) allEmpty.style.display = 'none';
+      const allPaged = _uwPaginate('all', allFiltered);
+      allTbody.innerHTML = allPaged.rows.map(renderRow).join('');
+      _uwRenderPageNav('all', allPaged);
+    }
+    const allCount = document.getElementById('uw-all-count');
+    if (allCount) {
+      allCount.textContent = all.length.toLocaleString();
+      allCount.style.display = all.length ? '' : 'none';
     }
   }
 

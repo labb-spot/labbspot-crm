@@ -25005,6 +25005,7 @@ const items = {
     {n:'Fascia', u:'$/SF', r:1.55, mp:0.35, lp:0.65, hr:55, on:true},
     {n:'Siding', u:'$/SF', r:4.05, mp:0.40, lp:0.60, hr:55, on:false},
     {n:'Windows', u:'$/SF', r:3.55, mp:0.60, lp:0.40, hr:60, on:false},
+    {n:'Window Casing', u:'$/SF', r:0.65, mp:0.55, lp:0.45, hr:55, on:false},
     {n:'Exterior Doors', u:'flat', r:1700, mp:0.65, lp:0.35, hr:60, on:false}
   ],
   mech: [
@@ -25012,6 +25013,7 @@ const items = {
     {n:'Panel Upgrade (200A)', u:'flat', r:2100, mp:0.35, lp:0.65, hr:95, on:false},
     {n:'Supply Lines', u:'$/SF', r:1.9, mp:0.30, lp:0.70, hr:95, on:false},
     {n:'Drain Lines', u:'$/SF', r:4.4, mp:0.30, lp:0.70, hr:95, on:false},
+    {n:'Plumbing Vent Stack', u:'flat', r:900, mp:0.45, lp:0.55, hr:75, on:false},
     {n:'Water Heater', u:'flat', r:1700, mp:0.60, lp:0.40, hr:95, on:false},
     {n:'Tankless Water Heater', u:'flat', r:3000, mp:0.65, lp:0.35, hr:95, on:false},
     {n:'Furnace', u:'$/SF', r:2.6, mp:0.65, lp:0.35, hr:95, on:true},
@@ -25070,7 +25072,8 @@ const items = {
     {n:'Demolition', u:'$/SF', r:1.75, mp:0.15, lp:0.85, hr:45, on:true},
     {n:'Permits', u:'flat', r:1300, mp:1.00, lp:0.00, hr:0, on:true},
     {n:'Dumpsters', u:'$/SF', r:0.9, mp:1.00, lp:0.00, hr:0, on:true},
-    {n:'Odor Remediation', u:'flat', r:1800, mp:0.40, lp:0.60, hr:55, on:false}
+    {n:'Odor Remediation', u:'flat', r:1800, mp:0.40, lp:0.60, hr:55, on:false},
+    {n:'Deck Removal', u:'flat', r:2000, mp:0.10, lp:0.90, hr:45, on:false}
   ],
   additions: [
     {n:'Garage Add (24x24)', u:'flat', r:25500, mp:0.50, lp:0.50, hr:60, on:false},
@@ -25159,9 +25162,9 @@ const basicGroups = [
   {col:1, n:'Flooring, Trim, Paint, & Fixtures', icon:'🪵', items:['Flooring (LVP/laminate)','Trim & Molding','Stairs/Railings','Paint','Plumbing Fixtures','Electrical Fixtures','Lighting','Smoke/CO Detectors (hardwired)'], auto:['Flooring (LVP/laminate)','Trim & Molding','Paint','Plumbing Fixtures','Electrical Fixtures','Lighting','Smoke/CO Detectors (hardwired)'], note:'Final finish-out — flooring, trim, paint, then fixtures (faucets, outlets, switches, plates), lighting, and hardwired smoke/CO detectors. Stairs/Railings only if home has stairs.'},
   {col:2, n:'Update Heating, Cooling, & Ventilation', icon:'❄️', items:['Furnace','AC Condenser','Ductwork','Heat Pump','Mini-Split System','Smart Thermostat'], auto:['Furnace','AC Condenser','Ductwork','Smart Thermostat'], note:'Heat Pump replaces Furnace + AC Condenser. Mini-Split is for additions or no-duct homes. Don\'t double up.'},
   {col:2, n:'Update Electrical',       icon:'⚡', items:['Electrical Wiring','Panel Upgrade (200A)']},
-  {col:2, n:'Update Plumbing',         icon:'🚰', items:['Supply Lines','Drain Lines','Water Heater','Tankless Water Heater','Water Softener / Filter','Septic Tank','Leach Field','Well Drilling','Sewer Line (replace)','Sump Pump','French Drain'], auto:['Supply Lines','Water Heater'], note:'Pipes, lines, water heater, and water management. Tankless replaces standard Water Heater (don\'t double up). Septic Tank + Leach Field together = full septic system.'},
-  {col:2, n:'Update Exterior',         icon:'🏠', items:['Roof','Gutters','Soffit','Fascia','Siding','Windows','Exterior Doors'], note:'Full exterior envelope — roof, siding, windows, doors, trim. Replace any/all together.'},
-  {col:3, n:'Demo & Cleanup',          icon:'🧹', items:['Trash Clean-Out','Demolition','Permits','Dumpsters','Odor Remediation'], auto:['Trash Clean-Out','Demolition','Permits','Dumpsters']},
+  {col:2, n:'Update Plumbing',         icon:'🚰', items:['Supply Lines','Drain Lines','Plumbing Vent Stack','Water Heater','Tankless Water Heater','Water Softener / Filter','Septic Tank','Leach Field','Well Drilling','Sewer Line (replace)','Sump Pump','French Drain'], auto:['Supply Lines','Water Heater'], note:'Pipes, lines, vent stack, water heater, and water management. Tankless replaces standard Water Heater (don\'t double up). Septic Tank + Leach Field together = full septic system.'},
+  {col:2, n:'Update Exterior',         icon:'🏠', items:['Roof','Gutters','Soffit','Fascia','Siding','Windows','Window Casing','Exterior Doors'], note:'Full exterior envelope — roof, siding, windows, casing, doors, trim. Replace any/all together.'},
+  {col:3, n:'Demo & Cleanup',          icon:'🧹', items:['Trash Clean-Out','Demolition','Permits','Dumpsters','Odor Remediation','Deck Removal'], auto:['Trash Clean-Out','Demolition','Permits','Dumpsters']},
   {col:3, n:'Curb Appeal',             icon:'🌿', items:['Landscaping','Driveway','Fence','Porch/Patio','Garage Door','Garage Door Opener','Outdoor Lighting','Tree Removal'], auto:['Landscaping','Outdoor Lighting']},
   {col:3, n:'Foundation Repair',       icon:'🏗️', items:['Foundation Wall Repair','Foundation Waterproofing','Foundation Piers/Underpinning','Re-Pointing Mortar','Load-Bearing Wall Removal','Carbon Fiber Straps','Steel I-Beam Wall Bracing','Wall Anchors / Helical Tiebacks','Steel Beam / Lally Column','Joist Sistering','Sill Plate Replacement','Crawl Space Encapsulation','Subfloor','Floor Leveling','Egress Windows (basement)','Chimney Repair','Chimney Removal'], auto:['Foundation Piers/Underpinning','Subfloor','Floor Leveling'], note:'Includes piers, tuck-pointing, carbon fiber + steel beam bracing, wall anchors, lally columns, sill plate, crawl space, joist sistering, subfloor, floor leveling, egress windows, chimney work.'},
   {col:3, n:'Additions',               icon:'➕', items:['Garage Add (24x24)','Room Add (12x16)','Basement Finish (1000sf)','Attic Conversion','Pop-Top (2nd story)','ADU (600 sqft)','Radon Mitigation','EV Charger','Generator + Transfer'], note:'Expand square footage + premium add-ons (radon, EV charger, generator). Major projects — usually only one structural at a time.'}
@@ -25240,6 +25243,183 @@ function resetLabRates(){
   try{ localStorage.removeItem(LAB_STORAGE_KEY); }catch(e){}
   recalc();
 }
+// ===== USER-ADDED CUSTOM ITEMS =====
+// Items the user creates in Edit Mode. Stored separately from rate-edits so
+// they survive code updates (built-in items + features can change without
+// touching the user's saved customizations).
+const USER_ITEMS_KEY = 'rehab-user-items-v1';
+const USER_GROUPS_KEY = 'rehab-user-groups-v1';
+function _rcLoadUserItems(){
+  try{
+    const stored = JSON.parse(localStorage.getItem(USER_ITEMS_KEY) || '{}');
+    Object.keys(stored).forEach(cat => {
+      if(!items[cat]) items[cat] = [];
+      (stored[cat] || []).forEach(savedIt => {
+        // Avoid duplicate insertion if hot-reloaded
+        if(!items[cat].some(x => x.n === savedIt.n && x._user === true)){
+          items[cat].push(Object.assign({}, savedIt, {_user: true, on: false}));
+        }
+      });
+    });
+  }catch(e){ console.warn('[_rcLoadUserItems]', e); }
+}
+function _rcLoadUserGroups(){
+  try{
+    const stored = JSON.parse(localStorage.getItem(USER_GROUPS_KEY) || '{}');
+    Object.keys(stored).forEach(groupName => {
+      const g = basicGroups.find(bg => bg.n === groupName);
+      if(!g) return;
+      (stored[groupName] || []).forEach(itemName => {
+        if(!g.items.includes(itemName)) g.items.push(itemName);
+      });
+    });
+  }catch(e){ console.warn('[_rcLoadUserGroups]', e); }
+}
+function _rcSaveUserItems(){
+  const out = {};
+  Object.keys(items).forEach(cat => {
+    items[cat].filter(it => it._user === true).forEach(it => {
+      if(!out[cat]) out[cat] = [];
+      out[cat].push({n:it.n, u:it.u, r:it.r, mp:it.mp, lp:it.lp, hr:it.hr});
+    });
+  });
+  try{ localStorage.setItem(USER_ITEMS_KEY, JSON.stringify(out)); }catch(e){}
+}
+function _rcSaveUserGroups(){
+  // Save which extra item names live in each basic group beyond the built-ins.
+  // We diff against the original basicGroups defaults captured on first load.
+  const out = {};
+  basicGroups.forEach(g => {
+    const orig = (g._origItems || g.items);
+    const userExtras = g.items.filter(name => !orig.includes(name));
+    if(userExtras.length) out[g.n] = userExtras;
+  });
+  try{ localStorage.setItem(USER_GROUPS_KEY, JSON.stringify(out)); }catch(e){}
+}
+// Snapshot the original built-in items list per basic group on first run,
+// so we can detect user-added items even after merging from localStorage.
+function _rcSnapshotGroupOrigItems(){
+  basicGroups.forEach(g => {
+    if(!g._origItems) g._origItems = g.items.slice();
+  });
+}
+// Inferred default category for each basic group, so a "+ Add Item" knows
+// where to place the new item in items{}.
+const _rcGroupCat = {
+  'Update Kitchen': 'kitchen',
+  'Update Bathrooms': 'bath',
+  'Insulation, Drywall, & Interior Doors': 'interior',
+  'Flooring, Trim, Paint, & Fixtures': 'interior',
+  'Update Heating, Cooling, & Ventilation': 'mech',
+  'Update Electrical': 'mech',
+  'Update Plumbing': 'mech',
+  'Update Exterior': 'exterior',
+  'Demo & Cleanup': 'demo',
+  'Curb Appeal': 'site',
+  'Foundation Repair': 'structural',
+  'Additions': 'additions',
+};
+window._rcAddCustomItem = function(groupIdx){
+  const g = basicGroups[groupIdx];
+  if(!g) return;
+  const cat = _rcGroupCat[g.n] || 'demo';
+  const name = (prompt('Item name (e.g. "Skylight Replacement", "Pool Removal"):') || '').trim();
+  if(!name) return;
+  if(items[cat] && items[cat].some(it => it.n === name)){
+    alert('An item named "'+name+'" already exists in this category. Pick a different name.');
+    return;
+  }
+  const unit = (prompt('Unit — type SF for $/SqFt or FLAT for a flat fee:', 'FLAT') || '').trim().toUpperCase();
+  const u = unit === 'SF' ? '$/SF' : 'flat';
+  const rateRaw = prompt('Rate ('+(u==='$/SF' ? '$ per SqFt, e.g. 3.50' : 'total $ for the job, e.g. 1500')+'):', u==='$/SF' ? '3.00' : '1000');
+  const r = parseFloat(String(rateRaw||'').replace(/[^\d.]/g,''));
+  if(!isFinite(r) || r <= 0){ alert('Invalid rate. Item not added.'); return; }
+  const matPctRaw = prompt('Material % (0-100, the rest goes to labor):', '50');
+  const matPct = Math.max(0, Math.min(100, parseFloat(matPctRaw)||50));
+  const mp = matPct/100, lp = 1 - mp;
+  const hrRaw = prompt('Labor productivity ($ of labor per hour, e.g. 75 means $75/hr crew rate). Lower = more hours per dollar:', '75');
+  const hr = Math.max(1, parseFloat(hrRaw)||75);
+  // Insert into items{cat} and the basic group's items list
+  if(!items[cat]) items[cat] = [];
+  items[cat].push({n:name, u, r, mp, lp, hr, on:false, _user:true, _origR:r});
+  if(!g.items.includes(name)) g.items.push(name);
+  _rcSaveUserItems();
+  _rcSaveUserGroups();
+  recalc();
+};
+window._rcDeleteCustomItem = function(itemName){
+  // Find which category this item lives in
+  let removedCat = null;
+  Object.keys(items).forEach(cat => {
+    const idx = items[cat].findIndex(it => it.n === itemName && it._user === true);
+    if(idx >= 0){ items[cat].splice(idx, 1); removedCat = cat; }
+  });
+  if(!removedCat){ return; }
+  // Remove from any basic group's items list (and auto list if present)
+  basicGroups.forEach(g => {
+    const i = g.items.indexOf(itemName);
+    if(i >= 0) g.items.splice(i, 1);
+    if(g.auto){
+      const ai = g.auto.indexOf(itemName);
+      if(ai >= 0) g.auto.splice(ai, 1);
+    }
+  });
+  _rcSaveUserItems();
+  _rcSaveUserGroups();
+  _rcSaveUserAuto();
+  recalc();
+};
+
+// ===== USER-OVERRIDDEN AUTO LISTS =====
+// Lets the user mark any item (built-in or custom) as auto-selected (counts
+// toward the master checkbox) or optional (must be checked individually).
+const USER_AUTO_KEY = 'rehab-user-auto-v1';
+function _rcSnapshotGroupOrigAuto(){
+  basicGroups.forEach(g => {
+    if(g._origAuto === undefined){
+      g._origAuto = g.auto ? g.auto.slice() : null;
+    }
+  });
+}
+function _rcLoadUserAuto(){
+  try{
+    const stored = JSON.parse(localStorage.getItem(USER_AUTO_KEY) || '{}');
+    Object.keys(stored).forEach(groupName => {
+      const g = basicGroups.find(bg => bg.n === groupName);
+      if(!g) return;
+      g.auto = Array.isArray(stored[groupName]) ? stored[groupName].slice() : null;
+    });
+  }catch(e){ console.warn('[_rcLoadUserAuto]', e); }
+}
+function _rcSaveUserAuto(){
+  // Save groups whose auto list differs from the original built-in.
+  const out = {};
+  basicGroups.forEach(g => {
+    const orig = g._origAuto;
+    const cur = g.auto || null;
+    const same = (a, b) => {
+      if(a === null && b === null) return true;
+      if(!a || !b) return false;
+      if(a.length !== b.length) return false;
+      const sa = a.slice().sort(); const sb = b.slice().sort();
+      return sa.every((v, i) => v === sb[i]);
+    };
+    if(!same(orig, cur)){
+      out[g.n] = cur === null ? [] : cur;
+    }
+  });
+  try{ localStorage.setItem(USER_AUTO_KEY, JSON.stringify(out)); }catch(e){}
+}
+window._rcToggleAutoForItem = function(groupIdx, itemName){
+  const g = basicGroups[groupIdx];
+  if(!g || !g.items.includes(itemName)) return;
+  if(!Array.isArray(g.auto)) g.auto = g.items.slice(); // initialize if previously missing
+  const i = g.auto.indexOf(itemName);
+  if(i >= 0) g.auto.splice(i, 1);
+  else g.auto.push(itemName);
+  _rcSaveUserAuto();
+  recalc();
+};
 function exportLabRates(){
   const customRates = [];
   Object.keys(items).forEach(k=>{
@@ -25578,9 +25758,20 @@ function renderBasic(){
         const dimStyle = onState ? '' : 'opacity:0.45';
         const cMult = getCountMult(f.cat);
         const countBadge = cMult !== 1 ? `<span style="font-size:9px;color:#67e8f9;background:rgba(34,211,238,0.15);border:1px solid rgba(34,211,238,0.35);padding:0 4px;border-radius:3px;font-weight:700;font-family:monospace;flex-shrink:0" title="Multiplied by ${cMult} ${f.cat==='bath'?'bathrooms':'units'}">×${cMult}</span>` : '';
+        // Mark user-added items with a small "✚" badge so the user knows
+        // which items are theirs vs built-in. In Edit Mode, also show a
+        // delete (✕) button next to user-added items only.
+        const isUserItem = !!f.item._user;
+        const userBadge = isUserItem ? `<span style="font-size:9px;color:#fcd34d;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);padding:0 4px;border-radius:3px;font-weight:700;font-family:monospace;flex-shrink:0" title="Custom item you added. Persisted in this browser's localStorage.">CUSTOM</span>` : '';
+        const deleteBtn = (labMode && labEditMode && isUserItem) ? `<button type="button" data-delete-custom-item="${name.replace(/"/g,'&quot;')}" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:2px 6px;flex-shrink:0;line-height:1;font-weight:700" title="Delete this custom item">✕</button>` : '';
+        // AUTO/OPTIONAL toggle — shown in Edit Mode for ALL items (built-in + custom).
+        // Click to flip whether this item is part of the master-checkbox auto-select.
+        const autoSetForBtn = new Set(g.auto || g.items);
+        const isAutoForItem = autoSetForBtn.has(name);
+        const autoToggleBtn = (labMode && labEditMode) ? `<button type="button" data-toggle-auto-group="${idx}" data-toggle-auto-name="${name.replace(/"/g,'&quot;')}" style="background:${isAutoForItem?'rgba(16,185,129,0.18)':'rgba(148,163,184,0.10)'};border:1px solid ${isAutoForItem?'#10b981':'var(--border)'};color:${isAutoForItem?'#6ee7b7':'var(--text-dim)'};cursor:pointer;font-size:8px;padding:1px 5px;border-radius:3px;flex-shrink:0;font-weight:700;letter-spacing:0.5px" title="${isAutoForItem?'AUTO — included when master checkbox is clicked. Click to make optional.':'OPTIONAL — only included when manually checked. Click to make auto.'}">${isAutoForItem?'AUTO':'OPT'}</button>` : '';
         const rowHtml = `<label style="display:flex;align-items:center;gap:6px;padding:5px 0;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)">
           <input type="checkbox" data-cat="${f.cat}" data-idx="${itemIdx}" ${onState?'checked':''} style="accent-color:#10b981;width:13px;height:13px;flex-shrink:0" onclick="event.stopPropagation()">
-          <span style="flex:1;color:${onState?'var(--text)':'var(--text-dim)'};${onState?'':'opacity:0.6'};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:5px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>${countBadge}</span>
+          <span style="flex:1;color:${onState?'var(--text)':'var(--text-dim)'};${onState?'':'opacity:0.6'};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:5px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>${userBadge}${autoToggleBtn}${countBadge}${deleteBtn}</span>
           ${rateCell}
           <span style="width:52px;text-align:right;color:#6ee7b7;font-family:monospace;font-size:11px;${dimStyle}">${fmt(c.mat)}</span>
           <span style="width:52px;text-align:right;color:#fcd34d;font-family:monospace;font-size:11px;${dimStyle}">${fmt(c.lab)}</span>
@@ -25601,12 +25792,15 @@ function renderBasic(){
       const gridCols = (sfRows && flatRows) ? '1fr 1fr' : '1fr';
       const dropdownWidth = (sfRows && flatRows) ? 'min-width:760px;max-width:90vw' : 'min-width:100%';
       const anchor = g.col === 3 ? 'right:0;left:auto;' : 'left:0;';
+      // "+ Add Custom Item" button shows only when LAB Custom + Edit Mode on
+      const addItemBtn = (isLabCustom() && labEditMode) ? `<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);text-align:center"><button type="button" onclick="event.stopPropagation();window._rcAddCustomItem&&window._rcAddCustomItem(${idx})" class="btn btn-ghost text-xs" style="padding:4px 12px;font-size:11px;border-color:#fcd34d;color:#fcd34d;background:rgba(245,158,11,0.08)" title="Add a custom item to this group. Saved to your browser's localStorage and persists across code updates.">+ Add Custom Item</button><div style="font-size:9px;color:var(--text-dim);margin-top:4px">Custom items save to this browser only — they survive future code updates.</div></div>` : '';
       dropdownHtml = '<div class="basic-dropdown" style="position:absolute;top:calc(100% + 4px);'+anchor+dropdownWidth+';z-index:20;background:var(--panel);border:1px solid #10b981;border-radius:8px;padding:8px 12px;box-shadow:0 8px 20px rgba(0,0,0,0.5)">'
         +'<div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:600">Items in this group — click to toggle individually</div>'
         +'<div style="display:grid;grid-template-columns:'+gridCols+';gap:14px">'
         +sfSection
         +flatSection
         +'</div>'
+        +addItemBtn
         +'</div>';
     }
     const labelHtml = `<div style="position:relative;height:100%;min-width:0">
@@ -25773,6 +25967,27 @@ _rcRoot.addEventListener('click', e=>{
     }
     recalc();
   }
+  // Delete a user-added custom item (button has data-delete-custom-item="<name>")
+  const delBtn = e.target.closest('[data-delete-custom-item]');
+  if(delBtn){
+    e.stopPropagation();
+    e.preventDefault();
+    const name = delBtn.getAttribute('data-delete-custom-item');
+    if(name && confirm('Delete custom item: ' + name + '?')){
+      window._rcDeleteCustomItem && window._rcDeleteCustomItem(name);
+    }
+    return;
+  }
+  // Toggle AUTO/OPTIONAL on an item (button has data-toggle-auto-name + data-toggle-auto-group)
+  const autoBtn = e.target.closest('[data-toggle-auto-name]');
+  if(autoBtn){
+    e.stopPropagation();
+    e.preventDefault();
+    const groupIdx = parseInt(autoBtn.getAttribute('data-toggle-auto-group'));
+    const name = autoBtn.getAttribute('data-toggle-auto-name');
+    if(window._rcToggleAutoForItem) window._rcToggleAutoForItem(groupIdx, name);
+    return;
+  }
 });
 
 // Live-site fields are outside _rcRoot; listen on document for those.
@@ -25924,6 +26139,14 @@ try {
 } catch(_){}
 
 if (_rcRoot && document.getElementById('basicGroups')) {
+  // Snapshot built-in basic group items list + auto list, then merge user
+  // customizations from localStorage. Order matters: snapshot before merging
+  // user items so we can later diff which items are user-added.
+  _rcSnapshotGroupOrigItems();
+  _rcSnapshotGroupOrigAuto();
+  _rcLoadUserItems();
+  _rcLoadUserGroups();
+  _rcLoadUserAuto();
   loadLabRates();
   renderCategoryRows();
   recalc();

@@ -10320,6 +10320,31 @@ function uwShortExitName(raw) {
   return s.split(/[—.•·\n]/)[0].trim().slice(0, 24);
 }
 
+// Tiny variant for the cramped Best Exit table cell — same logic as
+// uwShortExitName but compresses the parenthetical mode tokens so they fit
+// inside the narrow 8%-wide column without ellipsis. Mode mapping:
+//   (Cash)        → ($)
+//   (Financed)    → (Fin)
+//   (Refinanced)  → (Refi)
+// Examples:
+//   Wholetail (Cash)       → Wholetail ($)
+//   Wholetail (Financed)   → Wholetail (Fin)
+//   Flip (Cash)            → Flip ($)
+//   Flip (Financed)        → Flip (Fin)
+//   Rental (Cash)          → Rental ($)
+//   Rental (Financed)      → Rental (Fin)
+//   Rental (Refinanced)    → Rental (Refi)
+// The saved best_exit string is unchanged — this only affects table-cell
+// rendering. The full name is exposed via the cell's title= tooltip on hover.
+function uwTinyExitName(raw) {
+  const full = uwShortExitName(raw);
+  if (!full) return '';
+  return full
+    .replace(/\(Cash\)/g,       '($)')
+    .replace(/\(Financed\)/g,   '(Fin)')
+    .replace(/\(Refinanced\)/g, '(Refi)');
+}
+
 function _uwCollect() {
   const data = {};
   // PRESERVE inbound-source metadata that the form doesn't touch — without
@@ -12495,7 +12520,7 @@ function _hrRenderRow(u, view) {
     <td style="padding:8px 10px"><div style="font-weight:500">${escapeHtml(u.address || '—')}</div><div class="text-xs" style="color:var(--text-dim)">${escapeHtml([u.city, u.state, u.zip].filter(Boolean).join(', '))}</div></td>
     <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${firstColText}</td>
     <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt$(arv)}</td>
-    <td style="padding:8px 10px">${escapeHtml((typeof uwShortExitName === 'function' ? uwShortExitName(u.best_exit) : (u.best_exit || '')) || '—')}</td>
+    <td style="padding:8px 10px" title="${escapeHtml(u.best_exit || '')}">${escapeHtml((typeof uwTinyExitName === 'function' ? uwTinyExitName(u.best_exit) : (u.best_exit || '')) || '—')}</td>
     <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;color:${profitColor};font-weight:600">${profitTxt}</td>
     <td style="padding:8px 10px;font-size:12px;color:var(--text-dim)">${closedOn}</td>
     <td style="padding:8px 10px;min-width:160px;text-align:center">${timelineCell}</td>
@@ -13382,7 +13407,7 @@ function renderUnderwriteList() {
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt$(parseFloat((u.data && u.data['uw-asking']) || u.asking || 0) || 0)}</td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt$(parseFloat(u.max_offer || (u.data && u.data._maxOffer) || 0) || _uwComputeMaxOfferFromData(u.data))}</td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;color:${parseFloat((u.data && u.data['uw-accepted']) || 0) > 0 ? '#10b981' : 'var(--text-dim)'};font-weight:${parseFloat((u.data && u.data['uw-accepted']) || 0) > 0 ? '600' : 'normal'}">${fmt$(parseFloat((u.data && u.data['uw-accepted']) || u.accepted || 0) || 0)}</td>
-      <td style="padding:8px 10px">${escapeHtml(uwShortExitName(u.best_exit) || '—')}</td>
+      <td style="padding:8px 10px" title="${escapeHtml(u.best_exit || '')}">${escapeHtml(uwTinyExitName(u.best_exit) || '—')}</td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;color:${profitColor};font-weight:600">${(function(){
         const isRental = /rental/i.test(u.best_exit || '');
         if (!(u.best_profit > 0)) return '$0';

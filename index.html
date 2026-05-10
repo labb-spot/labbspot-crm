@@ -9,6 +9,10 @@
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- jsPDF + autotable for the Wholesale Packet generator. Loaded last so they're
+     available before the user clicks the packet button. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
 <style>
   #records-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
   #records-table thead th {
@@ -1993,6 +1997,7 @@
           <button class="btn btn-ghost text-sm" onclick="uwToggleSectionReorder()" id="uw-reorder-btn" style="white-space:nowrap;flex-shrink:0" title="Reorder the sections (Property Info, Comparables, Condition, etc.) by dragging them up or down. Order saves with this deal.">🔀 Reorder</button>
           <button class="btn btn-ghost text-sm" onclick="uwReset()" style="white-space:nowrap;flex-shrink:0" title="Clear all inputs and start a new deal">↺ Reset</button>
           <button class="btn btn-ghost text-sm" onclick="uwExportCsv()" style="white-space:nowrap;flex-shrink:0" title="Export this deal as a one-row CSV">⬇ Export CSV</button>
+          <button class="btn btn-ghost text-sm" onclick="uwGenerateWholesalePacket()" style="white-space:nowrap;flex-shrink:0;border:1px solid #6366f1;color:#a5b4fc" title="Generate a buyer-ready PDF packet with property info, comps, ARV, rent estimate, and scope of work — no asking price or rehab dollars shown.">📄 Wholesale Packet</button>
           <button class="btn btn-primary text-sm" onclick="uwSave(true)" style="white-space:nowrap;flex-shrink:0" title="Save now (auto-save also runs in the background a few seconds after each edit).">💾 Save Now</button>
         </div>
       </div>
@@ -7315,6 +7320,10 @@ function uwComputeExits(ctx) {
   // off MAO itself (what the buyer pays), not asking price. Removes the
   // circular dependency that made Max Offer drift when Asking changed.
   const cashBuyerMAO = (arv - fRehab - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit) / (1 + wholesaleClosingPct / 100);
+  // Expose the cash buyer MAO globally so the wholesale-packet PDF generator
+  // can use it as the "Asking Price" displayed to flippers (the max a flipper
+  // would pay = the wholesaler's ask).
+  window._uwCashBuyerMAO = cashBuyerMAO;
   const wholesalePurchClose = cashBuyerMAO * (wholesaleClosingPct / 100);
   const wholesaleProfit = Math.max(0, cashBuyerMAO - buyPrice);
   const wholesaleDays = 30; // typical assignment timeline
@@ -9465,6 +9474,839 @@ function uwExportCsv() {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
   toast('✅ Exported underwrite as CSV', 'ok');
+}
+
+// ===================== Wholesale Packet PDF Generator =====================
+// One-click PDF buyer packet for wholesaling. Hides asking price + rehab $
+// (and any internal-pricing math); shows what a cash buyer needs to evaluate
+// the deal: address, property info, comps, ARV, rent estimate, scope of
+// work (line items only, no prices), risk profile (crime + flood), and
+// external links (pictures, assessor, FEMA, Zillow, Street View).
+//
+// Triggered by the "📄 Wholesale Packet" button in the calculator header.
+// Uses jsPDF (loaded via CDN at the top of the file) + autotable plugin.
+function uwGenerateWholesalePacket() {
+  if (typeof window.jspdf === 'undefined' || !window.jspdf.jsPDF) {
+    alert('PDF library failed to load. Refresh the page and try again.');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+
+  // ----- Pull inputs from the form -----
+  // SELECT elements: textContent returns ALL option labels concatenated, so
+  // pull `.value` exclusively for them. Other inputs use value first, then
+  // textContent (for read-only computed spans).
+  const get = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return '';
+    if (el.tagName === 'SELECT') return (el.value || '').toString().trim();
+    return (el.value || el.textContent || '').toString().trim();
+  };
+  const getN = (id) => { const v = parseFloat(get(id).replace(/[^\d.\-]/g, '')); return isFinite(v) ? v : 0; };
+  // ASCII-safe formatters — jsPDF's default helvetica font doesn't include
+  // U+2212 minus or U+2248 approx, so use plain ASCII throughout.
+  const fmt$ = (n) => isFinite(n) && n > 0 ? '$' + Math.round(n).toLocaleString() : '—';
+  const fmtNeg$ = (n) => isFinite(n) && n > 0 ? '-$' + Math.round(n).toLocaleString() : '$0';
+  const dash = (s) => s && s.trim() ? s : '—';
+
+  const address = get('uw-address');
+  const city    = get('uw-city');
+  const state   = get('uw-state');
+  const zip     = get('uw-zip');
+  const fullAddr = [address, [city, state, zip].filter(Boolean).join(', ')].filter(Boolean).join(' • ');
+
+  if (!address) {
+    alert('Add a property address first — the packet needs at least the address.');
+    return;
+  }
+
+  // ----- Property info -----
+  const beds   = getN('uw-bed');
+  const baths  = getN('uw-bath');
+  const sqft   = getN('uw-sqft');
+  const year   = getN('uw-built');
+  const lotAc  = getN('uw-lot-size');
+  const parking = get('uw-prop-parking');
+  const material = get('uw-prop-material');
+  const propType = get('uw-prop-type');
+
+  // ----- Risk profile -----
+  const crimeGrade = get('uw-crime');
+  const floodZone  = get('uw-flood');
+
+  // ----- External links -----
+  const picsUrl     = get('uw-pics');
+  const assessorUrl = get('uw-assessor-url');
+  const addrQuery   = encodeURIComponent([address, city, state, zip].filter(Boolean).join(' '));
+  const zillowUrl   = address ? 'https://www.zillow.com/homes/' + addrQuery : '';
+  // Use Google Maps' official search URL — drops the buyer on a normal map
+  // with the address pinned. They can toggle to Street View themselves if
+  // they want. The previous "&layer=c&cbll=" Street View deep-link was
+  // unreliable (requires lat/lng, not address).
+  const streetView  = address ? 'https://www.google.com/maps/search/?api=1&query=' + addrQuery : '';
+  const fema        = address ? 'https://msc.fema.gov/portal/search?AddressQuery=' + addrQuery : '';
+  // Crime map — CrimeGrade.org's ZIP-code page (e.g. crimegrade.org/safest-
+  // places-in-47670/). ZIP alone gives the buyer the local crime data without
+  // tying the link to a specific street address. Falls back to a Google
+  // search if no ZIP is on file.
+  const zipClean    = (zip || '').toString().trim().match(/\d{5}/);
+  const crimeMap    = zipClean
+    ? 'https://crimegrade.org/safest-places-in-' + zipClean[0] + '/'
+    : (zip || address ? 'https://www.google.com/search?q=' + encodeURIComponent((zip || address) + ' crime rate map') : '');
+
+  // ----- ARV + rent estimate -----
+  // Pull computed ARV from the calculator (already factors comp $/sqft).
+  let arv = 0;
+  try {
+    const data = (typeof _uwCollect === 'function') ? _uwCollect().data : null;
+    arv = (typeof _uwComputeArvFromData === 'function' && data) ? _uwComputeArvFromData(data) : 0;
+  } catch (_) { arv = 0; }
+  if (!arv) arv = getN('uw-asqft') * sqft;
+  const avgPsf = getN('uw-asqft');
+
+  // Estimated rent = average of the 3 rental comps' rents (only those filled in).
+  const rcpRents = [getN('uw-rcp1-rent'), getN('uw-rcp2-rent'), getN('uw-rcp3-rent')].filter(r => r > 0);
+  const estRent = rcpRents.length ? (rcpRents.reduce((a, b) => a + b, 0) / rcpRents.length) : 0;
+
+  // ----- Comps -----
+  const buildCompRows = (prefix, priceField, priceLabel) => {
+    const rows = [];
+    for (let i = 1; i <= 3; i++) {
+      const slot = prefix + i;
+      const cAddr = get('uw-' + slot + '-addr');
+      if (!cAddr) continue;
+      rows.push([
+        cAddr,
+        get('uw-' + slot + '-bed') || '—',
+        get('uw-' + slot + '-bath') || '—',
+        get('uw-' + slot + '-sqft') ? Number(get('uw-' + slot + '-sqft')).toLocaleString() : '—',
+        get('uw-' + slot + '-year') || '—',
+        get('uw-' + slot + '-dist') || '—',
+        priceField ? (get('uw-' + slot + '-' + priceField) ? '$' + Number(get('uw-' + slot + '-' + priceField)).toLocaleString() : '—') : '',
+      ]);
+    }
+    return rows;
+  };
+
+  // ----- Scope of work (line items, no prices) -----
+  // Pulls the actual checked items from the rehab calculator's internal
+  // state via window._rcGetScopeByGroup() (the wholesale-packet helper
+  // exposed alongside _rcGetState). Returns groups like "Update Kitchen"
+  // with the line items the user has ticked — never the summary "Total
+  // Renovation" phantom that _uwRehabState carries for the underwriting
+  // math bridge. Prices intentionally excluded.
+  let scopeColumns = [];
+  if (typeof window._rcGetScopeByGroup === 'function') {
+    scopeColumns = window._rcGetScopeByGroup() || [];
+  }
+  // Fallback: if the calculator helper isn't available (shouldn't happen in
+  // practice — calculator IIFE registers it on load), try _uwRehabState as
+  // a last resort so the packet at least shows something.
+  if (scopeColumns.length === 0 && Array.isArray(_uwRehabState)) {
+    _uwRehabState.forEach(col => {
+      const items = (col.items || [])
+        .map(it => (it && it.label) ? String(it.label).trim() : '')
+        .filter(label => label.length > 0);
+      if (items.length) {
+        scopeColumns.push({ label: col.label || 'Scope', items });
+      }
+    });
+  }
+
+  // ===================== PDF rendering =====================
+  const PAGE_W = doc.internal.pageSize.getWidth();
+  const PAGE_H = doc.internal.pageSize.getHeight();
+  const MARGIN = 40;
+  let y = MARGIN;
+  let _sectionNum = 0;
+
+  // Brand palette — deep navy + indigo accent for a more characterful look.
+  const C_NAVY    = [15, 23, 42];     // slate-900 — cover bg
+  const C_BRAND   = [99, 102, 241];   // indigo-500 — accent stripes
+  const C_BRAND_D = [67, 56, 202];    // indigo-700 — gradient end
+  const C_TEXT    = [15, 23, 42];     // slate-900 — body text
+  const C_DIM     = [100, 116, 139];  // slate-500 — labels/captions
+  const C_BG      = [248, 250, 252];  // slate-50  — alt row bg
+  const C_RULE    = [226, 232, 240];  // slate-200 — hairline rules
+  const C_GREEN   = [16, 185, 129];   // emerald-500 — ARV
+  const C_AMBER   = [245, 158, 11];   // amber-500 — rent
+  const C_RED     = [239, 68, 68];    // red-500 — risk warnings
+
+  // Helper: ensure space, otherwise add page + reset y
+  const need = (h) => {
+    if (y + h > PAGE_H - MARGIN - 18) {  // leave 18pt margin above footer
+      doc.addPage();
+      y = MARGIN;
+    }
+  };
+  // Helper: section header — numbered, with a vertical accent bar on the left
+  // and a thin rule beneath. Tightened spacing to keep the packet inside 2
+  // pages even when comps + scope of work + disclosure all run long.
+  const section = (title) => {
+    need(40);
+    _sectionNum++;
+    const num = (_sectionNum < 10 ? '0' : '') + _sectionNum;
+    // Vertical accent bar
+    doc.setFillColor(C_BRAND[0], C_BRAND[1], C_BRAND[2]);
+    doc.rect(MARGIN, y, 4, 22, 'F');
+    // Section number in muted gray
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(C_BRAND[0], C_BRAND[1], C_BRAND[2]);
+    doc.text(num, MARGIN + 14, y + 9);
+    // Title in dark navy
+    doc.setFontSize(12);
+    doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+    doc.text(title, MARGIN + 14, y + 21);
+    y += 27;
+    // Thin rule below
+    doc.setDrawColor(C_RULE[0], C_RULE[1], C_RULE[2]);
+    doc.setLineWidth(0.5);
+    doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+    y += 8;
+    // Reset for body text
+    doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+  };
+  // Helper: 2-col key/value grid
+  const kvGrid = (pairs, cols) => {
+    const colCount = cols || 2;
+    const colWidth = (PAGE_W - 2 * MARGIN) / colCount;
+    const rowH = 18;
+    const rowsNeeded = Math.ceil(pairs.length / colCount);
+    need(rowsNeeded * rowH);
+    pairs.forEach((p, i) => {
+      const col = i % colCount;
+      const row = Math.floor(i / colCount);
+      const x = MARGIN + col * colWidth;
+      const yy = y + row * rowH;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+      doc.text(p[0] + ':', x, yy);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+      const labelW = doc.getTextWidth(p[0] + ': ');
+      doc.text(String(p[1] || '—'), x + labelW + 4, yy);
+    });
+    y += rowsNeeded * rowH + 6;
+  };
+
+  // ---------- Cover ----------
+  // Deep navy band with brand stripe along the bottom edge.
+  doc.setFillColor(C_NAVY[0], C_NAVY[1], C_NAVY[2]);
+  doc.rect(0, 0, PAGE_W, 130, 'F');
+  // Indigo accent stripe at the bottom of the cover band
+  doc.setFillColor(C_BRAND[0], C_BRAND[1], C_BRAND[2]);
+  doc.rect(0, 126, PAGE_W, 4, 'F');
+  // Eyebrow label (small, letterspaced)
+  doc.setTextColor(C_BRAND[0], C_BRAND[1], C_BRAND[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('OFF-MARKET  ·  WHOLESALE  ·  DEAL PACKET', MARGIN, 40, { charSpace: 2 });
+  // Big title
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(28);
+  doc.text('Investment Opportunity', MARGIN, 75);
+  // Small tagline
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.setTextColor(180, 190, 210);
+  doc.text('Presented by LABB LLC  ·  (812) 250-6597  ·  admin@labbllc.com', MARGIN, 100);
+
+  // ----- Asking price (top right) — packet-only 20% markup over flipper MAO -----
+  // Show the buyer a "list price" set 20% above the cash-buyer MAO. This
+  // gives the wholesaler negotiation room: the buyer can talk you down and
+  // still leave you with a profitable assignment, while everyone walks away
+  // feeling like they negotiated a win. The underwriting calculator's
+  // internal cashBuyerMAO stays the same — this 20% bump only renders on
+  // the printed packet.
+  const mao = (typeof window._uwCashBuyerMAO === 'number' && window._uwCashBuyerMAO > 0)
+    ? window._uwCashBuyerMAO
+    : 0;
+  const askPrice = mao > 0 ? mao * 1.20 : 0;
+  if (askPrice > 0) {
+    // Eyebrow label (small, dim, letterspaced)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(C_BRAND[0], C_BRAND[1], C_BRAND[2]);
+    doc.text('ASKING PRICE', PAGE_W - MARGIN, 40, { align: 'right', charSpace: 1.5 });
+    // Big number
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(28);
+    doc.text(fmt$(askPrice), PAGE_W - MARGIN, 75, { align: 'right' });
+    // No caption under the price — clean stack: label + number only.
+  }
+
+  // ----- Address block -----
+  y = 160;
+  doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.text(address || 'Property Address', MARGIN, y);
+  y += 20;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+  doc.text([city, state, zip].filter(Boolean).join(', ') || 'Location', MARGIN, y);
+  y += 24;
+
+  // ----- Hero metric cards (ARV + Rent) — side-by-side, more characterful -----
+  if (arv > 0 || estRent > 0) {
+    const cardW = (PAGE_W - 2 * MARGIN - 12) / 2;  // 12pt gap between
+    const cardH = 76;
+    // ARV card — emerald
+    if (arv > 0) {
+      doc.setFillColor(C_GREEN[0], C_GREEN[1], C_GREEN[2]);
+      doc.rect(MARGIN, y, cardW, cardH, 'F');
+      // Inner darker stripe at the left for depth
+      doc.setFillColor(5, 150, 105);
+      doc.rect(MARGIN, y, 6, cardH, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('ESTIMATED ARV', MARGIN + 16, y + 20, { charSpace: 1 });
+      doc.setFontSize(26);
+      doc.text(fmt$(arv), MARGIN + 16, y + 50);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      if (avgPsf > 0 && sqft > 0) {
+        doc.text('$' + avgPsf.toFixed(2) + '/sqft  x  ' + sqft.toLocaleString() + ' sqft', MARGIN + 16, y + 66);
+      }
+    }
+    // Rent card — amber
+    if (estRent > 0) {
+      const xRent = MARGIN + cardW + 12;
+      doc.setFillColor(C_AMBER[0], C_AMBER[1], C_AMBER[2]);
+      doc.rect(xRent, y, cardW, cardH, 'F');
+      doc.setFillColor(202, 130, 9);
+      doc.rect(xRent, y, 6, cardH, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('ESTIMATED RENT', xRent + 16, y + 20, { charSpace: 1 });
+      doc.setFontSize(26);
+      doc.text(fmt$(estRent) + '/mo', xRent + 16, y + 50);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text('Avg of ' + rcpRents.length + ' rental comp' + (rcpRents.length === 1 ? '' : 's'), xRent + 16, y + 66);
+    }
+    y += cardH + 16;
+  }
+
+  // ---------- Property snapshot ----------
+  section('PROPERTY DETAILS');
+  // Render as 4-column spec card row — much cleaner than 2-col k/v grid.
+  {
+    const specs = [
+      ['BEDS',     beds > 0 ? String(beds) : '—'],
+      ['BATHS',    baths > 0 ? String(baths) : '—'],
+      ['LIVING',   sqft > 0 ? sqft.toLocaleString() + ' SF' : '—'],
+      ['YEAR',     year > 0 ? String(year) : '—'],
+      ['LOT',      lotAc > 0 ? lotAc.toFixed(2) + ' AC' : '—'],
+      ['TYPE',     dash(propType)],
+      ['PARKING',  dash(parking)],
+      ['MATERIAL', dash(material)],
+    ];
+    const colsPerRow = 4;
+    const cardW = (PAGE_W - 2 * MARGIN - (colsPerRow - 1) * 8) / colsPerRow;
+    const cardH = 42;
+    const rows = Math.ceil(specs.length / colsPerRow);
+    need(rows * (cardH + 8));
+    specs.forEach((spec, i) => {
+      const col = i % colsPerRow;
+      const row = Math.floor(i / colsPerRow);
+      const x   = MARGIN + col * (cardW + 8);
+      const yy  = y + row * (cardH + 8);
+      // Card background
+      doc.setFillColor(C_BG[0], C_BG[1], C_BG[2]);
+      doc.rect(x, yy, cardW, cardH, 'F');
+      // Label
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+      doc.text(spec[0], x + 10, yy + 14, { charSpace: 1 });
+      // Value
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+      const valTxt = String(spec[1]);
+      // Auto-shrink long values so they don't overflow
+      const maxW = cardW - 20;
+      let fSize = 13;
+      while (doc.getTextWidth(valTxt) > maxW && fSize > 8) {
+        fSize -= 0.5;
+        doc.setFontSize(fSize);
+      }
+      doc.text(valTxt, x + 10, yy + 32);
+    });
+    y += rows * (cardH + 8) + 4;
+  }
+
+  // ---------- Risk profile ----------
+  section('RISK PROFILE');
+  // Render crime + flood as color-coded badges instead of plain text — gives
+  // the buyer an instant visual read on neighborhood + flood risk.
+  {
+    const colW   = (PAGE_W - 2 * MARGIN - 12) / 2;
+    const badgeY = y;
+    const badgeH = 50;
+    // Crime grade badge — color depends on letter
+    const grade = (crimeGrade || '—').toString().trim().toUpperCase().slice(0, 1);
+    const gradeColor =
+      grade === 'A' ? [16, 185, 129] :
+      grade === 'B' ? [132, 204, 22] :
+      grade === 'C' ? [245, 158, 11] :
+      grade === 'D' ? [249, 115, 22] :
+      grade === 'F' ? [239, 68, 68] :
+      [148, 163, 184];
+    doc.setFillColor(C_BG[0], C_BG[1], C_BG[2]);
+    doc.rect(MARGIN, badgeY, colW, badgeH, 'F');
+    doc.setFillColor(gradeColor[0], gradeColor[1], gradeColor[2]);
+    doc.rect(MARGIN, badgeY, 6, badgeH, 'F');
+    doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('CRIME GRADE', MARGIN + 16, badgeY + 18, { charSpace: 1 });
+    doc.setTextColor(gradeColor[0], gradeColor[1], gradeColor[2]);
+    doc.setFontSize(28);
+    doc.text(grade, MARGIN + 16, badgeY + 42);
+    // Flood zone badge
+    const xFlood = MARGIN + colW + 12;
+    const zoneRaw = (floodZone || '').trim();
+    const zoneClean = zoneRaw || '—';
+    // Highlight risky zones in red, ZONE X (minimal risk) in green
+    const zoneColor =
+      /^ZONE X$/i.test(zoneRaw) ? [16, 185, 129] :
+      /^ZONE [AV]/i.test(zoneRaw) ? [239, 68, 68] :
+      [148, 163, 184];
+    doc.setFillColor(C_BG[0], C_BG[1], C_BG[2]);
+    doc.rect(xFlood, badgeY, colW, badgeH, 'F');
+    doc.setFillColor(zoneColor[0], zoneColor[1], zoneColor[2]);
+    doc.rect(xFlood, badgeY, 6, badgeH, 'F');
+    doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('FEMA FLOOD ZONE', xFlood + 16, badgeY + 18, { charSpace: 1 });
+    doc.setTextColor(zoneColor[0], zoneColor[1], zoneColor[2]);
+    doc.setFontSize(18);
+    doc.text(zoneClean, xFlood + 16, badgeY + 40);
+    y = badgeY + badgeH + 12;
+  }
+
+  // ---------- External links — 6-icon button grid (3 top, 3 bottom) ----------
+  // Six clickable cards in a 3x2 grid. Each card has an icon drawn from
+  // jsPDF primitives (jsPDF's default font can't render emoji reliably),
+  // a label, and a "CLICK TO OPEN" hint. The entire card rectangle is
+  // wrapped in a doc.link() so any click on the card opens the URL.
+  section('LINKS & RESOURCES');
+  {
+    // Top row + Bottom row — order specified by user.
+    const cards = [
+      // Top row
+      { label: 'Property Pictures',  url: picsUrl,     icon: 'cam',   accent: [16, 185, 129] },  // emerald
+      { label: 'FEMA Flood Zone',    url: fema,        icon: 'drop',  accent: [59, 130, 246] },  // blue
+      { label: 'Crime Map',          url: crimeMap,    icon: 'shield',accent: [239, 68, 68]   }, // red
+      // Bottom row
+      { label: 'Assessor Site',      url: assessorUrl, icon: 'bldg',  accent: [100, 116, 139] }, // slate
+      { label: 'Zillow Listing',     url: zillowUrl,   icon: 'house', accent: [6, 95, 212]    }, // zillow blue
+      { label: 'Google Maps',        url: streetView,  icon: 'pin',   accent: [234, 67, 53]   }, // google red
+    ];
+    const cols  = 3;
+    const rows  = 2;
+    const gap   = 8;
+    const cardW = (PAGE_W - 2 * MARGIN - (cols - 1) * gap) / cols;
+    const cardH = 60;   // compressed to fit page 1 alongside other sections
+    need(rows * cardH + (rows - 1) * gap + 8);
+
+    // Helper: draw a tiny icon centered at (cx, cy) in the given color.
+    // Icons are stylized approximations of the real brand marks using
+    // jsPDF primitives (jsPDF can't render emoji or external image URLs
+    // without base64-embedding, which would balloon the PDF size).
+    const drawIcon = (kind, cx, cy, color) => {
+      doc.setFillColor(color[0], color[1], color[2]);
+      doc.setDrawColor(color[0], color[1], color[2]);
+      doc.setLineWidth(1.2);
+      if (kind === 'cam') {
+        // Camera body (rounded rect) + lens (circle) + small viewfinder bump
+        doc.setFillColor(255, 255, 255);
+        doc.rect(cx - 8, cy - 8, 4, 2, 'F');                  // viewfinder bump
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.roundedRect(cx - 11, cy - 6, 22, 12, 2, 2, 'F');  // body
+        doc.setFillColor(255, 255, 255);
+        doc.circle(cx, cy, 4, 'F');                            // lens outer
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.circle(cx, cy, 2, 'F');                            // lens inner
+      } else if (kind === 'drop') {
+        // FEMA-style water drop + 3 wavy lines below = classic flood iconography
+        // Drop: teardrop shape (triangle apex + circle base)
+        doc.triangle(cx - 5, cy - 2, cx + 5, cy - 2, cx, cy - 10, 'F');
+        doc.circle(cx, cy - 1, 5, 'F');
+        // Stylized horizontal "wave" lines below the drop
+        doc.setLineWidth(1.4);
+        doc.setDrawColor(color[0], color[1], color[2]);
+        doc.line(cx - 9, cy + 7, cx + 9, cy + 7);
+        doc.line(cx - 7, cy + 10, cx + 7, cy + 10);
+      } else if (kind === 'bldg') {
+        // County-building style: tall rect with windows + pillared front +
+        // triangular pediment (looks more like a government building)
+        // Pediment (triangular roof)
+        doc.triangle(cx - 12, cy - 6, cx + 12, cy - 6, cx, cy - 11, 'F');
+        // Main body
+        doc.rect(cx - 11, cy - 6, 22, 14, 'F');
+        // Pillar gaps (white)
+        doc.setFillColor(255, 255, 255);
+        doc.rect(cx - 8, cy - 4, 2, 10, 'F');
+        doc.rect(cx - 3, cy - 4, 2, 10, 'F');
+        doc.rect(cx + 1, cy - 4, 2, 10, 'F');
+        doc.rect(cx + 6, cy - 4, 2, 10, 'F');
+        // Base step
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.rect(cx - 13, cy + 8, 26, 2, 'F');
+      } else if (kind === 'house') {
+        // Zillow-style: bold house silhouette with prominent "Z" inside.
+        // House outline (pentagon)
+        doc.triangle(cx - 13, cy - 1, cx + 13, cy - 1, cx, cy - 11, 'F');
+        doc.rect(cx - 11, cy - 1, 22, 11, 'F');
+        // White "Z" inside the house (Zillow signature)
+        doc.setDrawColor(255, 255, 255);
+        doc.setLineWidth(2);
+        doc.line(cx - 5, cy + 2, cx + 5, cy + 2);  // top of Z
+        doc.line(cx + 5, cy + 2, cx - 5, cy + 7);  // diagonal of Z
+        doc.line(cx - 5, cy + 7, cx + 5, cy + 7);  // bottom of Z
+      } else if (kind === 'pin') {
+        // Google-Maps-style red teardrop pin with bright white inner dot
+        doc.circle(cx, cy - 2, 7, 'F');
+        doc.triangle(cx - 4, cy + 3, cx + 4, cy + 3, cx, cy + 11, 'F');
+        // White hole in pin
+        doc.setFillColor(255, 255, 255);
+        doc.circle(cx, cy - 2, 2.5, 'F');
+      } else if (kind === 'shield') {
+        // Crime warning: red triangle with bold white "!" inside — the
+        // universal hazard / "verify this" cue, more honest than a shield-
+        // and-check (which reads as "safe" rather than "check the crime").
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.triangle(cx - 11, cy + 9, cx + 11, cy + 9, cx, cy - 11, 'F');
+        // White exclamation: tall rect + dot
+        doc.setFillColor(255, 255, 255);
+        doc.rect(cx - 1, cy - 4, 2, 7, 'F');
+        doc.circle(cx, cy + 5, 1.2, 'F');
+      }
+    };
+
+    // Helper: pastel tint of accent color (mostly white with a hint of the accent)
+    const tint = (rgb, mix) => {
+      const m = (mix == null) ? 0.08 : mix;
+      return [
+        Math.round(255 - (255 - rgb[0]) * m),
+        Math.round(255 - (255 - rgb[1]) * m),
+        Math.round(255 - (255 - rgb[2]) * m),
+      ];
+    };
+
+    cards.forEach((c, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = MARGIN + col * (cardW + gap);
+      const yy = y + row * (cardH + gap);
+
+      // Card background — pastel tint of the accent color so each card
+      // visually matches its category at a glance instead of all being the
+      // same gray.
+      const cardBg = tint(c.accent, 0.08);
+      doc.setFillColor(cardBg[0], cardBg[1], cardBg[2]);
+      doc.roundedRect(x, yy, cardW, cardH, 4, 4, 'F');
+      // Thin border in a slightly stronger tint
+      const cardBorder = tint(c.accent, 0.25);
+      doc.setDrawColor(cardBorder[0], cardBorder[1], cardBorder[2]);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(x, yy, cardW, cardH, 4, 4, 'S');
+      // Top accent stripe — slightly more prominent
+      doc.setFillColor(c.accent[0], c.accent[1], c.accent[2]);
+      // Stripe with rounded top corners only — draw two rects to simulate
+      doc.rect(x + 2, yy, cardW - 4, 3, 'F');
+      // Icon — sits in the upper third of the card
+      drawIcon(c.icon, x + cardW / 2, yy + 20, c.accent);
+      // Label — bold dark navy
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+      const labelLines = doc.splitTextToSize(c.label, cardW - 10);
+      labelLines.slice(0, 2).forEach((ln, ix) => {
+        doc.text(ln, x + cardW / 2, yy + 41 + ix * 10, { align: 'center' });
+      });
+      // Click hint — small chevron arrow in accent color at the bottom
+      const hintY = yy + cardH - 7;
+      if (c.url) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.setTextColor(c.accent[0], c.accent[1], c.accent[2]);
+        // "OPEN  >" with letterspacing
+        const hint = 'OPEN  >';
+        doc.text(hint, x + cardW / 2, hintY, { align: 'center', charSpace: 1.2 });
+        // Whole-card clickable area
+        doc.link(x, yy, cardW, cardH, { url: c.url });
+      } else {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+        doc.text('NOT PROVIDED', x + cardW / 2, hintY, { align: 'center', charSpace: 0.5 });
+      }
+    });
+    y += rows * cardH + (rows - 1) * gap + 8;
+  }
+
+  // (ARV methodology section removed — keeps cover page clean and pushes
+  // comps onto page 2 where they have room to breathe.)
+
+  // ----- Force page break before comps so page 1 stays tight: cover +
+  // address + hero cards + property details + risk profile + links only.
+  doc.addPage();
+  y = MARGIN;
+
+  // Shared comp-table styling helper — tightened cellPadding to keep the
+  // packet inside 2 pages even when 3 sold + 3 listed + 3 rental comps are
+  // all present.
+  const compTableOpts = {
+    theme: 'striped',
+    headStyles: { fillColor: C_BRAND, textColor: 255, fontSize: 9, fontStyle: 'bold', cellPadding: 4 },
+    bodyStyles: { fontSize: 9, textColor: C_TEXT, cellPadding: 4 },
+    alternateRowStyles: { fillColor: C_BG },
+    columnStyles: {
+      0: { fontStyle: 'bold' },         // Address bolded
+      6: { halign: 'right', fontStyle: 'bold' },  // $/SqFt right-aligned
+    },
+    margin: { left: MARGIN, right: MARGIN },
+  };
+
+  // ---------- Sold comps ----------
+  const soldRows = buildCompRows('scp', 'psf', '$/SqFt');
+  if (soldRows.length) {
+    section('SOLD COMPARABLES');
+    doc.autoTable({
+      startY: y,
+      head: [['Address', 'Bed', 'Bath', 'SqFt', 'Year', 'Distance', '$/SqFt']],
+      body: soldRows,
+      ...compTableOpts,
+    });
+    y = doc.lastAutoTable.finalY + 14;
+  }
+
+  // ---------- Listed comps ----------
+  const listedRows = buildCompRows('lcp', 'psf', '$/SqFt');
+  if (listedRows.length) {
+    section('LISTED COMPARABLES  (still on market)');
+    doc.autoTable({
+      startY: y,
+      head: [['Address', 'Bed', 'Bath', 'SqFt', 'Year', 'Distance', 'List $/SqFt']],
+      body: listedRows,
+      ...compTableOpts,
+    });
+    y = doc.lastAutoTable.finalY + 14;
+  }
+
+  // ---------- Rental comps ----------
+  const rentalRows = [];
+  for (let i = 1; i <= 3; i++) {
+    const cAddr = get('uw-rcp' + i + '-addr');
+    if (!cAddr) continue;
+    rentalRows.push([
+      cAddr,
+      get('uw-rcp' + i + '-bed') || '—',
+      get('uw-rcp' + i + '-bath') || '—',
+      get('uw-rcp' + i + '-sqft') ? Number(get('uw-rcp' + i + '-sqft')).toLocaleString() : '—',
+      get('uw-rcp' + i + '-dist') || '—',
+      get('uw-rcp' + i + '-rent') ? '$' + Number(get('uw-rcp' + i + '-rent')).toLocaleString() + '/mo' : '—',
+    ]);
+  }
+  if (rentalRows.length) {
+    section('RENTAL COMPARABLES');
+    doc.autoTable({
+      startY: y,
+      head: [['Address', 'Bed', 'Bath', 'SqFt', 'Distance', 'Rent']],
+      body: rentalRows,
+      theme: 'striped',
+      headStyles: { fillColor: C_AMBER, textColor: 255, fontSize: 9, fontStyle: 'bold', cellPadding: 4 },
+      bodyStyles: { fontSize: 9, textColor: C_TEXT, cellPadding: 4 },
+      alternateRowStyles: { fillColor: C_BG },
+      columnStyles: {
+        0: { fontStyle: 'bold' },
+        5: { halign: 'right', fontStyle: 'bold' },
+      },
+      margin: { left: MARGIN, right: MARGIN },
+    });
+    y = doc.lastAutoTable.finalY + 12;
+  }
+
+  // (Cash Flip + Cash Rental Pro Forma sections removed for now — packet
+  // is buyer's deal-evaluation packet only. Re-enable later if needed.)
+
+  // ---------- Scope of work (NO PRICES) — 3-column layout ----------
+  // Three columns guarantees the full scope fits on page 2 alongside comps
+  // + the disclosure even when the user has many groups + items checked.
+  // Groups flow into whichever column is currently shortest (greedy load-
+  // balance) so the bottom edges stay roughly even.
+  if (scopeColumns.length) {
+    section('SCOPE OF WORK');
+    doc.setFontSize(9);
+    doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+    const scopeIntro = 'Scope identified during the walkthrough. Buyer to verify on inspection.';
+    doc.text(scopeIntro, MARGIN, y);
+    y += 13;
+
+    // Three-column geometry
+    const colCount = 3;
+    const colGap   = 12;
+    const colW     = (PAGE_W - 2 * MARGIN - (colCount - 1) * colGap) / colCount;
+    const colX     = [];
+    const colY     = [];
+    for (let ci = 0; ci < colCount; ci++) {
+      colX.push(MARGIN + ci * (colW + colGap));
+      colY.push(y);
+    }
+    // Tight font sizes + line heights:
+    const HDR_FONT = 9, HDR_GAP = 11;
+    const ITM_FONT = 8, ITM_LH  = 9.5;
+    const GRP_GAP  = 5;
+
+    scopeColumns.forEach(col => {
+      // Pick the column with the lowest current y for greedy load-balance
+      let ci = 0;
+      for (let k = 1; k < colCount; k++) {
+        if (colY[k] < colY[ci]) ci = k;
+      }
+      const xx = colX[ci];
+      let yy = colY[ci];
+
+      // Group header — color chip + label (truncate if it overflows the col)
+      doc.setFillColor(C_BRAND[0], C_BRAND[1], C_BRAND[2]);
+      doc.rect(xx, yy - 7, 2.5, 9, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(HDR_FONT);
+      doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+      let groupLabel = col.label || '';
+      const labelMaxW = colW - 12;
+      while (doc.getTextWidth(groupLabel) > labelMaxW && groupLabel.length > 4) {
+        groupLabel = groupLabel.slice(0, -2);
+      }
+      if (groupLabel !== col.label) groupLabel = groupLabel.replace(/\.+$/, '') + '…';
+      doc.text(groupLabel, xx + 8, yy);
+      yy += HDR_GAP;
+
+      // Items as bulleted lines
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(ITM_FONT);
+      doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+      col.items.forEach(item => {
+        const itemMaxW = colW - 18;
+        const lines = doc.splitTextToSize(item, itemMaxW);
+        // Bullet on the first line only
+        doc.setFillColor(C_BRAND[0], C_BRAND[1], C_BRAND[2]);
+        doc.circle(xx + 10, yy - 2.2, 1, 'F');
+        lines.forEach(ln => {
+          doc.text(ln, xx + 15, yy);
+          yy += ITM_LH;
+        });
+      });
+      yy += GRP_GAP;
+      colY[ci] = yy;
+    });
+
+    y = Math.max(...colY);
+  }
+
+  // ---------- Wholesaler disclosure (at bottom of packet) ----------
+  // Final section — gives the legal context after the buyer has reviewed
+  // all the property details, comps, and pro forma numbers. Covers:
+  //   • Equitable interest assignment (not selling the property — assigning
+  //     contractual rights under a purchase agreement)
+  //   • Not a licensed agent / broker / doesn't represent the seller
+  //   • Buyer's responsibility for due diligence / inspection / verification
+  //   • All figures (ARV, rent, scope) are estimates
+  {
+    // Compressed disclosure — same legal coverage, far fewer characters,
+    // rendered in 2 columns inside the amber box so it never bleeds onto
+    // a 3rd page even when scope of work runs long.
+    const discText =
+      'LABB LLC is NOT the seller and does NOT own the property. LABB LLC is the buyer ' +
+      'under a purchase agreement with the property owner (the seller) and is offering to ' +
+      'assign that contract to a third-party assignee, who closes directly with the owner. ' +
+      'LABB LLC is NOT a licensed real estate broker, salesperson, or agent, and does NOT ' +
+      'represent the property owner. Photos were taken by LABB LLC at the property and are ' +
+      'provided as-is for reference. All figures (ARV, rent, scope of work, holding costs, ' +
+      'pro-forma math) are good-faith estimates from public data and comparable sales — they ' +
+      'are not appraisals or guarantees. The assignee is solely responsible for all due ' +
+      'diligence: inspection, title, lien and code research, financing, and verification of ' +
+      'condition, value, scope, and rent potential prior to closing. This packet is not an ' +
+      'offer to sell real estate and is not legal, tax, or investment advice.';
+
+    // Single-column paragraph layout — keeps the disclosure reading like a
+    // proper legal blurb instead of a split-column block.
+    const innerPadX = 14;
+    const innerW    = PAGE_W - 2 * MARGIN - innerPadX * 2;
+    const lineH     = 9.5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    const wrappedLines = doc.splitTextToSize(discText, innerW);
+    const boxH         = 18 + wrappedLines.length * lineH + 8;
+    need(boxH);
+
+    // Subtle muted background + amber accent stripe to flag "read this"
+    doc.setFillColor(254, 252, 232);   // amber-50
+    doc.rect(MARGIN, y, PAGE_W - 2 * MARGIN, boxH, 'F');
+    doc.setFillColor(C_AMBER[0], C_AMBER[1], C_AMBER[2]);
+    doc.rect(MARGIN, y, 4, boxH, 'F');
+    // Header label
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(146, 64, 14);     // amber-800
+    doc.text('IMPORTANT  ·  WHOLESALER DISCLOSURE', MARGIN + innerPadX, y + 11, { charSpace: 1 });
+    // Body — single continuous paragraph
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+    let dy = y + 22;
+    wrappedLines.forEach(line => {
+      doc.text(line, MARGIN + innerPadX, dy);
+      dy += lineH;
+    });
+    y += boxH + 8;
+  }
+
+  // ---------- Footer / contact on every page ----------
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    const fy = PAGE_H - 32;
+    // Thin brand-color rule above the footer
+    doc.setDrawColor(C_BRAND[0], C_BRAND[1], C_BRAND[2]);
+    doc.setLineWidth(1);
+    doc.line(MARGIN, fy - 14, MARGIN + 30, fy - 14);  // short accent stroke
+    doc.setDrawColor(C_RULE[0], C_RULE[1], C_RULE[2]);
+    doc.setLineWidth(0.5);
+    doc.line(MARGIN + 32, fy - 14, PAGE_W - MARGIN, fy - 14);  // rest of the rule
+    // Brand label
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+    doc.text('LABB LLC', MARGIN, fy);
+    // Contact info dim
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+    doc.text('admin@labbllc.com   ·   (812) 250-6597', MARGIN + doc.getTextWidth('LABB LLC') + 8, fy);
+    // Page indicator
+    doc.text('PAGE  ' + p + '  /  ' + totalPages, PAGE_W - MARGIN, fy, { align: 'right', charSpace: 1 });
+  }
+
+  // ---------- Save ----------
+  // Filename: "{address} - Packet.pdf". Strip filesystem-illegal characters
+  // (\ / : * ? " < > |) so the browser-triggered download works on every OS.
+  const safeAddr = (address || 'Property').replace(/[\\/:*?"<>|]+/g, '').trim();
+  doc.save(safeAddr + ' - Packet.pdf');
+  if (typeof toast === 'function') toast('✅ Wholesale packet generated', 'ok');
 }
 
 // ---------- Underwriting: persistence (Supabase `underwrites` table) ----------
@@ -13145,7 +13987,7 @@ async function loadGisMaps() {
     cache.gis_maps = {};
     rows.forEach(r => { if (r && r.id) cache.gis_maps[r.id] = r; });
   } catch (e) {
-    // Table may not exist yet (user hasn't run supabase-gis-maps.sql).
+    // Table may not exist yet (user hasn't run sql/supabase-gis-maps.sql).
     // Treat as empty — deal-derived URLs still work.
     console.warn('loadGisMaps:', e);
     cache.gis_maps = {};
@@ -14979,7 +15821,7 @@ async function saveCurrentAsCampaign() {
     }
   } catch (e) {
     if (e && e.code === '42P01') {
-      alert('The campaigns table doesn\'t exist yet in your Supabase. Run supabase-campaigns.sql in the Supabase SQL Editor first.');
+      alert('The campaigns table doesn\'t exist yet in your Supabase. Run sql/supabase-campaigns.sql in the Supabase SQL Editor first.');
     } else {
       toast('Save failed: ' + (e.message || 'unknown'), 'err');
     }
@@ -15091,7 +15933,7 @@ function renderCampaigns() {
     list.innerHTML =
       '<div class="panel-2 p-4" style="border:1px solid #f59e0b;border-radius:8px">' +
       '<div style="font-weight:600;color:#f59e0b">⚠ Campaigns table not yet created</div>' +
-      '<div class="text-sm" style="color:var(--text-dim);margin-top:4px">Open <code>supabase-campaigns.sql</code>, paste it into Supabase SQL Editor, and click Run. Then click 🔄 Refresh.</div>' +
+      '<div class="text-sm" style="color:var(--text-dim);margin-top:4px">Open <code>sql/supabase-campaigns.sql</code>, paste it into Supabase SQL Editor, and click Run. Then click 🔄 Refresh.</div>' +
       '</div>';
     if (empty) empty.style.display = 'none';
     return;
@@ -18071,7 +18913,7 @@ async function editListFlags(listId) {
         const { error } = await sb.from('lists').update({ chosen_flags: cleaned }).eq('id', listId);
         if (error) {
           if (/column .*chosen_flags.* does not exist|chosen_flags/i.test(error.message || '')) {
-            alert('The lists.chosen_flags column doesn\'t exist yet. Run supabase-lists-chosen-flags.sql in your Supabase SQL Editor first, then try again.');
+            alert('The lists.chosen_flags column doesn\'t exist yet. Run sql/supabase-lists-chosen-flags.sql in your Supabase SQL Editor first, then try again.');
             return;
           }
           throw error;
@@ -26674,6 +27516,35 @@ window._rcGetState = function(){
     const tn = document.getElementById('rc-tenancy');   if (tn) out.tenancy = tn.value;
     return out;
   } catch (e) { console.warn('[_rcGetState]', e); return null; }
+};
+
+// Wholesale-packet helper: returns the user-facing rehab scope organized by
+// display group (Update Kitchen, Update Bathrooms, etc.), filtered to only
+// items the user has CHECKED. Used by the PDF packet generator so the buyer
+// sees a clean, grouped line-by-line scope of work without internal prices.
+//
+// Output shape: [{ label: 'Update Kitchen', items: ['Cabinets', 'Countertops'] }, ...]
+// Empty groups are omitted. Returns an empty array if the calculator hasn't
+// been initialized.
+window._rcGetScopeByGroup = function(){
+  try {
+    if (!Array.isArray(basicGroups) || !items) return [];
+    // Build a quick lookup: item-name -> on/off, scoped to its category.
+    // Items can live in multiple categories (e.g., Flooring lives in
+    // interior), so we check whichever category the group maps to first
+    // and fall back to a scan of all cats.
+    const checkedNames = new Set();
+    Object.keys(items).forEach(k => {
+      (items[k] || []).forEach(it => { if (it && it.on) checkedNames.add(it.n); });
+    });
+    const out = [];
+    basicGroups.forEach(g => {
+      if (!g || !Array.isArray(g.items)) return;
+      const picked = g.items.filter(n => checkedNames.has(n));
+      if (picked.length) out.push({ label: g.n, items: picked });
+    });
+    return out;
+  } catch (e) { console.warn('[_rcGetScopeByGroup]', e); return []; }
 };
 window._rcLoadState = function(state){
   if (!state || typeof state !== 'object') return false;

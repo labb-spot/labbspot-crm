@@ -7805,32 +7805,41 @@ function uwComputeExits(ctx) {
   // use. Independent of `rentalMode` above (which only affects what the user
   // sees in the rental card's detail panel — they can browse any mode).
   //
-  //   Rule 1: Refi       — capital fully recovered AND cashflow ≥ $200/mo
-  //   Rule 2: Cash       — annual rent ≥ 20% of all-in cash cost
-  //                        (i.e., $1k rent on $60k all-in = 20% gross yield)
-  //   Rule 3: Financed   — no rehab AND no down payment AND cashflow ≥ $200
-  //   Otherwise          — fall back to whichever rental mode annualizes best
+  //   Rule 1: Refi      — capital remaining after refi ≤ $5k AND cashflow ≥ $200/mo
+  //   Rule 2: Financed  — capital remaining (down + orig + pre-rent holding) ≤ $5k
+  //                       AND cashflow ≥ $200/mo
+  //   Rule 3: Cash      — annual rent ≥ 20% of all-in cash cost (gross yield)
+  //   Otherwise         — fall back to whichever rental mode annualizes best
   const _cashAllIn      = buyPrice + rRehab + rtPurchClosingTotal + cashPreRentHolding;
   const _cashYieldPct   = _cashAllIn > 0 ? (annualRent / _cashAllIn) : 0;
-  // $1 tolerance — floating-point round-trip on the smart loan sizing math
-  // can leave rfLeftIn at $0.001 when it should be exactly $0, which made
-  // the diag erroneously fire the "still in" branch. Anything under a buck
-  // counts as fully pulled out.
-  const _refiPullsAllOut = rfLeftIn < 1;
-  const _refiCashflows   = rfCashflow >= 200;
-  const _noRehab         = rRehab <= 0;
-  const _noDownPayment   = finDown <= 0;
-  const _finCashflows    = finCashflow >= 200;
+  // $5k cap on capital left in the deal — same threshold for both Refi and
+  // Financed. Refi: rfLeftIn is the cash that wasn't recovered by the cash-out.
+  // Financed: total cash you put up (down + DSCR origination); the DSCR loan
+  // basis already rolls in buy + rehab + closing + pre-rent tax/ins, so the
+  // out-of-pocket is essentially down + origination.
+  const RENTAL_CAP_REMAINING_MAX = 5000;
+  const _refiCapRemaining     = rfLeftIn;
+  const _refiPullsAllOut      = _refiCapRemaining <= RENTAL_CAP_REMAINING_MAX;
+  const _refiCashflows        = rfCashflow >= 200;
+  // Financed rental capital remaining = every dollar of yours still in the
+  // deal at the moment the first rent check clears. finTotalCashOut already
+  // = finDown + finOrig (DSCR origination), and finPreRentHolding is the
+  // pre-rent tax/ins/utilities/interest paid out of pocket during rehab +
+  // lease-up. (For DSCR loans most of those roll into the basis, so the
+  // typical case is down + orig only.)
+  const _finCapRemaining      = finTotalCashOut + finPreRentHolding;
+  const _finCapRemainingOk    = _finCapRemaining <= RENTAL_CAP_REMAINING_MAX;
+  const _finCashflows         = finCashflow >= 200;
   let bestRentalMode, bestRentalAnnualized;
   if (_refiPullsAllOut && _refiCashflows) {
     bestRentalMode = 'refi';
     bestRentalAnnualized = rfAnnualCashflow;
+  } else if (_finCapRemainingOk && _finCashflows) {
+    bestRentalMode = 'financed';
+    bestRentalAnnualized = finAnnualCashflow;
   } else if (_cashYieldPct >= 0.20) {
     bestRentalMode = 'cash';
     bestRentalAnnualized = cashAnnualCashflow;
-  } else if (_noRehab && _noDownPayment && _finCashflows) {
-    bestRentalMode = 'financed';
-    bestRentalAnnualized = finAnnualCashflow;
   } else {
     // Fallback: pick the highest-annualized mode
     const _ann = { cash: cashAnnualCashflow, financed: finAnnualCashflow, refi: rfAnnualCashflow };
@@ -7842,16 +7851,22 @@ function uwComputeExits(ctx) {
   // {value, label, color, title} options so a card can have 2, 3, or more
   // modes. Stops click propagation so toggling doesn't also expand/collapse
   // the card underneath.
-  const _modeToggle = (which, currentMode, options) => {
+  //
+  // Optional `recommendedMode` argument adds a small ★ to the auto-picked
+  // mode's label so users can see what the cascade recommends even when
+  // they've toggled to view a different mode (Option A behavior).
+  const _modeToggle = (which, currentMode, options, recommendedMode) => {
     const setFn = which === 'flip' ? 'uwSetFlipMode'
                 : which === 'wholetail' ? 'uwSetWholetailMode'
                 : 'uwSetRentalMode';
     const buttons = options.map(opt => {
       const isActive = currentMode === opt.value;
+      const isRecommended = recommendedMode && recommendedMode === opt.value;
       const bg    = isActive ? opt.color : 'transparent';
       const color = isActive ? 'white'   : 'var(--text-dim)';
       const style = 'padding:2px 6px;font-size:9px;border:none;cursor:pointer;background:' + bg + ';color:' + color + ';font-weight:600';
-      return '<button type="button" onclick="' + setFn + "('" + opt.value + "')\" style=\"" + style + '" title="' + (opt.title || '') + '">' + opt.label + '</button>';
+      const star  = isRecommended ? '<span style="color:#fbbf24;margin-left:3px" title="Cascade recommends this mode for the BEST badge">★</span>' : '';
+      return '<button type="button" onclick="' + setFn + "('" + opt.value + "')\" style=\"" + style + '" title="' + (opt.title || '') + (isRecommended ? ' (cascade recommends this)' : '') + '">' + opt.label + star + '</button>';
     }).join('');
     return '<span style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-left:6px" onclick="event.stopPropagation()">' + buttons + '</span>';
   };
@@ -7865,6 +7880,25 @@ function uwComputeExits(ctx) {
     { value: 'financed', label: '🏦 Fin',   color: '#3b82f6', title: 'Mortgage at purchase' },
     { value: 'refi',     label: '🔁 Refi',  color: '#f59e0b', title: 'Refinance out of initial financing into a long-term mortgage' },
   ];
+
+  // ====== Recommended mode for each strategy's toggle (★ indicator) ======
+  // Computes the auto-picked Cash-vs-Financed mode using the same drag rule
+  // the cascade uses, regardless of whether that strategy ends up winning
+  // the BEST badge. So the user sees "★ Financed" on the Flip toggle if the
+  // cascade WOULD pick Financed for flips even if Wholesale ultimately wins.
+  // Useful for Option A: toggle becomes a what-if explorer; ★ shows what
+  // the cascade prefers within that strategy.
+  const _recommendModeFor = (cashProfit, finProfit) => {
+    if (finProfit >= cashProfit) return 'financed';   // financed wins outright
+    const drag    = cashProfit - finProfit;
+    const dragPct = finProfit > 0 ? (drag / finProfit) * 100 : 999;
+    return dragPct < 20 ? 'financed' : 'cash';
+  };
+  const _flipRecMode      = _recommendModeFor(flipCashProfit, flipFinProfit);
+  const _wholetailRecMode = _recommendModeFor(wholetailCashProfit, wtFinProfit);
+  // For rentals, the ★ should match the rule-based bestRentalMode (already
+  // computed above by the Level 1 rental mode picker).
+  const _rentalRecMode    = bestRentalMode || null;
   const _wholetailOpts = [
     { value: 'cash',     label: '💵 Cash', color: '#10b981', title: 'Cash purchase — no loan' },
     { value: 'financed', label: '🏦 Fin',  color: '#3b82f6', title: 'Hard money loan covers buy + capital + holding + purchase closing' },
@@ -7910,7 +7944,7 @@ function uwComputeExits(ctx) {
       // Like Flip, the Cash/Financed pill goes in `toggle` and the card render
       // places it on its own line under the title.
       name: 'Wholetail',
-      toggle: _modeToggle('wholetail', wholetailMode, _wholetailOpts),
+      toggle: _modeToggle('wholetail', wholetailMode, _wholetailOpts, _wholetailRecMode),
       mode: wholetailMode === 'financed' ? 'Financed' : 'Cash',
       profit: wholetailProfit, time: wholetailMonths + ' mo', timeMo: wholetailMonths,
       annualized: wholetailAnnualized,
@@ -8004,7 +8038,7 @@ function uwComputeExits(ctx) {
       // `toggle` and the card render places it on its own line so the title
       // row doesn't get squished by the buttons.
       name: 'Flip',
-      toggle: _modeToggle('flip', flipMode, _flipOpts),
+      toggle: _modeToggle('flip', flipMode, _flipOpts, _flipRecMode),
       mode: flipMode === 'financed' ? 'Financed' : 'Cash',
       profit: flipProfit, time: flipMonths.toFixed(1) + ' mo', timeMo: flipMonths,
       annualized: flipAnnualized,
@@ -8099,7 +8133,7 @@ function uwComputeExits(ctx) {
       key: 'rental',
       icon: rentalMode === 'refi' ? '🔁' : (rentalMode === 'financed' ? '🏦' : '💵'),
       name: 'Rental',
-      toggle: _modeToggle('rental', rentalMode, _rentalOpts),
+      toggle: _modeToggle('rental', rentalMode, _rentalOpts, _rentalRecMode),
       // The mode label shows the user's toggle (so the card name + toggle
       // stay consistent). The Best Exit badge logic uses bestRentalMode
       // separately, so the comparison and the recommendation banner reflect
@@ -8319,17 +8353,23 @@ function uwComputeExits(ctx) {
   ];
 
   // ===== Best Exit priority cascade (user's rules) =====
-  // Walk the cascade top-down; first rule that fires wins. If none fire AND
-  // wholesale is unprofitable, leave best = null (no recommendation, the
-  // Best Profit column will show red $0).
+  // Walk the cascade top-down; first rule that fires wins.
   //
-  //   1. Refi rental (BRRR)  — capital fully recovered AND ≥ $200/mo cashflow
-  //   2. Cash rental         — annual rent ≥ 20% of all-in cash
-  //   3. Flip                — flipProfit ≥ 3 × wholesaleProfit
-  //   4. Wholetail           — wholetailProfit ≥ 2 × wholesaleProfit
-  //   5. Wholesale           — any positive wholesale profit
-  //   else                   — no best exit (best = null)
+  //   1. Rental (Refi)      — capital remaining after refi ≤ $5k AND ≥ $200/mo
+  //   2. Rental (Financed)  — capital remaining ≤ $5k AND ≥ $200/mo
+  //   3. Rental (Cash)      — annual rent ≥ 20% of all-in cash
+  //   4. Flip               — flipProfit ≥ 2.5 × wholesale (auto-pick mode via drag)
+  //   5. Wholetail          — wholetailProfit ≥ 1.5 × wholesale AND flip ≤ 1.25 × wholetail
+  //                           (auto-pick mode via drag)
+  //   6. Wholesale          — any positive wholesale profit
+  //   else (fallback)       — highest positive profit (rentals always excluded if D/F)
+  //
+  // Each rule's rejection-reason is captured in `rejections` so the
+  // recommendation banner can surface "why this won AND why not the
+  // higher-priority option."
   let best = null;
+  let bestModeAuto = null;       // for Flip / Wholetail auto-pick: 'cash' or 'financed'
+  const rejections = [];         // [{ rule, reason }, ...]
   const _rentalExit = exits.find(e => e.key === 'rental');
   const _setRentalBest = (mode) => {
     if (!_rentalExit) return;
@@ -8346,45 +8386,186 @@ function uwComputeExits(ctx) {
   // looks. Wholesale / Wholetail / Flip are still allowed (you can sell
   // the problem to someone else) but you don't HOLD a D/F deal.
   const _rentalBlockedByCrime = _crimeGrade === 'D' || _crimeGrade === 'F';
-  if (!_rentalBlockedByCrime && _refiPullsAllOut && _refiCashflows) {
+  const _fmt$ = (n) => '$' + Math.round(Math.max(0, n)).toLocaleString();
+
+  // Helper: drag-rule mode picker for Flip / Wholetail. Tests both cash and
+  // financed against the strategy's profit threshold (× wholesale) and uses
+  // the drag rule (financing < 20% of financed profit) to pick when both
+  // qualify. Returns { mode, profit, why, otherProfit, otherWhy } or null
+  // if neither mode qualifies.
+  const _pickMode = (cashProfit, finProfit, multiplier) => {
+    const reqd = wholesaleProfit > 0 ? multiplier * wholesaleProfit : 0;
+    const cashOk = cashProfit > reqd;
+    const finOk  = finProfit  > reqd;
+    if (!cashOk && !finOk) return null;
+    if (cashOk && !finOk) {
+      return {
+        mode: 'cash', profit: cashProfit,
+        why: 'Financed mode would only profit ' + _fmt$(finProfit) + ', short of the ' + multiplier + '× wholesale threshold (' + _fmt$(reqd) + ').'
+      };
+    }
+    if (finOk && !cashOk) {
+      return {
+        mode: 'financed', profit: finProfit,
+        why: 'Cash mode would only profit ' + _fmt$(cashProfit) + ', short of the ' + multiplier + '× wholesale threshold (' + _fmt$(reqd) + ').'
+      };
+    }
+    // Both qualify — drag rule decides
+    if (finProfit >= cashProfit) {
+      return {
+        mode: 'financed', profit: finProfit,
+        why: 'Financed actually outperforms cash (' + _fmt$(finProfit) + ' vs ' + _fmt$(cashProfit) + ') — no drag, leverage is free profit.'
+      };
+    }
+    const drag    = cashProfit - finProfit;
+    const dragPct = finProfit > 0 ? (drag / finProfit) * 100 : 999;
+    if (dragPct < 20) {
+      return {
+        mode: 'financed', profit: finProfit,
+        why: 'Financing costs ' + _fmt$(drag) + ' (' + dragPct.toFixed(0) + '% of ' + _fmt$(finProfit) + ' financed profit) — under the 20% drag threshold, leverage wins.'
+      };
+    }
+    return {
+      mode: 'cash', profit: cashProfit,
+      why: 'Financing would cost ' + _fmt$(drag) + ' (' + dragPct.toFixed(0) + '% of ' + _fmt$(finProfit) + ' financed profit) — over the 20% drag threshold, cash is cleaner.'
+    };
+  };
+
+  // ===== Walk the cascade =====
+
+  // Rule 1: Refi rental
+  if (_rentalBlockedByCrime) {
+    rejections.push({ rule: 'Rental (Refi)', reason: 'Crime grade ' + _crimeGrade + ' — never hold a D/F-grade deal.' });
+  } else if (!_refiPullsAllOut) {
+    rejections.push({ rule: 'Rental (Refi)', reason: 'Refi would leave ' + _fmt$(_refiCapRemaining) + ' tied up — over the $5k cap.' });
+  } else if (!_refiCashflows) {
+    rejections.push({ rule: 'Rental (Refi)', reason: 'Cashflow ' + _fmt$(rfCashflow) + '/mo is below the $200/mo minimum after refi payment.' });
+  } else {
     bestRentalMode = 'refi';
     _setRentalBest('refi');
-  } else if (!_rentalBlockedByCrime && _cashYieldPct >= 0.20) {
-    bestRentalMode = 'cash';
-    _setRentalBest('cash');
-  } else if (wholesaleProfit > 0 && wholetailProfit >= 2 * wholesaleProfit && flipProfit <= wholetailProfit * 1.25) {
-    // Wholetail wins when it's 2× the assignment fee AND flip doesn't beat
-    // wholetail by more than 25%. Faster + lighter = preferred when flip's
-    // upside isn't worth the extra rehab/time risk.
-    best = exits.find(e => e.key === 'wholetail') || null;
-  } else if (wholesaleProfit > 0 && flipProfit >= 2.5 * wholesaleProfit) {
-    best = exits.find(e => e.key === 'flip') || null;
-  } else if (wholesaleProfit > 0) {
-    best = exits.find(e => e.key === 'wholesale') || null;
-  } else {
-    // No strict rule fired — pick whichever exit has the highest positive
-    // profit so the calculator always surfaces a BEST badge and recommendation
-    // banner. Any exit type is eligible (wholetail, flip, rental, etc.) so the
-    // user always sees the strongest play, even when wholesale is unprofitable
-    // and no other rule meets its threshold. Doesn't change Max Offer (which
-    // stays wholesale-driven) — this is purely a display ranking.
+  }
+
+  // Rule 2: Financed rental
+  if (!best) {
+    if (_rentalBlockedByCrime) {
+      rejections.push({ rule: 'Rental (Financed)', reason: 'Crime grade ' + _crimeGrade + ' — never hold a D/F-grade deal.' });
+    } else if (!_finCapRemainingOk) {
+      rejections.push({ rule: 'Rental (Financed)', reason: 'Capital remaining ' + _fmt$(_finCapRemaining) + ' (down + orig + pre-rent) is over the $5k cap.' });
+    } else if (!_finCashflows) {
+      rejections.push({ rule: 'Rental (Financed)', reason: 'Cashflow ' + _fmt$(finCashflow) + '/mo is below the $200/mo minimum.' });
+    } else {
+      bestRentalMode = 'financed';
+      _setRentalBest('financed');
+    }
+  }
+
+  // Rule 3: Cash rental
+  if (!best) {
+    if (_rentalBlockedByCrime) {
+      rejections.push({ rule: 'Rental (Cash)', reason: 'Crime grade ' + _crimeGrade + ' — never hold a D/F-grade deal.' });
+    } else if (_cashYieldPct < 0.20) {
+      rejections.push({ rule: 'Rental (Cash)', reason: 'Gross yield ' + (_cashYieldPct * 100).toFixed(1) + '% is below the 20% threshold.' });
+    } else {
+      bestRentalMode = 'cash';
+      _setRentalBest('cash');
+    }
+  }
+
+  // Rule 4: Flip — auto-pick mode via drag rule
+  let _flipPick = null;
+  if (!best) {
+    if (wholesaleProfit <= 0) {
+      rejections.push({ rule: 'Flip', reason: 'Wholesale profit not positive — multiplier rules can\'t fire.' });
+    } else {
+      _flipPick = _pickMode(flipCashProfit, flipFinProfit, 2.5);
+      if (_flipPick) {
+        // Flip wins. Tag the exit card with the cascade-picked mode so the
+        // BEST badge + recommendation banner + saved best_exit all reflect
+        // the auto-pick. The card's displayed profit/lines still follow
+        // the toggle (Option A — toggle is a what-if explorer).
+        const flipExit = exits.find(e => e.key === 'flip');
+        if (flipExit) {
+          flipExit.bestMode = _flipPick.mode === 'financed' ? 'Financed' : 'Cash';
+          best = flipExit;
+          bestModeAuto = _flipPick.mode;
+        }
+      } else {
+        rejections.push({ rule: 'Flip', reason: 'Neither cash (' + _fmt$(flipCashProfit) + ') nor financed (' + _fmt$(flipFinProfit) + ') hits 2.5× wholesale (' + _fmt$(2.5 * wholesaleProfit) + ').' });
+      }
+    }
+  }
+
+  // Rule 5: Wholetail — auto-pick mode via drag rule, plus flip ≤ 1.25× wholetail
+  let _wtPick = null;
+  if (!best) {
+    if (wholesaleProfit <= 0) {
+      rejections.push({ rule: 'Wholetail', reason: 'Wholesale profit not positive — multiplier rules can\'t fire.' });
+    } else {
+      _wtPick = _pickMode(wholetailCashProfit, wtFinProfit, 1.5);
+      if (_wtPick) {
+        // Compare flip's BEST profit (either mode) against the picked
+        // wholetail profit — flip must NOT exceed 1.25× wholetail (i.e.,
+        // prefer wholetail unless flip is meaningfully better).
+        const _bestFlipProfit = Math.max(flipCashProfit, flipFinProfit);
+        const _flipCeiling    = 1.25 * _wtPick.profit;
+        if (_bestFlipProfit > _flipCeiling) {
+          rejections.push({
+            rule: 'Wholetail',
+            reason: 'Flip\'s best profit (' + _fmt$(_bestFlipProfit) + ') exceeds 1.25× wholetail (' + _fmt$(_flipCeiling) + ') — flip is meaningfully better, but it didn\'t hit 2.5× wholesale either.'
+          });
+          _wtPick = null; // failed the comparison
+        } else {
+          // Wholetail wins. Tag the exit card with the cascade-picked mode
+          // so the BEST badge + recommendation banner + saved best_exit all
+          // reflect the auto-pick. Card profit/lines still follow the toggle.
+          const wtExit = exits.find(e => e.key === 'wholetail');
+          if (wtExit) {
+            wtExit.bestMode = _wtPick.mode === 'financed' ? 'Financed' : 'Cash';
+            best = wtExit;
+            bestModeAuto = _wtPick.mode;
+          }
+        }
+      } else {
+        rejections.push({ rule: 'Wholetail', reason: 'Neither cash (' + _fmt$(wholetailCashProfit) + ') nor financed (' + _fmt$(wtFinProfit) + ') hits 1.5× wholesale (' + _fmt$(1.5 * wholesaleProfit) + ').' });
+      }
+    }
+  }
+
+  // Rule 6: Wholesale catchall — any positive
+  if (!best) {
+    if (wholesaleProfit > 0) {
+      best = exits.find(e => e.key === 'wholesale') || null;
+    } else {
+      rejections.push({ rule: 'Wholesale', reason: 'Wholesale profit ' + _fmt$(wholesaleProfit) + ' — not positive.' });
+    }
+  }
+
+  // Fallback: highest positive profit, rentals excluded if D/F
+  if (!best) {
     const candidates = exits.filter(e => {
       if (!e || typeof e.profit !== 'number' || e.profit <= 0) return false;
-      // Respect the crime gate — never recommend a rental in a D/F area.
       if (e.key === 'rental' && _rentalBlockedByCrime) return false;
       return true;
     }).slice().sort((a, b) => b.profit - a.profit);
     if (candidates.length) {
       best = candidates[0];
-      // Keep the rental card's mode label in sync if rental ends up winning.
+      // Tag the auto-picked mode on the BEST card even when it wins via
+      // fallback, so the BEST badge + saved best_exit reflect the cascade's
+      // mode preference (★ on the toggle).
       if (best.key === 'rental' && best.bestMode !== undefined) {
         best.bestMode = bestRentalMode === 'refi' ? 'Refi'
                       : bestRentalMode === 'financed' ? 'Financed'
                       : 'Cash';
+      } else if (best.key === 'flip') {
+        best.bestMode = _flipRecMode === 'financed' ? 'Financed' : 'Cash';
+        bestModeAuto = _flipRecMode;
+      } else if (best.key === 'wholetail') {
+        best.bestMode = _wholetailRecMode === 'financed' ? 'Financed' : 'Cash';
+        bestModeAuto = _wholetailRecMode;
       }
     }
-    // If every exit is ≤ 0, best stays null and the existing "no exit
-    // profitable" banner kicks in — same behavior as before.
+    // If every exit is ≤ 0, best stays null — recommendation banner shows the
+    // "no exit profitable" red state.
   }
 
   // Render cards (clickable; one expanded at a time)
@@ -8396,7 +8577,22 @@ function uwComputeExits(ctx) {
       const profitColor = e.profit > 0 ? '#10b981' : (e.profit < 0 ? '#ef4444' : 'var(--text-dim)');
       const border = isOpen ? '2px solid #3b82f6' : (isBest ? '2px solid #10b981' : '1px solid var(--border)');
       const bg = isOpen ? 'rgba(59,130,246,0.10)' : (isBest ? 'rgba(16,185,129,0.12)' : 'var(--panel-2)');
-      const badge = isBest ? '<span style="background:#10b981;color:white;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;margin-left:6px">BEST</span>' : '';
+      // BEST badge — when the auto-picked mode disagrees with the user's
+      // current toggle on Flip / Wholetail, show the auto-picked mode in
+      // the badge ("BEST · Financed") so the user can see the cascade's
+      // mode pick at a glance even when they're toggle-exploring the other.
+      let badge = '';
+      if (isBest) {
+        let modeSuffix = '';
+        if (e.key === 'flip' && e.bestMode && (e.bestMode.toLowerCase().slice(0,3)) !== (flipMode || 'cash').toLowerCase().slice(0,3)) {
+          modeSuffix = ' · ' + e.bestMode;
+        } else if (e.key === 'wholetail' && e.bestMode && (e.bestMode.toLowerCase().slice(0,3)) !== (wholetailMode || 'cash').toLowerCase().slice(0,3)) {
+          modeSuffix = ' · ' + e.bestMode;
+        } else if (e.key === 'rental' && e.bestMode && (e.bestMode.toLowerCase().slice(0,4)) !== (rentalMode || 'cash').toLowerCase().slice(0,4)) {
+          modeSuffix = ' · ' + e.bestMode;
+        }
+        badge = '<span style="background:#10b981;color:white;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;margin-left:6px" title="' + (modeSuffix ? 'Cascade recommends ' + e.bestMode + ' mode — toggle to see those numbers' : 'Cascade pick') + '">BEST' + modeSuffix + '</span>';
+      }
       const profitLabel = e.type === 'recurring' ? 'Annual cashflow' : 'Net profit';
       const annLabel = e.type === 'recurring' ? 'Annual return' : 'Annualized';
       const chevron = isOpen ? '▲' : '▼';
@@ -8531,38 +8727,82 @@ function uwComputeExits(ctx) {
       recEl.style.background = 'rgba(239,68,68,0.10)';
       recEl.style.borderColor = '#ef4444';
     } else {
+      // ===== Headline reason (why THIS exit won) =====
+      // Use best.bestMode (the cascade's auto-picked mode) for Flip/Wholetail
+      // so the reason text describes the recommended mode regardless of how
+      // the strategy got picked (rule firing vs fallback).
+      const _bestModeIsFinanced = (best.bestMode || '').toLowerCase().indexOf('fin') === 0;
       const reason = (() => {
         if (best.key === 'wholesale') return `Quickest path to cash with zero capital tied up. Lock the contract and assign in ${best.time}.`;
-        if (best.key === 'wholetail') return wholetailMode === 'financed'
+        if (best.key === 'wholetail') return _bestModeIsFinanced
           ? `Light cosmetic + clean-out with 100% basis financing (capped at 70% ARV) @ ${wtFinRatePct}%/yr. Capital you put up: $${Math.round(wtFinCapital).toLocaleString()}. Sell at ${wtSalePct}% ARV in ${wholetailMonths} months.`
           : `Light cosmetic + clean-out (${wtCapPct}% ARV invested), ${wholetailMonths} months on market, sell at ${wtSalePct}% ARV — fast cash exit with minimal rehab risk.`;
-        if (best.key === 'flip') return flipMode === 'financed'
+        if (best.key === 'flip') return _bestModeIsFinanced
           ? `Highest one-time profit with 100% basis financing (capped at 70% ARV) @ ${flHmRatePct}%/yr. Capital you put up: $${Math.round(flipFinCapital).toLocaleString()}.`
           : `Highest one-time profit (cash purchase — no financing cost). Plan ${best.time} of work.`;
         if (best.key === 'rental') {
-          // Use the RULE-BASED best rental mode (not the user's toggle) so
-          // the recommendation reflects what's actually best for this deal.
           if (bestRentalMode === 'cash') {
             return `${(_cashYieldPct * 100).toFixed(1)}% gross yield — annual rent $${Math.round(annualRent).toLocaleString()} on $${Math.round(_cashAllIn).toLocaleString()} all-in cash. Hits the 20% threshold for cash rental.`;
           }
           if (bestRentalMode === 'refi') {
-            // $1 tolerance — same floating-point story as _refiPullsAllOut.
-            // When all capital is recovered, CoC is mathematically infinite
-            // (return on $0 invested) → render as ∞ instead of a wild number.
-            return rfLeftIn < 1
+            return _refiCapRemaining < 1
               ? `Refinance recovers every dollar you put up ($${Math.round(rfInitialOut).toLocaleString()}) AND still cashflows $${Math.round(rfCashflow).toLocaleString()}/mo at ∞ CoC. Recycle the capital into the next deal.`
-              : `Refinance pulls $${Math.round(rfCashOut).toLocaleString()} back out; $${Math.round(rfLeftIn).toLocaleString()} stays in deal earning ${rfCoC.toFixed(1)}% CoC.`;
+              : `Refinance pulls $${Math.round(rfCashOut).toLocaleString()} back out; only $${Math.round(_refiCapRemaining).toLocaleString()} stays in deal (under the $5k cap) earning ${rfCoC.toFixed(1)}% CoC.`;
           }
           if (bestRentalMode === 'financed') {
-            return `Turnkey deal — no rehab + no capital down + $${Math.round(finCashflow).toLocaleString()}/mo cashflow. Conventional financing wins.`;
+            return `Capital remaining: $${Math.round(_finCapRemaining).toLocaleString()} (down + origination + pre-rent), under the $5k cap, with $${Math.round(finCashflow).toLocaleString()}/mo cashflow. Other people's money carrying the deal.`;
           }
           return `Best leveraged return.`;
         }
-        if (best.key === 'cashRental') return `Pure cashflow + appreciation. No leverage = lower CoC but bulletproof.`;
-        if (best.key === 'finRental') return `Best leveraged return. ${finCoC.toFixed(1)}% cash-on-cash on $${Math.round(finDown).toLocaleString()} down.`;
         return '';
       })();
-      recEl.innerHTML = `<div style="font-size:15px;font-weight:600;color:#10b981;margin-bottom:4px">✅ Recommended exit: ${best.icon} ${best.name}</div><div style="font-size:13px;color:var(--text)">${reason}</div>`;
+
+      // ===== Mode-level rejection: why NOT the opposite mode? =====
+      // Show when Flip/Wholetail wins, regardless of whether it won via the
+      // strategy rule or the fallback. Uses the drag-rule logic to explain
+      // which mode was preferred and why the other lost.
+      let modeRejection = '';
+      const _explainModeChoice = (cashProfit, finProfit, pickedMode) => {
+        const drag    = cashProfit - finProfit;
+        const dragPct = finProfit > 0 ? (drag / finProfit) * 100 : 0;
+        if (pickedMode === 'financed') {
+          if (finProfit >= cashProfit) {
+            return 'Financed actually outperforms cash (' + _fmt$(finProfit) + ' vs ' + _fmt$(cashProfit) + ') — no drag, leverage is free profit.';
+          }
+          return 'Financing only costs ' + _fmt$(drag) + ' (' + dragPct.toFixed(0) + '% of ' + _fmt$(finProfit) + ' financed profit) — under the 20% drag threshold, leverage wins.';
+        }
+        // Cash picked
+        return 'Financing would cost ' + _fmt$(drag) + ' (' + dragPct.toFixed(0) + '% of ' + _fmt$(Math.max(0, finProfit)) + ' financed profit) — over the 20% drag threshold, cash is cleaner.';
+      };
+      if (best.key === 'flip') {
+        const pickedMode = _bestModeIsFinanced ? 'financed' : 'cash';
+        const oppositeMode = pickedMode === 'cash' ? 'Financed' : 'Cash';
+        modeRejection = '<div style="margin-top:4px;font-size:12px;color:var(--text-dim)"><b>Why not ' + oppositeMode + '?</b> ' + _explainModeChoice(flipCashProfit, flipFinProfit, pickedMode) + '</div>';
+      } else if (best.key === 'wholetail') {
+        const pickedMode = _bestModeIsFinanced ? 'financed' : 'cash';
+        const oppositeMode = pickedMode === 'cash' ? 'Financed' : 'Cash';
+        modeRejection = '<div style="margin-top:4px;font-size:12px;color:var(--text-dim)"><b>Why not ' + oppositeMode + '?</b> ' + _explainModeChoice(wholetailCashProfit, wtFinProfit, pickedMode) + '</div>';
+      }
+
+      // ===== Strategy-level rejections (full reasoning drawer) =====
+      // Show every higher-priority rule that DIDN'T fire and why. Collapsed
+      // by default so the banner stays clean — user can click to expand.
+      let drawer = '';
+      if (rejections.length) {
+        const rows = rejections.map(r =>
+          '<div style="padding:6px 0;border-bottom:1px dotted var(--border);font-size:12px"><b style="color:var(--text)">' +
+          r.rule + '</b> <span style="color:var(--text-dim)">— ' + r.reason + '</span></div>'
+        ).join('');
+        drawer =
+          '<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:var(--text-dim);user-select:none">📖 Show full reasoning (why not the other strategies)</summary>' +
+          '<div style="margin-top:6px;padding:8px 12px;background:rgba(148,163,184,0.06);border-radius:6px">' + rows + '</div></details>';
+      }
+
+      recEl.innerHTML =
+        '<div style="font-size:15px;font-weight:600;color:#10b981;margin-bottom:4px">✅ Recommended exit: ' + best.icon + ' ' + best.name + (best.bestMode ? ' (' + best.bestMode + ')' : '') + '</div>' +
+        '<div style="font-size:13px;color:var(--text)">' + reason + '</div>' +
+        modeRejection +
+        drawer;
       recEl.style.background = 'rgba(16,185,129,0.10)';
       recEl.style.borderColor = '#10b981';
     }
@@ -10431,14 +10671,29 @@ function _uwCollect() {
       // Normalize to a short canonical exit name (no rationale, no "(Assignment)" suffix)
       bestExit = uwShortExitName(raw);
     }
-    // The Flip + Rental cards no longer embed the mode in their title (the
-    // toggle pill lives on its own line). Append the active mode here so the
-    // saved best_exit string still distinguishes Cash / Financed / Refi.
-    if (bestExit === 'Flip' && typeof _uwFlipMode !== 'undefined') {
-      bestExit = 'Flip (' + (_uwFlipMode === 'financed' ? 'Financed' : 'Cash') + ')';
-    } else if (bestExit === 'Wholetail' && typeof _uwWholetailMode !== 'undefined') {
-      bestExit = 'Wholetail (' + (_uwWholetailMode === 'financed' ? 'Financed' : 'Cash') + ')';
-    } else if (bestExit === 'Rental') {
+    // The card title embeds the user's toggle mode (e.g. "Rental (Financed)"),
+    // but the saved best_exit needs to reflect the cascade's auto-pick (which
+    // can disagree with the toggle — Option A). Override using the BEST
+    // card's data-best-mode attribute. Match by strategy prefix so we catch
+    // both bare "Flip" and "Flip (Cash)" forms returned by uwShortExitName.
+    //
+    // Mode source priority:
+    //   1. data-best-mode attr on the BEST card (the cascade's auto-pick)
+    //   2. Fallback to the user's toggle (_uwFlipMode / _uwWholetailMode)
+    // This way the saved value reflects the cascade's recommendation
+    // regardless of what the toggle is currently showing.
+    const _exitStartsWith = (prefix) => bestExit && (bestExit === prefix || bestExit.indexOf(prefix + ' ') === 0 || bestExit.indexOf(prefix + '(') === 0);
+    if (_exitStartsWith('Flip')) {
+      const cardBestMode = bestCard && bestCard.getAttribute('data-best-mode');
+      const flipMode = cardBestMode || (typeof _uwFlipMode !== 'undefined' && _uwFlipMode === 'financed' ? 'Financed' : 'Cash');
+      const finalMode = /fin/i.test(flipMode) ? 'Financed' : 'Cash';
+      bestExit = 'Flip (' + finalMode + ')';
+    } else if (_exitStartsWith('Wholetail')) {
+      const cardBestMode = bestCard && bestCard.getAttribute('data-best-mode');
+      const wtMode = cardBestMode || (typeof _uwWholetailMode !== 'undefined' && _uwWholetailMode === 'financed' ? 'Financed' : 'Cash');
+      const finalMode = /fin/i.test(wtMode) ? 'Financed' : 'Cash';
+      bestExit = 'Wholetail (' + finalMode + ')';
+    } else if (_exitStartsWith('Rental')) {
       // Use the rule-based bestRentalMode (set by uwRecalc on the BEST rental
       // card) when available — falls back to the user's toggle if not.
       const card = document.querySelector('#uw-exit-cards [style*="rgba(16,185,129,0.12)"]');
@@ -11490,6 +11745,15 @@ async function uwLoadById(id) {
           // Update local cache so the list re-renders correctly next time.
           u.best_exit   = newBestExit;
           u.best_profit = newBestProfit;
+          // Re-render any open deal tables so the preview row updates
+          // immediately instead of waiting for a navigation event. Cheap
+          // because it just reads from the now-updated cache.
+          if (typeof renderUnderwrites === 'function') {
+            try { renderUnderwrites(); } catch (_) {}
+          }
+          if (typeof _hrRenderDealsList === 'function') {
+            try { _hrRenderDealsList(); } catch (_) {}
+          }
         });
     } catch (e) { console.warn('best_exit refresh exception:', e); }
   }, 250);

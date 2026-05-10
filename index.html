@@ -8503,15 +8503,22 @@ function uwComputeExits(ctx) {
     } else {
       _wtPick = _pickMode(wholetailCashProfit, wtFinProfit, 1.5);
       if (_wtPick) {
-        // Compare flip's BEST profit (either mode) against the picked
-        // wholetail profit — flip must NOT exceed 1.25× wholetail (i.e.,
-        // prefer wholetail unless flip is meaningfully better).
-        const _bestFlipProfit = Math.max(flipCashProfit, flipFinProfit);
-        const _flipCeiling    = 1.25 * _wtPick.profit;
+        // Compare flip's BEST profit against the BEST wholetail profit
+        // (whichever wholetail mode is higher). Using the BEST wholetail
+        // here matches "prefer wholetail unless flip is meaningfully better
+        // than wholetail's best case." If we used the drag-picked mode, a
+        // small financing-cost preference for Financed wholetail could
+        // accidentally tank the whole strategy when Cash wholetail would
+        // have cleared the ceiling. Mode selection (Cash vs Financed)
+        // happens via the drag rule independently, after the strategy is
+        // confirmed to win.
+        const _bestFlipProfit     = Math.max(flipCashProfit, flipFinProfit);
+        const _bestWholetailProf  = Math.max(wholetailCashProfit, wtFinProfit);
+        const _flipCeiling        = 1.25 * _bestWholetailProf;
         if (_bestFlipProfit > _flipCeiling) {
           rejections.push({
             rule: 'Wholetail',
-            reason: 'Flip\'s best profit (' + _fmt$(_bestFlipProfit) + ') exceeds 1.25× wholetail (' + _fmt$(_flipCeiling) + ') — flip is meaningfully better, but it didn\'t hit 2.5× wholesale either.'
+            reason: 'Flip\'s best profit (' + _fmt$(_bestFlipProfit) + ') exceeds 1.25× wholetail\'s best (' + _fmt$(_flipCeiling) + ') — flip is meaningfully better, but it didn\'t hit 2.5× wholesale either.'
           });
           _wtPick = null; // failed the comparison
         } else {
@@ -9069,7 +9076,7 @@ function uwComputeExits(ctx) {
     const _wsProfit  = Math.max(0, wholesaleProfit);
     const _wtProfit  = wholetailProfit;     // mode-aware (cash or financed)
     const _flProfit  = flipProfit;          // mode-aware
-    const _wsTarget2 = _wsProfit * 2;       // wholetail must beat this (2× wholesale)
+    const _wsTarget2 = _wsProfit * 1.5;     // wholetail must beat this (1.5× wholesale)
     const _wsTarget3 = _wsProfit * 2.5;     // flip must beat this      (2.5× wholesale)
     const _yieldPct  = _cashYieldPct * 100;
     const diag = {
@@ -9096,7 +9103,7 @@ function uwComputeExits(ctx) {
         if (_flProfit > flipMax) {
           return { ok: false, msg: '✗ ' + fmt$(_wtProfit) + ' wholetail vs ' + fmt$(_flProfit) + ' flip — flip beats by > 25% (cap ' + fmt$(flipMax) + ')' };
         }
-        return { ok: true, msg: '✓ ' + fmt$(_wtProfit) + ' ≥ 2× wholesale AND flip (' + fmt$(_flProfit) + ') ≤ 1.25× wholetail' };
+        return { ok: true, msg: '✓ ' + fmt$(_wtProfit) + ' ≥ 1.5× wholesale AND flip (' + fmt$(_flProfit) + ') ≤ 1.25× wholetail' };
       })(),
       flip: (function () {
         if (_wsProfit <= 0) {
@@ -9117,14 +9124,14 @@ function uwComputeExits(ctx) {
         if (wp < _wsTarget2)       return { ok: false, msg: '✗ ' + fmt$(wp) + ' financed profit, needs ' + fmt$(_wsTarget2) + ' (short ' + fmt$(_wsTarget2 - wp) + ')' };
         const flipMax = wp * 1.25;
         if (fp > flipMax)          return { ok: false, msg: '✗ ' + fmt$(wp) + ' wholetail vs ' + fmt$(fp) + ' flip — flip beats by > 25% (cap ' + fmt$(flipMax) + ')' };
-        return { ok: true, msg: '✓ ' + fmt$(wp) + ' ≥ 2× wholesale AND flip (' + fmt$(fp) + ') ≤ 1.25× wholetail' };
+        return { ok: true, msg: '✓ ' + fmt$(wp) + ' ≥ 1.5× wholesale AND flip (' + fmt$(fp) + ') ≤ 1.25× wholetail' };
       })(),
       flipFin: (function () {
         const fp = (typeof flipFinProfit === 'number' ? flipFinProfit : 0);
         if (_wsProfit <= 0) {
           return { ok: false, info: true, msg: 'ℹ ' + fmt$(fp) + ' financed flip profit' };
         }
-        if (fp >= _wsTarget3)      return { ok: true,  msg: '✓ ' + fmt$(fp) + ' financed profit ≥ 3× wholesale (' + fmt$(_wsTarget3) + ')' };
+        if (fp >= _wsTarget3)      return { ok: true,  msg: '✓ ' + fmt$(fp) + ' financed profit ≥ 2.5× wholesale (' + fmt$(_wsTarget3) + ')' };
         return { ok: false, msg: '✗ ' + fmt$(fp) + ' financed profit, needs ' + fmt$(_wsTarget3) + ' (short ' + fmt$(_wsTarget3 - fp) + ')' };
       })(),
       dscr: (function () {
@@ -9330,8 +9337,8 @@ function uwComputeExits(ctx) {
       <!-- Row 1: One-time exits (Wholesale, Wholetail, Flip) -->
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
         ${card('🤝', 'Wholesale',         wsBuyMax,     wsBuyMax,                   buyPrice,       'Buy ≤ MAO − $10k floor (MAO ' + fmt$(cashBuyerMAO) + ')',                  diag.wholesale,    _highlightCurrentBest('wholesale'))}
-        ${card('🔨', 'Wholetail (cash)',   wtBuyMax,     wtBuyMax + wtCosts,         wtAllInToday,   '≥ 2× wholesale AND flip ≤ 1.25× wholetail (after ' + fmt$(_wtIdeal) + ' ideal profit)',          diag.wholetail,    _highlightCurrentBest('wholetail'))}
-        ${card('🔨', 'Wholetail (fin)',    wtFinBuyMax,  wtFinBuyMax + wtCosts,      wtAllInToday,   '≥ 2× wholesale AND flip ≤ 1.25× wholetail · financed (after ' + fmt$(_wtIdeal) + ' ideal profit)', diag.wholetailFin, false)}
+        ${card('🔨', 'Wholetail (cash)',   wtBuyMax,     wtBuyMax + wtCosts,         wtAllInToday,   '≥ 1.5× wholesale AND flip ≤ 1.25× wholetail (after ' + fmt$(_wtIdeal) + ' ideal profit)',          diag.wholetail,    _highlightCurrentBest('wholetail'))}
+        ${card('🔨', 'Wholetail (fin)',    wtFinBuyMax,  wtFinBuyMax + wtCosts,      wtAllInToday,   '≥ 1.5× wholesale AND flip ≤ 1.25× wholetail · financed (after ' + fmt$(_wtIdeal) + ' ideal profit)', diag.wholetailFin, false)}
         ${card('🏗️', 'Flip (cash)',       flipBuyMax,   flipBuyMax + flipCosts,     flipAllInToday, 'Flip profit ≥ 2.5× wholesale (after ' + fmt$(_flipIdeal) + ' ideal profit)', diag.flip,         _highlightCurrentBest('flip'))}
         ${card('🏗️', 'Flip (fin)',        flFinBuyMax,  flFinBuyMax + flipCosts,    flipAllInToday, 'Financed flip ≥ 2.5× wholesale (after ' + fmt$(_flipIdeal) + ' ideal profit)', diag.flipFin,      false)}
       </div>

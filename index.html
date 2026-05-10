@@ -2195,12 +2195,17 @@
         <label class="text-xs col-span-2 md:col-span-5" title="Upload a photo of the front of the house (or any screenshot) to display on page 1 of the wholesale packet.">Main Picture Upload
           <span style="display:flex;gap:4px;align-items:stretch;margin-top:4px">
             <input type="hidden" id="uw-main-pic">
-            <!-- Inherits the global input style (padding: 8px 12px, etc.) so
-                 it renders at exactly the same height as the Picture Folder
-                 Link input next to it. The compact ::file-selector-button
-                 rule in the global stylesheet keeps the native "Choose File"
-                 button from blowing up the row height. -->
-            <input type="file" id="uw-main-pic-input" accept="image/*" onchange="_uwHandleMainPicUpload(event)" style="flex:1;min-width:0;margin:0;font-size:12px;box-sizing:border-box">
+            <!-- Wrapper holds the file input AND a same-sized text overlay.
+                 The overlay (#uw-main-pic-replace) uses position:absolute;
+                 inset:0 to cover the file input EXACTLY when a picture is
+                 loaded — so swapping between "Choose File / No file chosen"
+                 and "Picture uploaded — click to replace" never changes the
+                 box dimensions. The file input alone determines the height
+                 of this slot; the overlay just inherits whatever that is. -->
+            <span style="position:relative;flex:1;min-width:0;display:block">
+              <input type="file" id="uw-main-pic-input" accept="image/*" onchange="_uwHandleMainPicUpload(event)" style="width:100%;margin:0;font-size:12px;box-sizing:border-box">
+              <span id="uw-main-pic-replace" onclick="document.getElementById('uw-main-pic-input').click()" style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;padding:0 12px;cursor:pointer;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box">📷  Picture uploaded — click to replace</span>
+            </span>
             <button type="button" id="uw-main-pic-clear" onclick="_uwClearMainPic()" title="Remove the uploaded picture" style="display:inline-flex;align-items:center;justify-content:center;width:32px;border-radius:5px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);font-size:14px;line-height:1;flex-shrink:0;box-sizing:border-box;padding:0;cursor:pointer">✕</button>
           </span>
           <span id="uw-main-pic-status" style="display:block;margin-top:2px;font-size:10px;color:var(--text-dim);min-height:12px">&nbsp;</span>
@@ -11524,19 +11529,25 @@ async function _uwHandleMainPicUpload(event) {
   reader.onload = () => {
     const img = new Image();
     img.onload = () => {
-      const maxW = 1200;
+      // Downscaled to max 800px wide @ JPEG q=0.72 — keeps the payload small
+      // enough for Supabase's default REST request body limits even when
+      // combined with the rest of the underwrite data.
+      const maxW = 800;
       let w = img.width, h = img.height;
       if (w > maxW) { h = Math.round(h * (maxW / w)); w = maxW; }
       const canvas = document.createElement('canvas');
       canvas.width  = w;
       canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      const compressed = canvas.toDataURL('image/jpeg', 0.85);
+      const compressed = canvas.toDataURL('image/jpeg', 0.72);
       const hidden = document.getElementById('uw-main-pic');
       if (hidden) {
         hidden.value = compressed;
+        console.log('[MainPic] Set hidden #uw-main-pic — value length:', compressed.length, 'chars (~' + Math.round(compressed.length / 1024) + ' KB)');
         // Dispatch a change event so the global autosave listener picks it up.
         try { hidden.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
+      } else {
+        console.warn('[MainPic] #uw-main-pic hidden input not found — picture won\'t persist');
       }
       _uwUpdateMainPicStatus();
       if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
@@ -11566,20 +11577,28 @@ function _uwClearMainPic() {
 // (NN KB)" when a picture is loaded, or empty when none. Also called from
 // uwLoadById after a deal is restored so the status reflects saved data.
 function _uwUpdateMainPicStatus() {
-  const hidden = document.getElementById('uw-main-pic');
-  const status = document.getElementById('uw-main-pic-status');
-  const clear  = document.getElementById('uw-main-pic-clear');
+  const hidden  = document.getElementById('uw-main-pic');
+  const status  = document.getElementById('uw-main-pic-status');
+  const clear   = document.getElementById('uw-main-pic-clear');
+  const fileEl  = document.getElementById('uw-main-pic-input');
+  const replace = document.getElementById('uw-main-pic-replace');
   if (!status) return;
   const v = hidden && hidden.value ? hidden.value : '';
   if (v && v.startsWith('data:')) {
     const kb = Math.round(v.length / 1024);
     status.textContent = '✓ Picture uploaded (~' + kb + ' KB)';
     status.style.color = '#10b981';
-    if (clear) { clear.style.color = '#ef4444'; clear.style.borderColor = '#ef4444'; }
+    if (clear)   { clear.style.color = '#ef4444'; clear.style.borderColor = '#ef4444'; }
+    // Show the overlay covering the file input (flex centers text vertically)
+    // — the file input stays in place underneath so the box dimensions never
+    // change; we just visually mask the misleading "No file chosen" text.
+    if (replace) replace.style.display = 'flex';
   } else {
-    status.textContent = '';
+    status.textContent = ' ';   // non-breaking space — keeps the row height
     status.style.color = 'var(--text-dim)';
-    if (clear) { clear.style.color = 'var(--text-dim)'; clear.style.borderColor = 'var(--border)'; }
+    if (clear)   { clear.style.color = 'var(--text-dim)'; clear.style.borderColor = 'var(--border)'; }
+    // No picture — hide the overlay so the underlying file picker shows.
+    if (replace) replace.style.display = 'none';
   }
 }
 window._uwHandleMainPicUpload = _uwHandleMainPicUpload;
@@ -11991,8 +12010,9 @@ function _uwApply(data) {
   if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
   // Tint the picture-folder icon based on the loaded URL value
   if (typeof _uwUpdatePicLinkIcon === 'function') _uwUpdatePicLinkIcon();
-  // Refresh the main-picture-upload status caption from saved data URL
-  if (typeof _uwUpdateMainPicStatus === 'function') _uwUpdateMainPicStatus();
+  // (Main-picture-upload status caption is refreshed AFTER the apply loop
+  // below — it depends on the hidden #uw-main-pic input having its value set,
+  // which only happens after Object.entries(data).forEach runs.)
   // Apply the saved section order (re-arranges top-level panels)
   if (typeof _uwApplySectionOrder === 'function') _uwApplySectionOrder(data._sectionOrder);
   // Restore the "needs help" flag and update the toggle button visual
@@ -12028,6 +12048,12 @@ function _uwApply(data) {
     if (el.type === 'checkbox') el.checked = false;
     else el.value = '';
   });
+  // ----- DIAGNOSTIC: Main Picture Upload — log what we got from the DB -----
+  if (data['uw-main-pic']) {
+    console.log('[MainPic] uwLoad found uw-main-pic in saved data — length:', String(data['uw-main-pic']).length, 'chars (~' + Math.round(String(data['uw-main-pic']).length / 1024) + ' KB)');
+  } else {
+    console.log('[MainPic] uwLoad: no uw-main-pic in saved data for this deal');
+  }
   Object.entries(data).forEach(([id, val]) => {
     if (id === '_customChecklist' || id === '_checklistLayout' || id === '_rehab' || id === '_sectionOrder' || id === '_needsHelp' || id === '_inChecking' || id === '_flipMode' || id === '_rentalMode' || id === '_wholetailMode') return; // handled above
     const el = document.getElementById(id);
@@ -12036,6 +12062,11 @@ function _uwApply(data) {
     if (el.type === 'checkbox') el.checked = (val === '1' || val === true);
     else el.value = val || '';
   });
+  // Refresh the Main Picture Upload status caption now that the hidden
+  // #uw-main-pic input has been populated from saved data. Previously this
+  // ran before the apply loop, so the caption always showed "no picture"
+  // even when one had been uploaded and saved.
+  if (typeof _uwUpdateMainPicStatus === 'function') _uwUpdateMainPicStatus();
   // Sync the Rental section's Units mirror from Property Info's uw-units.
   // The mirror isn't in UW_FIELDS (we don't want to persist two copies of
   // the same value), so it has to be re-derived from uw-units on load.
@@ -12177,6 +12208,15 @@ async function uwSave(manual) {
   // Default to manual=true so existing call sites (e.g. legacy buttons) still alert/toast
   if (manual === undefined) manual = true;
   const { data, arv, offer, bestExit, bestProfitText } = _uwCollect();
+  // ----- DIAGNOSTIC: Main Picture Upload -----
+  // Log whether the uploaded picture made it into the save payload + how big.
+  // Helps diagnose silent persistence failures (size limits, dropped fields).
+  const _mpVal = data['uw-main-pic'] || '';
+  if (_mpVal) {
+    console.log('[MainPic] uwSave including uw-main-pic — length:', _mpVal.length, 'chars (~' + Math.round(_mpVal.length / 1024) + ' KB)');
+  } else {
+    console.log('[MainPic] uwSave: no uw-main-pic in payload');
+  }
   const address = data['uw-address'] || '';
   if (!address.trim()) {
     if (manual) toast('Enter an address before saving.', 'warn');

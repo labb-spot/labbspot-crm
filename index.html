@@ -6102,18 +6102,20 @@ window._uwRefreshAllLotConversions = _uwRefreshAllLotConversions;
 // (amber). The amber-mismatch triggers are:
 //   • Bed       — exact mismatch
 //   • Bath      — exact mismatch
+//   • SqFt      — > 25% off from subject (either direction)
 //   • Year      — built > 30 years apart
 //   • Lot       — comp lot > 2× subject lot
 //   • Parking   — different style (normalized to ignore "Garage"/" Only")
 //   • Material  — different building material
 //   • Distance  — > 0.5 mi from subject
-// Empty (not-filled) checks apply to: bed, bath, year, lot acres, parking,
-// material, distance, and the comp's price field (psf or rent).
+// Empty (not-filled) checks apply to: bed, bath, sqft, year, lot acres,
+// parking, material, distance, and the comp's price field (psf or rent).
 function _uwUpdateCompCautions() {
   // Subject baselines — pulled fresh each call so the warnings stay live
   // while the user edits Property Info.
   const subjBed   = _uwGetN('uw-bed');
   const subjBath  = _uwGetN('uw-bath');
+  const subjSqft  = _uwGetN('uw-sqft');
   const subjYear  = _uwGetN('uw-built');
   const subjLotAc = _uwGetN('uw-lot-size');
   const normParking = (s) => (s || '').toString().trim().toLowerCase().replace(/\s+garage$/, '').replace(/\s+only$/, '');
@@ -6155,7 +6157,7 @@ function _uwUpdateCompCautions() {
     else                 flag(id, null, '');
   };
   ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3'].forEach(p => {
-    ['bed','bath','year','lot','parking','material','dist'].forEach(f => cacheOrig('uw-' + p + '-' + f));
+    ['bed','bath','sqft','year','lot','parking','material','dist'].forEach(f => cacheOrig('uw-' + p + '-' + f));
     // Skip empty-checks for an entire comp slot if the address is blank — no
     // point yelling about missing fields on a comp the user hasn't started.
     const addr = _uwGetS('uw-' + p + '-addr').trim();
@@ -6178,6 +6180,21 @@ function _uwUpdateCompCautions() {
       'Bath not filled out',
       'Bath mismatch — subject ' + subjBath + ', comp ' + bath,
       'Bath matches subject (' + subjBath + ')');
+    // --- SqFt ---
+    // Comp sqft must be within 25% of subject sqft (either direction). If the
+    // comp is e.g. 800 sqft when the subject is 1,600 sqft, that's a 50% gap
+    // and the price-per-sqft assumptions break down. Flag amber on > 25% off.
+    const compSqft = _uwGetN('uw-' + p + '-sqft');
+    const sqftPctOff = (subjSqft > 0 && compSqft > 0)
+      ? (Math.abs(compSqft - subjSqft) / subjSqft) * 100
+      : 0;
+    classify('uw-' + p + '-sqft',
+      compSqft <= 0 && !skipEmpty,
+      subjSqft > 0 && compSqft > 0 && sqftPctOff > 25,
+      subjSqft > 0 && compSqft > 0 && sqftPctOff <= 25,
+      'SqFt not filled out',
+      'SqFt ' + sqftPctOff.toFixed(0) + '% off — subject ' + subjSqft.toLocaleString() + ', comp ' + compSqft.toLocaleString() + ' (>25% threshold)',
+      'SqFt within 25% of subject (' + sqftPctOff.toFixed(0) + '% off)');
     // --- Year ---
     const year = _uwGetN('uw-' + p + '-year');
     const yearGap = Math.abs(year - subjYear);
@@ -6189,14 +6206,23 @@ function _uwUpdateCompCautions() {
       'Year built ' + yearGap + ' yrs off — subject ' + subjYear + ', comp ' + year + ' (>30 yr threshold)',
       'Year built within 30 yrs of subject (' + yearGap + ' yr gap)');
     // --- Lot acres ---
+    // Flag amber if the comp's lot is more than 2× larger OR more than 2× smaller
+    // than the subject (i.e., outside the [subj/2, subj*2] range).
     const lotAc = _uwGetN('uw-' + p + '-lot');
+    const lotTooBig    = subjLotAc > 0 && lotAc > 0 && lotAc > 2 * subjLotAc;
+    const lotTooSmall  = subjLotAc > 0 && lotAc > 0 && lotAc < subjLotAc / 2;
+    const lotOutOfBand = lotTooBig || lotTooSmall;
+    const lotInBand    = subjLotAc > 0 && lotAc > 0 && !lotOutOfBand;
+    const lotMismatchMsg = lotTooBig
+      ? 'Lot size ' + lotAc.toFixed(2) + ' ac is more than 2× subject (' + subjLotAc.toFixed(2) + ' ac)'
+      : 'Lot size ' + lotAc.toFixed(2) + ' ac is less than half subject (' + subjLotAc.toFixed(2) + ' ac)';
     classify('uw-' + p + '-lot',
       lotAc <= 0 && !skipEmpty,
-      subjLotAc > 0 && lotAc > 0 && lotAc > 2 * subjLotAc,
-      subjLotAc > 0 && lotAc > 0 && lotAc <= 2 * subjLotAc,
+      lotOutOfBand,
+      lotInBand,
       'Lot size not filled out',
-      'Lot size ' + lotAc.toFixed(2) + ' ac is more than 2× subject (' + subjLotAc.toFixed(2) + ' ac)',
-      'Lot size within 2× subject');
+      lotMismatchMsg,
+      'Lot size within 2× subject (either direction)');
     // --- Parking ---
     const compParkRaw = _uwGetS('uw-' + p + '-parking');
     const compPark = normParking(compParkRaw);

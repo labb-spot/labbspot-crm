@@ -10297,7 +10297,13 @@ async function uwGenerateWholesalePacket() {
   // on its own page 3. See the IIFE below the disclosure block.)
   const _cashRentalRender = () => {
     const arvLocal     = arv > 0 ? arv : (getN('uw-asqft') * sqft);
-    const buyPrice     = getN('uw-accepted') || getN('uw-asking') || 0;
+    // Use the BUYER-FACING asking price for the pro forma — what the buyer
+    // reading the packet would actually pay. This is the same askPrice shown
+    // in the top-right of the cover (cashBuyerMAO × 1.20). Falls back to the
+    // internal accepted/asking values only if the cover price isn't available.
+    const buyPrice     = (typeof askPrice === 'number' && askPrice > 0)
+                           ? askPrice
+                           : (getN('uw-accepted') || getN('uw-asking') || 0);
     const _units       = Math.max(1, getN('uw-units') || getN('uw-units-rental') || 1);
     const perUnitRent  = estRent;                 // already respects override → avg → comps
     const totalRent    = perUnitRent * _units;

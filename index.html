@@ -19895,6 +19895,7 @@ async function handleAgentPerfFile(file) {
         conversion_rate_pct: Number(get(r, 'Conversion Rate')) || null,
         gross_conv_rate_pct: Number(get(r, 'Gross Conversion Rate')) || null,
         dispositions_json: dispositions,
+        source: 'uploaded', // tag manual drag-drop uploads so the Source filter can distinguish them from live (Apps Script) ingests
         updated_at: new Date().toISOString(),
         raw: Object.fromEntries(headers.map((h, i) => [h, r[i]]))
       };
@@ -24519,17 +24520,18 @@ function renderEmployees() {
   const endISO = fmt(endDate);
   const rangeForDate = stats.filter(x => x.stat_date >= startISO && x.stat_date <= endISO);
   // Apply Source filter (Live / Uploaded / Combined).
-  //   Live      = rows ingested by the automated Gmail → Edge Function pipeline
-  //   Uploaded  = rows ingested via manual drag-drop (incl. historical / Pre-LAB)
+  //   Live      = rows ingested by the automated Gmail → Edge Function pipeline (source = 'live')
+  //   Uploaded  = rows ingested via manual drag-drop (source = 'uploaded')
   //   Combined  = both
-  // We tag uploaded rows by the "Pre-LAB:" campaign prefix (legacy) AND any row
-  // imported via handleAgentPerfFile (campaign empty/unknown for the new format).
+  // The source column is set explicitly at insert time:
+  //   Edge Function (agent-csv-ingest)         -> source: 'live'
+  //   In-browser handleAgentPerfFile (manual)  -> source: 'uploaded'
+  // Older rows without an explicit source default to 'live' via the column DEFAULT.
   const sourceSel = document.getElementById('emp-source');
   if (sourceSel && !sourceSel.dataset._restored) {
     try {
       const saved = localStorage.getItem('emp-source');
       if (saved && ['live','uploaded','combined','prelab','all'].includes(saved)) {
-        // Migrate legacy values to the new ones.
         const map = { prelab: 'uploaded', all: 'combined' };
         sourceSel.value = map[saved] || saved;
       }
@@ -24537,12 +24539,7 @@ function renderEmployees() {
     sourceSel.dataset._restored = '1';
   }
   const sourceVal = (sourceSel && sourceSel.value) || 'live';
-  // A row is "uploaded" if its source field flags it OR (legacy) the campaign
-  // starts with "Pre-LAB:". Live rows come in via the automated pipeline.
-  const isUploadedRow = (r) => {
-    if (r && (r.source === 'uploaded' || r.source === 'manual' || r.source === 'prelab')) return true;
-    return String((r && r.campaign) || '').toLowerCase().startsWith('pre-lab:');
-  };
+  const isUploadedRow = (r) => String((r && r.source) || 'live').toLowerCase() === 'uploaded';
   const filteredForSource = sourceVal === 'combined'
     ? rangeForDate
     : rangeForDate.filter(r => sourceVal === 'uploaded' ? isUploadedRow(r) : !isUploadedRow(r));

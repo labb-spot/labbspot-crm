@@ -1520,17 +1520,17 @@
           <span>→</span>
           <input type="date" id="emp-custom-end" style="width:auto;padding:3px 6px" onchange="renderEmployees()" />
         </span>
-        <label class="text-xs flex items-center gap-1">View
+        <label class="text-xs flex items-center gap-1" style="display:none">View
           <select id="emp-view" style="width:auto;padding:3px 6px" onchange="renderEmployees()">
-            <option value="combined">Combined per agent</option>
-            <option value="campaign" selected>By agent + campaign</option>
+            <option value="combined" selected>Combined per agent</option>
+            <option value="campaign">By agent + campaign (legacy)</option>
           </select>
         </label>
-        <label class="text-xs flex items-center gap-1" title="Filter by data source. Pre-LAB = historical aggregate uploads.">Source
+        <label class="text-xs flex items-center gap-1" title="Filter by data source. Live = automated daily Gmail import. Uploaded = files you dragged in manually (incl. historical / Pre-LAB).">Source
           <select id="emp-source" style="width:auto;padding:3px 6px" onchange="(function(s){try{localStorage.setItem('emp-source',s.value);}catch(e){}})(this);renderEmployees()">
-            <option value="live" selected>Live (post-LAB)</option>
-            <option value="prelab">Pre-LAB only</option>
-            <option value="all">All</option>
+            <option value="live" selected>Live</option>
+            <option value="uploaded">Uploaded</option>
+            <option value="combined">Combined</option>
           </select>
         </label>
         <button class="btn btn-ghost text-sm" onclick="refreshEmployeesNow(this)" title="Reload agent stats from Supabase">🔄 Refresh</button>
@@ -2622,6 +2622,42 @@
         </div>
       </div>
 
+      <!-- ===== Occupancy =====
+           Adds 2 months (~60 days) to the project timeline if the property is
+           occupied in any way, since you'll need possession before work begins. -->
+      <div class="panel p-4 mb-3" style="border:2px solid #fb923c;background:rgba(251,146,60,0.04)">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div class="font-semibold text-base" style="color:#fdba74">🏠 Occupancy Status</div>
+            <div class="text-xs" style="color:var(--text-dim);margin-top:2px">If occupied, +2 months added to project timeline (eviction / move-out time).</div>
+          </div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <label class="text-xs">Occupancy
+              <select id="rc-occupancy" oninput="(typeof recalc==='function')&&recalc()" style="margin-top:4px;min-width:180px">
+                <option value="vacant">Vacant</option>
+                <option value="owner">Owner Occupied</option>
+                <option value="tenant">Tenant Occupied</option>
+                <option value="squatter">Squatter Occupied</option>
+                <option value="family">Family Occupied</option>
+              </select>
+            </label>
+            <label class="text-xs" id="rc-tenancy-wrap">Tenancy
+              <select id="rc-tenancy" oninput="(typeof recalc==='function')&&recalc()" style="margin-top:4px;min-width:170px">
+                <option value="none">None</option>
+                <option value="month">Month to Month</option>
+                <option value="word">Word of Mouth</option>
+                <option value="short">Short Term Lease</option>
+                <option value="annual">Annual Lease</option>
+              </select>
+            </label>
+            <div class="text-xs" style="color:var(--text-dim);text-align:right;line-height:1.3">
+              <div>Timeline Adjustment</div>
+              <div id="rc-occ-adjust" style="font-family:monospace;font-weight:700;font-size:18px;color:#fdba74;margin-top:2px">+0 days</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ===== Special Cases ===== -->
       <div class="panel p-5 mb-3" style="border:2px solid #f43f5e;background:rgba(244,63,94,0.04)">
         <div onclick="toggleSection('specialCases-body','specialCases-arrow')" class="flex items-center justify-between flex-wrap gap-2" style="cursor:pointer;user-select:none">
@@ -2680,7 +2716,8 @@
       <!-- ===== Schedule ===== -->
       <div class="panel p-5 mb-3">
         <div class="cat-header" style="color:#67e8f9">PROJECT SCHEDULE ESTIMATE</div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+          <div class="stat"><div class="stat-label">Repossession</div><div class="stat-value" style="color:#fdba74" id="s-rep">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-rep-sub">vacant · none</div></div>
           <div class="stat"><div class="stat-label">Raw Labor Days</div><div class="stat-value" style="color:#22d3ee" id="s-raw">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px">@ 1 worker, 8hr/day</div></div>
           <div class="stat"><div class="stat-label">With Crew (parallel)</div><div class="stat-value" style="color:#60a5fa" id="s-crew">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-crew-sub">w/ 3 workers</div></div>
           <div class="stat"><div class="stat-label">Calendar Days</div><div class="stat-value" style="color:#fb923c" id="s-cal">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px">+30% bottlenecks</div></div>
@@ -4345,13 +4382,35 @@ function formatSeconds(sec) {
 function parseDateFromFilename(filename) {
   const m = String(filename || '').match(/(\d{4}-\d{2}-\d{2})/);
   if (m) return m[1];
-  return new Date().toISOString().slice(0, 10);
+  // Fall back to TODAY in EST/EDT (America/New_York) — your CallTools subscription
+  // sends at 9 AM EST and the automated trigger runs late evening EST. Anchoring
+  // to America/New_York means a late-night upload doesn't roll into "tomorrow"
+  // even if the user is in a different time zone or on UTC.
+  try {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+      year: 'numeric', month: '2-digit', day: '2-digit'
+    });
+    return fmt.format(new Date()); // en-CA gives YYYY-MM-DD format directly
+  } catch (e) {
+    // Fallback in browsers that don't support timezone-aware Intl
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return yyyy + '-' + mm + '-' + dd;
+  }
 }
 // Detect CallTools Agent Performance CSV by header signature
 function isAgentPerfFile(headers) {
   if (!headers || !headers.length) return false;
   const set = new Set(headers.map(h => String(h || '').trim().toLowerCase()));
-  return set.has('agent') && (set.has('agent status:available') || set.has('agent status:on a call'));
+  // Old format had "Agent" column; new CallTools "User Performance" report has
+  // "Full Name" instead. Accept either as the agent identifier as long as the
+  // file has the Agent Status time columns we expect.
+  const hasAgentName = set.has('agent') || set.has('full name');
+  const hasStatus = set.has('agent status:available') || set.has('agent status:on a call');
+  return hasAgentName && hasStatus;
 }
 function isAbsentee(p) {
   if (!p) return false;
@@ -7044,15 +7103,22 @@ function uwTlRecalc() {
   let renoDays, renoMo;
   const sFin = document.getElementById('s-fin');
   const sFinDays = sFin ? (parseFloat(sFin.textContent.replace(/[^\d.]/g, '')) || 0) : 0;
+  // Repossession days are baked into s-fin (rehab calc adds occupancy days).
+  // Pull them out so we can show repossession as its own line and the
+  // pure reno time without it.
+  const sRep = document.getElementById('s-rep');
+  const repoDays = sRep ? (parseFloat(sRep.textContent.replace(/[^\d.]/g, '')) || 0) : 0;
+  const repoMo = repoDays > 0 ? Math.max(0.5, Math.round((repoDays / 30) * 2) / 2) : 0;
   if (sFinDays > 0) {
-    renoDays = sFinDays;
-    renoMo   = Math.max(0.5, Math.round((sFinDays / 22) * 2) / 2); // 22 working days/mo
+    const renoOnly = Math.max(0, sFinDays - repoDays);
+    renoDays = renoOnly;
+    renoMo   = renoOnly > 0 ? Math.max(0.5, Math.round((renoOnly / 22) * 2) / 2) : 0;
   } else {
     renoDays = sqft > 0 ? 5 + sqft * 0.02 * mult : 0;
     renoMo   = renoDays > 0 ? Math.max(0.5, Math.round(renoDays / 30 * 2) / 2) : 0;
   }
   const listedMo = parseFloat(document.getElementById('uw-fl-listed-mo')?.value) || 2.5;
-  const totalMo  = renoMo + listedMo;
+  const totalMo  = repoMo + renoMo + listedMo;
   const $ = (id) => document.getElementById(id);
   const card = (lbl, val, color, hint) => `
     <div style="padding:10px 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">
@@ -7065,6 +7131,7 @@ function uwTlRecalc() {
     const renoSource = sFinDays > 0 ? 'rehab calc' : 'sqft × scope';
     cardsEl.innerHTML = [
       card('SqFt',           sqft > 0 ? sqft.toLocaleString() : '—',       'var(--text)'),
+      card('Repossession',   repoMo > 0 ? repoMo.toFixed(1) + ' mo' : '—', '#fdba74', repoDays > 0 ? Math.round(repoDays) + ' days · occupied' : 'vacant'),
       card('Reno time',      renoMo > 0 ? renoMo.toFixed(1) + ' mo' : '—', '#67e8f9', renoDays > 0 ? Math.round(renoDays) + ' days · from ' + renoSource : ''),
       card('Listed time',    listedMo.toFixed(1) + ' mo',                  'var(--text)', 'market default'),
       card('Total timeline', totalMo > 0 ? totalMo.toFixed(1) + ' mo' : '—', '#10b981',   totalMo > 0 ? Math.round(totalMo * 30) + ' days' : ''),
@@ -7072,12 +7139,13 @@ function uwTlRecalc() {
   }
   const expEl = $('uw-tl-explainer');
   if (expEl) {
+    const repoTxt = repoMo > 0 ? repoMo.toFixed(1) + ' mo repossession + ' : '';
     if (renoMo <= 0) {
       expEl.textContent = 'Add items in the Rehab Calculator (or set Total Livable SqFt) to see the timeline.';
     } else if (sFinDays > 0) {
-      expEl.textContent = 'Reno = ' + Math.round(renoDays) + ' days (' + renoMo.toFixed(1) + ' mo) from your Rehab Calculator schedule + ' + listedMo.toFixed(1) + ' mo listed = ' + totalMo.toFixed(1) + ' mo total.';
+      expEl.textContent = repoTxt + Math.round(renoDays) + ' days (' + renoMo.toFixed(1) + ' mo) reno from your Rehab Calculator schedule + ' + listedMo.toFixed(1) + ' mo listed = ' + totalMo.toFixed(1) + ' mo total.';
     } else {
-      expEl.textContent = sqft.toLocaleString() + ' sqft fallback estimate = ' + Math.round(renoDays) + ' days reno (' + renoMo.toFixed(1) + ' mo) + ' + listedMo.toFixed(1) + ' mo listed = ' + totalMo.toFixed(1) + ' mo total.';
+      expEl.textContent = repoTxt + sqft.toLocaleString() + ' sqft fallback estimate = ' + Math.round(renoDays) + ' days reno (' + renoMo.toFixed(1) + ' mo) + ' + listedMo.toFixed(1) + ' mo listed = ' + totalMo.toFixed(1) + ' mo total.';
     }
   }
   if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
@@ -19713,24 +19781,38 @@ async function handleAgentPerfFile(file) {
     const agentNameOf = (r) => {
       const n = String(getAny(r, ['Agent', 'Full Name']) || '').trim();
       if (n && n.toLowerCase() !== 'null') return n;
-      const uid = String(get(r, 'App User Id') || '').trim();
+      const uid = String(getAny(r, ['App User Id', 'User Id']) || '').trim();
       return uid ? ('Agent ' + uid.slice(0, 8)) : '';
     };
     // Campaign name: "Campaign" (UI export) or "Name" (scheduled email) or "Campaign Id" as last resort.
     const campaignOf = (r) => String(getAny(r, ['Campaign', 'Name', 'Campaign Id']) || '').trim();
 
-    // Skip total row (no identifiable agent) and rows with literal "null"
+    // Skip total row (no identifiable agent) and rows with literal "null".
+    // Also skip agents with ZERO time across all 4 status fields (Available +
+    // On Call + Post Call + Break + Lunch) — they weren't logged in that day,
+    // so importing a 0-time row would just clutter the dashboard.
+    const _zeroSkipped = [];
     const dataRows = rows.filter(r => {
       const name = agentNameOf(r);
-      return name && name.toLowerCase() !== 'null';
+      if (!name || name.toLowerCase() === 'null') return false;
+      const totalSec = parseTimeToSeconds(get(r, 'Agent Status:Available'))
+                     + parseTimeToSeconds(get(r, 'Agent Status:On A Call'))
+                     + parseTimeToSeconds(get(r, 'Agent Status:Post Call'))
+                     + parseTimeToSeconds(get(r, 'Agent Status:Break'))
+                     + parseTimeToSeconds(get(r, 'Agent Status:Lunch'));
+      if (totalSec <= 0) { _zeroSkipped.push(name); return false; }
+      return true;
     });
-    if (!dataRows.length) { toast('No agent rows found', 'err'); return; }
+    if (_zeroSkipped.length) {
+      toast('Skipped ' + _zeroSkipped.length + ' zero-time row(s): ' + _zeroSkipped.slice(0,3).join(', ') + (_zeroSkipped.length > 3 ? '…' : ''), 'warn');
+    }
+    if (!dataRows.length) { toast('No agent rows with time found', 'err'); return; }
 
     // --- Upsert agents ---
     const seen = {};
     dataRows.forEach(r => {
       const name = agentNameOf(r);
-      const userId = String(get(r, 'App User Id') || '').trim();
+      const userId = String(getAny(r, ['App User Id', 'User Id']) || '').trim();
       if (!name || seen[name]) return;
       seen[name] = { name, calltools_user_id: userId || null };
     });
@@ -24436,21 +24518,34 @@ function renderEmployees() {
   const startISO = fmt(startDate);
   const endISO = fmt(endDate);
   const rangeForDate = stats.filter(x => x.stat_date >= startISO && x.stat_date <= endISO);
-  // Apply Source filter (Live / Pre-LAB / All) based on Pre-LAB campaign prefix.
-  // Restore the user's saved preference (default 'live') the first time we read it.
+  // Apply Source filter (Live / Uploaded / Combined).
+  //   Live      = rows ingested by the automated Gmail → Edge Function pipeline
+  //   Uploaded  = rows ingested via manual drag-drop (incl. historical / Pre-LAB)
+  //   Combined  = both
+  // We tag uploaded rows by the "Pre-LAB:" campaign prefix (legacy) AND any row
+  // imported via handleAgentPerfFile (campaign empty/unknown for the new format).
   const sourceSel = document.getElementById('emp-source');
   if (sourceSel && !sourceSel.dataset._restored) {
     try {
       const saved = localStorage.getItem('emp-source');
-      if (saved && ['live','prelab','all'].includes(saved)) sourceSel.value = saved;
+      if (saved && ['live','uploaded','combined','prelab','all'].includes(saved)) {
+        // Migrate legacy values to the new ones.
+        const map = { prelab: 'uploaded', all: 'combined' };
+        sourceSel.value = map[saved] || saved;
+      }
     } catch (e) {}
     sourceSel.dataset._restored = '1';
   }
   const sourceVal = (sourceSel && sourceSel.value) || 'live';
-  const isPreLabRow = (r) => String(r.campaign || '').toLowerCase().startsWith('pre-lab:');
-  const filteredForSource = sourceVal === 'all'
+  // A row is "uploaded" if its source field flags it OR (legacy) the campaign
+  // starts with "Pre-LAB:". Live rows come in via the automated pipeline.
+  const isUploadedRow = (r) => {
+    if (r && (r.source === 'uploaded' || r.source === 'manual' || r.source === 'prelab')) return true;
+    return String((r && r.campaign) || '').toLowerCase().startsWith('pre-lab:');
+  };
+  const filteredForSource = sourceVal === 'combined'
     ? rangeForDate
-    : rangeForDate.filter(r => sourceVal === 'prelab' ? isPreLabRow(r) : !isPreLabRow(r));
+    : rangeForDate.filter(r => sourceVal === 'uploaded' ? isUploadedRow(r) : !isUploadedRow(r));
   const rowsForDate = filteredForSource;
   // Build a friendly label for the summary
   const rangeLabel = (function() {
@@ -24532,21 +24627,20 @@ function renderEmployees() {
       });
       return { label: d.label, hits };
     });
-    // Dynamic thead now (after we know the disposition keys)
+    // Slim thead — agent status times + Total + Avg Wait + dispositions
     thead.innerHTML = '<tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px">' +
       '<th style="padding:6px 10px;text-align:left">Agent</th>' +
       '<th style="padding:6px 10px;text-align:left">Campaign</th>' +
       '<th style="padding:6px 10px;text-align:right">Available</th>' +
-      '<th style="padding:6px 10px;text-align:right">On-Call</th>' +
-      '<th style="padding:6px 10px;text-align:right">Post-Call</th>' +
+      '<th style="padding:6px 10px;text-align:right">On Call</th>' +
+      '<th style="padding:6px 10px;text-align:right">Post Call</th>' +
       '<th style="padding:6px 10px;text-align:right">Break</th>' +
-      '<th style="padding:6px 10px;text-align:right" title="Available + On-Call + Post-Call + Break">Total Time</th>' +
-      '<th style="padding:6px 10px;text-align:right">Conn%</th>' +
+      '<th style="padding:6px 10px;text-align:right" title="Available + On Call + Post Call + Break">Total Time</th>' +
+      '<th style="padding:6px 10px;text-align:right" title="Average wait time between calls">Avg Wait</th>' +
       dispKeys.map(k => '<th style="padding:6px 10px;text-align:right" title="' + escapeHtml(k) + '">' + escapeHtml(k) + '</th>').join('') +
       '</tr>';
     tbody.innerHTML = aggregated.map(r => {
       const a = agents[r.agent_id] || {};
-      const connRate = r.connection_rate_n > 0 ? Math.round(r.connection_rate_sum / r.connection_rate_n) : null;
       const daysSuffix = r.days > 1 ? ' <span class="text-xs" style="color:var(--text-dim)">(' + r.days + ' days)</span>' : '';
       const dispCells = dispMatchers.map(m => {
         let n = 0;
@@ -24555,6 +24649,7 @@ function renderEmployees() {
         const dim = n === 0;
         return '<td style="padding:6px 10px;text-align:right;' + (green ? 'color:#10b981;font-weight:600' : (dim ? 'color:var(--text-dim);opacity:0.4' : '')) + '">' + n + '</td>';
       }).join('');
+      const avgWait = (r.wait_time_n > 0) ? Math.round(r.wait_time_sum / r.wait_time_n) : (r.wait_time_sec || 0);
       return '<tr style="border-bottom:1px solid var(--border)">' +
         '<td style="padding:6px 10px"><b>' + escapeHtml(a.name || '—') + '</b></td>' +
         '<td style="padding:6px 10px">' + escapeHtml(r.campaign || '—') + daysSuffix + '</td>' +
@@ -24562,8 +24657,8 @@ function renderEmployees() {
         '<td style="padding:6px 10px;text-align:right">' + formatSeconds(r.on_call_sec) + '</td>' +
         '<td style="padding:6px 10px;text-align:right">' + formatSeconds(r.post_call_sec) + '</td>' +
         '<td style="padding:6px 10px;text-align:right">' + formatSeconds((r.break_sec||0)+(r.lunch_sec||0)) + '</td>' +
-        '<td style="padding:6px 10px;text-align:right"><b>' + formatSeconds((r.available_sec||0)+(r.on_call_sec||0)+(r.post_call_sec||0)+(r.break_sec||0)) + '</b></td>' +
-        '<td style="padding:6px 10px;text-align:right">' + (connRate === null ? '—' : connRate + '%') + '</td>' +
+        '<td style="padding:6px 10px;text-align:right"><b>' + formatSeconds((r.available_sec||0)+(r.on_call_sec||0)+(r.post_call_sec||0)+(r.break_sec||0)+(r.lunch_sec||0)) + '</b></td>' +
+        '<td style="padding:6px 10px;text-align:right">' + formatSeconds(avgWait) + '</td>' +
         dispCells +
       '</tr>';
     }).join('');
@@ -24572,15 +24667,16 @@ function renderEmployees() {
     const campTotOnCall = aggregated.reduce((s, r) => s + (r.on_call_sec||0), 0);
     const campTotPost = aggregated.reduce((s, r) => s + (r.post_call_sec||0), 0);
     const campTotBreak = aggregated.reduce((s, r) => s + (r.break_sec||0) + (r.lunch_sec||0), 0);
-    const campTotTotal = campTotAvail + campTotOnCall + campTotPost + (aggregated.reduce((s,r)=>s+(r.break_sec||0),0));
+    const campTotTotal = campTotAvail + campTotOnCall + campTotPost + campTotBreak;
     const campTotDisp = dispMatchers.map(m => {
       let n = 0;
       aggregated.forEach(r => { m.hits.forEach(k => { n += (r.dispositions && r.dispositions[k]) || 0; }); });
       return '<td style="padding:6px 10px;text-align:right">' + n.toLocaleString() + '</td>';
     }).join('');
-    const campTotCallsSum = aggregated.reduce((s, r) => s + (r.connection_rate_n || 0), 0);
-    const campTotConnSum = aggregated.reduce((s, r) => s + (r.connection_rate_sum || 0), 0);
-    const campTotsConn = campTotCallsSum > 0 ? Math.round(campTotConnSum / campTotCallsSum) + '%' : '—';
+    // Average wait time across all aggregated rows
+    const campTotWaitSum = aggregated.reduce((s,r) => s + ((r.wait_time_sum||0) || ((r.wait_time_sec||0) * 1)), 0);
+    const campTotWaitN   = aggregated.reduce((s,r) => s + ((r.wait_time_n||0)   || ((r.wait_time_sec||0) > 0 ? 1 : 0)), 0);
+    const campTotAvgWait = campTotWaitN > 0 ? Math.round(campTotWaitSum / campTotWaitN) : 0;
     (document.getElementById('emp-tfoot') || tbody).innerHTML = '<tr style="border-top:2px solid var(--border);background:var(--panel-2);font-weight:700">' +
       '<td style="padding:6px 10px">Total</td>' +
       '<td style="padding:6px 10px"></td>' +
@@ -24589,7 +24685,7 @@ function renderEmployees() {
       '<td style="padding:6px 10px;text-align:right">' + formatSeconds(campTotPost) + '</td>' +
       '<td style="padding:6px 10px;text-align:right">' + formatSeconds(campTotBreak) + '</td>' +
       '<td style="padding:6px 10px;text-align:right">' + formatSeconds(campTotTotal) + '</td>' +
-      '<td style="padding:6px 10px;text-align:right">' + campTotsConn + '</td>' +
+      '<td style="padding:6px 10px;text-align:right">' + formatSeconds(campTotAvgWait) + '</td>' +
       campTotDisp +
       '</tr>';
     if (summary) summary.textContent = aggregated.length + ' agent+campaign rows for ' + rangeLabel + ' · ' + new Set(aggregated.map(r => r.agent_id)).size + ' agents · ' + rowsForDate.length + ' daily records combined';
@@ -24663,17 +24759,15 @@ function renderEmployees() {
     });
     thead.innerHTML = '<tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px">' +
       '<th style="padding:6px 10px;text-align:left">Agent</th>' +
-      '<th style="padding:6px 10px;text-align:left">Campaigns</th>' +
       '<th style="padding:6px 10px;text-align:right">Available</th>' +
-      '<th style="padding:6px 10px;text-align:right">On-Call</th>' +
-      '<th style="padding:6px 10px;text-align:right">Post-Call</th>' +
+      '<th style="padding:6px 10px;text-align:right">On Call</th>' +
+      '<th style="padding:6px 10px;text-align:right">Post Call</th>' +
       '<th style="padding:6px 10px;text-align:right">Break</th>' +
-      '<th style="padding:6px 10px;text-align:right" title="Available + On-Call + Post-Call + Break">Total Time</th>' +
-      '<th style="padding:6px 10px;text-align:right">Conn%</th>' +
+      '<th style="padding:6px 10px;text-align:right" title="Available + On Call + Post Call + Break">Total Time</th>' +
+      '<th style="padding:6px 10px;text-align:right" title="Average wait time between calls">Avg Wait</th>' +
       dispKeys.map(k => '<th style="padding:6px 10px;text-align:right" title="' + escapeHtml(k) + '">' + escapeHtml(k) + '</th>').join('') +
       '</tr>';
     tbody.innerHTML = rowsArr.map(b => {
-      const connRate = b.connection_rate_n > 0 ? Math.round(b.connection_rate_sum / b.connection_rate_n) : null;
       const dispCells = dispMatchers.map(m => {
         let n = 0;
         m.hits.forEach(k => { n += (b.dispositions && b.dispositions[k]) || 0; });
@@ -24681,15 +24775,15 @@ function renderEmployees() {
         const dim = n === 0;
         return '<td style="padding:6px 10px;text-align:right;' + (green ? 'color:#10b981;font-weight:600' : (dim ? 'color:var(--text-dim);opacity:0.4' : '')) + '">' + n + '</td>';
       }).join('');
+      const avgWait = (b.wait_time_n > 0) ? Math.round(b.wait_time_sum / b.wait_time_n) : (b.wait_time_sec || 0);
       return '<tr style="border-bottom:1px solid var(--border)">' +
         '<td style="padding:6px 10px"><b>' + escapeHtml(b.name) + '</b></td>' +
-        '<td style="padding:6px 10px">' + (b.campaigns.size ? Array.from(b.campaigns).sort().map(c => escapeHtml(c)).join(', ') : '<span style="color:var(--text-dim)">—</span>') + '</td>' +
         '<td style="padding:6px 10px;text-align:right">' + formatSeconds(b.available_sec) + '</td>' +
         '<td style="padding:6px 10px;text-align:right">' + formatSeconds(b.on_call_sec) + '</td>' +
         '<td style="padding:6px 10px;text-align:right">' + formatSeconds(b.post_call_sec) + '</td>' +
         '<td style="padding:6px 10px;text-align:right">' + formatSeconds(b.break_sec + b.lunch_sec) + '</td>' +
-        '<td style="padding:6px 10px;text-align:right"><b>' + formatSeconds((b.available_sec||0)+(b.on_call_sec||0)+(b.post_call_sec||0)+(b.break_sec||0)) + '</b></td>' +
-        '<td style="padding:6px 10px;text-align:right">' + (connRate === null ? '—' : connRate + '%') + '</td>' +
+        '<td style="padding:6px 10px;text-align:right"><b>' + formatSeconds((b.available_sec||0)+(b.on_call_sec||0)+(b.post_call_sec||0)+(b.break_sec||0)+(b.lunch_sec||0)) + '</b></td>' +
+        '<td style="padding:6px 10px;text-align:right">' + formatSeconds(avgWait) + '</td>' +
         dispCells +
       '</tr>';
     }).join('');
@@ -25864,14 +25958,35 @@ function recalc(){
   const rawDays = hrs/8;
   const crewDays = rawDays/crew;
   const calDays = crewDays*1.30;
-  const finDays = calDays*(1+timeCont/100);
+  const finDaysBase = calDays*(1+timeCont/100);
+  // Occupancy adjustment — non-vacant adds 60 days (~2 months) for repossession.
+  // Tenancy dropdown is informational only — doesn't affect the timeline.
+  const _occEl = document.getElementById('rc-occupancy');
+  const _occVal = _occEl ? _occEl.value : 'vacant';
+  const _isOccupied = _occVal && _occVal !== 'vacant';
+  const _tenEl = document.getElementById('rc-tenancy');
+  const _tenVal = _tenEl ? _tenEl.value : 'none';
+  const occDays = _isOccupied ? 60 : 0;
+  const finDays = finDaysBase + occDays;
+  // Update the visible timeline-adjustment readout in the Occupancy panel
+  const _occAdjust = document.getElementById('rc-occ-adjust');
+  if (_occAdjust) _occAdjust.textContent = occDays > 0 ? '+'+occDays+' Day Repossession' : '+0 days';
   document.getElementById('s-raw').textContent = Math.round(rawDays).toLocaleString();
   document.getElementById('s-crew').textContent = Math.round(crewDays).toLocaleString();
   document.getElementById('s-crew-sub').textContent = 'w/ '+crew+' workers';
   document.getElementById('s-cal').textContent = Math.round(calDays).toLocaleString();
+  // Repossession days — sourced from the Occupancy panel.
+  // 60 days when occupied (any non-vacant value), 0 when vacant.
+  const _sRepEl = document.getElementById('s-rep');
+  if (_sRepEl) _sRepEl.textContent = occDays.toString();
+  const _sRepSubEl = document.getElementById('s-rep-sub');
+  if (_sRepSubEl) {
+    const occLabel = _isOccupied ? (_occVal === 'tenant' ? 'tenant' : _occVal === 'squatter' ? 'squatter' : _occVal === 'family' ? 'family' : _occVal === 'owner' ? 'owner' : 'occupied') : 'vacant';
+    _sRepSubEl.textContent = _isOccupied ? '~2 mo · ' + occLabel : 'vacant';
+  }
   document.getElementById('s-fin').textContent = Math.round(finDays).toLocaleString();
   document.getElementById('s-weeks').textContent = '~'+(finDays/5).toFixed(1)+' work weeks';
-  document.getElementById('s-display').textContent = Math.round(finDays)+' days · '+(finDays/5).toFixed(1)+' weeks · '+(finDays/22).toFixed(1)+' months';
+  document.getElementById('s-display').textContent = Math.round(finDays)+' days · '+(finDays/5).toFixed(1)+' weeks · '+(finDays/22).toFixed(1)+' months'+(occDays>0?' · +60 Day Repossession':'');
 
   // Push to UW bridge for underwriting math + downstream readers.
   // Strategy: write the GRAND TOTAL (rehab + new calc's cost contingency) as the
@@ -25944,10 +26059,22 @@ _rcRoot.addEventListener('change', e=>{
     if(turnOn) targets.forEach(name=>applyMutex(name));
     recalc();
   }
-  if(['crew','costContingency','timeContingency','finishLevel'].includes(e.target.id)) recalc();
+  if(['crew','costContingency','timeContingency','finishLevel','rc-occupancy','rc-tenancy'].includes(e.target.id)){
+    // When occupancy/tenancy changes, force-refresh the auto-set Renovation Time
+    // on the Flip + Rental Refi cards so holding costs always reflect the new total.
+    if(e.target.id === 'rc-occupancy' || e.target.id === 'rc-tenancy'){
+      window._uwForceAutoRehab = true;
+    }
+    recalc();
+  }
 });
 _rcRoot.addEventListener('input', e=>{
-  if(['crew','costContingency','timeContingency'].includes(e.target.id)) recalc();
+  if(['crew','costContingency','timeContingency','rc-occupancy','rc-tenancy'].includes(e.target.id)){
+    if(e.target.id === 'rc-occupancy' || e.target.id === 'rc-tenancy'){
+      window._uwForceAutoRehab = true;
+    }
+    recalc();
+  }
 });
 _rcRoot.addEventListener('click', e=>{
   if(e.target.matches('.sev-btn')){
@@ -26085,6 +26212,8 @@ window._rcGetState = function(){
     const cr = document.getElementById('crew'); if (cr) out.crew = cr.value;
     const cc = document.getElementById('costContingency'); if (cc) out.costContingency = cc.value;
     const tc = document.getElementById('timeContingency'); if (tc) out.timeContingency = tc.value;
+    const oc = document.getElementById('rc-occupancy'); if (oc) out.occupancy = oc.value;
+    const tn = document.getElementById('rc-tenancy');   if (tn) out.tenancy = tn.value;
     return out;
   } catch (e) { console.warn('[_rcGetState]', e); return null; }
 };
@@ -26111,6 +26240,8 @@ window._rcLoadState = function(state){
     if (state.crew != null) { const el = document.getElementById('crew'); if (el) el.value = state.crew; }
     if (state.costContingency != null) { const el = document.getElementById('costContingency'); if (el) el.value = state.costContingency; }
     if (state.timeContingency != null) { const el = document.getElementById('timeContingency'); if (el) el.value = state.timeContingency; }
+    if (state.occupancy != null) { const el = document.getElementById('rc-occupancy'); if (el) el.value = state.occupancy; }
+    if (state.tenancy != null) { const el = document.getElementById('rc-tenancy'); if (el) el.value = state.tenancy; }
     if (typeof recalc === 'function') recalc();
     // Clear any "active" preset highlight since we just loaded a saved state, not a preset
     document.querySelectorAll('.rc-preset').forEach(b => b.classList.remove('active'));
@@ -26126,6 +26257,8 @@ window._rcResetToDefaults = function(){
     const cr = document.getElementById('crew'); if (cr) cr.value = '3';
     const cc = document.getElementById('costContingency'); if (cc) cc.value = '10';
     const tc = document.getElementById('timeContingency'); if (tc) tc.value = '25';
+    const oc = document.getElementById('rc-occupancy'); if (oc) oc.value = 'vacant';
+    const tn = document.getElementById('rc-tenancy'); if (tn) tn.value = 'none';
     document.querySelectorAll('.rc-preset').forEach(b => b.classList.remove('active'));
     if (typeof recalc === 'function') recalc();
   } catch (e) { console.warn('[_rcResetToDefaults]', e); }

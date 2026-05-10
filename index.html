@@ -603,6 +603,21 @@
           <label class="text-xs text-[var(--text-dim)] block mb-1" title="Every property imported from this list will be tagged with the selected flags.">Tags / Flags for this list (optional)</label>
           <div id="upload-flags" class="flex flex-wrap gap-1"></div>
         </div>
+        <div class="mb-3">
+          <label class="text-xs text-[var(--text-dim)] block mb-1" title="Optional: pick a county to fill in any blanks. If a row in your file is missing City, State, or Zip, we'll use this county's defaults so the import still works. Rows that already have full address fields are left untouched.">Default County (optional — fills blanks only)</label>
+          <select id="upload-county-default" style="width:100%">
+            <option value="">— None (use file values) —</option>
+            <option value="vanderburgh-in" data-city="Evansville" data-state="IN">Vanderburgh County, IN → Evansville</option>
+            <option value="warrick-in" data-city="Boonville" data-state="IN">Warrick County, IN → Boonville</option>
+            <option value="posey-in" data-city="Mount Vernon" data-state="IN">Posey County, IN → Mount Vernon</option>
+            <option value="gibson-in" data-city="Princeton" data-state="IN">Gibson County, IN → Princeton</option>
+            <option value="spencer-in" data-city="Rockport" data-state="IN">Spencer County, IN → Rockport</option>
+            <option value="pike-in" data-city="Petersburg" data-state="IN">Pike County, IN → Petersburg</option>
+            <option value="dubois-in" data-city="Jasper" data-state="IN">Dubois County, IN → Jasper</option>
+            <option value="perry-in" data-city="Tell City" data-state="IN">Perry County, IN → Tell City</option>
+            <option value="knox-in" data-city="Vincennes" data-state="IN">Knox County, IN → Vincennes</option>
+          </select>
+        </div>
         <div class="dropzone" id="dz-list" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:220px">
           <div class="text-4xl mb-2">📄</div>
           <div class="font-medium">Drop CSV/XLSX here or click to choose</div>
@@ -1303,7 +1318,7 @@
       <div class="kpi-sub"><span id="kpi-listtype-liens-sub">0 properties</span></div>
     </div>
     <div class="kpi" style="cursor:pointer" onclick="showListTypeDrill('Out-of-State Owner')" title="Properties whose owner mailing address is out of state. Click for details.">
-      <div class="kpi-label" style="color:#22d3ee">🌎 Out-of-State Owner</div>
+      <div class="kpi-label" style="color:#22d3ee">🌎 Out-of-State</div>
       <div class="kpi-value" id="kpi-listtype-oos-owner">0</div>
       <div class="kpi-sub"><span id="kpi-listtype-oos-owner-sub">0 properties</span></div>
     </div>
@@ -4624,6 +4639,25 @@ function resolveAddress(row, m) {
   const cc = cleanCity(city); if (cc.changed) warns.push('city-cleaned'); city = cc.city;
   const cs = cleanState(state); if (cs.changed) warns.push('state-cleaned'); state = cs.state;
   const zm = String(zip).match(/\d{5}/); if (zm) zip = zm[0];
+  // Apply county-default fallback (optional dropdown in Upload Property List section).
+  // Only fills blanks — rows that already have city/state are left untouched.
+  // Rows that still have errors after this flow into the same error/pending bucket as before.
+  if (!city || !state) {
+    try {
+      const sel = document.getElementById('upload-county-default');
+      const opt = sel && sel.options ? sel.options[sel.selectedIndex] : null;
+      if (opt && opt.value) {
+        if (!city && opt.dataset && opt.dataset.city) {
+          city = opt.dataset.city;
+          warns.push('city-from-county');
+        }
+        if (!state && opt.dataset && opt.dataset.state) {
+          state = opt.dataset.state;
+          warns.push('state-from-county');
+        }
+      }
+    } catch (_) {}
+  }
   return { street, city, state, zip, warning: warns.join(',') };
 }
 
@@ -4872,7 +4906,19 @@ const LIST_TYPE_CATEGORIES = [
     { label: 'Other', id: 'kpi-listtype-other', match: [], _isOther: true }
 ];
 function listMatchesCategory(l, matchList) {
-  const hay = (String(l.source_type || '') + ' ' + String(l.name || '')).toLowerCase();
+  // Build the haystack from EVERY field that could indicate the list's category:
+  //   - source_type (the dropdown the user picked at upload time)
+  //   - name        (the list's filename / display name)
+  //   - chosen_flags keys (the flag chips the user ticked at upload — e.g.
+  //     ticking "Code Violation" tags every property AND should make the list
+  //     itself count toward that category. Without this, a list named
+  //     "January Imports" with the Code Violation flag was invisible.)
+  const flagKeys = (l.chosen_flags && typeof l.chosen_flags === 'object')
+    ? Object.keys(l.chosen_flags).filter(k => l.chosen_flags[k]).join(' ')
+    : '';
+  const hay = (String(l.source_type || '') + ' ' +
+               String(l.name || '') + ' ' +
+               flagKeys).toLowerCase();
   return matchList.some(m => hay.indexOf(m) !== -1);
 }
 // ---------- Underwriting: Deal Calculator ----------
@@ -14377,13 +14423,20 @@ function renderListTypeWidgets() {
       props.forEach(p => { if (_propMatchesCategory(p, cat)) propIdSet.add(p.id); });
     }
     const propCount = propIdSet.size;
-    const n = cat._isOther
-      ? (propCount > 0 ? 1 : 0)
-      : (matchingListsCount || (propCount > 0 ? 1 : 0));
+    // Big number = property count for this category.
+    // Subtitle = list count (so users can see both at a glance).
     const el = document.getElementById(cat.id);
     const sub = document.getElementById(cat.id + '-sub');
-    if (el) el.textContent = n.toLocaleString();
-    if (sub) sub.textContent = propCount.toLocaleString() + ' propert' + (propCount === 1 ? 'y' : 'ies');
+    if (el) el.textContent = propCount.toLocaleString();
+    if (sub) {
+      if (cat._isOther) {
+        sub.textContent = propCount.toLocaleString() + ' propert' + (propCount === 1 ? 'y' : 'ies');
+      } else {
+        const listsLabel = matchingListsCount === 1 ? '1 list' : matchingListsCount.toLocaleString() + ' lists';
+        const propsLabel = propCount.toLocaleString() + ' propert' + (propCount === 1 ? 'y' : 'ies');
+        sub.textContent = listsLabel + ' · ' + propsLabel;
+      }
+    }
   });
 }
 // Category-style drill filter (substring match against flag keys).
@@ -15768,6 +15821,12 @@ function updateReviewSummary() {
   const rows = reviewData.rows;
   const included = rows.filter(r => r.include);
   const errors = rows.filter(r => r.status === 'error').length;
+  // Break "errors" out by sub-kind so the user understands why N "errors" can
+  // produce far fewer property records — most are usually duplicates of other
+  // rows in the same file (which collapse onto one property by design).
+  const dupesInFile = rows.filter(r => r.status === 'error' && r._isDupeOfRow != null).length;
+  const noStreet    = rows.filter(r => r.status === 'error' && r._forcedKey).length;
+  const otherErrors = errors - dupesInFile - noStreet;
   const newCount = included.filter(r => r.status === 'new').length;
   const mergeCount = included.filter(r => r.status === 'merge').length;
   const matchCount = included.filter(r => r.status === 'match').length;
@@ -15780,7 +15839,14 @@ function updateReviewSummary() {
   } else {
     html += `<div class="panel-2 p-3 text-center"><div class="text-2xl font-bold text-[var(--accent)]">${matchCount}</div><div class="text-xs text-[var(--text-dim)]">Matched</div></div>`;
   }
-  html += `<div class="panel-2 p-3 text-center"><div class="text-2xl font-bold" style="color:#ef4444">${errors}</div><div class="text-xs text-[var(--text-dim)]">Errors</div></div>`;
+  // Errors card with a hover-tooltip breakdown.
+  let errTip = '';
+  const tipParts = [];
+  if (dupesInFile) tipParts.push(`${dupesInFile} duplicate row${dupesInFile===1?'':'s'} within this file (will still link to the list, but won't create new properties)`);
+  if (noStreet)    tipParts.push(`${noStreet} row${noStreet===1?'':'s'} with no parseable street (will land in Unverified Properties)`);
+  if (otherErrors) tipParts.push(`${otherErrors} other error${otherErrors===1?'':'s'}`);
+  if (tipParts.length) errTip = ' title="' + tipParts.join('; ').replace(/"/g, '&quot;') + '"';
+  html += `<div class="panel-2 p-3 text-center"${errTip}><div class="text-2xl font-bold" style="color:#ef4444">${errors}</div><div class="text-xs text-[var(--text-dim)]">Errors${dupesInFile?` <span style="color:#f59e0b">(${dupesInFile} dupes)</span>`:''}</div></div>`;
   if (skippedByUser > 0) {
     html += `<div class="panel-2 p-3 text-center"><div class="text-2xl font-bold text-[var(--text-dim)]">${skippedByUser}</div><div class="text-xs text-[var(--text-dim)]">Unchecked</div></div>`;
   }
@@ -15832,7 +15898,14 @@ async function confirmListImport() {
       continue;
     }
     if (seenKeys[key]) {
-      dryRows.push({ _idx: dryRows.length, ri, address: addrStr, status: 'error', detail: 'Duplicate of row ' + seenKeys[key], include: false });
+      // Duplicate of a previous row in this same file. We still INCLUDE these
+      // by default so the dupe row is linked to the list (in property_lists)
+      // alongside its first-occurrence twin. The plLink upsert collapses
+      // identical (property_id, list_id) pairs, so this is safe — the user
+      // just sees that the address was on the list, even if it appeared twice.
+      // Without this, errored/dupe rows silently drop and the list looks
+      // smaller than the file actually was.
+      dryRows.push({ _idx: dryRows.length, ri, address: addrStr, status: 'error', detail: 'Duplicate of row ' + seenKeys[key] + ' — will still link to this list', include: true, _isDupeOfRow: seenKeys[key] });
       continue;
     }
     seenKeys[key] = ri + 1;
@@ -16066,7 +16139,13 @@ async function retryAndFinalizeImport() {
 
 async function finalizeListImport(newRowData, listName, m, keyMap, includedRows) {
   const listId = uid();
-  let added = 0, merged = 0, warnImported = 0;
+  // added            = new property records created (unique addresses).
+  // merged           = file rows that matched an existing DB property (cross-list merges).
+  // dupedWithinFile  = file rows that duped another row in THIS SAME file. They
+  //                    don't create a property — they collapse onto the first
+  //                    occurrence — so they count separately so the user can
+  //                    see why "X errors" doesn't equal "X properties created".
+  let added = 0, merged = 0, dupedWithinFile = 0, warnImported = 0;
 
   // Flags chosen in the mapper (e.g. { Foreclosure: true, Probate: true })
   const chosenFlagsObj = {};
@@ -16160,9 +16239,13 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
       plLinks.push({ property_id: propId, list_id: listId });
       added++;
     } else {
+      // Same finalKey already encountered in THIS file — collapse onto the
+      // earlier row's property. plLinks upsert will dedupe the (property_id,
+      // list_id) pair. This row doesn't add a new property, just confirms
+      // the same address showed up multiple times in the file.
       propId = seenKeys[finalKey];
       plLinks.push({ property_id: propId, list_id: listId });
-      merged++;
+      dupedWithinFile++;
     }
 
     const phones = pendingUpload.phones.map(i => normalizePhone(row[i])).filter(Boolean);
@@ -16176,6 +16259,9 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
     }));
   }
 
+  // Track which property IDs actually committed to the DB so we don't try to
+  // create plLinks pointing at rows that never inserted (FK violation cascade).
+  const insertedPropIds = new Set();
   if (newProps.length > 0) {
     let propFailedBatches = 0;
     let propFailedFirstErr = null;
@@ -16183,17 +16269,35 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
     for (let i = 0; i < newProps.length; i += 500) {
       const slice = newProps.slice(i, i + 500);
       const { error } = await sb.from('properties').insert(slice);
-      if (error) {
+      if (!error) {
+        // Whole batch landed — every id in the slice is good.
+        slice.forEach(p => insertedPropIds.add(p.id));
+        continue;
+      }
+      // Batch failed — fall back to per-row inserts so one bad row doesn't
+      // sink the other 499. This is what was previously costing us linked
+      // errored rows: a single constraint violation killed the whole batch.
+      console.warn('[finalizeListImport] batch insert failed, retrying row-by-row:', error && error.message);
+      let rowsLostThisBatch = 0;
+      for (const p of slice) {
+        const r = await sb.from('properties').insert([p]);
+        if (r.error) {
+          rowsLostThisBatch++;
+          if (!propFailedFirstErr) propFailedFirstErr = r.error;
+          console.error('[finalizeListImport] property row failed:', p.id, p.dedupe_key, r.error.message);
+        } else {
+          insertedPropIds.add(p.id);
+        }
+      }
+      if (rowsLostThisBatch > 0) {
         propFailedBatches++;
-        propRowsLost += slice.length;
-        if (!propFailedFirstErr) propFailedFirstErr = error;
-        console.error('[finalizeListImport] properties insert failed for batch', i, '–', i + slice.length, error);
+        propRowsLost += rowsLostThisBatch;
       }
     }
     if (propFailedBatches > 0) {
-      const msg = '⚠ ' + propFailedBatches + ' batch' + (propFailedBatches === 1 ? '' : 'es') +
-                  ' of properties (' + propRowsLost.toLocaleString() + ' rows) failed to save: ' +
-                  (propFailedFirstErr.message || 'unknown error') + '. Check browser console.';
+      const msg = '⚠ ' + propRowsLost.toLocaleString() + ' propert' + (propRowsLost === 1 ? 'y' : 'ies') +
+                  ' failed to save: ' + (propFailedFirstErr.message || 'unknown error') +
+                  '. The remaining rows imported successfully. Check console for details.';
       toast(msg, 'err');
     }
   }
@@ -16211,18 +16315,43 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
   }
 
   if (plLinks.length > 0) {
+    // Filter out plLinks pointing at properties that didn't actually commit.
+    // Without this, a single bad property in the batch would cause an FK
+    // violation and silently kill all 500 plLinks in the batch — exactly how
+    // we ended up with hundreds of "errored" rows that weren't linked.
+    const newKeyIds = new Set(newProps.map(p => p.id));
+    const validPlLinks = plLinks.filter(pl => {
+      // Either the property existed before this import (any matched merge)
+      // or we successfully inserted it just now.
+      if (!newKeyIds.has(pl.property_id)) return true; // existing DB row
+      return insertedPropIds.has(pl.property_id);
+    });
+    const droppedLinks = plLinks.length - validPlLinks.length;
+    if (droppedLinks > 0) {
+      console.warn('[finalizeListImport] dropped', droppedLinks, 'plLinks because their properties failed to insert');
+    }
+
     // Track failures so we can surface them — silent failures here are exactly
     // how orphan properties accumulate (property gets inserted but its link
     // to the list never lands).
     let plFailedBatches = 0;
     let plFailedFirstErr = null;
-    for (let i = 0; i < plLinks.length; i += 500) {
-      const slice = plLinks.slice(i, i + 500);
+    for (let i = 0; i < validPlLinks.length; i += 500) {
+      const slice = validPlLinks.slice(i, i + 500);
       const { error } = await sb.from('property_lists').upsert(slice, { onConflict: 'property_id,list_id' });
       if (error) {
-        plFailedBatches++;
-        if (!plFailedFirstErr) plFailedFirstErr = error;
-        console.error('[finalizeListImport] property_lists upsert failed for batch', i, '–', i + slice.length, error);
+        // Fall back to per-row upsert so one bad link doesn't take out 499 good ones.
+        console.warn('[finalizeListImport] plLink batch failed, retrying row-by-row:', error && error.message);
+        let rowsLostThisBatch = 0;
+        for (const pl of slice) {
+          const r = await sb.from('property_lists').upsert([pl], { onConflict: 'property_id,list_id' });
+          if (r.error) {
+            rowsLostThisBatch++;
+            if (!plFailedFirstErr) plFailedFirstErr = r.error;
+            console.error('[finalizeListImport] plLink row failed:', pl.property_id, pl.list_id, r.error.message);
+          }
+        }
+        if (rowsLostThisBatch > 0) plFailedBatches++;
       }
     }
     if (plFailedBatches > 0) {
@@ -16264,8 +16393,18 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
     }
   }
 
-  toast(`Imported: ${added} new, ${merged} merged, ${listRow.skipped_count} skipped`, 'ok');
-  cache.dupesCaught += merged;
+  // Build a summary that calls out within-file duplicates explicitly so the
+  // user understands why N rows in their file may produce fewer properties.
+  let summary = `Imported: ${added} new, ${merged} merged`;
+  if (dupedWithinFile > 0) {
+    summary += `, ${dupedWithinFile} duplicate row${dupedWithinFile === 1 ? '' : 's'} within file`;
+  }
+  if (listRow.skipped_count) summary += `, ${listRow.skipped_count} skipped`;
+  toast(summary, 'ok');
+  if (dupedWithinFile > 0) {
+    console.log(`[finalizeListImport] ${dupedWithinFile} file rows collapsed onto existing addresses (same address repeated in the same file). They link to this list but didn't create new property records.`);
+  }
+  cache.dupesCaught += merged + dupedWithinFile;
   reviewData = null;
   await loadAllFromDB();
   renderAll();

@@ -115,6 +115,22 @@
   .dropzone:hover, .dropzone.drag-over { border-color: var(--brand); background: rgba(249,115,22,0.05); }
   input, select, textarea { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-size: 14px; width: 100%; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand); }
+  /* Compact "Choose File" button so file inputs render at the same height
+     as regular text inputs (the native button chrome would otherwise add
+     ~10px of extra height). */
+  input[type="file"]::file-selector-button,
+  input[type="file"]::-webkit-file-upload-button {
+    padding: 2px 10px;
+    margin-right: 10px;
+    font-size: 11px;
+    background: var(--border);
+    color: var(--text);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  input[type="file"]::file-selector-button:hover,
+  input[type="file"]::-webkit-file-upload-button:hover { background: var(--brand); color: #fff; }
   .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
   .modal.open { display: flex; }
   .modal-body { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 24px; max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; }
@@ -2161,13 +2177,33 @@
         <label class="text-xs col-span-1 md:col-span-2">Property Type<select id="uw-prop-type" style="width:100%;margin-top:4px"><option value="">—</option><option>Single Family</option><option>Duplex</option><option>Triplex</option><option>Quad</option><option>Multi-Family 5+</option><option>Condo</option><option>Townhouse</option><option>Land</option></select></label>
         <label class="text-xs col-span-1 md:col-span-1">Units<input type="number" id="uw-units" value="1" min="1" step="1" oninput="_uwSyncUnits('property'); uwRecalc()" style="width:100%;margin-top:4px"></label>
       </div>
-      <!-- Row 5: picture folder link (its own row so it can use the full width). -->
+      <!-- Row 5: picture folder link (LEFT half) + main picture upload (RIGHT half). -->
+      <!-- Picture Folder Link is now col-span-5 so it shares the row with the
+           Main Picture Upload field. The uploaded picture lives on the
+           hidden #uw-main-pic input as a base64 data URL and is used by the
+           Wholesale Packet generator as the cover photo. -->
       <div class="grid grid-cols-2 md:grid-cols-10 gap-2 mt-2">
-        <label class="text-xs col-span-2 md:col-span-10">Picture Folder Link
+        <label class="text-xs col-span-2 md:col-span-5">Picture Folder Link
           <span style="display:flex;gap:4px;align-items:stretch;margin-top:4px">
             <input id="uw-pics" placeholder="https://..." oninput="_uwUpdatePicLinkIcon()" style="flex:1;min-width:0;margin:0">
             <button type="button" id="uw-pics-open" onclick="_uwOpenPicLink()" title="Open picture folder in a new tab" style="display:inline-flex;align-items:center;justify-content:center;width:32px;border-radius:5px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);text-decoration:none;font-size:14px;line-height:1;flex-shrink:0;box-sizing:border-box;padding:0;cursor:pointer"><span style="display:inline-block;transform:translateY(-2px)">📷</span></button>
           </span>
+          <!-- Spacer/status caption — mirrors the height reserved by the
+               Main Picture Upload's status span so both fields stay flush. -->
+          <span id="uw-pics-status" style="display:block;margin-top:2px;font-size:10px;color:var(--text-dim);min-height:12px">&nbsp;</span>
+        </label>
+        <label class="text-xs col-span-2 md:col-span-5" title="Upload a photo of the front of the house (or any screenshot) to display on page 1 of the wholesale packet.">Main Picture Upload
+          <span style="display:flex;gap:4px;align-items:stretch;margin-top:4px">
+            <input type="hidden" id="uw-main-pic">
+            <!-- Inherits the global input style (padding: 8px 12px, etc.) so
+                 it renders at exactly the same height as the Picture Folder
+                 Link input next to it. The compact ::file-selector-button
+                 rule in the global stylesheet keeps the native "Choose File"
+                 button from blowing up the row height. -->
+            <input type="file" id="uw-main-pic-input" accept="image/*" onchange="_uwHandleMainPicUpload(event)" style="flex:1;min-width:0;margin:0;font-size:12px;box-sizing:border-box">
+            <button type="button" id="uw-main-pic-clear" onclick="_uwClearMainPic()" title="Remove the uploaded picture" style="display:inline-flex;align-items:center;justify-content:center;width:32px;border-radius:5px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);font-size:14px;line-height:1;flex-shrink:0;box-sizing:border-box;padding:0;cursor:pointer">✕</button>
+          </span>
+          <span id="uw-main-pic-status" style="display:block;margin-top:2px;font-size:10px;color:var(--text-dim);min-height:12px">&nbsp;</span>
         </label>
       </div>
     </div>
@@ -9485,7 +9521,7 @@ function uwExportCsv() {
 //
 // Triggered by the "📄 Wholesale Packet" button in the calculator header.
 // Uses jsPDF (loaded via CDN at the top of the file) + autotable plugin.
-function uwGenerateWholesalePacket() {
+async function uwGenerateWholesalePacket() {
   if (typeof window.jspdf === 'undefined' || !window.jspdf.jsPDF) {
     alert('PDF library failed to load. Refresh the page and try again.');
     return;
@@ -9622,6 +9658,65 @@ function uwGenerateWholesalePacket() {
       }
     });
   }
+
+  // ----- Cover photo: user-uploaded picture takes priority, Street View fallback -----
+  // First check the Main Picture Upload field — if the user uploaded a photo
+  // (or screenshot) for this deal, use that as the cover image. Otherwise fall
+  // back to auto-fetching a Google Street View image. Either way the same
+  // streetViewDataUrl variable feeds the cover hero block below.
+  let streetViewDataUrl = null;
+  const _uploadedPic = (document.getElementById('uw-main-pic') || {}).value || '';
+  if (_uploadedPic && typeof _uploadedPic === 'string' && _uploadedPic.startsWith('data:')) {
+    streetViewDataUrl = _uploadedPic;
+    console.log('[Packet] Using user-uploaded main picture (' + Math.round(_uploadedPic.length / 1024) + ' KB)');
+  }
+  // Only try Street View if no manual upload exists. Skipping the network
+  // fetch when we already have a photo also makes packet generation faster.
+  if (!streetViewDataUrl) {
+  try {
+    if (!address) {
+      console.warn('[Packet] Street View skipped — no subject address entered');
+    } else if (typeof GMAPS_KEY !== 'string' || !GMAPS_KEY) {
+      console.warn('[Packet] Street View skipped — no GMAPS_KEY configured');
+    } else {
+      const _addr = [address, city, state, zip].filter(Boolean).join(', ');
+      const _qs   = encodeURIComponent(_addr);
+      console.log('[Packet] Street View — checking metadata for:', _addr);
+      const metaResp = await fetch(
+        'https://maps.googleapis.com/maps/api/streetview/metadata?location=' + _qs + '&key=' + GMAPS_KEY
+      );
+      const meta = await metaResp.json();
+      console.log('[Packet] Street View metadata:', meta);
+      if (meta && meta.status === 'OK') {
+        // Photo column on cover is ~280×102pt — request 640×290 from Google
+        // (~2.2:1 banner crop) for a clean downscale.
+        const imgUrl = 'https://maps.googleapis.com/maps/api/streetview?size=640x290&fov=80&location=' + _qs + '&key=' + GMAPS_KEY;
+        const imgResp = await fetch(imgUrl);
+        console.log('[Packet] Street View image HTTP', imgResp.status, imgResp.statusText);
+        if (imgResp.ok) {
+          const blob = await imgResp.blob();
+          streetViewDataUrl = await new Promise((resolve) => {
+            const r = new FileReader();
+            r.onloadend = () => resolve(r.result);
+            r.onerror   = () => resolve(null);
+            r.readAsDataURL(blob);
+          });
+          console.log('[Packet] Street View loaded — data URL bytes:', streetViewDataUrl ? streetViewDataUrl.length : 0);
+        } else {
+          console.warn('[Packet] Street View image fetch failed — likely Street View Static API not enabled on this Google Cloud project. Open https://console.cloud.google.com/apis/library/street-view-image-backend.googleapis.com and click ENABLE.');
+        }
+      } else {
+        console.warn('[Packet] Street View metadata not OK:', meta && meta.status, meta && meta.error_message);
+        if (meta && meta.status === 'REQUEST_DENIED') {
+          console.warn('[Packet] REQUEST_DENIED usually means the Street View Static API is not enabled on your Google Cloud project. Open https://console.cloud.google.com/apis/library/street-view-image-backend.googleapis.com and click ENABLE.');
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[Packet] Street View fetch threw:', e);
+    streetViewDataUrl = null;  // Silent fail — packet still works without photo
+  }
+  }  // end if (!streetViewDataUrl) — only ran when no manual upload
 
   // ===================== PDF rendering =====================
   const PAGE_W = doc.internal.pageSize.getWidth();
@@ -9763,47 +9858,64 @@ function uwGenerateWholesalePacket() {
   doc.text([city, state, zip].filter(Boolean).join(', ') || 'Location', MARGIN, y);
   y += 24;
 
-  // ----- Hero metric cards (ARV + Rent) — side-by-side, more characterful -----
+  // ----- Hero: ARV + Rent stacked on the LEFT, property photo on the RIGHT -----
+  // ARV (top) and Rent (bottom) are compact side-stripe cards on the left;
+  // the auto-fetched Google Street View photo of the front of the house fills
+  // the right column. If the photo couldn't be fetched (API not enabled or no
+  // imagery at this address), the right column is left blank — never a broken
+  // placeholder.
   if (arv > 0 || estRent > 0) {
-    const cardW = (PAGE_W - 2 * MARGIN - 12) / 2;  // 12pt gap between
-    const cardH = 76;
-    // ARV card — emerald
+    const leftW   = 220;                                          // metric column (shrunk)
+    const heroGap = 12;
+    const rightW  = PAGE_W - 2 * MARGIN - leftW - heroGap;        // photo column
+    const cardH   = 48;                                           // shrunk from 60 so links still fit on page 1
+    const colH    = cardH * 2 + 6;                                // matches photo height (102pt)
+
+    // ARV — emerald, top-left
     if (arv > 0) {
       doc.setFillColor(C_GREEN[0], C_GREEN[1], C_GREEN[2]);
-      doc.rect(MARGIN, y, cardW, cardH, 'F');
-      // Inner darker stripe at the left for depth
+      doc.rect(MARGIN, y, leftW, cardH, 'F');
       doc.setFillColor(5, 150, 105);
-      doc.rect(MARGIN, y, 6, cardH, 'F');
+      doc.rect(MARGIN, y, 4, cardH, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text('ESTIMATED ARV', MARGIN + 16, y + 20, { charSpace: 1 });
-      doc.setFontSize(26);
-      doc.text(fmt$(arv), MARGIN + 16, y + 50);
+      doc.setFontSize(7);
+      doc.text('ESTIMATED ARV', MARGIN + 12, y + 13, { charSpace: 1 });
+      doc.setFontSize(16);
+      doc.text(fmt$(arv), MARGIN + 12, y + 32);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
+      doc.setFontSize(6.5);
       if (avgPsf > 0 && sqft > 0) {
-        doc.text('$' + avgPsf.toFixed(2) + '/sqft  x  ' + sqft.toLocaleString() + ' sqft', MARGIN + 16, y + 66);
+        doc.text('$' + avgPsf.toFixed(2) + '/sqft  x  ' + sqft.toLocaleString() + ' sqft', MARGIN + 12, y + 43);
       }
     }
-    // Rent card — amber
+    // Rent — amber, bottom-left
     if (estRent > 0) {
-      const xRent = MARGIN + cardW + 12;
+      const yRent = y + cardH + 6;
       doc.setFillColor(C_AMBER[0], C_AMBER[1], C_AMBER[2]);
-      doc.rect(xRent, y, cardW, cardH, 'F');
+      doc.rect(MARGIN, yRent, leftW, cardH, 'F');
       doc.setFillColor(202, 130, 9);
-      doc.rect(xRent, y, 6, cardH, 'F');
+      doc.rect(MARGIN, yRent, 4, cardH, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text('ESTIMATED RENT', xRent + 16, y + 20, { charSpace: 1 });
-      doc.setFontSize(26);
-      doc.text(fmt$(estRent) + '/mo', xRent + 16, y + 50);
+      doc.setFontSize(7);
+      doc.text('ESTIMATED RENT', MARGIN + 12, yRent + 13, { charSpace: 1 });
+      doc.setFontSize(16);
+      doc.text(fmt$(estRent) + '/mo', MARGIN + 12, yRent + 32);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text('Avg of ' + rcpRents.length + ' rental comp' + (rcpRents.length === 1 ? '' : 's'), xRent + 16, y + 66);
+      doc.setFontSize(6.5);
+      doc.text('Avg of ' + rcpRents.length + ' rental comp' + (rcpRents.length === 1 ? '' : 's'), MARGIN + 12, yRent + 43);
     }
-    y += cardH + 16;
+    // Property photo — right column, matched to metric-stack height
+    if (streetViewDataUrl) {
+      const photoX = MARGIN + leftW + heroGap;
+      doc.addImage(streetViewDataUrl, 'JPEG', photoX, y, rightW, colH);
+      // Hairline border for polish
+      doc.setDrawColor(C_RULE[0], C_RULE[1], C_RULE[2]);
+      doc.setLineWidth(0.5);
+      doc.rect(photoX, y, rightW, colH);
+    }
+    y += colH + 12;
   }
 
   // ---------- Property snapshot ----------
@@ -10546,7 +10658,7 @@ const UW_FIELDS = [
   'uw-rt-br-ltv','uw-rt-br-rate','uw-rt-br-yrs',
   'uw-rt-rf-hm-ltv','uw-rt-rf-hm-rate','uw-rt-rf-hm-orig','uw-rt-rf-stab-mo','uw-rt-rf-close-pct',
   'uw-rt-reno-mo','uw-rt-rent-mo',
-  'uw-prop-type','uw-units','uw-dom','uw-appr','uw-pop','uw-jobs','uw-pics',
+  'uw-prop-type','uw-units','uw-dom','uw-appr','uw-pop','uw-jobs','uw-pics','uw-main-pic',
   'uw-ifp-slider', // Ideal Flip Profit slider position (0–120)
   'uw-tl-slider',  // Timeline (rehab scope) slider position (0–120)
   'uw-reno-start',  // Renovation start date (Budget tab — Holdings/Reno only)
@@ -11393,6 +11505,87 @@ function _uwUpdatePicLinkIcon() {
 window._uwOpenPicLink        = _uwOpenPicLink;
 window._uwUpdatePicLinkIcon  = _uwUpdatePicLinkIcon;
 
+// ----- Main Picture Upload helpers -----
+// Reads the user-selected image, downscales to max 1200px wide, and stores it
+// as a base64 JPEG data URL on the hidden #uw-main-pic input. The packet
+// generator picks it up from there as the cover photo. Downscaling keeps the
+// stored payload small enough not to bloat Supabase saves.
+async function _uwHandleMainPicUpload(event) {
+  const file = event && event.target && event.target.files && event.target.files[0];
+  if (!file) return;
+  if (!file.type || !file.type.startsWith('image/')) {
+    if (typeof toast === 'function') toast('Please select an image file.', 'warn');
+    return;
+  }
+  const statusEl = document.getElementById('uw-main-pic-status');
+  if (statusEl) statusEl.textContent = 'Processing…';
+  // Read → load into Image → draw to canvas (downscaled) → toDataURL JPEG.
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 1200;
+      let w = img.width, h = img.height;
+      if (w > maxW) { h = Math.round(h * (maxW / w)); w = maxW; }
+      const canvas = document.createElement('canvas');
+      canvas.width  = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', 0.85);
+      const hidden = document.getElementById('uw-main-pic');
+      if (hidden) {
+        hidden.value = compressed;
+        // Dispatch a change event so the global autosave listener picks it up.
+        try { hidden.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
+      }
+      _uwUpdateMainPicStatus();
+      if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+    };
+    img.onerror = () => {
+      if (statusEl) statusEl.textContent = 'Could not read image.';
+    };
+    img.src = reader.result;
+  };
+  reader.onerror = () => {
+    if (statusEl) statusEl.textContent = 'Could not read file.';
+  };
+  reader.readAsDataURL(file);
+}
+function _uwClearMainPic() {
+  const hidden = document.getElementById('uw-main-pic');
+  const input  = document.getElementById('uw-main-pic-input');
+  if (hidden) {
+    hidden.value = '';
+    try { hidden.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
+  }
+  if (input) input.value = '';
+  _uwUpdateMainPicStatus();
+  if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+}
+// Refreshes the small caption beneath the upload field — shows "Uploaded
+// (NN KB)" when a picture is loaded, or empty when none. Also called from
+// uwLoadById after a deal is restored so the status reflects saved data.
+function _uwUpdateMainPicStatus() {
+  const hidden = document.getElementById('uw-main-pic');
+  const status = document.getElementById('uw-main-pic-status');
+  const clear  = document.getElementById('uw-main-pic-clear');
+  if (!status) return;
+  const v = hidden && hidden.value ? hidden.value : '';
+  if (v && v.startsWith('data:')) {
+    const kb = Math.round(v.length / 1024);
+    status.textContent = '✓ Picture uploaded (~' + kb + ' KB)';
+    status.style.color = '#10b981';
+    if (clear) { clear.style.color = '#ef4444'; clear.style.borderColor = '#ef4444'; }
+  } else {
+    status.textContent = '';
+    status.style.color = 'var(--text-dim)';
+    if (clear) { clear.style.color = 'var(--text-dim)'; clear.style.borderColor = 'var(--border)'; }
+  }
+}
+window._uwHandleMainPicUpload = _uwHandleMainPicUpload;
+window._uwClearMainPic        = _uwClearMainPic;
+window._uwUpdateMainPicStatus = _uwUpdateMainPicStatus;
+
 function uwToggleSectionReorder() {
   _uwReorderMode = !_uwReorderMode;
   const btn = document.getElementById('uw-reorder-btn');
@@ -11798,6 +11991,8 @@ function _uwApply(data) {
   if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
   // Tint the picture-folder icon based on the loaded URL value
   if (typeof _uwUpdatePicLinkIcon === 'function') _uwUpdatePicLinkIcon();
+  // Refresh the main-picture-upload status caption from saved data URL
+  if (typeof _uwUpdateMainPicStatus === 'function') _uwUpdateMainPicStatus();
   // Apply the saved section order (re-arranges top-level panels)
   if (typeof _uwApplySectionOrder === 'function') _uwApplySectionOrder(data._sectionOrder);
   // Restore the "needs help" flag and update the toggle button visual

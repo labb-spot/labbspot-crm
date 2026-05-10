@@ -9565,9 +9565,18 @@ function uwGenerateWholesalePacket() {
   if (!arv) arv = getN('uw-asqft') * sqft;
   const avgPsf = getN('uw-asqft');
 
-  // Estimated rent = average of the 3 rental comps' rents (only those filled in).
+  // Estimated rent — priority: explicit override (uw-ravg-override) →
+  // readonly avg display (uw-ravg-rent) → average of the 3 rental comps.
+  // Mirrors _uwComputeRentFromData / uwRecalc so the packet shows the same
+  // per-unit rent the underwriting calculator uses everywhere else.
   const rcpRents = [getN('uw-rcp1-rent'), getN('uw-rcp2-rent'), getN('uw-rcp3-rent')].filter(r => r > 0);
-  const estRent = rcpRents.length ? (rcpRents.reduce((a, b) => a + b, 0) / rcpRents.length) : 0;
+  const _rentOverride = getN('uw-ravg-override');
+  const _rentAvgDisplay = getN('uw-ravg-rent');
+  const estRent = _rentOverride > 0
+    ? _rentOverride
+    : (_rentAvgDisplay > 0
+        ? _rentAvgDisplay
+        : (rcpRents.length ? (rcpRents.reduce((a, b) => a + b, 0) / rcpRents.length) : 0));
 
   // ----- Comps -----
   const buildCompRows = (prefix, priceField, priceLabel) => {

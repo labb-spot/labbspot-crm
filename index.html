@@ -10076,6 +10076,29 @@ function uwGenerateWholesalePacket() {
   doc.addPage();
   y = MARGIN;
 
+  // Build a Zillow URL for a comp address — same dashed format used by
+  // uwUpdateCompLinks (in the calculator's address rows). Buyers click the
+  // address in the PDF and land directly on the Zillow card for that comp.
+  const _zillowUrlForAddr = (addr) => {
+    const raw = String(addr || '').trim();
+    if (!raw) return '';
+    return 'https://www.zillow.com/homes/' + encodeURIComponent(raw.replace(/\s+/g, '-')) + '_rb/';
+  };
+  // Shared autotable hooks: paint the Address cell in Zillow blue and overlay
+  // a clickable link annotation that opens the Zillow card for that comp.
+  const _compLinkHooks = {
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 0 && data.cell.raw) {
+        data.cell.styles.textColor = [0, 106, 255];   // Zillow blue
+      }
+    },
+    didDrawCell: (data) => {
+      if (data.section === 'body' && data.column.index === 0 && data.cell.raw) {
+        const url = _zillowUrlForAddr(data.cell.raw);
+        if (url) doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url });
+      }
+    },
+  };
   // Shared comp-table styling helper — tightened cellPadding to keep the
   // packet inside 2 pages even when 3 sold + 3 listed + 3 rental comps are
   // all present.
@@ -10085,10 +10108,11 @@ function uwGenerateWholesalePacket() {
     bodyStyles: { fontSize: 9, textColor: C_TEXT, cellPadding: 4 },
     alternateRowStyles: { fillColor: C_BG },
     columnStyles: {
-      0: { fontStyle: 'bold' },         // Address bolded
+      0: { fontStyle: 'bold' },         // Address bolded (link-styled via _compLinkHooks)
       6: { halign: 'right', fontStyle: 'bold' },  // $/SqFt right-aligned
     },
     margin: { left: MARGIN, right: MARGIN },
+    ..._compLinkHooks,
   };
 
   // ---------- Sold comps ----------
@@ -10142,16 +10166,177 @@ function uwGenerateWholesalePacket() {
       bodyStyles: { fontSize: 9, textColor: C_TEXT, cellPadding: 4 },
       alternateRowStyles: { fillColor: C_BG },
       columnStyles: {
-        0: { fontStyle: 'bold' },
+        0: { fontStyle: 'bold' },        // Address — link-styled via _compLinkHooks
         5: { halign: 'right', fontStyle: 'bold' },
       },
       margin: { left: MARGIN, right: MARGIN },
+      ..._compLinkHooks,
     });
     y = doc.lastAutoTable.finalY + 12;
   }
 
-  // (Cash Flip + Cash Rental Pro Forma sections removed for now — packet
-  // is buyer's deal-evaluation packet only. Re-enable later if needed.)
+  // (Cash Rental Pro Forma — moved to AFTER the disclosure so page 2 stays
+  // packed with comps + scope of work + disclosure, and the pro forma lands
+  // on its own page 3. See the IIFE below the disclosure block.)
+  const _cashRentalRender = () => {
+    const arvLocal     = arv > 0 ? arv : (getN('uw-asqft') * sqft);
+    const buyPrice     = getN('uw-accepted') || getN('uw-asking') || 0;
+    const _units       = Math.max(1, getN('uw-units') || getN('uw-units-rental') || 1);
+    const perUnitRent  = estRent;                 // already respects override → avg → comps
+    const totalRent    = perUnitRent * _units;
+    if (!(buyPrice > 0 && totalRent > 0)) return; // nothing meaningful to show
+
+    // Rental-grade rehab = 60% of the system's rehab budget. Rental finishes
+    // are typically about 60% of a flip-grade retail spec (LVP vs. tile, paint-
+    // grade trim vs. stained, builder cabinets vs. semi-custom, etc.). Pulls
+    // the same `budgeted` total that _hrComputeBudget uses for the
+    // Renovation/Holdings list so the number stays consistent.
+    let _systemBudget = 0;
+    try {
+      const _packetData = (typeof _uwCollect === 'function') ? (_uwCollect().data || {}) : {};
+      if (typeof _hrComputeBudget === 'function') {
+        _systemBudget = _hrComputeBudget({ data: _packetData }).budgeted || 0;
+      }
+    } catch (_) { _systemBudget = 0; }
+    const rRehab = _systemBudget * 0.60;
+
+    // Closing: 1.5% buyer + 1.5% seller = 3% of buy price (matches calculator)
+    const purchClosing = buyPrice * 0.03;
+
+    // Operating cost percentages — defaults match calculator
+    const vacPct   = getN('uw-rt-vac-pct')   || 10;
+    const maintPct = getN('uw-rt-maint-pct') || 5;
+    const capexPct = getN('uw-rt-capex-pct') || 5;
+    const pmPct    = getN('uw-rt-pm-pct')    || 10;
+
+    const taxMo  = (buyPrice * 0.01) / 12;        // 1%/yr of purchase
+    const insMo  = (arvLocal * 0.009) / 12;       // 0.9%/yr of ARV
+    const vacMo  = totalRent * (vacPct   / 100);
+    const mntMo  = totalRent * (maintPct / 100);
+    const cpxMo  = totalRent * (capexPct / 100);
+    const pmMo   = totalRent * (pmPct    / 100);
+    const totalMonthlyExp = taxMo + insMo + vacMo + mntMo + cpxMo + pmMo;
+
+    const renoMo = getN('uw-rt-reno-mo') || 1;
+    const rentMo = getN('uw-rt-rent-mo') || 1;
+    const preRentMo = renoMo + rentMo;
+    const preRentHolding = (taxMo + insMo) * preRentMo;
+
+    const allIn = buyPrice + rRehab + purchClosing + preRentHolding;
+    const annualRent = totalRent * 12;
+    const yieldPct   = allIn > 0 ? (annualRent / allIn) * 100 : 0;
+    const monthlyCashflow = totalRent - totalMonthlyExp;
+    const annualCashflow  = monthlyCashflow * 12;
+
+    const fmt$  = (n) => '$' + Math.round(n).toLocaleString();
+    const fmt$0 = (n) => n ? fmt$(n) : '$0';
+
+    // Force a fresh page so the pro forma always lands on its own page.
+    doc.addPage();
+    y = MARGIN;
+    section('CASH RENTAL — PRO FORMA');
+    doc.setFontSize(9);
+    doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+    doc.text(
+      'Buy with cash, no leverage. Capital tied up = purchase + rehab + closing + pre-rent holding.',
+      MARGIN, y
+    );
+    y += 14;
+
+    // ----- Income table -----
+    doc.autoTable({
+      startY: y,
+      head: [['INCOME', '']],
+      body: [
+        ['Monthly Rent (per unit)',         fmt$(perUnitRent)],
+        ['Units',                           '× ' + _units],
+        ['Total Monthly Rent',              fmt$(totalRent)],
+        ['Annual Rent (gross)',             fmt$(annualRent)],
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: C_GREEN, textColor: 255, fontSize: 9, fontStyle: 'bold', cellPadding: 5 },
+      bodyStyles: { fontSize: 9, textColor: C_TEXT, cellPadding: 5 },
+      alternateRowStyles: { fillColor: C_BG },
+      columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+      margin: { left: MARGIN, right: MARGIN },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ----- All-In Capital table -----
+    doc.autoTable({
+      startY: y,
+      head: [['ALL-IN CAPITAL  (one-time, cash out of pocket)', '']],
+      body: [
+        ['Purchase Price',                  fmt$(buyPrice)],
+        ['Rental-Grade Rehab',              fmt$0(rRehab)],
+        ['Closing Costs (3% of purchase)',  fmt$(purchClosing)],
+        ['Pre-Rent Holding (' + preRentMo + ' mo · tax + ins)', fmt$(preRentHolding)],
+        [{ content: 'TOTAL CASH IN', styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+         { content: fmt$(allIn),   styles: { fontStyle: 'bold', fillColor: [241, 245, 249], halign: 'right' } }],
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: C_BRAND, textColor: 255, fontSize: 9, fontStyle: 'bold', cellPadding: 5 },
+      bodyStyles: { fontSize: 9, textColor: C_TEXT, cellPadding: 5 },
+      alternateRowStyles: { fillColor: C_BG },
+      columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+      margin: { left: MARGIN, right: MARGIN },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ----- Monthly Operating Costs table -----
+    doc.autoTable({
+      startY: y,
+      head: [['MONTHLY OPERATING COSTS', '']],
+      body: [
+        ['Estimated Property Tax',                  fmt$(taxMo)],
+        ['Estimated Insurance',                     fmt$(insMo)],
+        ['Vacancy  (' + vacPct   + '% of rent)',    fmt$(vacMo)],
+        ['Maintenance  (' + maintPct + '% of rent)', fmt$(mntMo)],
+        ['CapEx  (' + capexPct + '% of rent)',      fmt$(cpxMo)],
+        ['Property Management  (' + pmPct + '% of rent)', fmt$(pmMo)],
+        [{ content: 'TOTAL MONTHLY EXPENSES', styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+         { content: fmt$(totalMonthlyExp),    styles: { fontStyle: 'bold', fillColor: [241, 245, 249], halign: 'right' } }],
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: C_RED, textColor: 255, fontSize: 9, fontStyle: 'bold', cellPadding: 5 },
+      bodyStyles: { fontSize: 9, textColor: C_TEXT, cellPadding: 5 },
+      alternateRowStyles: { fillColor: C_BG },
+      columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+      margin: { left: MARGIN, right: MARGIN },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ----- Returns summary -----
+    doc.autoTable({
+      startY: y,
+      head: [['RETURNS', '']],
+      body: [
+        ['Monthly Cashflow',                        fmt$(monthlyCashflow)],
+        ['Annual Cashflow',                         fmt$(annualCashflow)],
+        ['Cash Yield  (annual rent ÷ all-in cash)', yieldPct.toFixed(1) + '%'],
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: C_NAVY, textColor: 255, fontSize: 10, fontStyle: 'bold', cellPadding: 6 },
+      bodyStyles: { fontSize: 10, textColor: C_TEXT, cellPadding: 6, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: C_BG },
+      columnStyles: { 1: { halign: 'right' } },
+      margin: { left: MARGIN, right: MARGIN },
+    });
+    y = doc.lastAutoTable.finalY + 8;
+
+    // Caveat note
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+    const caveat = doc.splitTextToSize(
+      'Pro forma estimate. Buyer to verify rents, taxes, insurance quotes, and rehab scope ' +
+      'before closing. Operating cost percentages are typical defaults — adjust to your model.',
+      PAGE_W - 2 * MARGIN
+    );
+    doc.text(caveat, MARGIN, y);
+    y += caveat.length * 10;
+    doc.setFont('helvetica', 'normal');
+  };
 
   // ---------- Scope of work (NO PRICES) — 3-column layout ----------
   // Three columns guarantees the full scope fits on page 2 alongside comps
@@ -10284,6 +10469,12 @@ function uwGenerateWholesalePacket() {
     });
     y += boxH + 8;
   }
+
+  // ---------- Cash Rental Pro Forma (page 3) ----------
+  // Rendered AFTER the disclosure so page 2 holds comps + scope + disclosure
+  // and the pro forma lands on its own page. _cashRentalRender forces a fresh
+  // page internally and returns silently if buy price or rent are missing.
+  _cashRentalRender();
 
   // ---------- Footer / contact on every page ----------
   const totalPages = doc.internal.getNumberOfPages();

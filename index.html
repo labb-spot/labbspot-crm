@@ -12021,14 +12021,23 @@ function _uwApply(data) {
   // which only happens after Object.entries(data).forEach runs.)
   // Apply the saved section order (re-arranges top-level panels)
   if (typeof _uwApplySectionOrder === 'function') _uwApplySectionOrder(data._sectionOrder);
-  // Restore the "needs help" flag and update the toggle button visual
-  _uwNeedsHelp = !!data._needsHelp;
-  if (typeof _uwUpdateNeedsHelpButton === 'function') _uwUpdateNeedsHelpButton();
-  // Restore the "priority" flag (drives the ⭐ Priority subtab)
+  // Restore the THREE manual workflow flags (Help / Priority / Checking)
+  // ATOMICALLY — set all three from the loaded data BEFORE refreshing the
+  // stage selector. Previously the selector was repainted after only the
+  // first flag was set, which read STALE values for the other two flags
+  // from the previously-loaded deal. That's how a Checking-stage deal could
+  // open showing the badge as "Priority" — the prior deal's _uwIsPriority
+  // was still true at the moment of the first repaint.
+  _uwNeedsHelp  = !!data._needsHelp;
   _uwIsPriority = !!data._isPriority;
-  // Restore the "in checking" flag and update the workflow buttons
   _uwInChecking = !!data._inChecking;
-  if (typeof _uwUpdateCheckingButton === 'function') _uwUpdateCheckingButton();
+  // Single repaint with all three flags now matching the loaded deal's data.
+  if (typeof _uwUpdateStageSelector === 'function') _uwUpdateStageSelector();
+  // _uwUpdateNeedsHelpButton / _uwUpdateCheckingButton are wrappers that just
+  // call _uwUpdateStageSelector — kept for backwards-compat with any other
+  // call sites, but invoked here only as a defensive double-paint.
+  if (typeof _uwUpdateNeedsHelpButton === 'function') _uwUpdateNeedsHelpButton();
+  if (typeof _uwUpdateCheckingButton  === 'function') _uwUpdateCheckingButton();
   // Restore the Cash/Financed toggle for Flip + Rental (defaults to cash)
   _uwFlipMode      = data._flipMode      === 'financed' ? 'financed' : 'cash';
   _uwWholetailMode = data._wholetailMode === 'financed' ? 'financed' : 'cash';

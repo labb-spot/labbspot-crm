@@ -12082,6 +12082,13 @@ function _uwApply(data) {
   // ran before the apply loop, so the caption always showed "no picture"
   // even when one had been uploaded and saved.
   if (typeof _uwUpdateMainPicStatus === 'function') _uwUpdateMainPicStatus();
+  // Repaint the workflow stage selector NOW — the apply loop above has just
+  // populated #uw-packet-status with the loaded value. _uwGetCurrentStage()
+  // reads packet status straight from the DOM, so painting before this point
+  // (e.g. right after setting the manual flags) reads STALE/empty and the
+  // badge defaults to "Analyzing" even when the saved deal is in Closed /
+  // Offered / Contracted etc.
+  if (typeof _uwUpdateStageSelector === 'function') _uwUpdateStageSelector();
   // Sync the Rental section's Units mirror from Property Info's uw-units.
   // The mirror isn't in UW_FIELDS (we don't want to persist two copies of
   // the same value), so it has to be re-derived from uw-units on load.

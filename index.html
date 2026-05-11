@@ -7168,21 +7168,25 @@ window._uwRehabCascade = _uwRehabCascade;
     });
     observer.observe(sFin, { childList: true, characterData: true, subtree: true });
     // Trigger 2: direct rehab-input listener — catches changes that don't
-    // alter s-fin (e.g. cost/material rate edits). Scoped to rehab-owned
-    // inputs only so it doesn't fire on every underwriting keystroke.
+    // alter s-fin (e.g. cost/material rate edits, contingency, crew size).
+    // Deliberately does NOT cover the item checkboxes ([data-cat]) — those
+    // ALWAYS change s-fin, so the MutationObserver above handles them. The
+    // rehab calc re-renders its tbody innerHTML on every recalc, so an
+    // extra cascade right after a checkbox click can interfere with the
+    // user's click state. Letting the MutationObserver handle it avoids
+    // that race.
     const _onRehabInput = (e) => {
       const t = e.target;
       if (!t) return;
       const id = t.id || '';
       if (id.startsWith('rc-') ||
           id === 'costContingency' || id === 'timeContingency' || id === 'crew' ||
-          (t.matches && t.matches('input[type="checkbox"][data-cat]')) ||
           (t.matches && t.matches('input[data-rate-cat]'))) {
         _uwRehabCascade();
       }
     };
-    document.addEventListener('change', _onRehabInput, true);
-    document.addEventListener('input',  _onRehabInput, true);
+    document.addEventListener('change', _onRehabInput, false);
+    document.addEventListener('input',  _onRehabInput, false);
   };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _start);

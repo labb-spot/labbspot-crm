@@ -139,6 +139,7 @@
   .badge.warn { background: rgba(245,158,11,0.15); color: var(--warn); }
   .badge.bad { background: rgba(239,68,68,0.15); color: var(--bad); }
   .badge.brand { background: rgba(249,115,22,0.15); color: var(--brand); }
+  .badge.info  { background: rgba(56,189,248,0.15); color: #38bdf8; }  /* light blue — used for "Sent" offer status */
   .toast { position: fixed; bottom: 20px; right: 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; z-index: 200; opacity: 0; transition: opacity 0.2s; max-width: 400px; }
   .toast.show { opacity: 1; }
   .toast.ok { border-color: var(--good); }
@@ -1017,7 +1018,7 @@
               <th style="padding:6px 10px;text-align:left">State</th>
               <th style="padding:6px 10px;text-align:left">ZIP</th>
               <th style="padding:6px 10px;text-align:left">Lists</th>
-              <th style="padding:6px 10px;text-align:left">Status</th>
+              <th style="padding:6px 10px;text-align:left">Offer</th>
               <th style="padding:6px 10px;text-align:left">Error reason</th>
               <th style="padding:6px 10px;text-align:right">Actions</th>
             </tr></thead>
@@ -1076,7 +1077,7 @@
               <th style="padding:6px 10px;text-align:left">City</th>
               <th style="padding:6px 10px;text-align:left">State</th>
               <th style="padding:6px 10px;text-align:left">ZIP</th>
-              <th style="padding:6px 10px;text-align:left">Status</th>
+              <th style="padding:6px 10px;text-align:left">Offer</th>
               <th style="padding:6px 10px;text-align:right">Actions</th>
             </tr></thead>
             <tbody id="uvs-tbody"></tbody>
@@ -1122,7 +1123,7 @@
               <th style="padding:6px 10px;text-align:left">City</th>
               <th style="padding:6px 10px;text-align:left">State</th>
               <th style="padding:6px 10px;text-align:left">ZIP</th>
-              <th style="padding:6px 10px;text-align:left">Status</th>
+              <th style="padding:6px 10px;text-align:left">Offer</th>
               <th style="padding:6px 10px;text-align:left">Source</th>
               <th style="padding:6px 10px;text-align:right">Actions</th>
             </tr></thead>
@@ -1181,7 +1182,7 @@
           <thead><tr style="position:sticky;top:0;background:var(--panel-2);z-index:1;color:var(--text-dim);text-transform:uppercase;font-size:10px;letter-spacing:0.5px">
             <th style="padding:6px 10px;text-align:left">Property address</th>
             <th style="padding:6px 10px;text-align:left">Mailing on file</th>
-            <th style="padding:6px 10px;text-align:left">Status</th>
+            <th style="padding:6px 10px;text-align:left">Offer</th>
             <th style="padding:6px 10px;text-align:left">Lists</th>
           </tr></thead>
           <tbody id="gap-nomail-tbody"></tbody>
@@ -2055,10 +2056,57 @@
     <div class="panel p-5 mb-4" data-uw-section="deal-status" data-uw-section-label="📋 Deal Status">
       <div class="font-semibold text-base mb-3">📋 Deal Status</div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <label class="text-xs">Packet Status<select id="uw-packet-status" onchange="uwRecalc(); _uwUpdateStageSelector && _uwUpdateStageSelector();" style="width:100%;margin-top:4px"><option value="">—</option><option>Evaluating</option><option>Submitted</option><option>Offered</option><option>Inspection</option><option>Accepted</option><option>Closed</option><option>Dead</option></select></label>
-        <label class="text-xs">Asking Price<span class="uw-money" style="margin-top:4px"><input type="number" id="uw-asking" oninput="uwRecalc()" placeholder="0" style="width:100%"></span></label>
-        <label class="text-xs">Offer<span class="uw-money" style="margin-top:4px"><input type="number" id="uw-offer" oninput="uwRecalc()" placeholder="0" style="width:100%"></span></label>
-        <label class="text-xs">Accepted Price<span class="uw-money" style="margin-top:4px"><input type="number" id="uw-accepted" oninput="uwRecalc()" placeholder="(seller's accepted price)" style="width:100%"></span></label>
+        <!-- Offer Status — four offer-lifecycle states. The option VALUE
+             attributes preserve the original packet_status internal strings
+             (Submitted / Offered / Dead / Accepted) so existing list filters
+             and saved deals keep working without a migration. -->
+        <!-- Offer Status — 2×2 button grid (Needed / Sent / Rejected /
+             Accepted). Writes to a SEPARATE hidden field (uw-offer-status)
+             that does NOT affect which group/tab the deal appears in — it's
+             purely a label visible in the preview. The old #uw-packet-status
+             select is kept hidden so the workflow stage selector buttons
+             (Offered, Inspection, Contracted, Closed) keep writing to it
+             for their list-view routing. -->
+        <input type="hidden" id="uw-packet-status">
+        <input type="hidden" id="uw-offer-status">
+        <label class="text-xs">Offer Status
+          <div id="uw-offer-status-btns" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px">
+            <button type="button" data-offer-btn="Needed"   onclick="uwSetOfferStatus('Needed')"   style="padding:6px 8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:12px;text-align:center">Needed</button>
+            <button type="button" data-offer-btn="Sent"     onclick="uwSetOfferStatus('Sent')"     style="padding:6px 8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:12px;text-align:center">Sent</button>
+            <button type="button" data-offer-btn="Rejected" onclick="uwSetOfferStatus('Rejected')" style="padding:6px 8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:12px;text-align:center">Rejected</button>
+            <button type="button" data-offer-btn="Accepted" onclick="uwSetOfferStatus('Accepted')" style="padding:6px 8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:12px;text-align:center">Accepted</button>
+          </div>
+        </label>
+        <!-- Bubble-style money inputs — taller and more rounded to visually
+             match the 2×2 Offer Status button grid in the cell beside them.
+             Height (~62px) matches the button grid's two-row stack; bigger
+             font-weight + larger font-size make the value read like a pill /
+             headline rather than a thin form field. -->
+        <!-- Bubble-style money inputs — custom wrapper instead of .uw-money
+             so the $ prefix sits IMMEDIATELY next to the number rather than
+             at the left edge of the bubble (the old .uw-money pattern used
+             a position:absolute ::before pseudo-element that floated to the
+             left, disconnected from the centered value). Here $ and input
+             are both flex children of the wrapper, justify-content: center,
+             so they group as one unit in the middle of the bubble. -->
+        <label class="text-xs">Asking Price
+          <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:62px;margin-top:4px;padding:0 14px;gap:3px">
+            <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
+            <input type="number" id="uw-asking" oninput="uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
+          </span>
+        </label>
+        <label class="text-xs">Offer
+          <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:62px;margin-top:4px;padding:0 14px;gap:3px">
+            <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
+            <input type="number" id="uw-offer" oninput="uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
+          </span>
+        </label>
+        <label class="text-xs">Accepted Price
+          <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:62px;margin-top:4px;padding:0 14px;gap:3px">
+            <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
+            <input type="number" id="uw-accepted" oninput="uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
+          </span>
+        </label>
         <!-- Row 2 cells use flex column + center so the value text vertically
              aligns with whatever the tallest cell renders (Closed On's date
              input in H/R, otherwise just the displays themselves). Without
@@ -3196,14 +3244,14 @@
         </div>
       </div>
       <div id="uw-analyzing-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
-        Nothing in analyzing. Underwrite one in the Deal Calculator and click 💾 Save (leave Packet Status blank or set to "Evaluating").
+        Nothing in analyzing. Underwrite one in the Deal Calculator and click 💾 Save (leave Offer Status blank or set to "Evaluating").
       </div>
       <div class="overflow-auto" style="max-height:600px">
         <table style="width:100%;font-size:13px">
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Status</th>
+              <th style="padding:8px 10px;text-align:left">Offer</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3264,7 +3312,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Status</th>
+              <th style="padding:8px 10px;text-align:left">Offer</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3318,14 +3366,14 @@
         </div>
       </div>
       <div id="uw-analyzed-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
-        Nothing analyzed yet. A deal moves here when you set its Packet Status to Submitted or Dead.
+        Nothing analyzed yet. A deal moves here when you set its Offer Status to "Needed" or "Rejected".
       </div>
       <div class="overflow-auto" style="max-height:600px">
         <table style="width:100%;font-size:13px">
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Status</th>
+              <th style="padding:8px 10px;text-align:left">Offer</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3384,7 +3432,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Status</th>
+              <th style="padding:8px 10px;text-align:left">Offer</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3433,14 +3481,14 @@
         </div>
       </div>
       <div id="uw-offered-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
-        Nothing offered yet. A deal moves here when you set its Packet Status to <b>Offered</b>.
+        Nothing offered yet. A deal moves here when you click 📤 Offered on its workflow header (or set its Offer Status to <b>Sent</b>).
       </div>
       <div class="overflow-auto" style="max-height:600px">
         <table style="width:100%;font-size:13px">
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Status</th>
+              <th style="padding:8px 10px;text-align:left">Offer</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3491,14 +3539,14 @@
         </div>
       </div>
       <div id="uw-inspection-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
-        Nothing in inspection. A deal moves here when you set its Packet Status to <b>Inspection</b> (or click 📷 Inspection in the workflow stage selector at the top of any deal).
+        Nothing in inspection. A deal moves here when you click 📷 Inspection on its workflow header.
       </div>
       <div class="overflow-auto" style="max-height:600px">
         <table style="width:100%;font-size:13px">
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Status</th>
+              <th style="padding:8px 10px;text-align:left">Offer</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3554,7 +3602,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Status</th>
+              <th style="padding:8px 10px;text-align:left">Offer</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3610,7 +3658,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Status</th>
+              <th style="padding:8px 10px;text-align:left">Offer</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3669,7 +3717,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Status</th>
+              <th style="padding:8px 10px;text-align:left">Offer</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3728,7 +3776,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Status</th>
+              <th style="padding:8px 10px;text-align:left">Offer</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3787,7 +3835,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Status</th>
+              <th style="padding:8px 10px;text-align:left">Offer</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -6748,17 +6796,12 @@ function uwRecalc() {
         ') = $' + Math.round(commission).toLocaleString()
       : 'Fills once Max Offer and Accepted (or Asking) Price are computed.';
   }
-  // Show Suggested Offer (75% of Max) in the offer field as placeholder hint —
-  // only when we actually have comps to anchor it. Uncomped properties get a
-  // generic placeholder instead of a stale/zero suggestion.
+  // Offer-field placeholder is intentionally left empty — the Suggested
+  // Offer value is already surfaced separately in the "Suggested Offer"
+  // stat below the field, so duplicating it inside the bubble was visually
+  // noisy.
   const offerEl = document.getElementById('uw-offer');
-  if (offerEl && !offer) {
-    if (_hasComps && suggestedOffer > 0) {
-      offerEl.placeholder = Math.round(suggestedOffer).toLocaleString() + ' (suggested = 75% of Max)';
-    } else {
-      offerEl.placeholder = 'fill ARV / rent comps to get a suggested offer';
-    }
-  }
+  if (offerEl && !offer) offerEl.placeholder = '';
   _uwSet('uw-max-loan', _uwFmt$(maxLoan));
   _uwSet('uw-rehab-psf', sqft > 0 ? '$' + rehabPsf.toFixed(0) : '—');
   _uwSet('uw-total-flip', _uwFmt$(totalFlipCost));
@@ -6790,14 +6833,20 @@ function uwRecalc() {
       bpSrc.innerHTML = 'Buy price for math: <b>—</b> (enter Offer or Accepted Price)';
     }
   }
+  // "Accepted Price filled in" indicator — applies the green tint to the
+  // BUBBLE WRAPPER (the parent <span>), not the input itself. With the new
+  // bubble layout the input has a transparent background and lives inside
+  // a styled wrapper; tinting the input directly produced an awkward inner
+  // green stripe that wasn't aligned to the bubble's rounded edges.
   const accEl = document.getElementById('uw-accepted');
-  if (accEl) {
+  const accBubble = accEl ? accEl.parentElement : null;
+  if (accBubble) {
     if (accepted > 0) {
-      accEl.style.borderColor = '#10b981';
-      accEl.style.background = 'rgba(16,185,129,0.08)';
+      accBubble.style.borderColor = '#10b981';
+      accBubble.style.background  = 'rgba(16,185,129,0.08)';
     } else {
-      accEl.style.borderColor = '';
-      accEl.style.background = '';
+      accBubble.style.borderColor = 'var(--border)';
+      accBubble.style.background  = 'var(--panel-2)';
     }
   }
   // Color real profit/margin
@@ -10780,7 +10829,7 @@ const UW_FIELDS = [
   'uw-rt-br-ltv','uw-rt-br-rate','uw-rt-br-yrs',
   'uw-rt-rf-hm-ltv','uw-rt-rf-hm-rate','uw-rt-rf-hm-orig','uw-rt-rf-stab-mo','uw-rt-rf-close-pct',
   'uw-rt-reno-mo','uw-rt-rent-mo',
-  'uw-prop-type','uw-units','uw-dom','uw-appr','uw-pop','uw-jobs','uw-pics','uw-main-pic',
+  'uw-prop-type','uw-units','uw-dom','uw-appr','uw-pop','uw-jobs','uw-pics','uw-main-pic','uw-offer-status',
   'uw-ifp-slider', // Ideal Flip Profit slider position (0–120)
   'uw-tl-slider',  // Timeline (rehab scope) slider position (0–120)
   'uw-reno-start',  // Renovation start date (Budget tab — Holdings/Reno only)
@@ -12215,6 +12264,9 @@ function _uwApply(data) {
   // badge defaults to "Analyzing" even when the saved deal is in Closed /
   // Offered / Contracted etc.
   if (typeof _uwUpdateStageSelector === 'function') _uwUpdateStageSelector();
+  // Repaint the 2×2 Offer Status buttons from the loaded uw-offer-status
+  // value so the active one is highlighted on deal-open.
+  if (typeof _uwUpdateOfferStatusButtons === 'function') _uwUpdateOfferStatusButtons();
   // Sync the Rental section's Units mirror from Property Info's uw-units.
   // The mirror isn't in UW_FIELDS (we don't want to persist two copies of
   // the same value), so it has to be re-derived from uw-units on load.
@@ -13075,6 +13127,107 @@ function _uwUpdateCheckingButton() {
   _uwUpdateStageSelector();
 }
 
+// Map the internal packet_status value to its user-facing Offer Status
+// label. Internal values are kept as the legacy strings (Submitted /
+// Offered / Dead / Accepted) for backward compat with saved deals and
+// existing filters; this helper translates them to the labels the user
+// picks in the dropdown.
+// Legacy packet_status → display label mapper. Kept around because some
+// pre-existing deals still have offer info on packet_status (Submitted /
+// Offered / Dead / Accepted). For new deals the uw-offer-status field
+// already stores the user-facing label directly, so this just passes
+// modern values through unchanged.
+function _uwOfferStatusLabel(value) {
+  const v = (value || '').trim();
+  if (v === 'Submitted')  return 'Needed';
+  if (v === 'Offered')    return 'Sent';
+  if (v === 'Dead')       return 'Rejected';
+  if (v === 'Accepted')   return 'Accepted';
+  if (v === 'Evaluating') return 'Needed';  // legacy "Evaluating" rolls into the default "Needed" state
+  return v;
+}
+window._uwOfferStatusLabel = _uwOfferStatusLabel;
+
+// Per-status color used for the active button highlight.
+const _UW_OFFER_STATUS_COLORS = {
+  Needed:   { bg: 'rgba(16,185,129,0.20)', fg: '#10b981' },   // emerald
+  Sent:     { bg: 'rgba(6,182,212,0.20)',  fg: '#06b6d4' },   // cyan
+  Rejected: { bg: 'rgba(239,68,68,0.20)',  fg: '#ef4444' },   // red
+  Accepted: { bg: 'rgba(234,179,8,0.20)',  fg: '#eab308' },   // amber
+};
+
+// Set the Offer Status from the 2×2 button grid. Writes to the
+// uw-offer-status hidden field ONLY — does NOT touch packet_status, so the
+// deal stays in whatever workflow group (Analyzing / Offered / Inspection
+// / etc.) it was already in. The autosave listener on the form picks up
+// the input event and persists it.
+function uwSetOfferStatus(value) {
+  const el = document.getElementById('uw-offer-status');
+  if (!el) return;
+  el.value = (el.value === value) ? '' : value;
+  // Fire change so the autosave / cascade listeners catch it.
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  _uwUpdateOfferStatusButtons();
+  // Refresh the header subtitle ("· Status: X") right away so the preview
+  // shows the new label without waiting for autosave/load.
+  if (typeof _uwRefreshHeaderStatus === 'function') _uwRefreshHeaderStatus();
+  // Re-render the deal list so the Status column badges pick up the
+  // change immediately — they read from cache.underwrites[id].data, which
+  // _uwRefreshHeaderStatus just updated.
+  if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
+}
+window.uwSetOfferStatus = uwSetOfferStatus;
+
+// Rebuilds the deal header subtitle ("city, state zip · Status: X") from
+// whatever's currently in the cache + DOM. Pulled out as a helper so the
+// header updates immediately when the Offer Status changes — not only on
+// the next deal-load cycle.
+function _uwRefreshHeaderStatus() {
+  const subtitleEl = document.getElementById('uw-detail-subtitle');
+  if (!subtitleEl || !_uwCurrentId) return;
+  const u = (cache && cache.underwrites && cache.underwrites[_uwCurrentId]) || null;
+  if (!u) return;
+  const sub = [u.city, u.state, u.zip].filter(Boolean).join(', ');
+  // Prefer the live DOM value of uw-offer-status (just-updated), fall back
+  // to the cached value, then to legacy packet_status.
+  const liveOffer = document.getElementById('uw-offer-status')?.value || '';
+  const cachedOffer = (u.data && u.data['uw-offer-status']) || '';
+  // Default to "Needed" when nothing is set. Deliberately does NOT fall
+  // back to packet_status — the Offer Status is independent of the
+  // workflow stage strip (Offered / Inspection / Contracted / Closed).
+  const offer = liveOffer || cachedOffer || 'Needed';
+  subtitleEl.textContent = sub + ' · Offer: ' + _uwOfferStatusLabel(offer);
+  // Keep the cache in sync so the list view + future renders read the
+  // latest value without waiting for autosave to finish.
+  if (u.data) u.data['uw-offer-status'] = liveOffer;
+}
+window._uwRefreshHeaderStatus = _uwRefreshHeaderStatus;
+
+// Repaint the four Offer Status buttons based on the current value of the
+// uw-offer-status hidden field. The active button gets its color highlight;
+// the rest fade back to the dim/transparent default.
+function _uwUpdateOfferStatusButtons() {
+  const el  = document.getElementById('uw-offer-status');
+  const cur = el ? el.value : '';
+  document.querySelectorAll('#uw-offer-status-btns [data-offer-btn]').forEach(b => {
+    const v   = b.getAttribute('data-offer-btn');
+    const isOn = v === cur;
+    const c    = _UW_OFFER_STATUS_COLORS[v];
+    if (isOn && c) {
+      b.style.background  = c.bg;
+      b.style.color       = c.fg;
+      b.style.borderColor = c.fg;
+      b.style.fontWeight  = '600';
+    } else {
+      b.style.background  = 'transparent';
+      b.style.color       = 'var(--text-dim)';
+      b.style.borderColor = 'var(--border)';
+      b.style.fontWeight  = '';
+    }
+  });
+}
+window._uwUpdateOfferStatusButtons = _uwUpdateOfferStatusButtons;
+
 // Highlight whichever button matches the current stage. Each stage has its own color.
 function _uwUpdateStageSelector() {
   const cur = _uwGetCurrentStage();
@@ -13089,6 +13242,9 @@ function _uwUpdateStageSelector() {
     contracted: { bg: 'rgba(234,179,8,0.20)',  fg: '#eab308' },
     closed:     { bg: 'rgba(20,184,166,0.20)', fg: '#14b8a6' },
   };
+  // Always keep the Offer Status buttons in sync — packet_status drives
+  // both the workflow stage strip and the 2×2 Offer Status grid.
+  if (typeof _uwUpdateOfferStatusButtons === 'function') _uwUpdateOfferStatusButtons();
   document.querySelectorAll('#uw-stage-selector [data-uw-stage]').forEach(b => {
     const s = b.getAttribute('data-uw-stage');
     if (s === cur) {
@@ -13220,7 +13376,10 @@ async function uwLoadById(id) {
   const subtitleEl = document.getElementById('uw-detail-subtitle');
   if (subtitleEl) {
     const sub = [u.city, u.state, u.zip].filter(Boolean).join(', ');
-    subtitleEl.textContent = sub + (u.packet_status ? ' · Status: ' + u.packet_status : '');
+    // Offer Status is independent of packet_status (workflow stage). Default
+    // to "Needed" when the uw-offer-status field is empty.
+    const _offerStatusForHeader = (u.data && u.data['uw-offer-status']) || 'Needed';
+    subtitleEl.textContent = sub + ' · Offer: ' + _uwOfferStatusLabel(_offerStatusForHeader);
   }
   const idEl = document.getElementById('uw-current-id');
   if (idEl) idEl.textContent = '📂 Loaded · id ' + String(id).slice(0, 8);
@@ -14109,7 +14268,9 @@ function _hrShowDealModal(id) {
   if (titleEl) titleEl.textContent = u.address || 'Property';
   if (subEl) {
     const loc = [u.city, u.state, u.zip].filter(Boolean).join(', ');
-    const status = u.packet_status ? ' · ' + u.packet_status : '';
+    // Offer Status is independent of packet_status. Default to "Needed".
+    const _statusVal = (u.data && u.data['uw-offer-status']) || 'Needed';
+    const status = ' · ' + (typeof _uwOfferStatusLabel === 'function' ? _uwOfferStatusLabel(_statusVal) : _statusVal);
     const route  = data._holdingStatus === 'holding' ? ' · 🏘️ In Holdings'
                  : data._holdingStatus === 'renovation' ? ' · 🔨 In Renovation' : '';
     subEl.textContent = (loc || '—') + status + route;
@@ -14161,7 +14322,7 @@ function _hrShowDealModal(id) {
         </div>
         <div class="panel-2" style="padding:12px">
           <div class="text-xs uppercase tracking-wide mb-2" style="color:var(--text-dim);font-weight:600">Meta</div>
-          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text-dim)">Packet status</span><span>${escapeHtml(u.packet_status || '—')}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text-dim)">Offer Status</span><span>${escapeHtml((function(){ const v = (u.data && u.data['uw-offer-status']) || 'Needed'; return (typeof _uwOfferStatusLabel === 'function' ? _uwOfferStatusLabel(v) : v); })())}</span></div>
           <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text-dim)">Imported</span><span>${u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</span></div>
           <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text-dim)">Last updated</span><span>${u.updated_at ? new Date(u.updated_at).toLocaleDateString() : '—'}</span></div>
           <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px"><span style="color:var(--text-dim)">ID</span><span style="font-family:monospace;font-size:11px">${escapeHtml(String(id).slice(0, 8))}</span></div>
@@ -15190,13 +15351,20 @@ function renderUnderwriteList() {
     // this deal" reads as a clear red $0 instead of a wishy-washy em-dash).
     const profitColor = u.best_profit > 0 ? '#10b981' : '#ef4444';
     const date = u.updated_at ? new Date(u.updated_at).toLocaleDateString() : '—';
-    const statusBadgeClass = !u.packet_status ? 'brand' :
-      u.packet_status === 'Closed' ? 'ok' :
-      u.packet_status === 'Dead' ? 'bad' :
-      u.packet_status === 'Accepted' ? 'ok' : 'brand';
+    // Offer Status is independent of packet_status (workflow stage strip).
+    // Reads uw-offer-status only; defaults to "Needed" when nothing's set.
+    // Badge palette:
+    //   Needed   → brand (orange) — default attention state
+    //   Sent     → info  (light blue) — offer is out, waiting on seller
+    //   Rejected → bad   (red)
+    //   Accepted → ok    (green)
+    const _displayStatus = (u.data && u.data['uw-offer-status']) || 'Needed';
+    const statusBadgeClass = _displayStatus === 'Sent'      ? 'info' :
+      _displayStatus === 'Rejected' || _displayStatus === 'Dead' ? 'bad' :
+      _displayStatus === 'Accepted' || _displayStatus === 'Closed' ? 'ok' : 'brand';
     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="_hrOpenDeal('${u.id}')" onmouseover="this.style.background='rgba(99,102,241,0.05)'" onmouseout="this.style.background=''">
       <td style="padding:8px 10px"><div style="font-weight:500">${escapeHtml(u.address || '—')}</div><div class="text-xs" style="color:var(--text-dim)">${escapeHtml([u.city, u.state, u.zip].filter(Boolean).join(', '))}</div></td>
-      <td style="padding:8px 10px">${u.packet_status ? `<span class="badge ${statusBadgeClass}" style="font-size:11px">${escapeHtml(u.packet_status)}</span>` : '<span class="text-xs" style="color:var(--text-dim)">—</span>'}</td>
+      <td style="padding:8px 10px"><span class="badge ${statusBadgeClass}" style="font-size:11px">${escapeHtml(typeof _uwOfferStatusLabel === 'function' ? _uwOfferStatusLabel(_displayStatus) : _displayStatus)}</span></td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt$(_uwComputeRentFromData(u.data))}</td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt$(_uwComputeArvFromData(u.data) || u.arv)}</td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt$(parseFloat((u.data && u.data['uw-asking']) || u.asking || 0) || 0)}</td>

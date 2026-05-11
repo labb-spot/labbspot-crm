@@ -2221,8 +2221,7 @@
       <button type="button" data-folder-subtab="evaluation" onclick="uwSetFolderSubtab('evaluation')" style="flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:#6366f1;color:white;font-weight:600;cursor:pointer;font-size:13px" title="Comparable sales, listings, rentals, and external research links — the data that drives ARV and market sense.">📊 Evaluation</button>
       <button type="button" data-folder-subtab="renovation" onclick="uwSetFolderSubtab('renovation')" style="flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-weight:600;cursor:pointer;font-size:13px" title="Condition checklist + rehab calculator — assess what needs work and budget the cost.">🔨 Renovation</button>
       <button type="button" data-folder-subtab="strategy" onclick="uwSetFolderSubtab('strategy')" style="flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-weight:600;cursor:pointer;font-size:13px" title="Best exit strategy comparison — wholesale, wholetail, flip, rental.">🎯 Strategy</button>
-      <button type="button" data-folder-subtab="budget" onclick="uwSetFolderSubtab('budget')" style="flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-weight:600;cursor:pointer;font-size:13px;display:none" title="Deal budget — costs, financing, profit projections. Visible only when the calculator is opened from Holdings or Renovation.">💰 Budget</button>
-      <button type="button" data-folder-subtab="scope" onclick="uwSetFolderSubtab('scope')" style="flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-weight:600;cursor:pointer;font-size:13px;display:none" title="Scope of Work — itemized list of rehab tasks plus free-form notes. Visible only when the calculator is opened from Holdings or Renovation.">🛠 Scope of Work</button>
+      <button type="button" data-folder-subtab="budget" onclick="uwSetFolderSubtab('budget')" style="flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-weight:600;cursor:pointer;font-size:13px;display:none" title="Combined Budget + Scope of Work — actual spending vs. budget, plus the itemized scope and phase timelines. Visible only when the calculator is opened from Holdings or Renovation.">💰 Budget &amp; Scope</button>
     </div>
 
     <!-- ===== 4. Comparable Sold Properties ===== -->
@@ -2711,9 +2710,14 @@
                 <option value="annual">Annual Lease</option>
               </select>
             </label>
-            <div class="text-xs" style="color:var(--text-dim);text-align:right;line-height:1.3">
+            <!-- FIXED width slot so the Occupancy + Tenancy dropdowns to
+                 the left don't shift when this value changes between "+0
+                 days" and "+60 Day Repossession". Width is locked at 220px
+                 (wide enough for the longest possible text) and font-size
+                 reduced slightly so the long label still fits cleanly. -->
+            <div class="text-xs" style="color:var(--text-dim);text-align:right;line-height:1.3;width:220px;flex-shrink:0;flex-grow:0">
               <div>Timeline Adjustment</div>
-              <div id="rc-occ-adjust" style="font-family:monospace;font-weight:700;font-size:18px;color:#fdba74;margin-top:2px">+0 days</div>
+              <div id="rc-occ-adjust" style="font-family:monospace;font-weight:700;font-size:15px;color:#fdba74;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">+0 days</div>
             </div>
           </div>
         </div>
@@ -2777,12 +2781,30 @@
       <!-- ===== Schedule ===== -->
       <div class="panel p-5 mb-3">
         <div class="cat-header" style="color:#67e8f9">PROJECT SCHEDULE ESTIMATE</div>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <!-- Repossession → Calendar Days → Listing Time → Total Time -->
           <div class="stat"><div class="stat-label">Repossession</div><div class="stat-value" style="color:#fdba74" id="s-rep">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-rep-sub">vacant · none</div></div>
-          <div class="stat"><div class="stat-label">Raw Labor Days</div><div class="stat-value" style="color:#22d3ee" id="s-raw">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px">@ 1 worker, 8hr/day</div></div>
-          <div class="stat"><div class="stat-label">With Crew (parallel)</div><div class="stat-value" style="color:#60a5fa" id="s-crew">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-crew-sub">w/ 3 workers</div></div>
-          <div class="stat"><div class="stat-label">Calendar Days</div><div class="stat-value" style="color:#fb923c" id="s-cal">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px">+30% bottlenecks</div></div>
-          <div class="stat"><div class="stat-label">Final w/ Time Buffer</div><div class="stat-value" style="color:#f43f5e" id="s-fin">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-weeks">~0 weeks</div></div>
+          <!-- Renovation w/ Crew — merged the old "With Crew" + "Calendar
+               Days" cards into one. Label shows the active crew size; value
+               is the calendar days (after the 30% bottleneck buffer);
+               subtext shows the underlying "X work days + 30% buffer" so
+               the user can see how the buffered value was derived. -->
+          <div class="stat"><div class="stat-label" id="s-cal-label">Renovation w/ Crew</div><div class="stat-value" style="color:#fb923c" id="s-cal">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-cal-sub">0 work days + 30% buffer</div></div>
+          <!-- Listing time — pulled from Strategy → Timeline (Flip + Refi)'s
+               "Listed time" input (uw-fl-listed-mo, default 2.5 mo). -->
+          <div class="stat"><div class="stat-label">Listing Time</div><div class="stat-value" style="color:#a78bfa" id="s-listed">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-listed-sub">market default</div></div>
+          <!-- Total Time — the WHOLE hold period: repossession + reno (with
+               time buffer) + listing. This is the headline number for the
+               full project schedule. -->
+          <div class="stat"><div class="stat-label">Total Time</div><div class="stat-value" style="color:#10b981" id="s-total">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-total-sub">~0 weeks</div></div>
+          <!-- Hidden elements kept for downstream code that still reads
+               them (s-raw, s-crew, s-fin, s-weeks). The renaming is purely
+               visual — the underlying calc still updates these. -->
+          <span id="s-raw"      style="display:none">0</span>
+          <span id="s-crew"     style="display:none">0</span>
+          <span id="s-crew-sub" style="display:none"></span>
+          <span id="s-fin"      style="display:none">0</span>
+          <span id="s-weeks"    style="display:none"></span>
         </div>
         <div style="padding:12px 14px;background:rgba(6,182,212,0.10);border:1px solid #06b6d4;border-radius:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">
           <div class="text-xs" style="color:#67e8f9">📅 Estimated Project Duration</div>
@@ -3041,13 +3063,13 @@
       </div>
     </div>
 
-    <!-- ===== Budget (folder subtab: 💰 Budget) =====
-         Visible only inside Holdings/Renovation. Mirrors the rehab items
-         currently checked in the Renovation rehab calculator and lets the
-         user fill in actual amounts spent. The Budget Use progress bar is
-         computed (read-only) — it moves as actual amounts are entered. -->
-    <div class="panel p-5 mb-4" data-uw-section="budget-overview" data-uw-section-label="💰 Budget">
-      <div class="font-semibold text-lg mb-3">💰 Budget</div>
+    <!-- ===== Budget & Scope (folder subtab: 💰 Budget & Scope) =====
+         Visible only inside Holdings/Renovation. Combines the Budget widget
+         (progress bars, items list, actual spending) with the Scope of Work
+         (items list, phase timelines, notes) — previously two separate
+         panels, merged into one for less scrolling and a tighter workflow. -->
+    <div class="panel p-5 mb-4" data-uw-section="budget-overview" data-uw-section-label="💰 Budget &amp; Scope">
+      <div class="font-semibold text-lg mb-3">💰 Budget &amp; Scope</div>
 
       <!-- Budget Use: read-only progress bar -->
       <div class="mb-5">
@@ -3086,49 +3108,55 @@
       <!-- Items list — populated from currently-checked rehab items. -->
       <div id="uw-budget-items"></div>
 
-      <div class="text-xs mt-4" style="color:var(--text-dim)">
+      <div class="text-xs mt-4 mb-2" style="color:var(--text-dim)">
         Items shown here are the ones checked in the <b>🔨 Renovation</b> rehab calculator.
         Budgeted = $/SF × property sqft. Enter what you actually spent per item — the bar updates automatically and stays read-only.
       </div>
-    </div>
 
-    <!-- ===== Scope of Work ===== -->
-    <div class="panel p-5 mb-4" data-uw-section="scope-of-work" data-uw-section-label="🛠 Scope of Work">
-      <div class="font-semibold text-lg mb-2">🛠 Scope of Work</div>
-      <div class="text-xs mb-4" style="color:var(--text-dim)">Itemized list of every task checked in the Rehab Calculator, plus a free-form notes field for anything not covered above (contractor names, permit numbers, special instructions).</div>
+      <!-- ===== SCOPE OF WORK (merged into Budget & Scope) ===== -->
+      <!-- Scope of Work content was previously its own panel; merged in here
+           so the user has one combined Budget & Scope section instead of
+           jumping between two. The IDs (uw-scope-items, uw-scope-count,
+           uw-scope-phase-gantt, uw-scope-phase-list, uw-scope-phase-summary,
+           uw-scope-notes) are unchanged — every JS function that reads/
+           writes them keeps working without edits. -->
+      <div style="padding-top:18px;margin-top:18px;border-top:2px solid var(--border)">
+        <div class="font-semibold text-lg mb-2">🛠 Scope of Work</div>
+        <div class="text-xs mb-4" style="color:var(--text-dim)">Itemized list of every task checked in the Rehab Calculator, plus a free-form notes field for anything not covered above (contractor names, permit numbers, special instructions).</div>
 
-      <!-- Auto-generated list of needed rehab items -->
-      <div class="mb-4">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:8px">
-          <span style="color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Items from Rehab Calculator</span>
-          <span id="uw-scope-count" style="font-size:11px;color:var(--text-dim)">0 items</span>
+        <!-- Auto-generated list of needed rehab items -->
+        <div class="mb-4">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:8px">
+            <span style="color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Items from Rehab Calculator</span>
+            <span id="uw-scope-count" style="font-size:11px;color:var(--text-dim)">0 items</span>
+          </div>
+          <div id="uw-scope-items" style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;min-height:48px;align-items:center">
+            <span class="text-xs" style="color:var(--text-dim)">No items checked yet — open the 🔨 Renovation tab and tick what needs work.</span>
+          </div>
         </div>
-        <div id="uw-scope-items" style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;min-height:48px;align-items:center">
-          <span class="text-xs" style="color:var(--text-dim)">No items checked yet — open the 🔨 Renovation tab and tick what needs work.</span>
-        </div>
-      </div>
 
-      <!-- Phase timelines -->
-      <div class="mb-4" style="padding-top:14px;border-top:1px solid var(--border)">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:8px">
-          <span style="color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Phase Timelines</span>
-          <span id="uw-scope-phase-summary" style="font-size:11px;color:var(--text-dim)">—</span>
+        <!-- Phase timelines -->
+        <div class="mb-4" style="padding-top:14px;border-top:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:8px">
+            <span style="color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Phase Timelines</span>
+            <span id="uw-scope-phase-summary" style="font-size:11px;color:var(--text-dim)">—</span>
+          </div>
+          <div class="text-xs mb-3" style="color:var(--text-dim)">Each phase has its own duration. Sequential phases run one after another. Parallel phases (e.g., exterior work) run alongside the sequential timeline — total project time = max(sequential, parallel).</div>
+          <div id="uw-scope-phase-gantt" style="margin-bottom:14px"></div>
+          <div id="uw-scope-phase-list" style="display:flex;flex-direction:column;gap:6px"></div>
+          <button class="btn btn-primary text-sm" onclick="uwScopeAutoFillFromRehab()" style="margin-top:10px" title="Read your checked rehab items and auto-set each phase's days. Planning + Restructure go to 0 if no drain lines, supply lines, electrical wiring, or septic items are checked. Roof / siding / fascia / gutters roll into Mechanicals.">✨ Auto-fill from Rehab</button>
+          <button class="btn text-sm" style="margin-top:10px;margin-left:6px;background:#ef4444;color:white;border:1px solid #dc2626" onclick="uwScopeAddRepossession()" title="Add a 60-day Repossession phase at the start of the timeline — for evictions or getting an existing tenant out before any work can begin. Click again on an existing Repossession phase to remove it.">🚪 Add Repossession (60d)</button>
+          <button class="btn btn-ghost text-sm" onclick="uwScopeAddPhase()" style="margin-top:10px;margin-left:6px">+ Add phase</button>
+          <button class="btn btn-ghost text-sm" onclick="uwScopeResetPhases()" style="margin-top:10px;margin-left:6px;color:var(--text-dim)" title="Reset to the default 6-phase list (Demo → Planning → Restructure → Mechanicals → Cosmetics → Punch List).">↺ Reset to defaults</button>
         </div>
-        <div class="text-xs mb-3" style="color:var(--text-dim)">Each phase has its own duration. Sequential phases run one after another. Parallel phases (e.g., exterior work) run alongside the sequential timeline — total project time = max(sequential, parallel).</div>
-        <div id="uw-scope-phase-gantt" style="margin-bottom:14px"></div>
-        <div id="uw-scope-phase-list" style="display:flex;flex-direction:column;gap:6px"></div>
-        <button class="btn btn-primary text-sm" onclick="uwScopeAutoFillFromRehab()" style="margin-top:10px" title="Read your checked rehab items and auto-set each phase's days. Planning + Restructure go to 0 if no drain lines, supply lines, electrical wiring, or septic items are checked. Roof / siding / fascia / gutters roll into Mechanicals.">✨ Auto-fill from Rehab</button>
-        <button class="btn text-sm" style="margin-top:10px;margin-left:6px;background:#ef4444;color:white;border:1px solid #dc2626" onclick="uwScopeAddRepossession()" title="Add a 60-day Repossession phase at the start of the timeline — for evictions or getting an existing tenant out before any work can begin. Click again on an existing Repossession phase to remove it.">🚪 Add Repossession (60d)</button>
-        <button class="btn btn-ghost text-sm" onclick="uwScopeAddPhase()" style="margin-top:10px;margin-left:6px">+ Add phase</button>
-        <button class="btn btn-ghost text-sm" onclick="uwScopeResetPhases()" style="margin-top:10px;margin-left:6px;color:var(--text-dim)" title="Reset to the default 6-phase list (Demo → Planning → Restructure → Mechanicals → Cosmetics → Punch List).">↺ Reset to defaults</button>
-      </div>
 
-      <!-- Free-form notes -->
-      <div style="padding-top:14px;border-top:1px solid var(--border)">
-        <label style="display:block">
-          <span style="display:block;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px">Additional Notes</span>
-          <textarea id="uw-scope-notes" rows="6" placeholder="Contractor name, permit numbers, materials notes, sequencing, anything else worth tracking…" style="width:100%;padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;resize:vertical;font-family:inherit"></textarea>
-        </label>
+        <!-- Free-form notes -->
+        <div style="padding-top:14px;border-top:1px solid var(--border)">
+          <label style="display:block">
+            <span style="display:block;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px">Additional Notes</span>
+            <textarea id="uw-scope-notes" rows="6" placeholder="Contractor name, permit numbers, materials notes, sequencing, anything else worth tracking…" style="width:100%;padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;resize:vertical;font-family:inherit"></textarea>
+          </label>
+        </div>
       </div>
     </div>
 
@@ -7057,16 +7085,22 @@ function _uwAutoRehabMonths(sqft, ifpVal) {
 // hasn't been mounted yet.
 function _uwApplyAutoRehabMonths(sqft) {
   // FIRST: prefer the Rehab Calculator v2's actual project schedule estimate
-  // (Final w/ Time Buffer days, in #s-fin) — this is computed from real labor
-  // hours × crew × parallel/sequence + bottleneck buffer + time contingency,
-  // which is much more accurate than the legacy sqft × scope formula.
+  // (#s-fin = repossession + M-F → calendar conversion + 25% buffer). This
+  // is the SAME duration the Strategy → Timeline panel and Budget & Scope
+  // timeline use for the hold period, so holding costs stay consistent.
   let auto = 0;
   const sFin = document.getElementById('s-fin');
   if (sFin && sFin.textContent) {
     const finDays = parseFloat(sFin.textContent.replace(/[^\d.]/g, '')) || 0;
     if (finDays > 0) {
-      // 22 working days/month convention (matches the rehab calc's own ~X months display)
-      auto = Math.max(0.5, Math.round((finDays / 22) * 2) / 2);
+      // /30 — finDays is now true CALENDAR days (M-F conversion + buffer +
+      // repossession), so the divisor must be calendar days/month (30), not
+      // working days/month (22). Using 22 here previously over-inflated the
+      // months by ~36% once the rehab calc switched to calendar-day output.
+      // Rounded to 0.1 mo (not 0.5) so the Flip/Rental holding period stays
+      // consistent with the rehab calc's exact "X.X mo total" line — half-
+      // month rounding was dropping 0.2 mo off the Flip total previously.
+      auto = Math.max(0.1, Math.round((finDays / 30) * 10) / 10);
     }
   }
   // FALLBACK: legacy sqft × Timeline-slider-scope formula if the v2 schedule
@@ -7080,28 +7114,82 @@ function _uwApplyAutoRehabMonths(sqft) {
     auto = _uwAutoRehabMonths(sqft, scopeVal);
   }
   if (auto <= 0) return;
-  if (!window._uwLastAutoRehab) window._uwLastAutoRehab = {};
-  // Force-apply mode: when the user moves the Timeline slider, override any
-  // manual reno-time edits and resnap to the formula. Flag is set by the
-  // Timeline slider's oninput, then consumed (reset to false) here.
-  const force = !!window._uwForceAutoRehab;
+  // ALWAYS overwrite uw-fl-reno-mo / uw-rt-reno-mo with the latest auto
+  // value. The previous "sticky" guard that preserved manual edits made
+  // rehab changes not propagate to the exit cards reliably; we drop the
+  // guard so the values stay in lockstep with the rehab calc.
   ['uw-fl-reno-mo', 'uw-rt-reno-mo'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const cur = parseFloat(el.value);
-    const lastAuto = window._uwLastAutoRehab[id];
-    const isEmpty  = !el.value || cur === 0 || !isFinite(cur);
-    const isAutoManaged = lastAuto !== undefined && Math.abs(cur - lastAuto) < 0.05;
-    if (force || isEmpty || isAutoManaged) {
-      if (Math.abs((cur || 0) - auto) > 0.05) {
-        el.value = auto;
-      }
-      window._uwLastAutoRehab[id] = auto;
+    if (!isFinite(cur) || Math.abs((cur || 0) - auto) > 0.05) {
+      el.value = auto;
     }
   });
-  window._uwForceAutoRehab = false;
 }
 window._uwApplyAutoRehabMonths = _uwApplyAutoRehabMonths;
+
+// ----- Rehab Calc → Underwriting cascade -----
+// Watches the rehab calc for any user-driven change and cascades it into
+// uwRecalc so the exit strategy cards (Flip, Rental) and timelines refresh.
+// Uses a single MutationObserver on #s-fin with a value-change guard, plus
+// a direct input/change listener on the rehab calc DOM for cases where
+// rehab updates don't change s-fin's textContent (e.g. dollar-only edits).
+let _uwLastSFinValue = '';
+function _uwRehabCascade() {
+  if (window._rcInUwCascade) return;     // re-entry guard
+  window._rcInUwCascade = true;
+  try {
+    const sqftEl = document.getElementById('uw-sqft');
+    const sqft = sqftEl ? (parseFloat(String(sqftEl.value || '0').replace(/,/g, '')) || 0) : 0;
+    if (typeof _uwApplyAutoRehabMonths === 'function') _uwApplyAutoRehabMonths(sqft);
+    if (typeof uwRecalc === 'function') uwRecalc();
+    if (typeof _uwTimelineUpdateBar === 'function') _uwTimelineUpdateBar();
+  } catch (e) { console.warn('[rehab cascade]', e); }
+  // Snapshot s-fin's value AFTER the cascade completes — so the next
+  // MutationObserver firing knows whether the cascade caused a real change.
+  const _sFinEl = document.getElementById('s-fin');
+  if (_sFinEl) _uwLastSFinValue = _sFinEl.textContent;
+  window._rcInUwCascade = false;
+}
+window._uwRehabCascade = _uwRehabCascade;
+(function _uwInitRehabWatchers() {
+  const _start = () => {
+    const sFin = document.getElementById('s-fin');
+    if (!sFin) { setTimeout(_start, 500); return; }
+    _uwLastSFinValue = sFin.textContent;
+    // Trigger 1: s-fin MutationObserver — fires only when textContent
+    // ACTUALLY changes (not just when it's re-set to the same value). The
+    // value-change guard breaks the infinite loop that would otherwise
+    // happen: cascade → uwRecalc → recalc → s-fin set → observer → cascade.
+    const observer = new MutationObserver(() => {
+      if (sFin.textContent === _uwLastSFinValue) return;
+      _uwRehabCascade();
+    });
+    observer.observe(sFin, { childList: true, characterData: true, subtree: true });
+    // Trigger 2: direct rehab-input listener — catches changes that don't
+    // alter s-fin (e.g. cost/material rate edits). Scoped to rehab-owned
+    // inputs only so it doesn't fire on every underwriting keystroke.
+    const _onRehabInput = (e) => {
+      const t = e.target;
+      if (!t) return;
+      const id = t.id || '';
+      if (id.startsWith('rc-') ||
+          id === 'costContingency' || id === 'timeContingency' || id === 'crew' ||
+          (t.matches && t.matches('input[type="checkbox"][data-cat]')) ||
+          (t.matches && t.matches('input[data-rate-cat]'))) {
+        _uwRehabCascade();
+      }
+    };
+    document.addEventListener('change', _onRehabInput, true);
+    document.addEventListener('input',  _onRehabInput, true);
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _start);
+  } else {
+    _start();
+  }
+})();
 
 function uwIfpAutoFromRehab(silent) {
   const sqft  = parseFloat(String(document.getElementById('uw-sqft')?.value || '0').replace(/,/g,'')) || 0;
@@ -7230,13 +7318,22 @@ function uwTlRecalc() {
   if (sFinDays > 0) {
     const renoOnly = Math.max(0, sFinDays - repoDays);
     renoDays = renoOnly;
-    renoMo   = renoOnly > 0 ? Math.max(0.5, Math.round((renoOnly / 22) * 2) / 2) : 0;
+    // /30 (calendar days/mo) — matches _uwApplyAutoRehabMonths so the
+    // Timeline panel's "Reno time" card stays consistent with the auto-
+    // applied uw-fl-reno-mo / uw-rt-reno-mo. /22 here would mix units.
+    renoMo   = renoOnly > 0 ? Math.max(0.1, Math.round((renoOnly / 30) * 10) / 10) : 0;
   } else {
     renoDays = sqft > 0 ? 5 + sqft * 0.02 * mult : 0;
     renoMo   = renoDays > 0 ? Math.max(0.5, Math.round(renoDays / 30 * 2) / 2) : 0;
   }
-  const listedMo = parseFloat(document.getElementById('uw-fl-listed-mo')?.value) || 2.5;
-  const totalMo  = repoMo + renoMo + listedMo;
+  const listedMo   = parseFloat(document.getElementById('uw-fl-listed-mo')?.value) || 2.5;
+  const listedDays = Math.round(listedMo * 30);
+  // Sum the RAW days (not the rounded months). Previously we summed the
+  // half-month-rounded values (e.g., 2.0 + 1.5 + 2.5 = 6.0 mo × 30 = 180
+  // days), which inflated the total by ~14 days because each part rounded
+  // independently. Summing days first matches the Budget & Scope timeline.
+  const totalDaysExact = repoDays + renoDays + listedDays;
+  const totalMo = totalDaysExact > 0 ? totalDaysExact / 30 : 0;
   const $ = (id) => document.getElementById(id);
   const card = (lbl, val, color, hint) => `
     <div style="padding:10px 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">
@@ -7252,7 +7349,7 @@ function uwTlRecalc() {
       card('Repossession',   repoMo > 0 ? repoMo.toFixed(1) + ' mo' : '—', '#fdba74', repoDays > 0 ? Math.round(repoDays) + ' days · occupied' : 'vacant'),
       card('Reno time',      renoMo > 0 ? renoMo.toFixed(1) + ' mo' : '—', '#67e8f9', renoDays > 0 ? Math.round(renoDays) + ' days · from ' + renoSource : ''),
       card('Listed time',    listedMo.toFixed(1) + ' mo',                  'var(--text)', 'market default'),
-      card('Total timeline', totalMo > 0 ? totalMo.toFixed(1) + ' mo' : '—', '#10b981',   totalMo > 0 ? Math.round(totalMo * 30) + ' days' : ''),
+      card('Total timeline', totalMo > 0 ? totalMo.toFixed(1) + ' mo' : '—', '#10b981',   totalDaysExact > 0 ? totalDaysExact + ' days' : ''),
     ].join('');
   }
   const expEl = $('uw-tl-explainer');
@@ -7261,9 +7358,9 @@ function uwTlRecalc() {
     if (renoMo <= 0) {
       expEl.textContent = 'Add items in the Rehab Calculator (or set Total Livable SqFt) to see the timeline.';
     } else if (sFinDays > 0) {
-      expEl.textContent = repoTxt + Math.round(renoDays) + ' days (' + renoMo.toFixed(1) + ' mo) reno from your Rehab Calculator schedule + ' + listedMo.toFixed(1) + ' mo listed = ' + totalMo.toFixed(1) + ' mo total.';
+      expEl.textContent = repoTxt + Math.round(renoDays) + ' days (' + renoMo.toFixed(1) + ' mo) reno from your Rehab Calculator schedule + ' + listedMo.toFixed(1) + ' mo listed = ' + totalDaysExact + ' days (' + totalMo.toFixed(1) + ' mo) total.';
     } else {
-      expEl.textContent = repoTxt + sqft.toLocaleString() + ' sqft fallback estimate = ' + Math.round(renoDays) + ' days reno (' + renoMo.toFixed(1) + ' mo) + ' + listedMo.toFixed(1) + ' mo listed = ' + totalMo.toFixed(1) + ' mo total.';
+      expEl.textContent = repoTxt + sqft.toLocaleString() + ' sqft fallback estimate = ' + Math.round(renoDays) + ' days reno (' + renoMo.toFixed(1) + ' mo) + ' + listedMo.toFixed(1) + ' mo listed = ' + totalDaysExact + ' days (' + totalMo.toFixed(1) + ' mo) total.';
     }
   }
   if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
@@ -7778,6 +7875,16 @@ function uwComputeExits(ctx) {
   const flRenoMo   = _flVal('uw-fl-reno-mo',   2);
   const flListedMo = _flVal('uw-fl-listed-mo', 2.5);
   const flipMonths = flRenoMo + flListedMo;
+  // Break the rehab "reno-mo" value into its repossession + reno-only
+  // components so the Holding section title can show "X repo + Y reno + Z
+  // listed" instead of lumping repo into reno. Reads s-rep from the rehab
+  // calc DOM; falls back to 0 (vacant) when not available.
+  const _flSRep   = document.getElementById('s-rep');
+  const _flRepoMo = _flSRep ? ((parseFloat((_flSRep.textContent || '').replace(/[^\d.\-]/g, '')) || 0) / 30) : 0;
+  const _flRenoOnlyMo = Math.max(0, flRenoMo - _flRepoMo);
+  const flipHoldBreakdown = (_flRepoMo > 0
+      ? (_flRepoMo.toFixed(1) + ' repo + ' + _flRenoOnlyMo.toFixed(1) + ' reno + ' + flListedMo + ' listed')
+      : (flRenoMo + ' reno + ' + flListedMo + ' listed'));
   const _flElec = _wtAutoFromBasis('uw-fl-elec',  wtUtilBasis);  const flElec  = _flElec.value;
   const _flWS   = _wtAutoFromBasis('uw-fl-water', wtUtilBasis);  const flWater = _flWS.value;
   const flIns   = _flVal('uw-fl-ins', 200); // builder's risk ins (higher than vacant)
@@ -8131,7 +8238,7 @@ function uwComputeExits(ctx) {
           ['Interest (' + flipMonths + ' mo)', fmt(flHmTotalInt)],
           ['Total financing cost', fmt(flHmOrig + flHmTotalInt), 'profit'],
         ]},
-        { title: '🏠 Holding (' + flipMonths + ' mo · ' + flRenoMo + ' reno + ' + flListedMo + ' listed)', rows: [
+        { title: '🏠 Holding (' + flipMonths.toFixed(1) + ' mo · ' + flipHoldBreakdown + ')', rows: [
           ['Electric · $' + Math.round(flElec).toLocaleString() + '/mo' + (_flElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flElec * flipMonths).toLocaleString()],
           ['Water / Sewer · $' + Math.round(flWater).toLocaleString() + '/mo' + (_flWS.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flWater * flipMonths).toLocaleString()],
           ['Builder\'s risk · $' + flIns + '/mo', '$' + (flIns * flipMonths).toLocaleString()],
@@ -8158,7 +8265,7 @@ function uwComputeExits(ctx) {
           ['Agent Commissions (' + (sellAgentPct + buyAgentPct) + '% of resale)', '−' + fmt(flipSellAgent + flipBuyerAgent)],
           ['Net profit', fmt(flipCashProfit), 'profit'],
         ]},
-        { title: '🏠 Holding (' + flipMonths + ' mo · ' + flRenoMo + ' reno + ' + flListedMo + ' listed)', rows: [
+        { title: '🏠 Holding (' + flipMonths.toFixed(1) + ' mo · ' + flipHoldBreakdown + ')', rows: [
           ['Electric · $' + Math.round(flElec).toLocaleString() + '/mo' + (_flElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flElec * flipMonths).toLocaleString()],
           ['Water / Sewer · $' + Math.round(flWater).toLocaleString() + '/mo' + (_flWS.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flWater * flipMonths).toLocaleString()],
           ['Builder\'s risk · $' + flIns + '/mo', '$' + (flIns * flipMonths).toLocaleString()],
@@ -11162,7 +11269,7 @@ function _uwComputeMaxOfferFromData(data) {
   let fRehab = N('uw-rehab-override', 0);
   if (fRehab <= 0) {
     const state = data._rehab;
-    const _sqftForRehab = N('uw-sqft', 0) || N('uw-asqft', 0) || 1077;
+    const _sqftForRehab = N('uw-sqft', 0) || 1077;  // uw-asqft is $/sqft (not sqft) — don't fall back to it
     if (Array.isArray(state) && state.length) {
       // Detect the new Rehab Calculator v2 phantom shape: a single column with
       // id 'rc-bridge' carrying one item priced at grandTotal/sqft (already
@@ -11260,7 +11367,7 @@ function _uwComputeWholesaleProfitFromData(data) {
   let fRehab = N('uw-rehab-override', 0);
   if (fRehab <= 0) {
     const state = data._rehab;
-    const _sqftForRehab = N('uw-sqft', 0) || N('uw-asqft', 0) || 1077;
+    const _sqftForRehab = N('uw-sqft', 0) || 1077;  // uw-asqft is $/sqft (not sqft) — don't fall back to it
     if (Array.isArray(state) && state.length) {
       const isPhantomV2 = state.length === 1 && state[0] && state[0].id === 'rc-bridge';
       if (isPhantomV2) {
@@ -11341,7 +11448,7 @@ function _uwComputeCashRentalFromData(data) {
   let rRehab = N('uw-rehab-override', 0);
   if (rRehab <= 0) {
     const state = data._rehab;
-    const _sqftForRehab = N('uw-sqft', 0) || N('uw-asqft', 0) || 1077;
+    const _sqftForRehab = N('uw-sqft', 0) || 1077;  // uw-asqft is $/sqft (not sqft) — don't fall back to it
     if (Array.isArray(state) && state.length) {
       const isPhantomV2 = state.length === 1 && state[0] && state[0].id === 'rc-bridge';
       if (isPhantomV2) {
@@ -12729,15 +12836,38 @@ function _uwTimelineUpdateBar() {
       startDisplay.textContent = '—';
     }
   }
-  // Duration is auto-derived from the underwriting Timeline (Flip + Refi)
-  // panel — read the same fields it auto-fills.
-  const liveData = {
-    'uw-fl-reno-mo':   document.getElementById('uw-fl-reno-mo')?.value   || '',
-    'uw-fl-listed-mo': document.getElementById('uw-fl-listed-mo')?.value || '',
-    'uw-tl-slider':    document.getElementById('uw-tl-slider')?.value    || '',
-    'uw-sqft':         document.getElementById('uw-sqft')?.value         || '',
-  };
-  const totalDays = _uwTimelineGetAutoDays(liveData);
+  // Duration breakdown:
+  //   • renoDays  — pulled from the Renovation tab's Rehab Calculator
+  //                 #s-fin (Final w/ Time Buffer = labor hours × crew +
+  //                 bottleneck buffer + time contingency + repossession).
+  //                 This is the SAME number that drives Strategy → Timeline.
+  //   • listedDays — uw-fl-listed-mo × 30 (Strategy → Timeline's listing
+  //                  duration, default 2.5 months / 75 days market average).
+  //   • totalDays  — renoDays + listedDays (the Budget & Scope bar covers
+  //                  the full hold period, with a visual split between the
+  //                  reno portion and the listing portion).
+  let renoDays = 0;
+  const sFinEl = document.getElementById('s-fin');
+  if (sFinEl) {
+    const sFinTxt = (sFinEl.textContent || '').replace(/[^\d.\-]/g, '');
+    const sFinNum = parseFloat(sFinTxt) || 0;
+    if (sFinNum > 0) renoDays = Math.round(sFinNum);
+  }
+  const listedMoRaw = (document.getElementById('uw-fl-listed-mo')?.value || '2.5');
+  const listedMo    = parseFloat(String(listedMoRaw).replace(/,/g, '')) || 2.5;
+  const listedDays  = Math.max(0, Math.round(listedMo * 30));
+  let totalDays = renoDays + listedDays;
+  // Fallback: if the rehab calc hasn't computed yet, fall through to the
+  // older auto-days calc (which itself already includes listing time).
+  if (renoDays <= 0) {
+    const liveData = {
+      'uw-fl-reno-mo':   document.getElementById('uw-fl-reno-mo')?.value   || '',
+      'uw-fl-listed-mo': document.getElementById('uw-fl-listed-mo')?.value || '',
+      'uw-tl-slider':    document.getElementById('uw-tl-slider')?.value    || '',
+      'uw-sqft':         document.getElementById('uw-sqft')?.value         || '',
+    };
+    totalDays = _uwTimelineGetAutoDays(liveData);
+  }
   const t = _uwTimelineCompute(start, totalDays);
   const bar    = document.getElementById('uw-timeline-bar');
   const txt    = document.getElementById('uw-timeline-pct-text');
@@ -12753,13 +12883,34 @@ function _uwTimelineUpdateBar() {
     if (tgtEl) tgtEl.textContent = '—';
     return;
   }
-  // Show the auto-computed target date next to the Start input.
+  // Show the auto-computed target date next to the Start input. When we have
+  // a real reno+listing breakdown, surface it in the caption ("X.X mo reno
+  // + Y.Y mo listing"). Otherwise just show months from the fallback calc.
   if (tgtEl) {
-    tgtEl.textContent = new Date(t.target).toLocaleDateString() +
-      ' (' + (t.totalDays / 30).toFixed(1) + ' mo from Strategy → Timeline)';
+    let caption = ' (' + (t.totalDays / 30).toFixed(1) + ' mo from Strategy → Timeline)';
+    if (renoDays > 0 && listedDays > 0) {
+      caption = ' (' + (renoDays / 30).toFixed(1) + ' mo reno + ' +
+                       (listedDays / 30).toFixed(1) + ' mo listing · from Rehab Calc)';
+    }
+    tgtEl.textContent = new Date(t.target).toLocaleDateString() + caption;
   }
   const widthPct = Math.max(0, Math.min(100, t.pct));
   const color = _hrPctColor(t.pct);
+  // Two-segment background on the bar wrapper: dim slate for the renovation
+  // portion, dim amber for the listing portion. Makes the listing portion
+  // visually distinct so the user can see the hand-off point. The progress
+  // fill (#uw-timeline-bar) overlays on top showing where they are.
+  if (bar && bar.parentElement && renoDays > 0 && listedDays > 0 && t.totalDays > 0) {
+    const renoPct = Math.max(0, Math.min(100, (renoDays / t.totalDays) * 100));
+    bar.parentElement.style.background =
+      'linear-gradient(90deg,' +
+        'rgba(99,102,241,0.18) 0%,' +
+        'rgba(99,102,241,0.18) ' + renoPct + '%,' +
+        'rgba(245,158,11,0.22) ' + renoPct + '%,' +
+        'rgba(245,158,11,0.22) 100%)';
+  } else if (bar && bar.parentElement) {
+    bar.parentElement.style.background = 'var(--panel-2)';
+  }
   if (bar) {
     bar.style.width = widthPct + '%';
     bar.style.background = _hrPctGradient(t.pct);
@@ -12769,9 +12920,47 @@ function _uwTimelineUpdateBar() {
     txt.style.color = color;
   }
   if (days) {
-    days.textContent = t.daysLeft >= 0
-      ? (t.daysLeft.toLocaleString() + ' days of ' + t.totalDays.toLocaleString() + ' days remaining')
-      : (Math.abs(t.daysLeft).toLocaleString() + ' days over ' + t.totalDays.toLocaleString() + ' days');
+    // Lead with "X days until listing" — that's the most actionable number
+    // for someone managing the renovation. Once renovation is past, switch
+    // to "Currently listing". Total-remaining + reno/listing breakdown
+    // follows as supporting info.
+    const daysSinceStart    = Math.max(0, t.totalDays - t.daysLeft);
+    const daysUntilListing  = renoDays > 0 ? (renoDays - daysSinceStart) : 0;
+    let primary;
+    if (renoDays > 0 && listedDays > 0) {
+      if (daysUntilListing > 0) {
+        primary = daysUntilListing.toLocaleString() + ' day' + (daysUntilListing === 1 ? '' : 's') + ' until listing';
+      } else if (t.daysLeft > 0) {
+        const daysListing = Math.min(listedDays, -daysUntilListing);
+        primary = 'Listing now · day ' + (daysListing + 1) + ' of ' + listedDays;
+      } else {
+        primary = 'Listing window over by ' + Math.abs(t.daysLeft).toLocaleString() + ' day' + (Math.abs(t.daysLeft) === 1 ? '' : 's');
+      }
+    } else {
+      primary = t.daysLeft >= 0
+        ? (t.daysLeft.toLocaleString() + ' of ' + t.totalDays.toLocaleString() + ' days remaining')
+        : (Math.abs(t.daysLeft).toLocaleString() + ' days over ' + t.totalDays.toLocaleString() + ' days');
+    }
+    // Break the renovation portion into repossession + reno-only so the
+    // user can read each phase's days separately. #s-rep holds the repo
+    // days (60 when occupied, 0 when vacant); the reno-only portion is
+    // whatever's left of renoDays (s-fin) once repossession is removed.
+    const _sRepRead   = document.getElementById('s-rep');
+    const _repoDaysCap = _sRepRead ? (parseFloat((_sRepRead.textContent || '').replace(/[^\d.\-]/g, '')) || 0) : 0;
+    const _renoOnly    = Math.max(0, renoDays - _repoDaysCap);
+    let secondary = '';
+    if (renoDays > 0 && listedDays > 0) {
+      // Build the phase breakdown: "Xd repossession + Yd renovation + Zd listing"
+      // (skip repossession when 0 so the caption stays clean for vacant deals).
+      const breakdownParts = [];
+      if (_repoDaysCap > 0) breakdownParts.push(_repoDaysCap + 'd repossession');
+      breakdownParts.push(_renoOnly + 'd renovation');
+      breakdownParts.push(listedDays + 'd listing');
+      secondary = '  ·  ' + (t.daysLeft >= 0 ? t.daysLeft.toLocaleString() : ('-' + Math.abs(t.daysLeft).toLocaleString()))
+                + ' of ' + t.totalDays.toLocaleString() + ' total · '
+                + breakdownParts.join(' + ');
+    }
+    days.textContent = primary + secondary;
     days.style.color = color;
   }
 }
@@ -12798,11 +12987,15 @@ const _UW_SECTION_TAB = {
   'timeline':             'strategy',
   'exit-strategy':        'strategy',
   'budget-overview':      'budget',
-  'scope-of-work':        'scope',
+  // 'scope-of-work' was merged into 'budget-overview' — no longer a separate
+  // section, so it doesn't appear here.
 };
 let _uwFolderSubtab = 'evaluation';
 function uwSetFolderSubtab(name) {
-  if (name !== 'evaluation' && name !== 'renovation' && name !== 'strategy' && name !== 'budget' && name !== 'scope') return;
+  // Legacy 'scope' subtab was merged into 'budget' — redirect for any saved
+  // _uwFolderSubtab state or old call sites still passing 'scope'.
+  if (name === 'scope') name = 'budget';
+  if (name !== 'evaluation' && name !== 'renovation' && name !== 'strategy' && name !== 'budget') return;
   _uwFolderSubtab = name;
   // Show/hide each top-level section based on which subtab it belongs to.
   // Always-visible sections (Deal Status, Property Info) stay shown.
@@ -12818,15 +13011,15 @@ function uwSetFolderSubtab(name) {
     btn.style.background = active ? '#6366f1' : 'transparent';
     btn.style.color      = active ? 'white'   : 'var(--text-dim)';
   });
-  // Lazy-render Budget contents when the user opens that tab so it picks up
-  // any rehab items they checked since last time. Also refresh the timeline
-  // bar in case the date inputs were just populated by _uwApply.
+  // Lazy-render Budget & Scope contents when the user opens that tab so it
+  // picks up any rehab items they checked since last time. Also refresh the
+  // timeline bar in case the date inputs were just populated by _uwApply.
+  // Scope content (items list + phase Gantt + notes) was previously rendered
+  // only when the 'scope' subtab opened — now it shares the 'budget' subtab.
   if (name === 'budget') {
     if (typeof uwRenderBudget       === 'function') uwRenderBudget();
     if (typeof _uwTimelineUpdateBar === 'function') _uwTimelineUpdateBar();
-  }
-  if (name === 'scope') {
-    if (typeof uwRenderScopeOfWork === 'function') uwRenderScopeOfWork();
+    if (typeof uwRenderScopeOfWork  === 'function') uwRenderScopeOfWork();
   }
 }
 window.uwSetFolderSubtab = uwSetFolderSubtab;
@@ -13496,11 +13689,28 @@ function uwRenderScopeOfWork() {
   const countEl = document.getElementById('uw-scope-count');
   const notesEl = document.getElementById('uw-scope-notes');
   if (!itemsEl) return;
-  // Pull from the live in-memory rehab state (this is what the calculator
-  // is currently editing). Falls back to saved data if state isn't loaded.
+  // Prefer the Rehab Calculator's official scope helper — same one the
+  // wholesale packet uses. Returns real groups like "Update Kitchen" with
+  // the line items the user actually ticked — NEVER the "Total Renovation"
+  // phantom that _uwRehabState uses internally as a math bridge.
   let scope = [];
-  if (Array.isArray(_uwRehabState)) {
+  if (typeof window._rcGetScopeByGroup === 'function') {
+    const cols = window._rcGetScopeByGroup() || [];
+    cols.forEach(col => {
+      const groupLabel = col.label || '';
+      (col.items || []).forEach(label => {
+        if (label) scope.push({ label: String(label), color: '#6366f1', group: groupLabel });
+      });
+    });
+  }
+  // Fallback to _uwRehabState only if the helper wasn't registered yet
+  // (shouldn't happen in practice — the calculator IIFE registers it on load,
+  // but keeping this so the panel still shows something rather than blank).
+  if (scope.length === 0 && Array.isArray(_uwRehabState)) {
     _uwRehabState.forEach(col => {
+      // Skip the phantom "Total Renovation" bridge column used by the math
+      // pipeline — it's not a real scope item.
+      if (col && col.id === 'rc-bridge') return;
       const colColor = col.color || '#6366f1';
       (col.items || []).forEach(item => {
         if (item && item.needed && item.label) {
@@ -13780,12 +13990,10 @@ function _hrMountCalculator(targetSection) {
   }
   if (calc.parentNode !== mount) mount.appendChild(calc);
   if (tableWrap) tableWrap.style.display = 'none';
-  // Reveal the Budget folder subtab — only available inside Holdings/Renovation.
+  // Reveal the Budget & Scope folder subtab — only available inside H/R.
+  // (Previously was two subtabs; merged into one "Budget & Scope" panel.)
   const budgetBtn = document.querySelector('#uw-folder-subtabs [data-folder-subtab="budget"]');
   if (budgetBtn) budgetBtn.style.display = '';
-  // Reveal the Scope of Work subtab — same rule (only in H/R contexts).
-  const scopeBtn = document.querySelector('#uw-folder-subtabs [data-folder-subtab="scope"]');
-  if (scopeBtn) scopeBtn.style.display = '';
   // Hide the Underwriting workflow stage selector (Help / Analyzing / Priority /
   // Double-Check / Analyzed / Offered / Inspection / Contracted / Closed). This
   // property is already past those stages — it lives in Holdings or Renovation
@@ -13817,14 +14025,12 @@ function _hrUnmountCalculator() {
   // Restore both H/R table panels (we don't know which one was hidden).
   const ht = document.getElementById('hold-table-wrap'); if (ht) ht.style.display = '';
   const rt = document.getElementById('reno-table-wrap'); if (rt) rt.style.display = '';
-  // Hide Budget + Scope subtabs again — not visible inside the Underwriting
-  // section. If either was the active tab, snap back to Evaluation so the
-  // user lands on a valid view next time the calculator opens from Underwriting.
+  // Hide the Budget & Scope subtab — not visible inside the Underwriting
+  // section. If it was the active tab, snap back to Evaluation so the user
+  // lands on a valid view next time the calculator opens from Underwriting.
   const budgetBtn = document.querySelector('#uw-folder-subtabs [data-folder-subtab="budget"]');
   if (budgetBtn) budgetBtn.style.display = 'none';
-  const scopeBtn = document.querySelector('#uw-folder-subtabs [data-folder-subtab="scope"]');
-  if (scopeBtn) scopeBtn.style.display = 'none';
-  if ((_uwFolderSubtab === 'budget' || _uwFolderSubtab === 'scope') && typeof uwSetFolderSubtab === 'function') {
+  if (_uwFolderSubtab === 'budget' && typeof uwSetFolderSubtab === 'function') {
     uwSetFolderSubtab('evaluation');
   }
   // Restore the workflow stage selector for when the calculator is used
@@ -27714,8 +27920,16 @@ function recalc(){
   if(total){ document.getElementById('bar-mat').style.width = (mat/total*100)+'%'; document.getElementById('bar-lab').style.width = (lab/total*100)+'%'; }
   const rawDays = hrs/8;
   const crewDays = rawDays/crew;
-  const calDays = crewDays*1.30;
-  const finDaysBase = calDays*(1+timeCont/100);
+  // Convert crew work days (Mon–Fri schedule) to calendar days. 5 work days
+  // = 1 week = 7 calendar days. Round UP to whole weeks so the timeline is
+  // cleanly bounded (e.g. 19 work days → ceil(19/5)=4 weeks → 28 cal days).
+  const _weeksMF  = Math.ceil(crewDays / 5);
+  const calDays   = _weeksMF * 7;
+  // Single buffer factor on calendar days — replaces the old chained
+  // "30% bottleneck × 25% contingency" pair the user found confusing.
+  // Rounded UP so the "X + Y" display always sums to clean integers.
+  const _bufferDays = Math.ceil(calDays * 0.25);
+  const finDaysBase = calDays + _bufferDays;
   // Occupancy adjustment — non-vacant adds 60 days (~2 months) for repossession.
   // Tenancy dropdown is informational only — doesn't affect the timeline.
   const _occEl = document.getElementById('rc-occupancy');
@@ -27731,7 +27945,20 @@ function recalc(){
   document.getElementById('s-raw').textContent = Math.round(rawDays).toLocaleString();
   document.getElementById('s-crew').textContent = Math.round(crewDays).toLocaleString();
   document.getElementById('s-crew-sub').textContent = 'w/ '+crew+' workers';
-  document.getElementById('s-cal').textContent = Math.round(calDays).toLocaleString();
+  // Renovation w/ Crew — value displays as "X + Y" where X is the M-F
+  // calendar days from the work-days conversion and Y is the +25% buffer
+  // days (rounded up). Subtext shows the underlying work days + the single
+  // buffer factor — no separate "contingency" anymore.
+  const _renoTotalDays = finDaysBase;
+  document.getElementById('s-cal').textContent = _bufferDays > 0
+    ? (calDays + ' + ' + _bufferDays)
+    : calDays.toLocaleString();
+  const _sCalLabel = document.getElementById('s-cal-label');
+  if (_sCalLabel) _sCalLabel.textContent = 'Renovation w/ Crew (' + crew + ')';
+  const _sCalSub = document.getElementById('s-cal-sub');
+  if (_sCalSub) {
+    _sCalSub.textContent = Math.round(crewDays).toLocaleString() + ' work days + 25% buffer';
+  }
   // Repossession days — sourced from the Occupancy panel.
   // 60 days when occupied (any non-vacant value), 0 when vacant.
   const _sRepEl = document.getElementById('s-rep');
@@ -27741,9 +27968,49 @@ function recalc(){
     const occLabel = _isOccupied ? (_occVal === 'tenant' ? 'tenant' : _occVal === 'squatter' ? 'squatter' : _occVal === 'family' ? 'family' : _occVal === 'owner' ? 'owner' : 'occupied') : 'vacant';
     _sRepSubEl.textContent = _isOccupied ? '~2 mo · ' + occLabel : 'vacant';
   }
+  // Listing time card — pulls from Strategy → Timeline's "Listed time"
+  // input (uw-fl-listed-mo, default 2.5 mo / 75 days). Lives outside the
+  // rehab calc proper but shown here for visibility next to the reno phases.
+  const _sListedEl = document.getElementById('s-listed');
+  const _sListedSub = document.getElementById('s-listed-sub');
+  if (_sListedEl) {
+    const _listedMoVal = parseFloat(document.getElementById('uw-fl-listed-mo')?.value || '2.5') || 2.5;
+    const _listedDaysVal = Math.round(_listedMoVal * 30);
+    _sListedEl.textContent = _listedDaysVal.toLocaleString();
+    if (_sListedSub) _sListedSub.textContent = '~' + _listedMoVal.toFixed(1) + ' mo · market default';
+  }
   document.getElementById('s-fin').textContent = Math.round(finDays).toLocaleString();
   document.getElementById('s-weeks').textContent = '~'+(finDays/5).toFixed(1)+' work weeks';
-  document.getElementById('s-display').textContent = Math.round(finDays)+' days · '+(finDays/5).toFixed(1)+' weeks · '+(finDays/22).toFixed(1)+' months'+(occDays>0?' · +60 Day Repossession':'');
+  // Total Time card — the full hold period: repossession + reno-with-crew
+  // (rounded-up integer value matching the visible "X + Y" card) + listing.
+  // Using the rounded-up integers so the visible cards add up cleanly:
+  // 60 + (25 + 7) + 75 = 167. Previously this used Math.round(finDays)
+  // which gave 91, leaving a 1-day rounding discrepancy.
+  const _sTotalEl = document.getElementById('s-total');
+  const _sTotalSub = document.getElementById('s-total-sub');
+  if (_sTotalEl) {
+    const _listedMo2   = parseFloat(document.getElementById('uw-fl-listed-mo')?.value || '2.5') || 2.5;
+    const _listedDays2 = Math.round(_listedMo2 * 30);
+    const _totalDays   = occDays + _renoTotalDays + _listedDays2;
+    _sTotalEl.textContent = _totalDays.toLocaleString();
+    if (_sTotalSub) _sTotalSub.textContent = '~' + (_totalDays / 30).toFixed(1) + ' months · all-in';
+  }
+  // Estimated Project Duration — compact breakdown by phase. Reads the
+  // listing time from the Strategy → Timeline input (uw-fl-listed-mo, default
+  // 2.5 mo). Skips the repossession term when the property is vacant so the
+  // line stays clean.
+  (() => {
+    const _listedMoEd  = parseFloat(document.getElementById('uw-fl-listed-mo')?.value || '2.5') || 2.5;
+    const _repoMoEd    = occDays / 30;
+    const _renoMoEd    = finDaysBase / 30;
+    const _totalMoEd   = _repoMoEd + _renoMoEd + _listedMoEd;
+    const _parts = [];
+    if (occDays > 0) _parts.push(_repoMoEd.toFixed(1) + ' mo repossession');
+    _parts.push(_renoMoEd.toFixed(1) + ' mo renovation');
+    _parts.push(_listedMoEd.toFixed(1) + ' mo listing');
+    document.getElementById('s-display').textContent =
+      _parts.join(' + ') + ' = ' + _totalMoEd.toFixed(1) + ' mo total';
+  })();
 
   // Push to UW bridge for underwriting math + downstream readers.
   // Strategy: write the GRAND TOTAL (rehab + new calc's cost contingency) as the
@@ -27775,6 +28042,9 @@ function recalc(){
     const subEl = document.getElementById('uw-rehab-subtotal');
     if (subEl) subEl.value = grandTotal > 0 ? Math.round(grandTotal).toLocaleString() : '';
     if (typeof uwRecalcRehabFinal === 'function') uwRecalcRehabFinal();
+    // (The s-fin MutationObserver — set up near _uwApplyAutoRehabMonths —
+    // now handles the cascade automatically whenever s-fin's value changes.
+    // No need to wire it from inside the rehab calc's bridge code.)
     if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
     // Also write the phantom directly into the in-memory cache for the currently-open
     // deal — that way the deal list reads the correct rehab number on its next render
@@ -27817,19 +28087,11 @@ _rcRoot.addEventListener('change', e=>{
     recalc();
   }
   if(['crew','costContingency','timeContingency','finishLevel','rc-occupancy','rc-tenancy'].includes(e.target.id)){
-    // When occupancy/tenancy changes, force-refresh the auto-set Renovation Time
-    // on the Flip + Rental Refi cards so holding costs always reflect the new total.
-    if(e.target.id === 'rc-occupancy' || e.target.id === 'rc-tenancy'){
-      window._uwForceAutoRehab = true;
-    }
     recalc();
   }
 });
 _rcRoot.addEventListener('input', e=>{
   if(['crew','costContingency','timeContingency','rc-occupancy','rc-tenancy'].includes(e.target.id)){
-    if(e.target.id === 'rc-occupancy' || e.target.id === 'rc-tenancy'){
-      window._uwForceAutoRehab = true;
-    }
     recalc();
   }
 });

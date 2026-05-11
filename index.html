@@ -8767,7 +8767,7 @@ function uwComputeExits(ctx) {
       // Toggle (if present) renders on its own line below the title — keeps
       // the title row clean and prevents the buttons from squishing the card.
       const toggleRow = e.toggle ? `<div style="margin-bottom:8px">${e.toggle}</div>` : '';
-      return `<div onclick="uwToggleExit('${e.key}')" data-exit-key="${e.key}"${e.bestMode ? ` data-best-mode="${e.bestMode}"` : ''} style="padding:12px 14px;background:${bg};border:${border};border-radius:10px;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''" title="Click to ${isOpen ? 'collapse' : 'view full breakdown'}">
+      return `<div onclick="uwToggleExit('${e.key}')" data-exit-key="${e.key}"${e.bestMode ? ` data-best-mode="${e.bestMode}"` : ''}${typeof e.annualized === 'number' ? ` data-annualized="${Math.round(e.annualized)}"` : ''} style="padding:12px 14px;background:${bg};border:${border};border-radius:10px;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''" title="Click to ${isOpen ? 'collapse' : 'view full breakdown'}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <span style="font-weight:600;font-size:13px">${e.icon} ${e.name}${e.mode ? ' <span style=\'color:var(--text-dim);font-weight:500\'>(' + e.mode + ')</span>' : ''}${badge}</span>
           <span style="font-size:10px;color:var(--text-dim)">${chevron}</span>
@@ -12089,7 +12089,22 @@ function _uwCollect() {
       bestExit = 'Rental (' + mode + ')';
     }
   }
-  const bestProfitText = bestCard ? bestCard.querySelector('div[style*="font-size:20px"]')?.textContent || '' : '';
+  // For Rental, the displayed profit on the card reflects the user's TOGGLE
+  // (Cash / Financed / Refi), not necessarily the rule-based best mode. Read
+  // the rule-based annualized value from the data-annualized attribute set
+  // at render time — that way the saved best_profit always matches the
+  // saved best_exit. Falls back to the visible profit text for non-rental
+  // exits or when the attribute isn't present.
+  let bestProfitText = '';
+  if (bestCard) {
+    const annAttr = bestCard.getAttribute('data-annualized');
+    const annNum  = annAttr != null ? parseFloat(annAttr) : NaN;
+    if (isFinite(annNum) && bestExit && bestExit.startsWith('Rental')) {
+      bestProfitText = (annNum < 0 ? '-$' : '$') + Math.abs(Math.round(annNum)).toLocaleString();
+    } else {
+      bestProfitText = bestCard.querySelector('div[style*="font-size:20px"]')?.textContent || '';
+    }
+  }
   return { data, arv, offer, bestExit, bestProfitText };
 }
 

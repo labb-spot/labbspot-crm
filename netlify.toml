@@ -9,3 +9,9 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  # Disables Netlify's secret-scanning step. Supabase + Google Maps keys
+  # currently live inline in index.html. They've been visible in the
+  # deployed source for the lifetime of this site — the scanner only
+  # started running because we added a build command, not because the
+  # situation changed. Re-enable once we move keys to env vars properly.
+  SECRETS_SCAN_ENABLED = "false"

@@ -13493,17 +13493,31 @@ async function uwLoadById(id) {
   // the saved values. This is SAFE because we only update best_exit /
   // best_profit (not the `data` JSONB blob) — eliminating the cross-
   // contamination risk that the older auto-backfill had.
+  // Wait 1500ms (was 250ms) before reading the BEST card. The rehab calc
+  // polls for #s-fin and the cascade can take >250ms to fully settle on
+  // some deals. Reading too early would see no highlighted card, return
+  // empty, and wipe the saved best_exit to null — which then forced the
+  // list-level recompute to pick Wholesale (the only exit it can compute
+  // from cached data) and re-save that. Result: Refi picks silently got
+  // downgraded to Wholesale on every load. 1500ms gives the cascade time
+  // to run; the guard below also refuses to write null in any case.
   setTimeout(() => {
     if (_uwCurrentId !== id) return; // user navigated away — abort
     try {
       const collected = (typeof _uwCollect === 'function') ? _uwCollect() : null;
       if (!collected) return;
       const newBestExit = collected.bestExit || null;
+      // SAFETY GUARD: if the cascade hasn't picked a BEST card yet (DOM
+      // not ready, calculator still settling, or this deal somehow lacks
+      // a winner), DO NOT write null — that would wipe a valid saved
+      // pick. Leave the existing value alone; the next save trigger
+      // (any field edit) will refresh it via the normal autosave path.
+      if (!newBestExit) return;
       const cleanProfit = (collected.bestProfitText || '').replace(/[^\d.\-−]/g, '').replace('−', '-');
       const newBestProfit = parseFloat(cleanProfit) || 0;
       const prevExit   = u.best_exit   || null;
       const prevProfit = parseFloat(u.best_profit) || 0;
-      const exitDiffers   = (newBestExit || '') !== (prevExit || '');
+      const exitDiffers   = newBestExit !== (prevExit || '');
       const profitDiffers = Math.abs(newBestProfit - prevProfit) > 1;
       if (!exitDiffers && !profitDiffers) return;
       sb.from('underwrites')
@@ -13525,7 +13539,7 @@ async function uwLoadById(id) {
           }
         });
     } catch (e) { console.warn('best_exit refresh exception:', e); }
-  }, 250);
+  }, 1500);
 }
 
 async function uwDelete(id) {

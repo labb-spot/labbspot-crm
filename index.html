@@ -1907,10 +1907,15 @@
     <div class="subtab subtab-compact" data-uwview="checking" onclick="goUwView('checking'); renderUnderwriteList();" title="Deals waiting for a second underwriter to double-check the math.">🕵️ Check <span id="uw-checking-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
     <div class="subtab subtab-compact" data-uwview="analyzed" onclick="goUwView('analyzed'); renderUnderwriteList();">✅ Analyzed <span id="uw-analyzed-count" class="badge ok" style="margin-left:3px;font-size:9px;display:none"></span></div>
     <div class="subtab subtab-compact" data-uwview="hot" onclick="goUwView('hot'); renderUnderwriteList();" title="Cross-cutting view: deals where Asking is BELOW Max Offer, OR within $15k, OR within 25% of Max Offer — i.e. priced within striking distance. Requires rehab to be priced first.">🔥 Hot <span id="uw-hot-count" class="badge bad" style="margin-left:3px;font-size:9px;display:none"></span></div>
-    <div class="subtab subtab-compact" data-uwview="offered" onclick="goUwView('offered'); renderUnderwriteList();">📤 Offered <span id="uw-offered-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
-    <div class="subtab subtab-compact" data-uwview="inspection" onclick="goUwView('inspection'); renderUnderwriteList();"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection <span id="uw-inspection-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
-    <div class="subtab subtab-compact" data-uwview="contracted" onclick="goUwView('contracted'); renderUnderwriteList();">📝 Contracted <span id="uw-contracted-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
-    <div class="subtab subtab-compact" data-uwview="closed" onclick="goUwView('closed'); renderUnderwriteList();">🏁 Closed <span id="uw-closed-count" class="badge ok" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    </div>
+    <!-- Post-offer tabs — its own panel pill, formatted exactly like the
+         GIS Maps pill so it reads as a separate group from the main workflow
+         strip. Holds Offered / Inspection / Contracted / Closed. -->
+    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
+      <div class="subtab subtab-compact" data-uwview="offered" onclick="goUwView('offered'); renderUnderwriteList();">📤 Offered <span id="uw-offered-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
+      <div class="subtab subtab-compact" data-uwview="inspection" onclick="goUwView('inspection'); renderUnderwriteList();"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection <span id="uw-inspection-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
+      <div class="subtab subtab-compact" data-uwview="contracted" onclick="goUwView('contracted'); renderUnderwriteList();">📝 Contracted <span id="uw-contracted-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
+      <div class="subtab subtab-compact" data-uwview="closed" onclick="goUwView('closed'); renderUnderwriteList();">🏁 Closed <span id="uw-closed-count" class="badge ok" style="margin-left:3px;font-size:9px;display:none"></span></div>
     </div>
   </div>
 
@@ -2030,11 +2035,13 @@
           <button type="button" data-uw-stage="analyzing"  onclick="uwSetStage('analyzing')"  style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🔍 Analyzing</button>
           <button type="button" data-uw-stage="priority"   onclick="uwSetStage('priority')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">⭐ Priority</button>
           <button type="button" data-uw-stage="checking"   onclick="uwSetStage('checking')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🕵️ Check</button>
-          <button type="button" data-uw-stage="analyzed"   onclick="uwSetStage('analyzed')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">✅ Analyzed</button>
-          <button type="button" data-uw-stage="offered"    onclick="uwSetStage('offered')"    style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">📤 Offered</button>
-          <button type="button" data-uw-stage="inspection" onclick="uwSetStage('inspection')" style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection</button>
-          <button type="button" data-uw-stage="contracted" onclick="uwSetStage('contracted')" style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">📝 Contracted</button>
-          <button type="button" data-uw-stage="closed"     onclick="uwSetStage('closed')"     style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;white-space:nowrap;flex-shrink:0">🏁 Closed</button>
+          <button type="button" data-uw-stage="analyzed"   onclick="uwSetStage('analyzed')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;white-space:nowrap;flex-shrink:0">✅ Analyzed</button>
+          <!-- Offered / Inspection / Contracted / Closed used to be buttons
+               here. They've been removed — those states are now driven by
+               the top-bar tabs (Offered/Inspection/Contracted/Closed) and
+               the Offer Status buttons inside Deal Status. Deals in those
+               states render as "Analyzed" in this strip so the per-deal
+               stage badge always reflects an action the user can change. -->
         </div>
         <!-- Phase mover — only visible when the calculator is opened from Renovation. Lets the user manually move this deal between renovation phases (overrides auto-detection). -->
         <div id="uw-reno-phase-selector" style="display:none;align-items:center;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:11px;flex-shrink:0" title="Manually move this deal to a different renovation phase. Overrides auto-detection until you click Auto.">
@@ -2070,11 +2077,18 @@
         <input type="hidden" id="uw-packet-status">
         <input type="hidden" id="uw-offer-status">
         <label class="text-xs">Offer Status
-          <div id="uw-offer-status-btns" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px">
-            <button type="button" data-offer-btn="Needed"   onclick="uwSetOfferStatus('Needed')"   style="padding:6px 8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:12px;text-align:center">Needed</button>
-            <button type="button" data-offer-btn="Sent"     onclick="uwSetOfferStatus('Sent')"     style="padding:6px 8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:12px;text-align:center">Sent</button>
-            <button type="button" data-offer-btn="Rejected" onclick="uwSetOfferStatus('Rejected')" style="padding:6px 8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:12px;text-align:center">Rejected</button>
-            <button type="button" data-offer-btn="Accepted" onclick="uwSetOfferStatus('Accepted')" style="padding:6px 8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:12px;text-align:center">Accepted</button>
+          <!-- 6 buttons in a 3-col × 2-row grid:
+                 Row 1: Sent / Rejected / Accepted
+                 Row 2: Inspection / Contracted / Closed
+               "Needed" is the implicit default state — shown in the
+               header/preview when no button is active. -->
+          <div id="uw-offer-status-btns" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:4px">
+            <button type="button" data-offer-btn="Sent"       onclick="uwSetOfferStatus('Sent')"       style="padding:5px 4px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:11px;text-align:center">Sent</button>
+            <button type="button" data-offer-btn="Rejected"   onclick="uwSetOfferStatus('Rejected')"   style="padding:5px 4px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:11px;text-align:center">Rejected</button>
+            <button type="button" data-offer-btn="Accepted"   onclick="uwSetOfferStatus('Accepted')"   style="padding:5px 4px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:11px;text-align:center">Accepted</button>
+            <button type="button" data-offer-btn="Inspection" onclick="uwSetOfferStatus('Inspection')" style="padding:5px 4px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:11px;text-align:center">Inspection</button>
+            <button type="button" data-offer-btn="Contracted" onclick="uwSetOfferStatus('Contracted')" style="padding:5px 4px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:11px;text-align:center">Contracted</button>
+            <button type="button" data-offer-btn="Closed"     onclick="uwSetOfferStatus('Closed')"     style="padding:5px 4px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:11px;text-align:center">Closed</button>
           </div>
         </label>
         <!-- Bubble-style money inputs — taller and more rounded to visually
@@ -2090,19 +2104,19 @@
              are both flex children of the wrapper, justify-content: center,
              so they group as one unit in the middle of the bubble. -->
         <label class="text-xs">Asking Price
-          <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:62px;margin-top:4px;padding:0 14px;gap:3px">
+          <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:54px;margin-top:4px;padding:0 14px;gap:3px">
             <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
             <input type="number" id="uw-asking" oninput="uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
           </span>
         </label>
         <label class="text-xs">Offer
-          <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:62px;margin-top:4px;padding:0 14px;gap:3px">
+          <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:54px;margin-top:4px;padding:0 14px;gap:3px">
             <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
             <input type="number" id="uw-offer" oninput="uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
           </span>
         </label>
         <label class="text-xs">Accepted Price
-          <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:62px;margin-top:4px;padding:0 14px;gap:3px">
+          <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:54px;margin-top:4px;padding:0 14px;gap:3px">
             <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
             <input type="number" id="uw-accepted" oninput="uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
           </span>
@@ -13109,12 +13123,13 @@ function _uwGetCurrentStage() {
   if (_uwNeedsHelp) return 'help';
   if (_uwIsPriority) return 'priority';
   if (_uwInChecking) return 'checking';
+  // Offered / Inspection / Contracted / Closed buttons were removed from
+  // the per-deal stage strip — those states are tracked separately (via the
+  // top-bar tabs and the Offer Status buttons). When a deal is in any of
+  // those derived states, the in-deal badge falls back to "Analyzed" so
+  // the strip always shows an action the user can actually change here.
   const ps = (document.getElementById('uw-packet-status')?.value || '').trim();
   if (!ps || ps === 'Evaluating') return 'analyzing';
-  if (ps === 'Offered')    return 'offered';
-  if (ps === 'Inspection') return 'inspection';
-  if (ps === 'Accepted')   return 'contracted';
-  if (ps === 'Closed')     return 'closed';
   return 'analyzed';
 }
 
@@ -13152,10 +13167,13 @@ window._uwOfferStatusLabel = _uwOfferStatusLabel;
 // the corresponding badge colors in the list-view preview so the button
 // and the badge feel like the same color language.
 const _UW_OFFER_STATUS_COLORS = {
-  Needed:   { bg: 'rgba(249,115,22,0.20)', fg: '#f97316' },   // orange (.badge.brand)
-  Sent:     { bg: 'rgba(56,189,248,0.20)', fg: '#38bdf8' },   // light blue (.badge.info)
-  Rejected: { bg: 'rgba(239,68,68,0.20)',  fg: '#ef4444' },   // red (.badge.bad)
-  Accepted: { bg: 'rgba(16,185,129,0.20)', fg: '#10b981' },   // green (.badge.ok)
+  Needed:     { bg: 'rgba(249,115,22,0.20)', fg: '#f97316' },   // orange (.badge.brand) — default
+  Sent:       { bg: 'rgba(56,189,248,0.20)', fg: '#38bdf8' },   // light blue (.badge.info)
+  Rejected:   { bg: 'rgba(239,68,68,0.20)',  fg: '#ef4444' },   // red (.badge.bad)
+  Accepted:   { bg: 'rgba(16,185,129,0.20)', fg: '#10b981' },   // green (.badge.ok)
+  Inspection: { bg: 'rgba(168,85,247,0.20)', fg: '#a855f7' },   // purple — inspection period
+  Contracted: { bg: 'rgba(234,179,8,0.20)',  fg: '#eab308' },   // amber — under contract
+  Closed:     { bg: 'rgba(20,184,166,0.20)', fg: '#14b8a6' },   // teal — deal closed
 };
 
 // Set the Offer Status from the 2×2 button grid. Writes to the
@@ -13173,9 +13191,11 @@ function uwSetOfferStatus(value) {
   // Refresh the header subtitle ("· Status: X") right away so the preview
   // shows the new label without waiting for autosave/load.
   if (typeof _uwRefreshHeaderStatus === 'function') _uwRefreshHeaderStatus();
-  // Re-render the deal list so the Status column badges pick up the
-  // change immediately — they read from cache.underwrites[id].data, which
-  // _uwRefreshHeaderStatus just updated.
+  // Repaint the workflow stage selector — Offered is now driven by this
+  // field, so changing it can move the deal in/out of the Offered stage.
+  if (typeof _uwUpdateStageSelector === 'function') _uwUpdateStageSelector();
+  // Re-render the deal list so the Status column badges + Offered list
+  // pick up the change immediately.
   if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
 }
 window.uwSetOfferStatus = uwSetOfferStatus;
@@ -13268,6 +13288,23 @@ function uwSetStage(stage) {
   _uwIsPriority = false;
   _uwInChecking = false;
   const psEl = document.getElementById('uw-packet-status');
+  // Clicking any of the pre-offer stages (Help / Analyzing / Priority /
+  // Check / Analyzed) should ALSO clear the Offer Status — otherwise a
+  // deal that was previously Sent / Rejected / Accepted / Contracted /
+  // Inspection would still be filtered into the Offered (or Contracted /
+  // Inspection) top-bar tab and the user couldn't move it back to
+  // Analyzed. Resetting the offer-status field releases the deal from
+  // those derived tabs.
+  if (stage === 'help' || stage === 'analyzing' || stage === 'priority' ||
+      stage === 'checking' || stage === 'analyzed') {
+    const osEl = document.getElementById('uw-offer-status');
+    if (osEl && osEl.value) {
+      osEl.value = '';
+      osEl.dispatchEvent(new Event('change', { bubbles: true }));
+      if (typeof _uwUpdateOfferStatusButtons === 'function') _uwUpdateOfferStatusButtons();
+      if (typeof _uwRefreshHeaderStatus === 'function') _uwRefreshHeaderStatus();
+    }
+  }
   if (stage === 'help')      _uwNeedsHelp = true;
   else if (stage === 'priority') _uwIsPriority = true;
   else if (stage === 'checking') _uwInChecking = true;
@@ -15482,14 +15519,32 @@ function renderUnderwriteList() {
   const inChecking  = _notPri.filter(u => _isFlagged(u, '_inChecking'));
   const analyzing   = _notPri.filter(u => _uwIsAnalyzing(u) && !_isFlagged(u, '_inChecking'));
   const _postEval   = _notPri.filter(u => !_uwIsAnalyzing(u) && !_isFlagged(u, '_inChecking'));
-  const offered    = _postEval.filter(u => (u.packet_status || '').trim() === 'Offered');
-  const inspection = _postEval.filter(u => (u.packet_status || '').trim() === 'Inspection');
-  const contracted = _postEval.filter(u => (u.packet_status || '').trim() === 'Accepted');
-  const closed     = _postEval.filter(u => (u.packet_status || '').trim() === 'Closed');
-  const analyzed   = _postEval.filter(u => {
-    const s = (u.packet_status || '').trim();
-    return s !== 'Offered' && s !== 'Accepted' && s !== 'Closed' && s !== 'Inspection';
+  // Offered / Inspection / Contracted / Closed are CROSS-CUTTING views,
+  // each driven by which Offer Status button is selected:
+  //   Sent / Rejected   → Offered
+  //   Inspection        → Inspection
+  //   Accepted / Contracted → Contracted
+  //   Closed            → Closed
+  // Like Hot, deals appear here AND in their primary workflow tab.
+  const _offerStatusOf = (u) => ((u && u.data && u.data['uw-offer-status']) || '').trim();
+  const offered    = all.filter(u => {
+    const os = _offerStatusOf(u);
+    return os === 'Sent' || os === 'Rejected';
   });
+  const inspection = all.filter(u => _offerStatusOf(u) === 'Inspection');
+  const contracted = all.filter(u => {
+    const os = _offerStatusOf(u);
+    return os === 'Accepted' || os === 'Contracted';
+  });
+  // Closed driven by uw-offer-status with packet_status === 'Closed' kept
+  // as back-compat for old deals closed via the (now-removed) stage button.
+  const closed     = all.filter(u =>
+    _offerStatusOf(u) === 'Closed' || (u.packet_status || '').trim() === 'Closed'
+  );
+  // Analyzed no longer excludes deals with an Offer Status — those deals
+  // still show up here AND in the Offered / Inspection / Contracted tab.
+  // Only "Closed" deals leave the Analyzed tab entirely.
+  const analyzed   = _postEval.filter(u => (u.packet_status || '').trim() !== 'Closed');
 
   // ===== Hot list (CROSS-CUTTING) =====
   // Computed view — purely automatic, never manually toggled. A deal lands
@@ -15607,7 +15662,9 @@ function renderUnderwriteList() {
     const _displayStatus = (u.data && u.data['uw-offer-status']) || 'Needed';
     const statusBadgeClass = _displayStatus === 'Sent'      ? 'info' :
       _displayStatus === 'Rejected' || _displayStatus === 'Dead' ? 'bad' :
-      _displayStatus === 'Accepted' || _displayStatus === 'Closed' ? 'ok' : 'brand';
+      _displayStatus === 'Accepted' || _displayStatus === 'Closed' ? 'ok' :
+      _displayStatus === 'Contracted' ? 'warn' :
+      _displayStatus === 'Inspection' ? 'warn' : 'brand';
     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="_hrOpenDeal('${u.id}')" onmouseover="this.style.background='rgba(99,102,241,0.05)'" onmouseout="this.style.background=''">
       <td style="padding:8px 10px"><div style="font-weight:500">${escapeHtml(u.address || '—')}</div><div class="text-xs" style="color:var(--text-dim)">${escapeHtml([u.city, u.state, u.zip].filter(Boolean).join(', '))}</div></td>
       <td style="padding:8px 10px"><span class="badge ${statusBadgeClass}" style="font-size:11px">${escapeHtml(typeof _uwOfferStatusLabel === 'function' ? _uwOfferStatusLabel(_displayStatus) : _displayStatus)}</span></td>

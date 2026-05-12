@@ -183,7 +183,7 @@
        data-uw-warn="empty" → red ⚠   (field is empty / not filled out)
      The element's own title= explains the reason on hover. No DOM wrapping —
      works on plain <input>/<select>. */
-  [data-uw-warn="1"], [data-uw-warn="empty"], [data-uw-warn="ok"] {
+  [data-uw-warn="1"], [data-uw-warn="empty"], [data-uw-warn="ok"], [data-uw-warn="redflag"] {
     background-repeat: no-repeat !important;
     background-position: left 3px top 3px !important;
     padding-left: 15px !important;
@@ -201,10 +201,18 @@
   [data-uw-warn="ok"] {
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24"><path fill="%2310b981" d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>') !important;
   }
+  /* Hard-stop red caution — same red as "empty" but reserved for explicit
+     RED-flag warnings (e.g. Wood Foundation). Different value so the
+     existing "empty" semantic in comp logic isn't conflated with these. */
+  [data-uw-warn="redflag"] {
+    border-color: rgba(239, 68, 68, 0.55) !important;
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.20) !important;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24"><path fill="%23ef4444" d="M12 2L1 22h22L12 2zm0 4.5L19.5 20h-15L12 6.5zm-1 6v4h2v-4h-2zm0 5v2h2v-2h-2z"/></svg>') !important;
+  }
   /* For <select> elements specifically, the browser puts a chevron on the
      RIGHT — our top-left icon already dodges it, but make sure the
      padding-left doesn't push option text under our icon. */
-  select[data-uw-warn="1"], select[data-uw-warn="empty"], select[data-uw-warn="ok"] {
+  select[data-uw-warn="1"], select[data-uw-warn="empty"], select[data-uw-warn="ok"], select[data-uw-warn="redflag"] {
     padding-left: 14px !important;
   }
 
@@ -2220,7 +2228,7 @@
         <label class="text-xs col-span-1 md:col-span-1">Lot Acres
           <span class="uw-suffix-ac" style="margin-top:4px"><input type="number" id="uw-lot-size" step="0.001" placeholder="0.18" oninput="_uwLotAcInput('uw-lot-size')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%"></span>
         </label>
-        <label class="text-xs col-span-1 md:col-span-2">Lot Sq Ft
+        <label class="text-xs col-span-1 md:col-span-1">Lot Sq Ft
           <span class="uw-suffix-sqft" style="margin-top:4px"><input type="number" id="uw-lot-size-sqft" step="1" placeholder="7,841" oninput="_uwLotSqftInput('uw-lot-size')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%"></span>
         </label>
         <label class="text-xs col-span-1 md:col-span-2">Building Material
@@ -2236,7 +2244,23 @@
             <option>Adobe</option>
           </select>
         </label>
-        <label class="text-xs col-span-1 md:col-span-2">Parking Status<select id="uw-prop-parking" style="width:100%;margin-top:4px"><option value="">—</option><option>Driveway</option><option>Detached Garage</option><option>Attached Garage</option><option>Carport</option><option>Street Only</option><option>None</option></select></label>
+        <label class="text-xs col-span-1 md:col-span-2">Foundation Type
+          <!-- Caution badge mirrors the comp warn system (corner icon +
+               border glow): amber ⚠ for older / quirky foundations,
+               red ⚠ for the lender-killer Wood Foundation. -->
+          <select id="uw-prop-foundation" oninput="_uwUpdateFoundationCaution()" title="Foundation / substructure type. Property-info only — not used by comps." style="width:100%;margin-top:4px">
+            <option value="">—</option>
+            <option>Slab</option>
+            <option>Crawl Space</option>
+            <option>Basement (Full)</option>
+            <option>Basement (Partial)</option>
+            <option>Pier &amp; Beam</option>
+            <option>Stem Wall</option>
+            <option>Post &amp; Pier</option>
+            <option>Wood Foundation</option>
+          </select>
+        </label>
+        <label class="text-xs col-span-1 md:col-span-1">Parking Status<select id="uw-prop-parking" style="width:100%;margin-top:4px"><option value="">—</option><option>Driveway</option><option>Detached Garage</option><option>Attached Garage</option><option>Carport</option><option>Street Only</option><option>None</option></select></label>
         <label class="text-xs col-span-1 md:col-span-2">Property Type<select id="uw-prop-type" style="width:100%;margin-top:4px"><option value="">—</option><option>Single Family</option><option>Duplex</option><option>Triplex</option><option>Quad</option><option>Multi-Family 5+</option><option>Condo</option><option>Townhouse</option><option>Land</option></select></label>
         <label class="text-xs col-span-1 md:col-span-1">Units<input type="number" id="uw-units" value="1" min="1" step="1" oninput="_uwSyncUnits('property'); uwRecalc()" style="width:100%;margin-top:4px"></label>
       </div>
@@ -6397,6 +6421,33 @@ function _uwUpdateCompCautions() {
 }
 window._uwUpdateCompCautions = _uwUpdateCompCautions;
 
+// Foundation Type caution badge — same data-uw-warn corner-icon system
+// the comps use, applied to the Property Info > Foundation select.
+//   amber ⚠  ("1")       → Basement (Partial), Pier & Beam, Post & Pier
+//                          (older / quirky; budget for leveling work)
+//   red ⚠   ("redflag")  → Wood Foundation (lender red flag, limited
+//                          resale, often a rot risk)
+// Other foundation types (Slab, Crawl Space, Basement (Full), Stem Wall)
+// or empty → no badge.
+function _uwUpdateFoundationCaution() {
+  const el = document.getElementById('uw-prop-foundation');
+  if (!el) return;
+  const v = (el.value || '').trim();
+  if (v === 'Wood Foundation') {
+    el.setAttribute('data-uw-warn', 'redflag');
+    el.title = '🚨 Wood Foundation — lender red flag (FHA/VA usually deny, conventional often won\'t finance), limited resale to cash buyers, common rot risk. Verify it\'s actually wood (not just wood-paneled basement walls inside a concrete foundation) and discount the offer.';
+  } else if (v === 'Basement (Partial)' || v === 'Pier & Beam' || v === 'Post & Pier') {
+    el.setAttribute('data-uw-warn', '1');
+    if (v === 'Basement (Partial)') el.title = '⚠ Partial basement — often means added-on / hillside / irregular layout. Investigate why before buying.';
+    else if (v === 'Pier & Beam')    el.title = '⚠ Pier & Beam — older Southern construction. Easy to work under but can settle over time. Budget for leveling.';
+    else                             el.title = '⚠ Post & Pier — older / simpler raised foundation. Often pre-1950s, can have settling. Plan for releveling work.';
+  } else {
+    el.removeAttribute('data-uw-warn');
+    el.title = 'Foundation / substructure type. Property-info only — not used by comps.';
+  }
+}
+window._uwUpdateFoundationCaution = _uwUpdateFoundationCaution;
+
 function uwReset() {
   if (!confirm('Clear all underwriting inputs?')) return;
   document.querySelectorAll('#uwview-calculator input, #uwview-calculator select').forEach(el => {
@@ -7249,8 +7300,8 @@ window._uwRehabCascade = _uwRehabCascade;
         _uwRehabCascade();
       }
     };
-    document.addEventListener('change', _onRehabInput, false);
     document.addEventListener('input',  _onRehabInput, false);
+    document.addEventListener('change', _onRehabInput, false);
   };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _start);
@@ -9745,6 +9796,7 @@ async function uwGenerateWholesalePacket() {
   const lotAc  = getN('uw-lot-size');
   const parking = get('uw-prop-parking');
   const material = get('uw-prop-material');
+  const foundation = get('uw-prop-foundation');
   const propType = get('uw-prop-type');
 
   // ----- Risk profile -----
@@ -10103,25 +10155,35 @@ async function uwGenerateWholesalePacket() {
   // Render as 4-column spec card row — much cleaner than 2-col k/v grid.
   {
     const specs = [
-      ['BEDS',     beds > 0 ? String(beds) : '—'],
-      ['BATHS',    baths > 0 ? String(baths) : '—'],
-      ['LIVING',   sqft > 0 ? sqft.toLocaleString() + ' SF' : '—'],
-      ['YEAR',     year > 0 ? String(year) : '—'],
-      ['LOT',      lotAc > 0 ? lotAc.toFixed(2) + ' AC' : '—'],
-      ['TYPE',     dash(propType)],
-      ['PARKING',  dash(parking)],
-      ['MATERIAL', dash(material)],
+      ['BEDS',       beds > 0 ? String(beds) : '—'],
+      ['BATHS',      baths > 0 ? String(baths) : '—'],
+      ['LIVING',     sqft > 0 ? sqft.toLocaleString() + ' SF' : '—'],
+      ['YEAR',       year > 0 ? String(year) : '—'],
+      ['LOT',        lotAc > 0 ? lotAc.toFixed(2) + ' AC' : '—'],
+      ['TYPE',       dash(propType)],
+      ['PARKING',    dash(parking)],
+      ['MATERIAL',   dash(material)],
+      ['FOUNDATION', dash(foundation)],
     ];
-    const colsPerRow = 4;
-    const cardW = (PAGE_W - 2 * MARGIN - (colsPerRow - 1) * 8) / colsPerRow;
+    // Row layout: row 1 has 5 cards (BEDS/BATHS/LIVING/YEAR/LOT), row 2
+    // has 4 cards (TYPE/PARKING/MATERIAL/FOUNDATION). Each row's cardW is
+    // computed independently so BOTH rows fill the full content width and
+    // align flush left + right — no awkward empty slot on the right.
     const cardH = 42;
-    const rows = Math.ceil(specs.length / colsPerRow);
-    need(rows * (cardH + 8));
+    const gap   = 8;
+    const totalW = PAGE_W - 2 * MARGIN;
+    const _row1Count = 5;
+    const _row2Count = specs.length - _row1Count;  // 4 in current layout
+    const cardWRow1 = (totalW - (_row1Count - 1) * gap) / _row1Count;
+    const cardWRow2 = (totalW - (_row2Count - 1) * gap) / _row2Count;
+    const rows = 2;
+    need(rows * (cardH + gap));
     specs.forEach((spec, i) => {
-      const col = i % colsPerRow;
-      const row = Math.floor(i / colsPerRow);
-      const x   = MARGIN + col * (cardW + 8);
-      const yy  = y + row * (cardH + 8);
+      const row = i < _row1Count ? 0 : 1;
+      const col = i < _row1Count ? i : (i - _row1Count);
+      const cardW = row === 0 ? cardWRow1 : cardWRow2;
+      const x   = MARGIN + col * (cardW + gap);
+      const yy  = y + row * (cardH + gap);
       // Card background
       doc.setFillColor(C_BG[0], C_BG[1], C_BG[2]);
       doc.rect(x, yy, cardW, cardH, 'F');
@@ -10144,7 +10206,7 @@ async function uwGenerateWholesalePacket() {
       }
       doc.text(valTxt, x + 10, yy + 32);
     });
-    y += rows * (cardH + 8) + 4;
+    y += rows * (cardH + gap) + 4;
   }
 
   // ---------- Risk profile ----------
@@ -10814,7 +10876,7 @@ let _uwCurrentId = null; // null = new deal; UUID = editing existing
 const UW_FIELDS = [
   'uw-packet-status','uw-asking','uw-offer','uw-accepted',
   'uw-address','uw-city','uw-state','uw-zip','uw-legal',
-  'uw-built','uw-bed','uw-bath','uw-sqft','uw-floor1','uw-floor2','uw-floor3','uw-bsmt','uw-bsmt-include','uw-attic','uw-attic-include','uw-zsqft','uw-lot-size','uw-lot-size-sqft','uw-prop-parking','uw-prop-material',
+  'uw-built','uw-bed','uw-bath','uw-sqft','uw-floor1','uw-floor2','uw-floor3','uw-bsmt','uw-bsmt-include','uw-attic','uw-attic-include','uw-zsqft','uw-lot-size','uw-lot-size-sqft','uw-prop-parking','uw-prop-material','uw-prop-foundation',
   'uw-condition','uw-rehab-real','uw-rehab-expected','uw-flood','uw-crime','uw-assessor-url',
   'uw-asqft','uw-arv','uw-arv-override','uw-lavg-psf','uw-lest-arv','uw-lreal-arv','uw-lreal-override','uw-ravg-rent','uw-ravg-override',
   'uw-scp1-addr','uw-scp1-psf','uw-scp1-dist','uw-scp1-bed','uw-scp1-bath','uw-scp1-sqft','uw-scp1-year','uw-scp1-lot','uw-scp1-lot-sqft','uw-scp1-parking','uw-scp1-material',
@@ -12282,6 +12344,7 @@ function _uwApply(data) {
   // Repaint the 2×2 Offer Status buttons from the loaded uw-offer-status
   // value so the active one is highlighted on deal-open.
   if (typeof _uwUpdateOfferStatusButtons === 'function') _uwUpdateOfferStatusButtons();
+  // Refresh the Foundation Type caution badge for the loaded value (red
   // Sync the Rental section's Units mirror from Property Info's uw-units.
   // The mirror isn't in UW_FIELDS (we don't want to persist two copies of
   // the same value), so it has to be re-derived from uw-units on load.
@@ -13195,9 +13258,11 @@ function uwSetOfferStatus(value) {
   // Repaint the workflow stage selector — Offered is now driven by this
   // field, so changing it can move the deal in/out of the Offered stage.
   if (typeof _uwUpdateStageSelector === 'function') _uwUpdateStageSelector();
-  // Re-render the deal list so the Status column badges + Offered list
-  // pick up the change immediately.
-  if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
+  // Re-render the deal list (Offered/Inspection/Contracted/Closed
+  // tabs all depend on this field).
+  if (typeof renderUnderwriteList === 'function') {
+    try { renderUnderwriteList(); } catch (_) {}
+  }
 }
 window.uwSetOfferStatus = uwSetOfferStatus;
 
@@ -13648,6 +13713,7 @@ function uwScopeAutoFillFromRehab() {
   }
 }
 window.uwScopeAutoFillFromRehab = uwScopeAutoFillFromRehab;
+
 function _uwGetScopePhases() {
   if (!_uwCurrentId) return [];
   const u = (cache.underwrites || {})[_uwCurrentId];
@@ -14169,69 +14235,28 @@ function uwRenderScopeOfWork() {
   const _classifyV2 = (label) => {
     const s = (label || '').toLowerCase();
     if (!s) return null;
-    // Each rule fires in order, most-specific first, so collisions resolve
-    // predictably. Comments next to each block list the exact items that
-    // land in that bucket for the current v2 Rehab Calculator inventory.
-
-    // ---- 1. PUNCH LIST (only explicit walk-through / touch-up items) ----
-    if (/punch\s*list|touch.?up|caulk\s|final\s*clean|sweep|walk.?through/.test(s)) return 'punch-list';
-
-    // ---- 2. DEMO, CLEAN-UP & PERMITS ----
-    // Trash Clean-Out · Demolition · Dumpsters · Odor Remediation ·
-    // Permits · Deck Removal · Tree Removal · Chimney Removal
-    if (/trash|dumpster|haul|\bdemolition\b|\bdemo\b|clean.?out|junk/.test(s))      return 'demo';
-    if (/\bpermit/.test(s))                                                         return 'demo';
-    if (/odor|\bmold\b|asbestos|lead\s*paint|biohaz/.test(s))                       return 'demo';
-    if (/tree\s*removal|deck\s*removal|chimney\s*removal/.test(s))                  return 'demo';
-
-    // ---- 3. STRUCTURAL, FRAMING & EXTERIOR SHELL ----
-    // Foundation / structural / framing / additions / exterior envelope.
-    // Subfloor + Floor Leveling are checked BEFORE the generic "floor"
-    // match in cosmetics so they land in structural where they belong.
-    if (/subfloor|floor\s*leveling/.test(s))                                        return 'restructure';
-    // Foundation, beams, posts, anchors, sill, crawl space
-    if (/foundation|joist|\bstud\b|framing|structural|\bbeam\b|load.?bearing|sill\s*plate|crawl\s*space|carbon\s*fiber|re.?point|\bmortar\b|wall\s*anchor|helical|egress\s*window/.test(s))
-                                                                                    return 'restructure';
-    // Insulation, drywall — wall buildup
-    if (/insulation|drywall/.test(s))                                               return 'restructure';
-    // Additions
-    if (/garage\s*add|room\s*add|basement\s*finish|attic\s*conversion|pop.?top|\badu\b/.test(s))
-                                                                                    return 'restructure';
-    // Chimney repair (chimney removal already routed to demo)
-    if (/chimney/.test(s))                                                          return 'restructure';
-    // Exterior shell (roof, siding, gutters, windows, exterior doors, garage door)
-    if (/\broof\b|gutter|soffit|fascia|siding|\bwindow\b|exterior\s*door|garage\s*door/.test(s))
-                                                                                    return 'restructure';
-
-    // ---- 4. MECHANICALS, ELECTRICAL & PLUMBING ----
-    // HVAC
-    if (/furnace|condenser|\bac\b|heat\s*pump|mini.?split|thermostat|\bhvac\b|ductwork|range\s*hood|exhaust\s*fan|\bvent\b/.test(s))
-                                                                                    return 'mechanicals';
-    // Electrical
-    if (/\bwir(?:ing|es?)\b|panel\s*upgrade|\bbreaker\b|ev\s*charger|generator/.test(s))
-                                                                                    return 'mechanicals';
-    // Plumbing (supply/drain/vent stack + water heat/soften + waste)
-    if (/supply\s*line|drain\s*line|plumbing\s*vent|water\s*heater|water\s*softener|water\s*filter/.test(s))
-                                                                                    return 'mechanicals';
-    if (/septic|leach\s*field|well\s*drill|\bsewer\b|sump|french\s*drain/.test(s))  return 'mechanicals';
-    // Special mechanicals
-    if (/radon/.test(s))                                                            return 'mechanicals';
-
-    // ---- 5. WALLS, FLOORS, PAINT & CURB APPEAL ----
-    // EARLY: "Outdoor Lighting" matches "light" — must route here BEFORE
-    // the cabinetry "lighting" rule, otherwise it gets pulled into
-    // Cabinetry/Fixtures.
-    if (/outdoor\s*light|landscap|driveway|fence|\bporch\b|\bpatio\b/.test(s))      return 'cosmetics';
-    if (/tub|shower|\btil(?:e|ing)\b|interior\s*door|\bfloor(?:ing)?\b|\btrim\b|molding|stair|railing|paint/.test(s))
-                                                                                    return 'cosmetics';
-
-    // ---- 6. CABINETRY, FIXTURES & APPLIANCES ----
-    if (/cabinet|kitchen\s*island|vanity|mirror|medicine/.test(s))                  return 'cabinetry';
-    if (/countertop|backsplash|appliance/.test(s))                                  return 'cabinetry';
-    if (/\bsink\b|faucet|disposal|toilet|fixture|smoke|carbon|co\s*detect|chandelier|\blight(?:ing)?\b|hardware|\bknob\b/.test(s))
-                                                                                    return 'cabinetry';
-
-    return 'cosmetics';  // fallback — uncategorized work defaults to the interior finish phase
+    if (/punch\s*list|touch.?up|caulk\s|final\s*clean|sweep|walk.?through/.test(s))       return 'punch-list';
+    if (/trash|dumpster|haul|\bdemolition\b|\bdemo\b|clean.?out|junk/.test(s) ||
+        /\bpermit/.test(s) ||
+        /odor|\bmold\b|asbestos|lead\s*paint|biohaz/.test(s) ||
+        /tree\s*removal|deck\s*removal|chimney\s*removal/.test(s))                         return 'demo';
+    if (/subfloor|floor\s*leveling/.test(s) ||
+        /foundation|joist|\bstud\b|framing|structural|\bbeam\b|load.?bearing|sill\s*plate|crawl\s*space|carbon\s*fiber|re.?point|\bmortar\b|wall\s*anchor|helical|egress\s*window/.test(s) ||
+        /insulation|drywall/.test(s) ||
+        /garage\s*add|room\s*add|basement\s*finish|attic\s*conversion|pop.?top|\badu\b/.test(s) ||
+        /chimney/.test(s) ||
+        /\broof\b|gutter|soffit|fascia|siding|\bwindow\b|exterior\s*door|garage\s*door/.test(s))  return 'restructure';
+    if (/furnace|condenser|\bac\b|heat\s*pump|mini.?split|thermostat|\bhvac\b|ductwork|range\s*hood|exhaust\s*fan|\bvent\b/.test(s) ||
+        /\bwir(?:ing|es?)\b|panel\s*upgrade|\bbreaker\b|ev\s*charger|generator/.test(s) ||
+        /supply\s*line|drain\s*line|plumbing\s*vent|water\s*heater|water\s*softener|water\s*filter/.test(s) ||
+        /septic|leach\s*field|well\s*drill|\bsewer\b|sump|french\s*drain/.test(s) ||
+        /radon/.test(s))                                                                   return 'mechanicals';
+    if (/outdoor\s*light|landscap|driveway|fence|\bporch\b|\bpatio\b/.test(s) ||
+        /tub|shower|\btil(?:e|ing)\b|interior\s*door|\bfloor(?:ing)?\b|\btrim\b|molding|stair|railing|paint/.test(s))  return 'cosmetics';
+    if (/cabinet|kitchen\s*island|vanity|mirror|medicine/.test(s) ||
+        /countertop|backsplash|appliance/.test(s) ||
+        /\bsink\b|faucet|disposal|toilet|fixture|smoke|carbon|co\s*detect|chandelier|\blight(?:ing)?\b|hardware|\bknob\b/.test(s))  return 'cabinetry';
+    return 'cosmetics';  // fallback — uncategorized work defaults to interior finish
   };
   // Repossession defaults — these are workflow / legal items, not rehab
   // line items, so they aren't in the rehab calc. Hard-coded here so they
@@ -14355,6 +14380,10 @@ function uwRenderScopeOfWork() {
               const fg = isDone ? doneFg : chipFg;
               const prefix = isDone ? '✓ ' : '';
               const decoration = isDone ? 'text-decoration:line-through;text-decoration-thickness:1px;' : '';
+              // Use a data-attribute for the item label instead of an
+              // inline onclick string-literal — apostrophes in labels
+              // (e.g. "Don't Replace") would otherwise break the inline
+              // string and crash the click handler.
               return '<span onclick="uwScopeToggleItemDone(this, \'' + escapeHtml(String(n)).replace(/'/g, '\\&apos;') + '\')" title="Click to ' + (isDone ? 'unmark' : 'mark') + ' as done" style="padding:2px 9px;border-radius:10px;font-size:11px;cursor:pointer;user-select:none;' + decoration + 'background:' + bg + ';color:' + fg + '">' + prefix + escapeHtml(n) + '</span>';
             }).join('') +
           '</div>';

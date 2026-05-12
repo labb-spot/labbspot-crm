@@ -140,6 +140,7 @@
   .badge.bad { background: rgba(239,68,68,0.15); color: var(--bad); }
   .badge.brand { background: rgba(249,115,22,0.15); color: var(--brand); }
   .badge.info  { background: rgba(56,189,248,0.15); color: #38bdf8; }  /* light blue — used for "Sent" offer status */
+  .badge.purple{ background: rgba(168,85,247,0.15); color: #a855f7; }  /* purple — used for "Inspection" offer status */
   .toast { position: fixed; bottom: 20px; right: 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; z-index: 200; opacity: 0; transition: opacity 0.2s; max-width: 400px; }
   .toast.show { opacity: 1; }
   .toast.ok { border-color: var(--good); }
@@ -15651,7 +15652,7 @@ function renderUnderwriteList() {
       _displayStatus === 'Rejected' || _displayStatus === 'Dead' ? 'bad' :
       _displayStatus === 'Accepted' || _displayStatus === 'Closed' ? 'ok' :
       _displayStatus === 'Contracted' ? 'warn' :
-      _displayStatus === 'Inspection' ? 'warn' : 'brand';
+      _displayStatus === 'Inspection' ? 'purple' : 'brand';
     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="_hrOpenDeal('${u.id}')" onmouseover="this.style.background='rgba(99,102,241,0.05)'" onmouseout="this.style.background=''">
       <td style="padding:8px 10px"><div style="font-weight:500">${escapeHtml(u.address || '—')}</div><div class="text-xs" style="color:var(--text-dim)">${escapeHtml([u.city, u.state, u.zip].filter(Boolean).join(', '))}</div></td>
       <td style="padding:8px 10px"><span class="badge ${statusBadgeClass}" style="font-size:11px">${escapeHtml(typeof _uwOfferStatusLabel === 'function' ? _uwOfferStatusLabel(_displayStatus) : _displayStatus)}</span></td>

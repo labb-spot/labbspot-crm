@@ -1,0 +1,55 @@
+PUSH-TO-GITHUB FOLDER — what to do
+===================================
+
+This folder contains everything that needs to go to GitHub for the
+Tailwind precompile change to take effect on datalabb.net.
+
+WHAT TO DO
+----------
+1. Open github.com/labb-spot/labbspot-crm in your browser.
+2. Make sure you're on the "main" branch.
+3. Upload ALL 6 files from this folder into the ROOT of the repo:
+     - index.html       (replaces the existing one)
+     - package.json     (new)
+     - tailwind.config.js (new)
+     - netlify.toml     (new)
+     - input.css        (new)
+     - .gitignore       (new — starts with a dot, may be hidden in Finder/Explorer)
+
+   Easiest way: drag-and-drop all 6 files at once into the GitHub
+   repo file list, or use the "Add file > Upload files" button.
+
+4. Scroll down, type a commit message like "Add Tailwind precompile",
+   and click "Commit changes".
+
+5. Netlify will auto-detect the push and start building. Open your
+   Netlify dashboard → Deploys to watch it.
+     - Green "Published" badge in ~1–2 minutes = success.
+     - Red "Failed" = build error. Open the deploy, copy the log,
+       paste it to Claude.
+
+6. Once Published, visit datalabb.net and click around.
+     - Tab clicks should feel snappier.
+     - Watch for any element that looks unstyled (wrong color, missing
+       background, weird spacing). If you spot one, tell Claude which
+       part of the app it's in — quick safelist tweak fixes it.
+
+WHAT THIS CHANGES
+-----------------
+- index.html now loads styles.css (precompiled) instead of running
+  the Tailwind JIT compiler in your users' browsers.
+- The 5 new config files tell Netlify how to build styles.css from
+  input.css before publishing. You never have to install or run
+  anything yourself — Netlify does it on every push.
+
+ROLLING BACK
+------------
+If anything goes wrong and you want to revert:
+1. In index.html, change the <link rel="stylesheet" href="styles.css">
+   line back to:
+   <script src="https://cdn.tailwindcss.com"></script>
+2. Delete package.json, tailwind.config.js, netlify.toml, input.css
+   from the GitHub repo.
+3. Push.
+
+That brings you back to exactly the pre-Tailwind-precompile state.

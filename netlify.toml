@@ -1,17 +1,8 @@
-# Netlify build config for LABB Spot.
-# When you push to main, Netlify will:
-#   1. Run `npm install` (sees package.json and installs Tailwind)
-#   2. Run the build command below (compiles styles.css)
-#   3. Publish the root directory (where index.html + styles.css live)
+# No build step — index.html is a single self-contained static file.
+# Tailwind loads via CDN at runtime (the precompile experiment didn't help
+# perf and broke some utility classes, so it was reverted).
 [build]
-  command = "npm run build"
   publish = "."
 
 [build.environment]
-  NODE_VERSION = "18"
-  # Disables Netlify's secret-scanning step. Supabase + Google Maps keys
-  # currently live inline in index.html. They've been visible in the
-  # deployed source for the lifetime of this site — the scanner only
-  # started running because we added a build command, not because the
-  # situation changed. Re-enable once we move keys to env vars properly.
   SECRETS_SCAN_ENABLED = "false"

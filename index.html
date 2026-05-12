@@ -13798,6 +13798,14 @@ function uwScopeUpdatePhase(id, field, value) {
   const p = phases.find(p => p.id === id);
   if (!p) return;
   if (field === 'days') p.days = Math.max(0, parseFloat(value) || 0);
+  else if (field === 'realDays') {
+    // Real days — separate tracked value, doesn't affect the main timeline.
+    // Empty/zero clears the field so it falls back to estimated for Real
+    // Timeline rendering.
+    const n = parseFloat(value);
+    if (!isFinite(n) || n <= 0) delete p.realDays;
+    else p.realDays = Math.max(0, n);
+  }
   else if (field === 'name') p.name = String(value || '');
   else if (field === 'parallel') p.parallel = !!value;
   _uwSaveScopePhases();
@@ -13807,6 +13815,67 @@ function uwScopeUpdatePhase(id, field, value) {
   _uwRefreshScopePhaseEndDates();
 }
 window.uwScopeUpdatePhase = uwScopeUpdatePhase;
+
+// Set a phase's real completion date. Stores the date on
+// p.realCompletionDate AND derives p.realDays = (picked date − this
+// phase's start). The phase start uses, in priority order:
+//   1. The previous SEQUENTIAL phase's realCompletionDate (if set), OR
+//   2. The closing date + cumulative ESTIMATED days of prior phases.
+// This way users log dates sequentially as work completes; each phase's
+// "took X days" is the actual gap from the previous one's done-date.
+function uwScopeSetPhaseCompletionDate(inputEl) {
+  if (!inputEl) return;
+  const id          = inputEl.getAttribute('data-scope-phase-id');
+  const startOffset = parseInt(inputEl.getAttribute('data-scope-phase-startoffset') || '0', 10) || 0;
+  const dateStr     = inputEl.value || '';
+  if (!id) return;
+  const phases = _uwGetScopePhases();
+  if (!phases) return;
+  const p = phases.find(p => p.id === id);
+  if (!p) return;
+  // Clearing the field clears realCompletionDate + realDays.
+  if (!dateStr) {
+    delete p.realCompletionDate;
+    delete p.realDays;
+    _uwSaveScopePhases();
+    uwRenderScopeOfWork();
+    return;
+  }
+  // Closing date — same source the phase end-date labels use.
+  const u = _uwCurrentId ? ((cache.underwrites || {})[_uwCurrentId]) : null;
+  const closedOnStr = u && u.data && (u.data['uw-closed-on'] || u.data['uw-reno-start']);
+  if (!closedOnStr || !/^\d{4}-\d{2}-\d{2}/.test(closedOnStr)) {
+    if (typeof toast === 'function') toast('Set the Closed On date in Deal Status before logging completion dates.', 'warn');
+    return;
+  }
+  const parseDate = (s) => {
+    const [y, m, d] = s.slice(0, 10).split('-').map(Number);
+    return new Date(y, m - 1, d).getTime();
+  };
+  const closingMs = parseDate(closedOnStr);
+  const pickedMs  = parseDate(dateStr);
+  // Walk backward through prior sequential phases for the most recent one
+  // that has a realCompletionDate. That date is THIS phase's start.
+  const idx = phases.indexOf(p);
+  let phaseStartMs = closingMs + startOffset * 86400000;
+  for (let i = idx - 1; i >= 0; i--) {
+    const prev = phases[i];
+    if (prev && !prev.parallel && prev.realCompletionDate && /^\d{4}-\d{2}-\d{2}/.test(prev.realCompletionDate)) {
+      phaseStartMs = parseDate(prev.realCompletionDate);
+      break;
+    }
+  }
+  const diffDays = Math.round((pickedMs - phaseStartMs) / 86400000);
+  if (diffDays <= 0) {
+    if (typeof toast === 'function') toast('Pick a date AFTER this phase starts (after the last logged Done On, or after closing).', 'warn');
+    return;
+  }
+  p.realCompletionDate = dateStr;
+  p.realDays = diffDays;
+  _uwSaveScopePhases();
+  uwRenderScopeOfWork();
+}
+window.uwScopeSetPhaseCompletionDate = uwScopeSetPhaseCompletionDate;
 function uwScopeResetPhases() {
   if (!_uwCurrentId) return;
   if (!confirm('Reset phases to the default list? This will replace any custom phases you\'ve added.')) return;
@@ -13973,7 +14042,7 @@ function _uwRenderScopePhaseGantt() {
     html += '</div>';
     // End-date row underneath, aligned with each bar so every phase's date
     // is readable even when bars are narrow.
-    html += '<div style="display:flex;background:rgba(0,0,0,0.18);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;font-size:10px">';
+    html += '<div style="display:flex;background:rgba(0,0,0,0.18);border:1px solid var(--border);border-top:none;font-size:10px">';
     let cumulative2 = 0;
     sequential.forEach((p, i) => {
       const d = Number(p.days) || 0;
@@ -13982,6 +14051,29 @@ function _uwRenderScopePhaseGantt() {
       cumulative2 += d;
       const endLabel = fmtEnd(cumulative2);
       html += '<div style="width:' + widthPct + '%;min-width:90px;border-right:1px solid var(--border);text-align:right;padding:4px 6px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(p.name) + ' done by ' + escapeHtml(endLabel || '—') + '">' + escapeHtml(endLabel || '—') + '</div>';
+    });
+    html += '</div>';
+    // Always-on Real progress strip — thin colored bar attached under the
+    // date row. Each phase gets a segment matching its estimated-bar
+    // width; the segment fills with its phase color when realDays is
+    // logged, stays a dim placeholder otherwise. Lets the user eyeball
+    // actual progress against the estimate at a glance.
+    html += '<div style="display:flex;height:8px;background:rgba(0,0,0,0.28);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;overflow:hidden">';
+    sequential.forEach((p, i) => {
+      const d = Number(p.days) || 0;
+      if (d <= 0) return;
+      const widthPct = (d / totalDays) * 100;
+      const isReal = Number.isFinite(Number(p.realDays)) && Number(p.realDays) > 0;
+      const fillPct = isReal ? Math.min(100, (Number(p.realDays) / d) * 100) : 0;
+      const barColor = colorFor(i);
+      const tooltip = isReal
+        ? p.name + ' — actual ' + Number(p.realDays) + 'd vs estimated ' + d + 'd (' + Math.round(fillPct) + '% of est)'
+        : p.name + ' — no completion date logged yet';
+      html += '<div style="width:' + widthPct + '%;min-width:90px;border-right:1px solid rgba(0,0,0,0.3);position:relative" title="' + escapeHtml(tooltip) + '">';
+      if (isReal) {
+        html += '<div style="height:100%;width:' + fillPct + '%;background:' + barColor + '"></div>';
+      }
+      html += '</div>';
     });
     html += '</div></div>';
   }
@@ -14269,14 +14361,46 @@ function uwRenderScopeOfWork() {
       }
       return '<div style="padding:8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;min-width:0;overflow:visible;box-sizing:border-box">' +
         '<div style="display:flex;align-items:center;gap:8px">' +
-          '<input value="' + escapeHtml(p.name) + '" oninput="uwScopeUpdatePhase(\'' + safeId + '\',\'name\',this.value)" placeholder="Phase name" style="flex:1;font-size:13px;padding:5px 8px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:5px">' +
-          '<input type="number" value="' + days + '" min="0" step="1" oninput="uwScopeUpdatePhase(\'' + safeId + '\',\'days\',this.value)" style="width:80px;font-size:13px;padding:5px 8px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:5px;text-align:right">' +
+          // Stock phase names are read-only — they're fixed titles tied to
+          // the phase id (used by classifier, migration, normalization).
+          // Only user-added custom phases get an editable name input.
+          (['repossession','demo','restructure','mechanicals','cosmetics','cabinetry','punch-list','marketing'].includes(p.id)
+            ? '<div style="flex:1;font-size:13px;padding:5px 8px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(p.name) + '">' + escapeHtml(p.name) + '</div>'
+            : '<input value="' + escapeHtml(p.name) + '" oninput="uwScopeUpdatePhase(\'' + safeId + '\',\'name\',this.value)" placeholder="Phase name" style="flex:1;font-size:13px;padding:5px 8px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:5px">'
+          ) +
+          // Estimated days — locked for stock phases (auto-derived / standard
+          // durations), editable for user-added custom phases.
+          '<div style="display:flex;flex-direction:column;align-items:flex-end;line-height:1">' +
+            '<span style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Est</span>' +
+            (['repossession','demo','restructure','mechanicals','cosmetics','cabinetry','punch-list','marketing'].includes(p.id)
+              ? '<div style="width:70px;font-size:18px;padding:2px 8px;color:var(--text);font-weight:700;text-align:right;font-variant-numeric:tabular-nums" title="Locked — standard phase duration">' + days + '</div>'
+              : '<input type="number" value="' + days + '" min="0" step="1" oninput="uwScopeUpdatePhase(\'' + safeId + '\',\'days\',this.value)" style="width:70px;font-size:16px;padding:3px 6px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:5px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600">'
+            ) +
+          '</div>' +
+          // Real tracking — pick the DATE this phase finished and the
+          // system shows how many days it took. The "took" calc uses the
+          // previous phase's real completion date when available, else
+          // falls back to the project start (closing date) + cumulative
+          // estimated days of prior phases. Stored on p.realCompletionDate.
+          // p.realDays is derived (also written for the Real Timeline Gantt).
+          '<div style="display:flex;flex-direction:column;align-items:flex-end;line-height:1">' +
+            '<span style="font-size:9px;color:#10b981;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Done On</span>' +
+            '<input type="date" value="' + escapeHtml(p.realCompletionDate || '') + '" data-scope-phase-id="' + safeId + '" data-scope-phase-startoffset="' + (cumulative - days) + '" onchange="uwScopeSetPhaseCompletionDate(this)" style="font-size:13px;padding:3px 6px;background:var(--panel);border:1px solid #10b981;color:var(--text);border-radius:5px;font-variant-numeric:tabular-nums" title="Pick the date this phase actually completed.">' +
+          '</div>' +
+          // Read-only display of the calculated real days (took from the
+          // last phase's done-date, or from project start if none yet).
+          '<div data-scope-phase-tookdisplay="' + safeId + '" style="display:flex;flex-direction:column;align-items:flex-end;line-height:1;min-width:74px">' +
+            '<span style="font-size:9px;color:#10b981;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Took</span>' +
+            '<div style="font-size:18px;padding:2px 8px;color:#10b981;font-weight:700;text-align:right;font-variant-numeric:tabular-nums">' + (Number.isFinite(Number(p.realDays)) && Number(p.realDays) > 0 ? Number(p.realDays) + 'd' : '—') + '</div>' +
+          '</div>' +
           '<span class="text-xs" style="color:var(--text-dim)">days</span>' +
-          '<label class="text-xs" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap" title="If checked, this phase runs alongside the sequential timeline (e.g. exterior work happening in parallel with interior).">' +
-            '<input type="checkbox"' + (p.parallel ? ' checked' : '') + ' onchange="uwScopeUpdatePhase(\'' + safeId + '\',\'parallel\',this.checked)" style="width:auto"> Parallel' +
-          '</label>' +
           endLabel +
-          '<button class="btn btn-ghost text-xs" style="color:#f87171" onclick="uwScopeRemovePhase(\'' + safeId + '\')" title="Remove this phase">✕</button>' +
+          // Remove (✕) button — hidden for stock phases so they can't be
+          // accidentally deleted. Custom user-added phases still removable.
+          (['repossession','demo','restructure','mechanicals','cosmetics','cabinetry','punch-list','marketing'].includes(p.id)
+            ? ''
+            : '<button class="btn btn-ghost text-xs" style="color:#f87171" onclick="uwScopeRemovePhase(\'' + safeId + '\')" title="Remove this phase">✕</button>'
+          ) +
         '</div>' +
         itemsBlock +
       '</div>';

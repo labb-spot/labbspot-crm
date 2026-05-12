@@ -13288,23 +13288,10 @@ function uwSetStage(stage) {
   _uwIsPriority = false;
   _uwInChecking = false;
   const psEl = document.getElementById('uw-packet-status');
-  // Clicking any of the pre-offer stages (Help / Analyzing / Priority /
-  // Check / Analyzed) should ALSO clear the Offer Status — otherwise a
-  // deal that was previously Sent / Rejected / Accepted / Contracted /
-  // Inspection would still be filtered into the Offered (or Contracted /
-  // Inspection) top-bar tab and the user couldn't move it back to
-  // Analyzed. Resetting the offer-status field releases the deal from
-  // those derived tabs.
-  if (stage === 'help' || stage === 'analyzing' || stage === 'priority' ||
-      stage === 'checking' || stage === 'analyzed') {
-    const osEl = document.getElementById('uw-offer-status');
-    if (osEl && osEl.value) {
-      osEl.value = '';
-      osEl.dispatchEvent(new Event('change', { bubbles: true }));
-      if (typeof _uwUpdateOfferStatusButtons === 'function') _uwUpdateOfferStatusButtons();
-      if (typeof _uwRefreshHeaderStatus === 'function') _uwRefreshHeaderStatus();
-    }
-  }
+  // NOTE: stage changes (Help / Analyzing / Priority / Check / Analyzed)
+  // intentionally DO NOT clear the Offer Status — those two are now
+  // independent axes. A deal can be in Check AND have Offer Status =
+  // Rejected at the same time; both tabs (Check + Offered) will list it.
   if (stage === 'help')      _uwNeedsHelp = true;
   else if (stage === 'priority') _uwIsPriority = true;
   else if (stage === 'checking') _uwInChecking = true;

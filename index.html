@@ -6708,37 +6708,21 @@ function uwRecalc() {
   }
   // ===== Final ARV decision based on active comp mode =====
   // The Sold/Listed toggle in the panel headers picks which comp set drives
-  // ARV. Each mode is fully self-contained — its own override field wins if
-  // filled, otherwise its own auto value is used. The two override fields are
-  // strictly mode-locked: a Sold ARV Override does NOTHING while you're on
-  // Listed mode, and a Listed Override Real Value does NOTHING while you're
-  // on Sold mode. If the active side has no data at all, ARV is 0 (no
-  // cross-fallback) — switch the toggle or fill data on the active side.
+  // ARV for downstream math. Each mode is fully self-contained — its own
+  // override field wins if filled, otherwise its own auto value is used. The
+  // two override fields are strictly mode-locked: a Sold ARV Override does
+  // NOTHING while you're on Listed mode, and a Listed Override Real Value
+  // does NOTHING while you're on Sold mode.
+  //
+  // IMPORTANT: this block ONLY updates the internal `arv` variable used by
+  // downstream exit math. It does NOT overwrite the #uw-arv display field —
+  // that field is the "Estimated After Repair Value" reference (sold-comp
+  // $/SqFt × SqFt), set earlier in this function and left untouched here so
+  // the override doesn't visually replace the Estimated ARV the user sees.
   const _compsMode = window._uwCompsMode === 'listed' ? 'listed' : 'sold';
   arv = _compsMode === 'listed'
     ? (lrealOverride > 0 ? lrealOverride : autoRealValue)
     : (arvOverride   > 0 ? arvOverride   : autoArv);
-  // Reflect the chosen ARV in the readonly #uw-arv display so every consumer
-  // (downstream exits + the visible field) shows the same number.
-  const _arvDispEl = document.getElementById('uw-arv');
-  if (_arvDispEl) {
-    if (arv > 0) {
-      _arvDispEl.value = arv.toLocaleString();
-      if (_compsMode === 'listed') {
-        _arvDispEl.title = 'Comp toggle = Listed — using '
-          + (lrealOverride > 0 ? 'Override Real Value' : 'Estimated Real Value (90% of avg listed × SqFt)')
-          + ': $' + arv.toLocaleString();
-      } else if (arvOverride > 0) {
-        _arvDispEl.title = 'Using ARV Override: $' + arv.toLocaleString();
-      }
-      // else: title was already set above to the SqFt × avg sold $/SqFt explanation
-    } else {
-      _arvDispEl.value = '';
-      _arvDispEl.title = _compsMode === 'listed'
-        ? 'No listed-comp data on the active side — switch to Sold, or fill in Listed comps / Override Real Value.'
-        : 'No sold-comp data on the active side — switch to Listed, or fill in Sold comps / ARV Override.';
-    }
-  }
   // ===== Average Rent (mean of the 3 rental comps where rent > 0) =====
   // Rounded to whole dollars. Auto-fills the Rent /mo field for both rental
   // exits if the user hasn't typed an override there.

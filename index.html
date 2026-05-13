@@ -139,8 +139,6 @@
   .badge.warn { background: rgba(245,158,11,0.15); color: var(--warn); }
   .badge.bad { background: rgba(239,68,68,0.15); color: var(--bad); }
   .badge.brand { background: rgba(249,115,22,0.15); color: var(--brand); }
-  .badge.info  { background: rgba(56,189,248,0.15); color: #38bdf8; }  /* light blue — used for "Sent" offer status */
-  .badge.purple{ background: rgba(168,85,247,0.15); color: #a855f7; }  /* purple — used for "Inspection" offer status */
   .toast { position: fixed; bottom: 20px; right: 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; z-index: 200; opacity: 0; transition: opacity 0.2s; max-width: 400px; }
   .toast.show { opacity: 1; }
   .toast.ok { border-color: var(--good); }
@@ -183,7 +181,7 @@
        data-uw-warn="empty" → red ⚠   (field is empty / not filled out)
      The element's own title= explains the reason on hover. No DOM wrapping —
      works on plain <input>/<select>. */
-  [data-uw-warn="1"], [data-uw-warn="empty"], [data-uw-warn="ok"], [data-uw-warn="redflag"] {
+  [data-uw-warn="1"], [data-uw-warn="empty"], [data-uw-warn="ok"] {
     background-repeat: no-repeat !important;
     background-position: left 3px top 3px !important;
     padding-left: 15px !important;
@@ -201,18 +199,10 @@
   [data-uw-warn="ok"] {
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24"><path fill="%2310b981" d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>') !important;
   }
-  /* Hard-stop red caution — same red as "empty" but reserved for explicit
-     RED-flag warnings (e.g. Wood Foundation). Different value so the
-     existing "empty" semantic in comp logic isn't conflated with these. */
-  [data-uw-warn="redflag"] {
-    border-color: rgba(239, 68, 68, 0.55) !important;
-    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.20) !important;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24"><path fill="%23ef4444" d="M12 2L1 22h22L12 2zm0 4.5L19.5 20h-15L12 6.5zm-1 6v4h2v-4h-2zm0 5v2h2v-2h-2z"/></svg>') !important;
-  }
   /* For <select> elements specifically, the browser puts a chevron on the
      RIGHT — our top-left icon already dodges it, but make sure the
      padding-left doesn't push option text under our icon. */
-  select[data-uw-warn="1"], select[data-uw-warn="empty"], select[data-uw-warn="ok"], select[data-uw-warn="redflag"] {
+  select[data-uw-warn="1"], select[data-uw-warn="empty"], select[data-uw-warn="ok"] {
     padding-left: 14px !important;
   }
 
@@ -1027,7 +1017,7 @@
               <th style="padding:6px 10px;text-align:left">State</th>
               <th style="padding:6px 10px;text-align:left">ZIP</th>
               <th style="padding:6px 10px;text-align:left">Lists</th>
-              <th style="padding:6px 10px;text-align:left">Offer</th>
+              <th style="padding:6px 10px;text-align:left">Status</th>
               <th style="padding:6px 10px;text-align:left">Error reason</th>
               <th style="padding:6px 10px;text-align:right">Actions</th>
             </tr></thead>
@@ -1086,7 +1076,7 @@
               <th style="padding:6px 10px;text-align:left">City</th>
               <th style="padding:6px 10px;text-align:left">State</th>
               <th style="padding:6px 10px;text-align:left">ZIP</th>
-              <th style="padding:6px 10px;text-align:left">Offer</th>
+              <th style="padding:6px 10px;text-align:left">Status</th>
               <th style="padding:6px 10px;text-align:right">Actions</th>
             </tr></thead>
             <tbody id="uvs-tbody"></tbody>
@@ -1132,7 +1122,7 @@
               <th style="padding:6px 10px;text-align:left">City</th>
               <th style="padding:6px 10px;text-align:left">State</th>
               <th style="padding:6px 10px;text-align:left">ZIP</th>
-              <th style="padding:6px 10px;text-align:left">Offer</th>
+              <th style="padding:6px 10px;text-align:left">Status</th>
               <th style="padding:6px 10px;text-align:left">Source</th>
               <th style="padding:6px 10px;text-align:right">Actions</th>
             </tr></thead>
@@ -1191,7 +1181,7 @@
           <thead><tr style="position:sticky;top:0;background:var(--panel-2);z-index:1;color:var(--text-dim);text-transform:uppercase;font-size:10px;letter-spacing:0.5px">
             <th style="padding:6px 10px;text-align:left">Property address</th>
             <th style="padding:6px 10px;text-align:left">Mailing on file</th>
-            <th style="padding:6px 10px;text-align:left">Offer</th>
+            <th style="padding:6px 10px;text-align:left">Status</th>
             <th style="padding:6px 10px;text-align:left">Lists</th>
           </tr></thead>
           <tbody id="gap-nomail-tbody"></tbody>
@@ -1916,15 +1906,10 @@
     <div class="subtab subtab-compact" data-uwview="checking" onclick="goUwView('checking'); renderUnderwriteList();" title="Deals waiting for a second underwriter to double-check the math.">🕵️ Check <span id="uw-checking-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
     <div class="subtab subtab-compact" data-uwview="analyzed" onclick="goUwView('analyzed'); renderUnderwriteList();">✅ Analyzed <span id="uw-analyzed-count" class="badge ok" style="margin-left:3px;font-size:9px;display:none"></span></div>
     <div class="subtab subtab-compact" data-uwview="hot" onclick="goUwView('hot'); renderUnderwriteList();" title="Cross-cutting view: deals where Asking is BELOW Max Offer, OR within $15k, OR within 25% of Max Offer — i.e. priced within striking distance. Requires rehab to be priced first.">🔥 Hot <span id="uw-hot-count" class="badge bad" style="margin-left:3px;font-size:9px;display:none"></span></div>
-    </div>
-    <!-- Post-offer tabs — its own panel pill, formatted exactly like the
-         GIS Maps pill so it reads as a separate group from the main workflow
-         strip. Holds Offered / Inspection / Contracted / Closed. -->
-    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
-      <div class="subtab subtab-compact" data-uwview="offered" onclick="goUwView('offered'); renderUnderwriteList();">📤 Offered <span id="uw-offered-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
-      <div class="subtab subtab-compact" data-uwview="inspection" onclick="goUwView('inspection'); renderUnderwriteList();"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection <span id="uw-inspection-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
-      <div class="subtab subtab-compact" data-uwview="contracted" onclick="goUwView('contracted'); renderUnderwriteList();">📝 Contracted <span id="uw-contracted-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
-      <div class="subtab subtab-compact" data-uwview="closed" onclick="goUwView('closed'); renderUnderwriteList();">🏁 Closed <span id="uw-closed-count" class="badge ok" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact" data-uwview="offered" onclick="goUwView('offered'); renderUnderwriteList();">📤 Offered <span id="uw-offered-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact" data-uwview="inspection" onclick="goUwView('inspection'); renderUnderwriteList();"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection <span id="uw-inspection-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact" data-uwview="contracted" onclick="goUwView('contracted'); renderUnderwriteList();">📝 Contracted <span id="uw-contracted-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <div class="subtab subtab-compact" data-uwview="closed" onclick="goUwView('closed'); renderUnderwriteList();">🏁 Closed <span id="uw-closed-count" class="badge ok" style="margin-left:3px;font-size:9px;display:none"></span></div>
     </div>
   </div>
 
@@ -2044,13 +2029,11 @@
           <button type="button" data-uw-stage="analyzing"  onclick="uwSetStage('analyzing')"  style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🔍 Analyzing</button>
           <button type="button" data-uw-stage="priority"   onclick="uwSetStage('priority')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">⭐ Priority</button>
           <button type="button" data-uw-stage="checking"   onclick="uwSetStage('checking')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🕵️ Check</button>
-          <button type="button" data-uw-stage="analyzed"   onclick="uwSetStage('analyzed')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;white-space:nowrap;flex-shrink:0">✅ Analyzed</button>
-          <!-- Offered / Inspection / Contracted / Closed used to be buttons
-               here. They've been removed — those states are now driven by
-               the top-bar tabs (Offered/Inspection/Contracted/Closed) and
-               the Offer Status buttons inside Deal Status. Deals in those
-               states render as "Analyzed" in this strip so the per-deal
-               stage badge always reflects an action the user can change. -->
+          <button type="button" data-uw-stage="analyzed"   onclick="uwSetStage('analyzed')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">✅ Analyzed</button>
+          <button type="button" data-uw-stage="offered"    onclick="uwSetStage('offered')"    style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">📤 Offered</button>
+          <button type="button" data-uw-stage="inspection" onclick="uwSetStage('inspection')" style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection</button>
+          <button type="button" data-uw-stage="contracted" onclick="uwSetStage('contracted')" style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">📝 Contracted</button>
+          <button type="button" data-uw-stage="closed"     onclick="uwSetStage('closed')"     style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;white-space:nowrap;flex-shrink:0">🏁 Closed</button>
         </div>
         <!-- Phase mover — only visible when the calculator is opened from Renovation. Lets the user manually move this deal between renovation phases (overrides auto-detection). -->
         <div id="uw-reno-phase-selector" style="display:none;align-items:center;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:11px;flex-shrink:0" title="Manually move this deal to a different renovation phase. Overrides auto-detection until you click Auto.">
@@ -2072,64 +2055,10 @@
     <div class="panel p-5 mb-4" data-uw-section="deal-status" data-uw-section-label="📋 Deal Status">
       <div class="font-semibold text-base mb-3">📋 Deal Status</div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <!-- Offer Status — four offer-lifecycle states. The option VALUE
-             attributes preserve the original packet_status internal strings
-             (Submitted / Offered / Dead / Accepted) so existing list filters
-             and saved deals keep working without a migration. -->
-        <!-- Offer Status — 2×2 button grid (Needed / Sent / Rejected /
-             Accepted). Writes to a SEPARATE hidden field (uw-offer-status)
-             that does NOT affect which group/tab the deal appears in — it's
-             purely a label visible in the preview. The old #uw-packet-status
-             select is kept hidden so the workflow stage selector buttons
-             (Offered, Inspection, Contracted, Closed) keep writing to it
-             for their list-view routing. -->
-        <input type="hidden" id="uw-packet-status">
-        <input type="hidden" id="uw-offer-status">
-        <label class="text-xs">Offer Status
-          <!-- 6 buttons in a 3-col × 2-row grid:
-                 Row 1: Sent / Rejected / Accepted
-                 Row 2: Inspection / Contracted / Closed
-               "Needed" is the implicit default state — shown in the
-               header/preview when no button is active. -->
-          <div id="uw-offer-status-btns" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:4px">
-            <button type="button" data-offer-btn="Sent"       onclick="uwSetOfferStatus('Sent')"       style="padding:5px 4px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:11px;text-align:center">Sent</button>
-            <button type="button" data-offer-btn="Rejected"   onclick="uwSetOfferStatus('Rejected')"   style="padding:5px 4px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:11px;text-align:center">Rejected</button>
-            <button type="button" data-offer-btn="Accepted"   onclick="uwSetOfferStatus('Accepted')"   style="padding:5px 4px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:11px;text-align:center">Accepted</button>
-            <button type="button" data-offer-btn="Inspection" onclick="uwSetOfferStatus('Inspection')" style="padding:5px 4px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:11px;text-align:center">Inspection</button>
-            <button type="button" data-offer-btn="Contracted" onclick="uwSetOfferStatus('Contracted')" style="padding:5px 4px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:11px;text-align:center">Contracted</button>
-            <button type="button" data-offer-btn="Closed"     onclick="uwSetOfferStatus('Closed')"     style="padding:5px 4px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:6px;cursor:pointer;font-size:11px;text-align:center">Closed</button>
-          </div>
-        </label>
-        <!-- Bubble-style money inputs — taller and more rounded to visually
-             match the 2×2 Offer Status button grid in the cell beside them.
-             Height (~62px) matches the button grid's two-row stack; bigger
-             font-weight + larger font-size make the value read like a pill /
-             headline rather than a thin form field. -->
-        <!-- Bubble-style money inputs — custom wrapper instead of .uw-money
-             so the $ prefix sits IMMEDIATELY next to the number rather than
-             at the left edge of the bubble (the old .uw-money pattern used
-             a position:absolute ::before pseudo-element that floated to the
-             left, disconnected from the centered value). Here $ and input
-             are both flex children of the wrapper, justify-content: center,
-             so they group as one unit in the middle of the bubble. -->
-        <label class="text-xs">Asking Price
-          <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:54px;margin-top:4px;padding:0 14px;gap:3px">
-            <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
-            <input type="number" id="uw-asking" oninput="uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
-          </span>
-        </label>
-        <label class="text-xs">Offer
-          <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:54px;margin-top:4px;padding:0 14px;gap:3px">
-            <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
-            <input type="number" id="uw-offer" oninput="uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
-          </span>
-        </label>
-        <label class="text-xs">Accepted Price
-          <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:54px;margin-top:4px;padding:0 14px;gap:3px">
-            <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
-            <input type="number" id="uw-accepted" oninput="uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
-          </span>
-        </label>
+        <label class="text-xs">Packet Status<select id="uw-packet-status" onchange="uwRecalc(); _uwUpdateStageSelector && _uwUpdateStageSelector();" style="width:100%;margin-top:4px"><option value="">—</option><option>Evaluating</option><option>Submitted</option><option>Offered</option><option>Inspection</option><option>Accepted</option><option>Closed</option><option>Dead</option></select></label>
+        <label class="text-xs">Asking Price<span class="uw-money" style="margin-top:4px"><input type="number" id="uw-asking" oninput="uwRecalc()" placeholder="0" style="width:100%"></span></label>
+        <label class="text-xs">Offer<span class="uw-money" style="margin-top:4px"><input type="number" id="uw-offer" oninput="uwRecalc()" placeholder="0" style="width:100%"></span></label>
+        <label class="text-xs">Accepted Price<span class="uw-money" style="margin-top:4px"><input type="number" id="uw-accepted" oninput="uwRecalc()" placeholder="(seller's accepted price)" style="width:100%"></span></label>
         <!-- Row 2 cells use flex column + center so the value text vertically
              aligns with whatever the tallest cell renders (Closed On's date
              input in H/R, otherwise just the displays themselves). Without
@@ -2228,7 +2157,7 @@
         <label class="text-xs col-span-1 md:col-span-1">Lot Acres
           <span class="uw-suffix-ac" style="margin-top:4px"><input type="number" id="uw-lot-size" step="0.001" placeholder="0.18" oninput="_uwLotAcInput('uw-lot-size')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%"></span>
         </label>
-        <label class="text-xs col-span-1 md:col-span-1">Lot Sq Ft
+        <label class="text-xs col-span-1 md:col-span-2">Lot Sq Ft
           <span class="uw-suffix-sqft" style="margin-top:4px"><input type="number" id="uw-lot-size-sqft" step="1" placeholder="7,841" oninput="_uwLotSqftInput('uw-lot-size')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%"></span>
         </label>
         <label class="text-xs col-span-1 md:col-span-2">Building Material
@@ -2244,23 +2173,7 @@
             <option>Adobe</option>
           </select>
         </label>
-        <label class="text-xs col-span-1 md:col-span-2">Foundation Type
-          <!-- Caution badge mirrors the comp warn system (corner icon +
-               border glow): amber ⚠ for older / quirky foundations,
-               red ⚠ for the lender-killer Wood Foundation. -->
-          <select id="uw-prop-foundation" oninput="_uwUpdateFoundationCaution()" title="Foundation / substructure type. Property-info only — not used by comps." style="width:100%;margin-top:4px">
-            <option value="">—</option>
-            <option>Slab</option>
-            <option>Crawl Space</option>
-            <option>Basement (Full)</option>
-            <option>Basement (Partial)</option>
-            <option>Pier &amp; Beam</option>
-            <option>Stem Wall</option>
-            <option>Post &amp; Pier</option>
-            <option>Wood Foundation</option>
-          </select>
-        </label>
-        <label class="text-xs col-span-1 md:col-span-1">Parking Status<select id="uw-prop-parking" style="width:100%;margin-top:4px"><option value="">—</option><option>Driveway</option><option>Detached Garage</option><option>Attached Garage</option><option>Carport</option><option>Street Only</option><option>None</option></select></label>
+        <label class="text-xs col-span-1 md:col-span-2">Parking Status<select id="uw-prop-parking" style="width:100%;margin-top:4px"><option value="">—</option><option>Driveway</option><option>Detached Garage</option><option>Attached Garage</option><option>Carport</option><option>Street Only</option><option>None</option></select></label>
         <label class="text-xs col-span-1 md:col-span-2">Property Type<select id="uw-prop-type" style="width:100%;margin-top:4px"><option value="">—</option><option>Single Family</option><option>Duplex</option><option>Triplex</option><option>Quad</option><option>Multi-Family 5+</option><option>Condo</option><option>Townhouse</option><option>Land</option></select></label>
         <label class="text-xs col-span-1 md:col-span-1">Units<input type="number" id="uw-units" value="1" min="1" step="1" oninput="_uwSyncUnits('property'); uwRecalc()" style="width:100%;margin-top:4px"></label>
       </div>
@@ -2308,12 +2221,19 @@
       <button type="button" data-folder-subtab="evaluation" onclick="uwSetFolderSubtab('evaluation')" style="flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:#6366f1;color:white;font-weight:600;cursor:pointer;font-size:13px" title="Comparable sales, listings, rentals, and external research links — the data that drives ARV and market sense.">📊 Evaluation</button>
       <button type="button" data-folder-subtab="renovation" onclick="uwSetFolderSubtab('renovation')" style="flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-weight:600;cursor:pointer;font-size:13px" title="Condition checklist + rehab calculator — assess what needs work and budget the cost.">🔨 Renovation</button>
       <button type="button" data-folder-subtab="strategy" onclick="uwSetFolderSubtab('strategy')" style="flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-weight:600;cursor:pointer;font-size:13px" title="Best exit strategy comparison — wholesale, wholetail, flip, rental.">🎯 Strategy</button>
-      <button type="button" data-folder-subtab="budget" onclick="uwSetFolderSubtab('budget')" style="flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-weight:600;cursor:pointer;font-size:13px;display:none" title="Combined Budget + Scope of Work — actual spending vs. budget, plus the itemized scope and phase timelines. Visible only when the calculator is opened from Holdings or Renovation.">💰 Budget &amp; Scope</button>
+      <button type="button" data-folder-subtab="budget" onclick="uwSetFolderSubtab('budget')" style="flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-weight:600;cursor:pointer;font-size:13px;display:none" title="Deal budget — costs, financing, profit projections. Visible only when the calculator is opened from Holdings or Renovation.">💰 Budget</button>
+      <button type="button" data-folder-subtab="scope" onclick="uwSetFolderSubtab('scope')" style="flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-weight:600;cursor:pointer;font-size:13px;display:none" title="Scope of Work — itemized list of rehab tasks plus free-form notes. Visible only when the calculator is opened from Holdings or Renovation.">🛠 Scope of Work</button>
     </div>
 
     <!-- ===== 4. Comparable Sold Properties ===== -->
     <div class="panel p-5 mb-4" data-uw-section="sold-comps" data-uw-section-label="💰 Comparable Sold Properties">
-      <div class="font-semibold text-base mb-3">💰 Comparable Sold Properties <span class="text-xs" style="color:var(--text-dim);font-weight:normal">(drives After Repair Value)</span></div>
+      <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <div class="font-semibold text-base">💰 Comparable Sold Properties <span class="text-xs" style="color:var(--text-dim);font-weight:normal">(drives After Repair Value)</span></div>
+        <label class="text-xs" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;color:var(--text-dim);white-space:nowrap" title="Use Sold comps as the active comp set. Mutually exclusive with Listed.">
+          <input type="checkbox" id="uw-comps-using-sold" checked onchange="uwSetCompsMode('sold', this)" style="width:14px;height:14px;cursor:pointer;accent-color:#10b981">
+          <span>Using Sold</span>
+        </label>
+      </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
         <label class="text-xs" title="Auto-computed: average $/SqFt of the 3 sold comps below. Drives the Estimated After Repair Value to the right.">Average Sold Price Per SqFt
           <span class="uw-money" style="margin-top:4px">
@@ -2407,7 +2327,13 @@
 
     <!-- ===== Comparable Listed Properties (active listings — informational only, not in ARV calc) ===== -->
     <div class="panel p-5 mb-4" data-uw-section="listed-comps" data-uw-section-label="🏷️ Comparable Listed Properties">
-      <div class="font-semibold text-base mb-3">🏷️ Comparable Listed Properties <span class="text-xs" style="color:var(--text-dim);font-weight:normal">(active listings — gauge market sentiment)</span></div>
+      <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <div class="font-semibold text-base">🏷️ Comparable Listed Properties <span class="text-xs" style="color:var(--text-dim);font-weight:normal">(active listings — gauge market sentiment)</span></div>
+        <label class="text-xs" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;color:var(--text-dim);white-space:nowrap" title="Use Listed comps as the active comp set. Mutually exclusive with Sold.">
+          <input type="checkbox" id="uw-comps-using-listed" onchange="uwSetCompsMode('listed', this)" style="width:14px;height:14px;cursor:pointer;accent-color:#10b981">
+          <span>Using Listed</span>
+        </label>
+      </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
         <label class="text-xs" title="Auto-computed: average $/SqFt of the 3 active listings below (each list price ÷ its SqFt). Drives the Estimated Listed Value to the right.">Average Listed Price Per SqFt
           <span class="uw-money" style="margin-top:4px">
@@ -2503,6 +2429,61 @@
         </div>
       </div>
     </div>
+
+    <!-- ===== Comps mode toggle (Sold ↔ Listed mutually-exclusive checkboxes) =====
+         The Sold and Listed panel headers each have a checkbox; this script keeps
+         them mutually exclusive and persists the choice in localStorage.
+         Default is "sold". Re-clicking the already-active checkbox keeps it on
+         (you can never end up with neither selected). The picked mode is exposed
+         as window._uwCompsMode and as data-comps-mode on <body> so other code or
+         CSS can react if needed. -->
+    <script>
+      (function(){
+        var STORAGE_KEY = 'uwCompsMode';
+        function apply(mode, opts){
+          opts = opts || {};
+          var sold   = document.getElementById('uw-comps-using-sold');
+          var listed = document.getElementById('uw-comps-using-listed');
+          if (!sold || !listed) return;
+          if (mode !== 'sold' && mode !== 'listed') mode = 'sold';
+          sold.checked   = (mode === 'sold');
+          listed.checked = (mode === 'listed');
+          window._uwCompsMode = mode;
+          if (document.body) document.body.setAttribute('data-comps-mode', mode);
+          if (opts.persist !== false) {
+            try { localStorage.setItem(STORAGE_KEY, mode); } catch(e){}
+          }
+          // Trigger a full recalc so every exit that reads uw-arv refreshes
+          // immediately (Wholesale, Wholetail, Flip, Rentals, etc.).
+          if (opts.recalc !== false && typeof window.uwRecalc === 'function') {
+            try { window.uwRecalc(); } catch(e){}
+          }
+        }
+        // Called from the checkbox onchange. `el` is the checkbox the user clicked.
+        window.uwSetCompsMode = function(mode, el){
+          // If the user just unchecked the currently-active box, force it back on —
+          // we always require exactly one to be selected.
+          if (el && !el.checked) {
+            apply(mode);
+            return;
+          }
+          apply(mode);
+        };
+        function init(){
+          var saved = null;
+          try { saved = localStorage.getItem(STORAGE_KEY); } catch(e){}
+          // Don't fire recalc during init — uwRecalc runs on its own at startup
+          // and we don't want to double-fire (or fire before the rest of the DOM
+          // and state variables it depends on are ready).
+          apply(saved === 'listed' ? 'listed' : 'sold', { persist:false, recalc:false });
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', init);
+        } else {
+          init();
+        }
+      })();
+    </script>
 
     <!-- ===== Rental Comparable Properties (extracted from Rental Analysis so all comps live together) ===== -->
     <div class="panel p-5 mb-4" data-uw-section="rental-comps" data-uw-section-label="🏘️ Rental Comparable Properties">
@@ -2797,14 +2778,9 @@
                 <option value="annual">Annual Lease</option>
               </select>
             </label>
-            <!-- FIXED width slot so the Occupancy + Tenancy dropdowns to
-                 the left don't shift when this value changes between "+0
-                 days" and "+60 Day Repossession". Width is locked at 220px
-                 (wide enough for the longest possible text) and font-size
-                 reduced slightly so the long label still fits cleanly. -->
-            <div class="text-xs" style="color:var(--text-dim);text-align:right;line-height:1.3;width:220px;flex-shrink:0;flex-grow:0">
+            <div class="text-xs" style="color:var(--text-dim);text-align:right;line-height:1.3">
               <div>Timeline Adjustment</div>
-              <div id="rc-occ-adjust" style="font-family:monospace;font-weight:700;font-size:15px;color:#fdba74;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">+0 days</div>
+              <div id="rc-occ-adjust" style="font-family:monospace;font-weight:700;font-size:18px;color:#fdba74;margin-top:2px">+0 days</div>
             </div>
           </div>
         </div>
@@ -2868,30 +2844,12 @@
       <!-- ===== Schedule ===== -->
       <div class="panel p-5 mb-3">
         <div class="cat-header" style="color:#67e8f9">PROJECT SCHEDULE ESTIMATE</div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-          <!-- Repossession → Calendar Days → Listing Time → Total Time -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
           <div class="stat"><div class="stat-label">Repossession</div><div class="stat-value" style="color:#fdba74" id="s-rep">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-rep-sub">vacant · none</div></div>
-          <!-- Renovation w/ Crew — merged the old "With Crew" + "Calendar
-               Days" cards into one. Label shows the active crew size; value
-               is the calendar days (after the 30% bottleneck buffer);
-               subtext shows the underlying "X work days + 30% buffer" so
-               the user can see how the buffered value was derived. -->
-          <div class="stat"><div class="stat-label" id="s-cal-label">Renovation w/ Crew</div><div class="stat-value" style="color:#fb923c" id="s-cal">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-cal-sub">0 work days + 30% buffer</div></div>
-          <!-- Listing time — pulled from Strategy → Timeline (Flip + Refi)'s
-               "Listed time" input (uw-fl-listed-mo, default 2.5 mo). -->
-          <div class="stat"><div class="stat-label">Listing Time</div><div class="stat-value" style="color:#a78bfa" id="s-listed">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-listed-sub">market default</div></div>
-          <!-- Total Time — the WHOLE hold period: repossession + reno (with
-               time buffer) + listing. This is the headline number for the
-               full project schedule. -->
-          <div class="stat"><div class="stat-label">Total Time</div><div class="stat-value" style="color:#10b981" id="s-total">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-total-sub">~0 weeks</div></div>
-          <!-- Hidden elements kept for downstream code that still reads
-               them (s-raw, s-crew, s-fin, s-weeks). The renaming is purely
-               visual — the underlying calc still updates these. -->
-          <span id="s-raw"      style="display:none">0</span>
-          <span id="s-crew"     style="display:none">0</span>
-          <span id="s-crew-sub" style="display:none"></span>
-          <span id="s-fin"      style="display:none">0</span>
-          <span id="s-weeks"    style="display:none"></span>
+          <div class="stat"><div class="stat-label">Raw Labor Days</div><div class="stat-value" style="color:#22d3ee" id="s-raw">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px">@ 1 worker, 8hr/day</div></div>
+          <div class="stat"><div class="stat-label">With Crew (parallel)</div><div class="stat-value" style="color:#60a5fa" id="s-crew">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-crew-sub">w/ 3 workers</div></div>
+          <div class="stat"><div class="stat-label">Calendar Days</div><div class="stat-value" style="color:#fb923c" id="s-cal">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px">+30% bottlenecks</div></div>
+          <div class="stat"><div class="stat-label">Final w/ Time Buffer</div><div class="stat-value" style="color:#f43f5e" id="s-fin">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-weeks">~0 weeks</div></div>
         </div>
         <div style="padding:12px 14px;background:rgba(6,182,212,0.10);border:1px solid #06b6d4;border-radius:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">
           <div class="text-xs" style="color:#67e8f9">📅 Estimated Project Duration</div>
@@ -3150,13 +3108,13 @@
       </div>
     </div>
 
-    <!-- ===== Budget & Scope (folder subtab: 💰 Budget & Scope) =====
-         Visible only inside Holdings/Renovation. Combines the Budget widget
-         (progress bars, items list, actual spending) with the Scope of Work
-         (items list, phase timelines, notes) — previously two separate
-         panels, merged into one for less scrolling and a tighter workflow. -->
-    <div class="panel p-5 mb-4" data-uw-section="budget-overview" data-uw-section-label="💰 Budget &amp; Scope">
-      <div class="font-semibold text-lg mb-3">💰 Budget &amp; Scope</div>
+    <!-- ===== Budget (folder subtab: 💰 Budget) =====
+         Visible only inside Holdings/Renovation. Mirrors the rehab items
+         currently checked in the Renovation rehab calculator and lets the
+         user fill in actual amounts spent. The Budget Use progress bar is
+         computed (read-only) — it moves as actual amounts are entered. -->
+    <div class="panel p-5 mb-4" data-uw-section="budget-overview" data-uw-section-label="💰 Budget">
+      <div class="font-semibold text-lg mb-3">💰 Budget</div>
 
       <!-- Budget Use: read-only progress bar -->
       <div class="mb-5">
@@ -3195,55 +3153,49 @@
       <!-- Items list — populated from currently-checked rehab items. -->
       <div id="uw-budget-items"></div>
 
-      <div class="text-xs mt-4 mb-2" style="color:var(--text-dim)">
+      <div class="text-xs mt-4" style="color:var(--text-dim)">
         Items shown here are the ones checked in the <b>🔨 Renovation</b> rehab calculator.
         Budgeted = $/SF × property sqft. Enter what you actually spent per item — the bar updates automatically and stays read-only.
       </div>
+    </div>
 
-      <!-- ===== SCOPE OF WORK (merged into Budget & Scope) ===== -->
-      <!-- Scope of Work content was previously its own panel; merged in here
-           so the user has one combined Budget & Scope section instead of
-           jumping between two. The IDs (uw-scope-items, uw-scope-count,
-           uw-scope-phase-gantt, uw-scope-phase-list, uw-scope-phase-summary,
-           uw-scope-notes) are unchanged — every JS function that reads/
-           writes them keeps working without edits. -->
-      <div style="padding-top:18px;margin-top:18px;border-top:2px solid var(--border)">
-        <div class="font-semibold text-lg mb-2">🛠 Scope of Work</div>
-        <div class="text-xs mb-4" style="color:var(--text-dim)">Itemized list of every task checked in the Rehab Calculator, plus a free-form notes field for anything not covered above (contractor names, permit numbers, special instructions).</div>
+    <!-- ===== Scope of Work ===== -->
+    <div class="panel p-5 mb-4" data-uw-section="scope-of-work" data-uw-section-label="🛠 Scope of Work">
+      <div class="font-semibold text-lg mb-2">🛠 Scope of Work</div>
+      <div class="text-xs mb-4" style="color:var(--text-dim)">Itemized list of every task checked in the Rehab Calculator, plus a free-form notes field for anything not covered above (contractor names, permit numbers, special instructions).</div>
 
-        <!-- Auto-generated list of needed rehab items -->
-        <div class="mb-4">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:8px">
-            <span style="color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Items from Rehab Calculator</span>
-            <span id="uw-scope-count" style="font-size:11px;color:var(--text-dim)">0 items</span>
-          </div>
-          <div id="uw-scope-items" style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;min-height:48px;align-items:center">
-            <span class="text-xs" style="color:var(--text-dim)">No items checked yet — open the 🔨 Renovation tab and tick what needs work.</span>
-          </div>
+      <!-- Auto-generated list of needed rehab items -->
+      <div class="mb-4">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:8px">
+          <span style="color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Items from Rehab Calculator</span>
+          <span id="uw-scope-count" style="font-size:11px;color:var(--text-dim)">0 items</span>
         </div>
-
-        <!-- Phase timelines -->
-        <div class="mb-4" style="padding-top:14px;border-top:1px solid var(--border)">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:8px">
-            <span style="color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Phase Timelines</span>
-            <span id="uw-scope-phase-summary" style="font-size:11px;color:var(--text-dim)">—</span>
-          </div>
-          <div class="text-xs mb-3" style="color:var(--text-dim)">Each phase has its own duration. Sequential phases run one after another. Parallel phases (e.g., exterior work) run alongside the sequential timeline — total project time = max(sequential, parallel).</div>
-          <div id="uw-scope-phase-gantt" style="margin-bottom:14px"></div>
-          <div id="uw-scope-phase-list" style="display:flex;flex-direction:column;gap:6px"></div>
-          <button class="btn btn-primary text-sm" onclick="uwScopeAutoFillFromRehab()" style="margin-top:10px" title="Read your checked rehab items and auto-set each phase's days. Planning + Restructure go to 0 if no drain lines, supply lines, electrical wiring, or septic items are checked. Roof / siding / fascia / gutters roll into Mechanicals.">✨ Auto-fill from Rehab</button>
-          <button class="btn text-sm" style="margin-top:10px;margin-left:6px;background:#ef4444;color:white;border:1px solid #dc2626" onclick="uwScopeAddRepossession()" title="Add a 60-day Repossession phase at the start of the timeline — for evictions or getting an existing tenant out before any work can begin. Click again on an existing Repossession phase to remove it.">🚪 Add Repossession (60d)</button>
-          <button class="btn btn-ghost text-sm" onclick="uwScopeAddPhase()" style="margin-top:10px;margin-left:6px">+ Add phase</button>
-          <button class="btn btn-ghost text-sm" onclick="uwScopeResetPhases()" style="margin-top:10px;margin-left:6px;color:var(--text-dim)" title="Reset to the default 6-phase list (Demo → Planning → Restructure → Mechanicals → Cosmetics → Punch List).">↺ Reset to defaults</button>
+        <div id="uw-scope-items" style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;min-height:48px;align-items:center">
+          <span class="text-xs" style="color:var(--text-dim)">No items checked yet — open the 🔨 Renovation tab and tick what needs work.</span>
         </div>
+      </div>
 
-        <!-- Free-form notes -->
-        <div style="padding-top:14px;border-top:1px solid var(--border)">
-          <label style="display:block">
-            <span style="display:block;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px">Additional Notes</span>
-            <textarea id="uw-scope-notes" rows="6" placeholder="Contractor name, permit numbers, materials notes, sequencing, anything else worth tracking…" style="width:100%;padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;resize:vertical;font-family:inherit"></textarea>
-          </label>
+      <!-- Phase timelines -->
+      <div class="mb-4" style="padding-top:14px;border-top:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:8px">
+          <span style="color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Phase Timelines</span>
+          <span id="uw-scope-phase-summary" style="font-size:11px;color:var(--text-dim)">—</span>
         </div>
+        <div class="text-xs mb-3" style="color:var(--text-dim)">Each phase has its own duration. Sequential phases run one after another. Parallel phases (e.g., exterior work) run alongside the sequential timeline — total project time = max(sequential, parallel).</div>
+        <div id="uw-scope-phase-gantt" style="margin-bottom:14px"></div>
+        <div id="uw-scope-phase-list" style="display:flex;flex-direction:column;gap:6px"></div>
+        <button class="btn btn-primary text-sm" onclick="uwScopeAutoFillFromRehab()" style="margin-top:10px" title="Read your checked rehab items and auto-set each phase's days. Planning + Restructure go to 0 if no drain lines, supply lines, electrical wiring, or septic items are checked. Roof / siding / fascia / gutters roll into Mechanicals.">✨ Auto-fill from Rehab</button>
+        <button class="btn text-sm" style="margin-top:10px;margin-left:6px;background:#ef4444;color:white;border:1px solid #dc2626" onclick="uwScopeAddRepossession()" title="Add a 60-day Repossession phase at the start of the timeline — for evictions or getting an existing tenant out before any work can begin. Click again on an existing Repossession phase to remove it.">🚪 Add Repossession (60d)</button>
+        <button class="btn btn-ghost text-sm" onclick="uwScopeAddPhase()" style="margin-top:10px;margin-left:6px">+ Add phase</button>
+        <button class="btn btn-ghost text-sm" onclick="uwScopeResetPhases()" style="margin-top:10px;margin-left:6px;color:var(--text-dim)" title="Reset to the default 6-phase list (Demo → Planning → Restructure → Mechanicals → Cosmetics → Punch List).">↺ Reset to defaults</button>
+      </div>
+
+      <!-- Free-form notes -->
+      <div style="padding-top:14px;border-top:1px solid var(--border)">
+        <label style="display:block">
+          <span style="display:block;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px">Additional Notes</span>
+          <textarea id="uw-scope-notes" rows="6" placeholder="Contractor name, permit numbers, materials notes, sequencing, anything else worth tracking…" style="width:100%;padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;resize:vertical;font-family:inherit"></textarea>
+        </label>
       </div>
     </div>
 
@@ -3283,14 +3235,14 @@
         </div>
       </div>
       <div id="uw-analyzing-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
-        Nothing in analyzing. Underwrite one in the Deal Calculator and click 💾 Save (leave Offer Status blank or set to "Evaluating").
+        Nothing in analyzing. Underwrite one in the Deal Calculator and click 💾 Save (leave Packet Status blank or set to "Evaluating").
       </div>
       <div class="overflow-auto" style="max-height:600px">
         <table style="width:100%;font-size:13px">
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Offer</th>
+              <th style="padding:8px 10px;text-align:left">Status</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3351,7 +3303,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Offer</th>
+              <th style="padding:8px 10px;text-align:left">Status</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3405,14 +3357,14 @@
         </div>
       </div>
       <div id="uw-analyzed-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
-        Nothing analyzed yet. A deal moves here when you set its Offer Status to "Needed" or "Rejected".
+        Nothing analyzed yet. A deal moves here when you set its Packet Status to Submitted or Dead.
       </div>
       <div class="overflow-auto" style="max-height:600px">
         <table style="width:100%;font-size:13px">
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Offer</th>
+              <th style="padding:8px 10px;text-align:left">Status</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3471,7 +3423,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Offer</th>
+              <th style="padding:8px 10px;text-align:left">Status</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3520,14 +3472,14 @@
         </div>
       </div>
       <div id="uw-offered-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
-        Nothing offered yet. A deal moves here when you click 📤 Offered on its workflow header (or set its Offer Status to <b>Sent</b>).
+        Nothing offered yet. A deal moves here when you set its Packet Status to <b>Offered</b>.
       </div>
       <div class="overflow-auto" style="max-height:600px">
         <table style="width:100%;font-size:13px">
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Offer</th>
+              <th style="padding:8px 10px;text-align:left">Status</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3578,14 +3530,14 @@
         </div>
       </div>
       <div id="uw-inspection-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
-        Nothing in inspection. A deal moves here when you click 📷 Inspection on its workflow header.
+        Nothing in inspection. A deal moves here when you set its Packet Status to <b>Inspection</b> (or click 📷 Inspection in the workflow stage selector at the top of any deal).
       </div>
       <div class="overflow-auto" style="max-height:600px">
         <table style="width:100%;font-size:13px">
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Offer</th>
+              <th style="padding:8px 10px;text-align:left">Status</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3641,7 +3593,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Offer</th>
+              <th style="padding:8px 10px;text-align:left">Status</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3697,7 +3649,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Offer</th>
+              <th style="padding:8px 10px;text-align:left">Status</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3756,7 +3708,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Offer</th>
+              <th style="padding:8px 10px;text-align:left">Status</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3815,7 +3767,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Offer</th>
+              <th style="padding:8px 10px;text-align:left">Status</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -3874,7 +3826,7 @@
           <thead>
             <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
-              <th style="padding:8px 10px;text-align:left">Offer</th>
+              <th style="padding:8px 10px;text-align:left">Status</th>
               <th style="padding:8px 10px;text-align:right">Rent</th>
               <th style="padding:8px 10px;text-align:right">ARV</th>
               <th style="padding:8px 10px;text-align:right">Asking</th>
@@ -5712,6 +5664,10 @@ async function _uwExecuteImport(headers, dataRows, mapping) {
 window._uwExecuteImport = _uwExecuteImport;
 
 function uwNewDeal() {
+  // FLUSH any pending autosave for the deal currently in the form before we
+  // wipe the inputs — otherwise the previous deal's last edit (e.g. a stage
+  // change to Checking) gets lost when its 1.2s debounce gets cancelled.
+  if (typeof _uwFlushAutosave === 'function') _uwFlushAutosave();
   // Reset all inputs to defaults without confirm prompt
   document.querySelectorAll('#uwview-calculator input, #uwview-calculator select').forEach(el => {
     el.value = el.defaultValue || '';
@@ -5768,7 +5724,7 @@ function uwNewDeal() {
   // Reset Rehab Calculator layout to the default 3 columns (all unchecked)
   _uwRehabState = []; if (typeof window._rcResetToDefaults === 'function') window._rcResetToDefaults();
   if (typeof uwRenderRehabCalculator === 'function') uwRenderRehabCalculator();
-  if (_uwAutosaveTimer) { clearTimeout(_uwAutosaveTimer); _uwAutosaveTimer = null; }
+  // (autosave flush already happened at the top of this function)
   const idEl = document.getElementById('uw-current-id');
   if (idEl) idEl.textContent = '🆕 New (unsaved)';
   const titleEl = document.getElementById('uw-detail-title');
@@ -6421,35 +6377,11 @@ function _uwUpdateCompCautions() {
 }
 window._uwUpdateCompCautions = _uwUpdateCompCautions;
 
-// Foundation Type caution badge — same data-uw-warn corner-icon system
-// the comps use, applied to the Property Info > Foundation select.
-//   amber ⚠  ("1")       → Basement (Partial), Pier & Beam, Post & Pier
-//                          (older / quirky; budget for leveling work)
-//   red ⚠   ("redflag")  → Wood Foundation (lender red flag, limited
-//                          resale, often a rot risk)
-// Other foundation types (Slab, Crawl Space, Basement (Full), Stem Wall)
-// or empty → no badge.
-function _uwUpdateFoundationCaution() {
-  const el = document.getElementById('uw-prop-foundation');
-  if (!el) return;
-  const v = (el.value || '').trim();
-  if (v === 'Wood Foundation') {
-    el.setAttribute('data-uw-warn', 'redflag');
-    el.title = '🚨 Wood Foundation — lender red flag (FHA/VA usually deny, conventional often won\'t finance), limited resale to cash buyers, common rot risk. Verify it\'s actually wood (not just wood-paneled basement walls inside a concrete foundation) and discount the offer.';
-  } else if (v === 'Basement (Partial)' || v === 'Pier & Beam' || v === 'Post & Pier') {
-    el.setAttribute('data-uw-warn', '1');
-    if (v === 'Basement (Partial)') el.title = '⚠ Partial basement — often means added-on / hillside / irregular layout. Investigate why before buying.';
-    else if (v === 'Pier & Beam')    el.title = '⚠ Pier & Beam — older Southern construction. Easy to work under but can settle over time. Budget for leveling.';
-    else                             el.title = '⚠ Post & Pier — older / simpler raised foundation. Often pre-1950s, can have settling. Plan for releveling work.';
-  } else {
-    el.removeAttribute('data-uw-warn');
-    el.title = 'Foundation / substructure type. Property-info only — not used by comps.';
-  }
-}
-window._uwUpdateFoundationCaution = _uwUpdateFoundationCaution;
-
 function uwReset() {
   if (!confirm('Clear all underwriting inputs?')) return;
+  // FLUSH any pending autosave for the deal currently in the form before we
+  // wipe the inputs — same reasoning as uwNewDeal/uwLoadById.
+  if (typeof _uwFlushAutosave === 'function') _uwFlushAutosave();
   document.querySelectorAll('#uwview-calculator input, #uwview-calculator select').forEach(el => {
     if (el.type === 'number') el.value = el.defaultValue || '';
     else el.value = el.defaultValue || '';
@@ -6502,7 +6434,7 @@ function uwReset() {
   // Reset Rehab Calculator layout to the default 3 columns (all unchecked)
   _uwRehabState = []; if (typeof window._rcResetToDefaults === 'function') window._rcResetToDefaults();
   if (typeof uwRenderRehabCalculator === 'function') uwRenderRehabCalculator();
-  if (_uwAutosaveTimer) { clearTimeout(_uwAutosaveTimer); _uwAutosaveTimer = null; }
+  // (autosave flush already happened at the top of this function)
   const idEl = document.getElementById('uw-current-id');
   if (idEl) idEl.textContent = '';
   uwRecalc();
@@ -6592,18 +6524,16 @@ function uwRecalc() {
       ? sqft.toLocaleString() + ' SqFt × $' + effectiveASqft.toFixed(2) + '/SqFt = $' + autoArv.toLocaleString() + ' (rounded to nearest $1,000)'
       : 'Fills automatically once Total Livable SqFt and at least one sold-comp $/SqFt are entered.';
   }
-  // Effective ARV used in all downstream math. Priority chain (top wins):
-  //   1) ARV Override (manual entry from sold-comp panel)
-  //   2) Auto ARV from sold-comp $/SqFt × subject SqFt
-  //   3) Override Real Value from listed-comp panel  ← fallback only when 1+2 empty
-  //   4) Estimated Real Value from listed-comp panel (90% of avg listed × SqFt)
-  // The listed-comp tier (3+4) is only used when there's NO sold-comp data and
-  // NO ARV override, so a property with no recent sales can still be analyzed
-  // off the listings instead of returning 0.
-  // The listed-comp values (lrealOverride, autoRealValue) get computed below;
-  // we apply the fallback after they're known.
+  // Effective ARV used in all downstream math. The active comp mode (Sold or
+  // Listed, set by the toggle in the panel headers) decides which override and
+  // auto value apply — overrides are mode-locked so the Sold Override only
+  // matters in Sold mode, the Listed Override only matters in Listed mode.
+  // Final priority within each mode:
+  //   Sold:   ARV Override (uw-arv-override) > auto sold-comp $/SqFt × SqFt
+  //   Listed: Override Real Value (uw-lreal-override) > 90% of avg listed × SqFt
+  // The final decision happens below, after the listed-comp values are computed.
   const arvOverride = _uwGetN('uw-arv-override');
-  let arv = arvOverride > 0 ? arvOverride : autoArv;
+  let arv = 0; // deferred — set in the mode-aware decision block below
   // ===== Listed comp average + estimated listed value (mirrors sold-comp logic) =====
   // Each Listing #1/2/3 has a direct $/SqFt input — exactly like Sold Comps.
   // Average the entries that are > 0, then multiply by subject's Total Livable
@@ -6641,24 +6571,37 @@ function uwRecalc() {
       ? '90% of Estimated Listed Value ($' + listedArv.toLocaleString() + ' × 0.90 = $' + autoRealValue.toLocaleString() + ', rounded to nearest $1,000) — realistic post-negotiation price'
       : 'Fills automatically once Estimated Listed Value is computed.';
   }
-  // ===== ARV fallback to listed-comp implied value =====
-  // If neither the ARV Override nor the sold-comp average produced an ARV,
-  // fall back to the listed-comp implied real value (Override Real Value > 90%
-  // of avg listed × SqFt). This lets the calculator still produce numbers for
-  // properties with no recent sales but plenty of active listings nearby.
-  if (arvOverride <= 0 && autoArv <= 0) {
-    const listedFallback = lrealOverride > 0 ? lrealOverride : autoRealValue;
-    if (listedFallback > 0) {
-      arv = listedFallback;
-      // Reflect the fallback in the readonly Estimated ARV display so the user
-      // can see WHERE this number came from, not just an empty box.
-      const arvEl2 = document.getElementById('uw-arv');
-      if (arvEl2) {
-        arvEl2.value = listedFallback.toLocaleString();
-        arvEl2.title = 'No sold-comp data — falling back to listed-comp '
-          + (lrealOverride > 0 ? 'Override Real Value' : 'Estimated Real Value (90% of avg listed)')
-          + ': $' + listedFallback.toLocaleString();
+  // ===== Final ARV decision based on active comp mode =====
+  // The Sold/Listed toggle in the panel headers picks which comp set drives
+  // ARV. Each mode is fully self-contained — its own override field wins if
+  // filled, otherwise its own auto value is used. The two override fields are
+  // strictly mode-locked: a Sold ARV Override does NOTHING while you're on
+  // Listed mode, and a Listed Override Real Value does NOTHING while you're
+  // on Sold mode. If the active side has no data at all, ARV is 0 (no
+  // cross-fallback) — switch the toggle or fill data on the active side.
+  const _compsMode = window._uwCompsMode === 'listed' ? 'listed' : 'sold';
+  arv = _compsMode === 'listed'
+    ? (lrealOverride > 0 ? lrealOverride : autoRealValue)
+    : (arvOverride   > 0 ? arvOverride   : autoArv);
+  // Reflect the chosen ARV in the readonly #uw-arv display so every consumer
+  // (downstream exits + the visible field) shows the same number.
+  const _arvDispEl = document.getElementById('uw-arv');
+  if (_arvDispEl) {
+    if (arv > 0) {
+      _arvDispEl.value = arv.toLocaleString();
+      if (_compsMode === 'listed') {
+        _arvDispEl.title = 'Comp toggle = Listed — using '
+          + (lrealOverride > 0 ? 'Override Real Value' : 'Estimated Real Value (90% of avg listed × SqFt)')
+          + ': $' + arv.toLocaleString();
+      } else if (arvOverride > 0) {
+        _arvDispEl.title = 'Using ARV Override: $' + arv.toLocaleString();
       }
+      // else: title was already set above to the SqFt × avg sold $/SqFt explanation
+    } else {
+      _arvDispEl.value = '';
+      _arvDispEl.title = _compsMode === 'listed'
+        ? 'No listed-comp data on the active side — switch to Sold, or fill in Listed comps / Override Real Value.'
+        : 'No sold-comp data on the active side — switch to Listed, or fill in Sold comps / ARV Override.';
     }
   }
   // ===== Average Rent (mean of the 3 rental comps where rent > 0) =====
@@ -6862,12 +6805,17 @@ function uwRecalc() {
         ') = $' + Math.round(commission).toLocaleString()
       : 'Fills once Max Offer and Accepted (or Asking) Price are computed.';
   }
-  // Offer-field placeholder is intentionally left empty — the Suggested
-  // Offer value is already surfaced separately in the "Suggested Offer"
-  // stat below the field, so duplicating it inside the bubble was visually
-  // noisy.
+  // Show Suggested Offer (75% of Max) in the offer field as placeholder hint —
+  // only when we actually have comps to anchor it. Uncomped properties get a
+  // generic placeholder instead of a stale/zero suggestion.
   const offerEl = document.getElementById('uw-offer');
-  if (offerEl && !offer) offerEl.placeholder = '';
+  if (offerEl && !offer) {
+    if (_hasComps && suggestedOffer > 0) {
+      offerEl.placeholder = Math.round(suggestedOffer).toLocaleString() + ' (suggested = 75% of Max)';
+    } else {
+      offerEl.placeholder = 'fill ARV / rent comps to get a suggested offer';
+    }
+  }
   _uwSet('uw-max-loan', _uwFmt$(maxLoan));
   _uwSet('uw-rehab-psf', sqft > 0 ? '$' + rehabPsf.toFixed(0) : '—');
   _uwSet('uw-total-flip', _uwFmt$(totalFlipCost));
@@ -6899,20 +6847,14 @@ function uwRecalc() {
       bpSrc.innerHTML = 'Buy price for math: <b>—</b> (enter Offer or Accepted Price)';
     }
   }
-  // "Accepted Price filled in" indicator — applies the green tint to the
-  // BUBBLE WRAPPER (the parent <span>), not the input itself. With the new
-  // bubble layout the input has a transparent background and lives inside
-  // a styled wrapper; tinting the input directly produced an awkward inner
-  // green stripe that wasn't aligned to the bubble's rounded edges.
   const accEl = document.getElementById('uw-accepted');
-  const accBubble = accEl ? accEl.parentElement : null;
-  if (accBubble) {
+  if (accEl) {
     if (accepted > 0) {
-      accBubble.style.borderColor = '#10b981';
-      accBubble.style.background  = 'rgba(16,185,129,0.08)';
+      accEl.style.borderColor = '#10b981';
+      accEl.style.background = 'rgba(16,185,129,0.08)';
     } else {
-      accBubble.style.borderColor = 'var(--border)';
-      accBubble.style.background  = 'var(--panel-2)';
+      accEl.style.borderColor = '';
+      accEl.style.background = '';
     }
   }
   // Color real profit/margin
@@ -7200,22 +7142,16 @@ function _uwAutoRehabMonths(sqft, ifpVal) {
 // hasn't been mounted yet.
 function _uwApplyAutoRehabMonths(sqft) {
   // FIRST: prefer the Rehab Calculator v2's actual project schedule estimate
-  // (#s-fin = repossession + M-F → calendar conversion + 25% buffer). This
-  // is the SAME duration the Strategy → Timeline panel and Budget & Scope
-  // timeline use for the hold period, so holding costs stay consistent.
+  // (Final w/ Time Buffer days, in #s-fin) — this is computed from real labor
+  // hours × crew × parallel/sequence + bottleneck buffer + time contingency,
+  // which is much more accurate than the legacy sqft × scope formula.
   let auto = 0;
   const sFin = document.getElementById('s-fin');
   if (sFin && sFin.textContent) {
     const finDays = parseFloat(sFin.textContent.replace(/[^\d.]/g, '')) || 0;
     if (finDays > 0) {
-      // /30 — finDays is now true CALENDAR days (M-F conversion + buffer +
-      // repossession), so the divisor must be calendar days/month (30), not
-      // working days/month (22). Using 22 here previously over-inflated the
-      // months by ~36% once the rehab calc switched to calendar-day output.
-      // Rounded to 0.1 mo (not 0.5) so the Flip/Rental holding period stays
-      // consistent with the rehab calc's exact "X.X mo total" line — half-
-      // month rounding was dropping 0.2 mo off the Flip total previously.
-      auto = Math.max(0.1, Math.round((finDays / 30) * 10) / 10);
+      // 22 working days/month convention (matches the rehab calc's own ~X months display)
+      auto = Math.max(0.5, Math.round((finDays / 22) * 2) / 2);
     }
   }
   // FALLBACK: legacy sqft × Timeline-slider-scope formula if the v2 schedule
@@ -7229,86 +7165,28 @@ function _uwApplyAutoRehabMonths(sqft) {
     auto = _uwAutoRehabMonths(sqft, scopeVal);
   }
   if (auto <= 0) return;
-  // ALWAYS overwrite uw-fl-reno-mo / uw-rt-reno-mo with the latest auto
-  // value. The previous "sticky" guard that preserved manual edits made
-  // rehab changes not propagate to the exit cards reliably; we drop the
-  // guard so the values stay in lockstep with the rehab calc.
+  if (!window._uwLastAutoRehab) window._uwLastAutoRehab = {};
+  // Force-apply mode: when the user moves the Timeline slider, override any
+  // manual reno-time edits and resnap to the formula. Flag is set by the
+  // Timeline slider's oninput, then consumed (reset to false) here.
+  const force = !!window._uwForceAutoRehab;
   ['uw-fl-reno-mo', 'uw-rt-reno-mo'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const cur = parseFloat(el.value);
-    if (!isFinite(cur) || Math.abs((cur || 0) - auto) > 0.05) {
-      el.value = auto;
+    const lastAuto = window._uwLastAutoRehab[id];
+    const isEmpty  = !el.value || cur === 0 || !isFinite(cur);
+    const isAutoManaged = lastAuto !== undefined && Math.abs(cur - lastAuto) < 0.05;
+    if (force || isEmpty || isAutoManaged) {
+      if (Math.abs((cur || 0) - auto) > 0.05) {
+        el.value = auto;
+      }
+      window._uwLastAutoRehab[id] = auto;
     }
   });
+  window._uwForceAutoRehab = false;
 }
 window._uwApplyAutoRehabMonths = _uwApplyAutoRehabMonths;
-
-// ----- Rehab Calc → Underwriting cascade -----
-// Watches the rehab calc for any user-driven change and cascades it into
-// uwRecalc so the exit strategy cards (Flip, Rental) and timelines refresh.
-// Uses a single MutationObserver on #s-fin with a value-change guard, plus
-// a direct input/change listener on the rehab calc DOM for cases where
-// rehab updates don't change s-fin's textContent (e.g. dollar-only edits).
-let _uwLastSFinValue = '';
-function _uwRehabCascade() {
-  if (window._rcInUwCascade) return;     // re-entry guard
-  window._rcInUwCascade = true;
-  try {
-    const sqftEl = document.getElementById('uw-sqft');
-    const sqft = sqftEl ? (parseFloat(String(sqftEl.value || '0').replace(/,/g, '')) || 0) : 0;
-    if (typeof _uwApplyAutoRehabMonths === 'function') _uwApplyAutoRehabMonths(sqft);
-    if (typeof uwRecalc === 'function') uwRecalc();
-    if (typeof _uwTimelineUpdateBar === 'function') _uwTimelineUpdateBar();
-  } catch (e) { console.warn('[rehab cascade]', e); }
-  // Snapshot s-fin's value AFTER the cascade completes — so the next
-  // MutationObserver firing knows whether the cascade caused a real change.
-  const _sFinEl = document.getElementById('s-fin');
-  if (_sFinEl) _uwLastSFinValue = _sFinEl.textContent;
-  window._rcInUwCascade = false;
-}
-window._uwRehabCascade = _uwRehabCascade;
-(function _uwInitRehabWatchers() {
-  const _start = () => {
-    const sFin = document.getElementById('s-fin');
-    if (!sFin) { setTimeout(_start, 500); return; }
-    _uwLastSFinValue = sFin.textContent;
-    // Trigger 1: s-fin MutationObserver — fires only when textContent
-    // ACTUALLY changes (not just when it's re-set to the same value). The
-    // value-change guard breaks the infinite loop that would otherwise
-    // happen: cascade → uwRecalc → recalc → s-fin set → observer → cascade.
-    const observer = new MutationObserver(() => {
-      if (sFin.textContent === _uwLastSFinValue) return;
-      _uwRehabCascade();
-    });
-    observer.observe(sFin, { childList: true, characterData: true, subtree: true });
-    // Trigger 2: direct rehab-input listener — catches changes that don't
-    // alter s-fin (e.g. cost/material rate edits, contingency, crew size).
-    // Deliberately does NOT cover the item checkboxes ([data-cat]) — those
-    // ALWAYS change s-fin, so the MutationObserver above handles them. The
-    // rehab calc re-renders its tbody innerHTML on every recalc, so an
-    // extra cascade right after a checkbox click can interfere with the
-    // user's click state. Letting the MutationObserver handle it avoids
-    // that race.
-    const _onRehabInput = (e) => {
-      const t = e.target;
-      if (!t) return;
-      const id = t.id || '';
-      if (id.startsWith('rc-') ||
-          id === 'costContingency' || id === 'timeContingency' || id === 'crew' ||
-          (t.matches && t.matches('input[data-rate-cat]'))) {
-        _uwRehabCascade();
-      }
-    };
-    document.addEventListener('input',  _onRehabInput, false);
-    document.addEventListener('change', _onRehabInput, false);
-  };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', _start);
-  } else {
-    _start();
-  }
-})();
 
 function uwIfpAutoFromRehab(silent) {
   const sqft  = parseFloat(String(document.getElementById('uw-sqft')?.value || '0').replace(/,/g,'')) || 0;
@@ -7437,22 +7315,13 @@ function uwTlRecalc() {
   if (sFinDays > 0) {
     const renoOnly = Math.max(0, sFinDays - repoDays);
     renoDays = renoOnly;
-    // /30 (calendar days/mo) — matches _uwApplyAutoRehabMonths so the
-    // Timeline panel's "Reno time" card stays consistent with the auto-
-    // applied uw-fl-reno-mo / uw-rt-reno-mo. /22 here would mix units.
-    renoMo   = renoOnly > 0 ? Math.max(0.1, Math.round((renoOnly / 30) * 10) / 10) : 0;
+    renoMo   = renoOnly > 0 ? Math.max(0.5, Math.round((renoOnly / 22) * 2) / 2) : 0;
   } else {
     renoDays = sqft > 0 ? 5 + sqft * 0.02 * mult : 0;
     renoMo   = renoDays > 0 ? Math.max(0.5, Math.round(renoDays / 30 * 2) / 2) : 0;
   }
-  const listedMo   = parseFloat(document.getElementById('uw-fl-listed-mo')?.value) || 2.5;
-  const listedDays = Math.round(listedMo * 30);
-  // Sum the RAW days (not the rounded months). Previously we summed the
-  // half-month-rounded values (e.g., 2.0 + 1.5 + 2.5 = 6.0 mo × 30 = 180
-  // days), which inflated the total by ~14 days because each part rounded
-  // independently. Summing days first matches the Budget & Scope timeline.
-  const totalDaysExact = repoDays + renoDays + listedDays;
-  const totalMo = totalDaysExact > 0 ? totalDaysExact / 30 : 0;
+  const listedMo = parseFloat(document.getElementById('uw-fl-listed-mo')?.value) || 2.5;
+  const totalMo  = repoMo + renoMo + listedMo;
   const $ = (id) => document.getElementById(id);
   const card = (lbl, val, color, hint) => `
     <div style="padding:10px 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">
@@ -7468,7 +7337,7 @@ function uwTlRecalc() {
       card('Repossession',   repoMo > 0 ? repoMo.toFixed(1) + ' mo' : '—', '#fdba74', repoDays > 0 ? Math.round(repoDays) + ' days · occupied' : 'vacant'),
       card('Reno time',      renoMo > 0 ? renoMo.toFixed(1) + ' mo' : '—', '#67e8f9', renoDays > 0 ? Math.round(renoDays) + ' days · from ' + renoSource : ''),
       card('Listed time',    listedMo.toFixed(1) + ' mo',                  'var(--text)', 'market default'),
-      card('Total timeline', totalMo > 0 ? totalMo.toFixed(1) + ' mo' : '—', '#10b981',   totalDaysExact > 0 ? totalDaysExact + ' days' : ''),
+      card('Total timeline', totalMo > 0 ? totalMo.toFixed(1) + ' mo' : '—', '#10b981',   totalMo > 0 ? Math.round(totalMo * 30) + ' days' : ''),
     ].join('');
   }
   const expEl = $('uw-tl-explainer');
@@ -7477,9 +7346,9 @@ function uwTlRecalc() {
     if (renoMo <= 0) {
       expEl.textContent = 'Add items in the Rehab Calculator (or set Total Livable SqFt) to see the timeline.';
     } else if (sFinDays > 0) {
-      expEl.textContent = repoTxt + Math.round(renoDays) + ' days (' + renoMo.toFixed(1) + ' mo) reno from your Rehab Calculator schedule + ' + listedMo.toFixed(1) + ' mo listed = ' + totalDaysExact + ' days (' + totalMo.toFixed(1) + ' mo) total.';
+      expEl.textContent = repoTxt + Math.round(renoDays) + ' days (' + renoMo.toFixed(1) + ' mo) reno from your Rehab Calculator schedule + ' + listedMo.toFixed(1) + ' mo listed = ' + totalMo.toFixed(1) + ' mo total.';
     } else {
-      expEl.textContent = repoTxt + sqft.toLocaleString() + ' sqft fallback estimate = ' + Math.round(renoDays) + ' days reno (' + renoMo.toFixed(1) + ' mo) + ' + listedMo.toFixed(1) + ' mo listed = ' + totalDaysExact + ' days (' + totalMo.toFixed(1) + ' mo) total.';
+      expEl.textContent = repoTxt + sqft.toLocaleString() + ' sqft fallback estimate = ' + Math.round(renoDays) + ' days reno (' + renoMo.toFixed(1) + ' mo) + ' + listedMo.toFixed(1) + ' mo listed = ' + totalMo.toFixed(1) + ' mo total.';
     }
   }
   if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
@@ -7994,16 +7863,6 @@ function uwComputeExits(ctx) {
   const flRenoMo   = _flVal('uw-fl-reno-mo',   2);
   const flListedMo = _flVal('uw-fl-listed-mo', 2.5);
   const flipMonths = flRenoMo + flListedMo;
-  // Break the rehab "reno-mo" value into its repossession + reno-only
-  // components so the Holding section title can show "X repo + Y reno + Z
-  // listed" instead of lumping repo into reno. Reads s-rep from the rehab
-  // calc DOM; falls back to 0 (vacant) when not available.
-  const _flSRep   = document.getElementById('s-rep');
-  const _flRepoMo = _flSRep ? ((parseFloat((_flSRep.textContent || '').replace(/[^\d.\-]/g, '')) || 0) / 30) : 0;
-  const _flRenoOnlyMo = Math.max(0, flRenoMo - _flRepoMo);
-  const flipHoldBreakdown = (_flRepoMo > 0
-      ? (_flRepoMo.toFixed(1) + ' repo + ' + _flRenoOnlyMo.toFixed(1) + ' reno + ' + flListedMo + ' listed')
-      : (flRenoMo + ' reno + ' + flListedMo + ' listed'));
   const _flElec = _wtAutoFromBasis('uw-fl-elec',  wtUtilBasis);  const flElec  = _flElec.value;
   const _flWS   = _wtAutoFromBasis('uw-fl-water', wtUtilBasis);  const flWater = _flWS.value;
   const flIns   = _flVal('uw-fl-ins', 200); // builder's risk ins (higher than vacant)
@@ -8357,7 +8216,7 @@ function uwComputeExits(ctx) {
           ['Interest (' + flipMonths + ' mo)', fmt(flHmTotalInt)],
           ['Total financing cost', fmt(flHmOrig + flHmTotalInt), 'profit'],
         ]},
-        { title: '🏠 Holding (' + flipMonths.toFixed(1) + ' mo · ' + flipHoldBreakdown + ')', rows: [
+        { title: '🏠 Holding (' + flipMonths + ' mo · ' + flRenoMo + ' reno + ' + flListedMo + ' listed)', rows: [
           ['Electric · $' + Math.round(flElec).toLocaleString() + '/mo' + (_flElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flElec * flipMonths).toLocaleString()],
           ['Water / Sewer · $' + Math.round(flWater).toLocaleString() + '/mo' + (_flWS.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flWater * flipMonths).toLocaleString()],
           ['Builder\'s risk · $' + flIns + '/mo', '$' + (flIns * flipMonths).toLocaleString()],
@@ -8384,7 +8243,7 @@ function uwComputeExits(ctx) {
           ['Agent Commissions (' + (sellAgentPct + buyAgentPct) + '% of resale)', '−' + fmt(flipSellAgent + flipBuyerAgent)],
           ['Net profit', fmt(flipCashProfit), 'profit'],
         ]},
-        { title: '🏠 Holding (' + flipMonths.toFixed(1) + ' mo · ' + flipHoldBreakdown + ')', rows: [
+        { title: '🏠 Holding (' + flipMonths + ' mo · ' + flRenoMo + ' reno + ' + flListedMo + ' listed)', rows: [
           ['Electric · $' + Math.round(flElec).toLocaleString() + '/mo' + (_flElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flElec * flipMonths).toLocaleString()],
           ['Water / Sewer · $' + Math.round(flWater).toLocaleString() + '/mo' + (_flWS.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flWater * flipMonths).toLocaleString()],
           ['Builder\'s risk · $' + flIns + '/mo', '$' + (flIns * flipMonths).toLocaleString()],
@@ -8882,7 +8741,7 @@ function uwComputeExits(ctx) {
       // Toggle (if present) renders on its own line below the title — keeps
       // the title row clean and prevents the buttons from squishing the card.
       const toggleRow = e.toggle ? `<div style="margin-bottom:8px">${e.toggle}</div>` : '';
-      return `<div onclick="uwToggleExit('${e.key}')" data-exit-key="${e.key}"${e.bestMode ? ` data-best-mode="${e.bestMode}"` : ''}${typeof e.annualized === 'number' ? ` data-annualized="${Math.round(e.annualized)}"` : ''} style="padding:12px 14px;background:${bg};border:${border};border-radius:10px;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''" title="Click to ${isOpen ? 'collapse' : 'view full breakdown'}">
+      return `<div onclick="uwToggleExit('${e.key}')" data-exit-key="${e.key}"${e.bestMode ? ` data-best-mode="${e.bestMode}"` : ''} style="padding:12px 14px;background:${bg};border:${border};border-radius:10px;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''" title="Click to ${isOpen ? 'collapse' : 'view full breakdown'}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <span style="font-weight:600;font-size:13px">${e.icon} ${e.name}${e.mode ? ' <span style=\'color:var(--text-dim);font-weight:500\'>(' + e.mode + ')</span>' : ''}${badge}</span>
           <span style="font-size:10px;color:var(--text-dim)">${chevron}</span>
@@ -9796,7 +9655,6 @@ async function uwGenerateWholesalePacket() {
   const lotAc  = getN('uw-lot-size');
   const parking = get('uw-prop-parking');
   const material = get('uw-prop-material');
-  const foundation = get('uw-prop-foundation');
   const propType = get('uw-prop-type');
 
   // ----- Risk profile -----
@@ -10155,35 +10013,25 @@ async function uwGenerateWholesalePacket() {
   // Render as 4-column spec card row — much cleaner than 2-col k/v grid.
   {
     const specs = [
-      ['BEDS',       beds > 0 ? String(beds) : '—'],
-      ['BATHS',      baths > 0 ? String(baths) : '—'],
-      ['LIVING',     sqft > 0 ? sqft.toLocaleString() + ' SF' : '—'],
-      ['YEAR',       year > 0 ? String(year) : '—'],
-      ['LOT',        lotAc > 0 ? lotAc.toFixed(2) + ' AC' : '—'],
-      ['TYPE',       dash(propType)],
-      ['PARKING',    dash(parking)],
-      ['MATERIAL',   dash(material)],
-      ['FOUNDATION', dash(foundation)],
+      ['BEDS',     beds > 0 ? String(beds) : '—'],
+      ['BATHS',    baths > 0 ? String(baths) : '—'],
+      ['LIVING',   sqft > 0 ? sqft.toLocaleString() + ' SF' : '—'],
+      ['YEAR',     year > 0 ? String(year) : '—'],
+      ['LOT',      lotAc > 0 ? lotAc.toFixed(2) + ' AC' : '—'],
+      ['TYPE',     dash(propType)],
+      ['PARKING',  dash(parking)],
+      ['MATERIAL', dash(material)],
     ];
-    // Row layout: row 1 has 5 cards (BEDS/BATHS/LIVING/YEAR/LOT), row 2
-    // has 4 cards (TYPE/PARKING/MATERIAL/FOUNDATION). Each row's cardW is
-    // computed independently so BOTH rows fill the full content width and
-    // align flush left + right — no awkward empty slot on the right.
+    const colsPerRow = 4;
+    const cardW = (PAGE_W - 2 * MARGIN - (colsPerRow - 1) * 8) / colsPerRow;
     const cardH = 42;
-    const gap   = 8;
-    const totalW = PAGE_W - 2 * MARGIN;
-    const _row1Count = 5;
-    const _row2Count = specs.length - _row1Count;  // 4 in current layout
-    const cardWRow1 = (totalW - (_row1Count - 1) * gap) / _row1Count;
-    const cardWRow2 = (totalW - (_row2Count - 1) * gap) / _row2Count;
-    const rows = 2;
-    need(rows * (cardH + gap));
+    const rows = Math.ceil(specs.length / colsPerRow);
+    need(rows * (cardH + 8));
     specs.forEach((spec, i) => {
-      const row = i < _row1Count ? 0 : 1;
-      const col = i < _row1Count ? i : (i - _row1Count);
-      const cardW = row === 0 ? cardWRow1 : cardWRow2;
-      const x   = MARGIN + col * (cardW + gap);
-      const yy  = y + row * (cardH + gap);
+      const col = i % colsPerRow;
+      const row = Math.floor(i / colsPerRow);
+      const x   = MARGIN + col * (cardW + 8);
+      const yy  = y + row * (cardH + 8);
       // Card background
       doc.setFillColor(C_BG[0], C_BG[1], C_BG[2]);
       doc.rect(x, yy, cardW, cardH, 'F');
@@ -10206,7 +10054,7 @@ async function uwGenerateWholesalePacket() {
       }
       doc.text(valTxt, x + 10, yy + 32);
     });
-    y += rows * (cardH + gap) + 4;
+    y += rows * (cardH + 8) + 4;
   }
 
   // ---------- Risk profile ----------
@@ -10876,7 +10724,7 @@ let _uwCurrentId = null; // null = new deal; UUID = editing existing
 const UW_FIELDS = [
   'uw-packet-status','uw-asking','uw-offer','uw-accepted',
   'uw-address','uw-city','uw-state','uw-zip','uw-legal',
-  'uw-built','uw-bed','uw-bath','uw-sqft','uw-floor1','uw-floor2','uw-floor3','uw-bsmt','uw-bsmt-include','uw-attic','uw-attic-include','uw-zsqft','uw-lot-size','uw-lot-size-sqft','uw-prop-parking','uw-prop-material','uw-prop-foundation',
+  'uw-built','uw-bed','uw-bath','uw-sqft','uw-floor1','uw-floor2','uw-floor3','uw-bsmt','uw-bsmt-include','uw-attic','uw-attic-include','uw-zsqft','uw-lot-size','uw-lot-size-sqft','uw-prop-parking','uw-prop-material',
   'uw-condition','uw-rehab-real','uw-rehab-expected','uw-flood','uw-crime','uw-assessor-url',
   'uw-asqft','uw-arv','uw-arv-override','uw-lavg-psf','uw-lest-arv','uw-lreal-arv','uw-lreal-override','uw-ravg-rent','uw-ravg-override',
   'uw-scp1-addr','uw-scp1-psf','uw-scp1-dist','uw-scp1-bed','uw-scp1-bath','uw-scp1-sqft','uw-scp1-year','uw-scp1-lot','uw-scp1-lot-sqft','uw-scp1-parking','uw-scp1-material',
@@ -10906,7 +10754,7 @@ const UW_FIELDS = [
   'uw-rt-br-ltv','uw-rt-br-rate','uw-rt-br-yrs',
   'uw-rt-rf-hm-ltv','uw-rt-rf-hm-rate','uw-rt-rf-hm-orig','uw-rt-rf-stab-mo','uw-rt-rf-close-pct',
   'uw-rt-reno-mo','uw-rt-rent-mo',
-  'uw-prop-type','uw-units','uw-dom','uw-appr','uw-pop','uw-jobs','uw-pics','uw-main-pic','uw-offer-status',
+  'uw-prop-type','uw-units','uw-dom','uw-appr','uw-pop','uw-jobs','uw-pics','uw-main-pic',
   'uw-ifp-slider', // Ideal Flip Profit slider position (0–120)
   'uw-tl-slider',  // Timeline (rehab scope) slider position (0–120)
   'uw-reno-start',  // Renovation start date (Budget tab — Holdings/Reno only)
@@ -11399,7 +11247,7 @@ function _uwComputeMaxOfferFromData(data) {
   let fRehab = N('uw-rehab-override', 0);
   if (fRehab <= 0) {
     const state = data._rehab;
-    const _sqftForRehab = N('uw-sqft', 0) || 1077;  // uw-asqft is $/sqft (not sqft) — don't fall back to it
+    const _sqftForRehab = N('uw-sqft', 0) || N('uw-asqft', 0) || 1077;
     if (Array.isArray(state) && state.length) {
       // Detect the new Rehab Calculator v2 phantom shape: a single column with
       // id 'rc-bridge' carrying one item priced at grandTotal/sqft (already
@@ -11497,7 +11345,7 @@ function _uwComputeWholesaleProfitFromData(data) {
   let fRehab = N('uw-rehab-override', 0);
   if (fRehab <= 0) {
     const state = data._rehab;
-    const _sqftForRehab = N('uw-sqft', 0) || 1077;  // uw-asqft is $/sqft (not sqft) — don't fall back to it
+    const _sqftForRehab = N('uw-sqft', 0) || N('uw-asqft', 0) || 1077;
     if (Array.isArray(state) && state.length) {
       const isPhantomV2 = state.length === 1 && state[0] && state[0].id === 'rc-bridge';
       if (isPhantomV2) {
@@ -11578,7 +11426,7 @@ function _uwComputeCashRentalFromData(data) {
   let rRehab = N('uw-rehab-override', 0);
   if (rRehab <= 0) {
     const state = data._rehab;
-    const _sqftForRehab = N('uw-sqft', 0) || 1077;  // uw-asqft is $/sqft (not sqft) — don't fall back to it
+    const _sqftForRehab = N('uw-sqft', 0) || N('uw-asqft', 0) || 1077;
     if (Array.isArray(state) && state.length) {
       const isPhantomV2 = state.length === 1 && state[0] && state[0].id === 'rc-bridge';
       if (isPhantomV2) {
@@ -12115,7 +11963,7 @@ function _uwCollect() {
       //                    via the keystroke handler — preserve here too so
       //                    autosave doesn't strip any unsaved keystrokes.
       if (k.indexOf('_source') === 0 || k === '_priorityHandled' || k === '_holdingStatus' ||
-          k === '_budgetActuals' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
+          k === '_budgetActuals' || k === '_scope_phases' || k === 'uw-scope-notes' ||
           k === '_reno_phase_override') {
         data[k] = prev[k];
       }
@@ -12215,22 +12063,7 @@ function _uwCollect() {
       bestExit = 'Rental (' + mode + ')';
     }
   }
-  // For Rental, the displayed profit on the card reflects the user's TOGGLE
-  // (Cash / Financed / Refi), not necessarily the rule-based best mode. Read
-  // the rule-based annualized value from the data-annualized attribute set
-  // at render time — that way the saved best_profit always matches the
-  // saved best_exit. Falls back to the visible profit text for non-rental
-  // exits or when the attribute isn't present.
-  let bestProfitText = '';
-  if (bestCard) {
-    const annAttr = bestCard.getAttribute('data-annualized');
-    const annNum  = annAttr != null ? parseFloat(annAttr) : NaN;
-    if (isFinite(annNum) && bestExit && bestExit.startsWith('Rental')) {
-      bestProfitText = (annNum < 0 ? '-$' : '$') + Math.abs(Math.round(annNum)).toLocaleString();
-    } else {
-      bestProfitText = bestCard.querySelector('div[style*="font-size:20px"]')?.textContent || '';
-    }
-  }
+  const bestProfitText = bestCard ? bestCard.querySelector('div[style*="font-size:20px"]')?.textContent || '' : '';
   return { data, arv, offer, bestExit, bestProfitText };
 }
 
@@ -12273,23 +12106,14 @@ function _uwApply(data) {
   // which only happens after Object.entries(data).forEach runs.)
   // Apply the saved section order (re-arranges top-level panels)
   if (typeof _uwApplySectionOrder === 'function') _uwApplySectionOrder(data._sectionOrder);
-  // Restore the THREE manual workflow flags (Help / Priority / Checking)
-  // ATOMICALLY — set all three from the loaded data BEFORE refreshing the
-  // stage selector. Previously the selector was repainted after only the
-  // first flag was set, which read STALE values for the other two flags
-  // from the previously-loaded deal. That's how a Checking-stage deal could
-  // open showing the badge as "Priority" — the prior deal's _uwIsPriority
-  // was still true at the moment of the first repaint.
-  _uwNeedsHelp  = !!data._needsHelp;
-  _uwIsPriority = !!data._isPriority;
-  _uwInChecking = !!data._inChecking;
-  // Single repaint with all three flags now matching the loaded deal's data.
-  if (typeof _uwUpdateStageSelector === 'function') _uwUpdateStageSelector();
-  // _uwUpdateNeedsHelpButton / _uwUpdateCheckingButton are wrappers that just
-  // call _uwUpdateStageSelector — kept for backwards-compat with any other
-  // call sites, but invoked here only as a defensive double-paint.
+  // Restore the "needs help" flag and update the toggle button visual
+  _uwNeedsHelp = !!data._needsHelp;
   if (typeof _uwUpdateNeedsHelpButton === 'function') _uwUpdateNeedsHelpButton();
-  if (typeof _uwUpdateCheckingButton  === 'function') _uwUpdateCheckingButton();
+  // Restore the "priority" flag (drives the ⭐ Priority subtab)
+  _uwIsPriority = !!data._isPriority;
+  // Restore the "in checking" flag and update the workflow buttons
+  _uwInChecking = !!data._inChecking;
+  if (typeof _uwUpdateCheckingButton === 'function') _uwUpdateCheckingButton();
   // Restore the Cash/Financed toggle for Flip + Rental (defaults to cash)
   _uwFlipMode      = data._flipMode      === 'financed' ? 'financed' : 'cash';
   _uwWholetailMode = data._wholetailMode === 'financed' ? 'financed' : 'cash';
@@ -12334,17 +12158,6 @@ function _uwApply(data) {
   // ran before the apply loop, so the caption always showed "no picture"
   // even when one had been uploaded and saved.
   if (typeof _uwUpdateMainPicStatus === 'function') _uwUpdateMainPicStatus();
-  // Repaint the workflow stage selector NOW — the apply loop above has just
-  // populated #uw-packet-status with the loaded value. _uwGetCurrentStage()
-  // reads packet status straight from the DOM, so painting before this point
-  // (e.g. right after setting the manual flags) reads STALE/empty and the
-  // badge defaults to "Analyzing" even when the saved deal is in Closed /
-  // Offered / Contracted etc.
-  if (typeof _uwUpdateStageSelector === 'function') _uwUpdateStageSelector();
-  // Repaint the 2×2 Offer Status buttons from the loaded uw-offer-status
-  // value so the active one is highlighted on deal-open.
-  if (typeof _uwUpdateOfferStatusButtons === 'function') _uwUpdateOfferStatusButtons();
-  // Refresh the Foundation Type caution badge for the loaded value (red
   // Sync the Rental section's Units mirror from Property Info's uw-units.
   // The mirror isn't in UW_FIELDS (we don't want to persist two copies of
   // the same value), so it has to be re-derived from uw-units on load.
@@ -12448,6 +12261,25 @@ function _uwQueueAutosave() {
     if (_uwAutosaveInflight) { _uwAutosaveQueued = true; return; }
     uwSave(false);
   }, _UW_AUTOSAVE_DEBOUNCE_MS);
+}
+
+// Fire any pending debounced autosave RIGHT NOW (no wait) instead of cancelling
+// it. Call this before any navigation/reset that overwrites the in-memory deal
+// state (uwLoadById, new-deal reset, calculator clear) — otherwise the debounce
+// gets clobbered and the user's last edits to the previous deal are lost.
+// uwSave's data gather (_uwCollect) is synchronous, so calling it here captures
+// a snapshot of the OLD deal's state before the caller overwrites it. The
+// async network update then runs in the background using the still-correct
+// _uwCurrentId for the previous deal.
+function _uwFlushAutosave() {
+  if (!_uwAutosaveTimer) return; // nothing pending
+  clearTimeout(_uwAutosaveTimer);
+  _uwAutosaveTimer = null;
+  // If a save is already mid-flight, mark that a follow-up is needed and bail.
+  // The in-flight save's `finally` block will pick up _uwAutosaveQueued and
+  // run another round automatically.
+  if (_uwAutosaveInflight) { _uwAutosaveQueued = true; return; }
+  try { uwSave(false); } catch (e) { console.error('[autosave flush]', e); }
 }
 
 // Wire change/input listeners onto every saved field exactly once.
@@ -12985,38 +12817,15 @@ function _uwTimelineUpdateBar() {
       startDisplay.textContent = '—';
     }
   }
-  // Duration breakdown:
-  //   • renoDays  — pulled from the Renovation tab's Rehab Calculator
-  //                 #s-fin (Final w/ Time Buffer = labor hours × crew +
-  //                 bottleneck buffer + time contingency + repossession).
-  //                 This is the SAME number that drives Strategy → Timeline.
-  //   • listedDays — uw-fl-listed-mo × 30 (Strategy → Timeline's listing
-  //                  duration, default 2.5 months / 75 days market average).
-  //   • totalDays  — renoDays + listedDays (the Budget & Scope bar covers
-  //                  the full hold period, with a visual split between the
-  //                  reno portion and the listing portion).
-  let renoDays = 0;
-  const sFinEl = document.getElementById('s-fin');
-  if (sFinEl) {
-    const sFinTxt = (sFinEl.textContent || '').replace(/[^\d.\-]/g, '');
-    const sFinNum = parseFloat(sFinTxt) || 0;
-    if (sFinNum > 0) renoDays = Math.round(sFinNum);
-  }
-  const listedMoRaw = (document.getElementById('uw-fl-listed-mo')?.value || '2.5');
-  const listedMo    = parseFloat(String(listedMoRaw).replace(/,/g, '')) || 2.5;
-  const listedDays  = Math.max(0, Math.round(listedMo * 30));
-  let totalDays = renoDays + listedDays;
-  // Fallback: if the rehab calc hasn't computed yet, fall through to the
-  // older auto-days calc (which itself already includes listing time).
-  if (renoDays <= 0) {
-    const liveData = {
-      'uw-fl-reno-mo':   document.getElementById('uw-fl-reno-mo')?.value   || '',
-      'uw-fl-listed-mo': document.getElementById('uw-fl-listed-mo')?.value || '',
-      'uw-tl-slider':    document.getElementById('uw-tl-slider')?.value    || '',
-      'uw-sqft':         document.getElementById('uw-sqft')?.value         || '',
-    };
-    totalDays = _uwTimelineGetAutoDays(liveData);
-  }
+  // Duration is auto-derived from the underwriting Timeline (Flip + Refi)
+  // panel — read the same fields it auto-fills.
+  const liveData = {
+    'uw-fl-reno-mo':   document.getElementById('uw-fl-reno-mo')?.value   || '',
+    'uw-fl-listed-mo': document.getElementById('uw-fl-listed-mo')?.value || '',
+    'uw-tl-slider':    document.getElementById('uw-tl-slider')?.value    || '',
+    'uw-sqft':         document.getElementById('uw-sqft')?.value         || '',
+  };
+  const totalDays = _uwTimelineGetAutoDays(liveData);
   const t = _uwTimelineCompute(start, totalDays);
   const bar    = document.getElementById('uw-timeline-bar');
   const txt    = document.getElementById('uw-timeline-pct-text');
@@ -13032,34 +12841,13 @@ function _uwTimelineUpdateBar() {
     if (tgtEl) tgtEl.textContent = '—';
     return;
   }
-  // Show the auto-computed target date next to the Start input. When we have
-  // a real reno+listing breakdown, surface it in the caption ("X.X mo reno
-  // + Y.Y mo listing"). Otherwise just show months from the fallback calc.
+  // Show the auto-computed target date next to the Start input.
   if (tgtEl) {
-    let caption = ' (' + (t.totalDays / 30).toFixed(1) + ' mo from Strategy → Timeline)';
-    if (renoDays > 0 && listedDays > 0) {
-      caption = ' (' + (renoDays / 30).toFixed(1) + ' mo reno + ' +
-                       (listedDays / 30).toFixed(1) + ' mo listing · from Rehab Calc)';
-    }
-    tgtEl.textContent = new Date(t.target).toLocaleDateString() + caption;
+    tgtEl.textContent = new Date(t.target).toLocaleDateString() +
+      ' (' + (t.totalDays / 30).toFixed(1) + ' mo from Strategy → Timeline)';
   }
   const widthPct = Math.max(0, Math.min(100, t.pct));
   const color = _hrPctColor(t.pct);
-  // Two-segment background on the bar wrapper: dim slate for the renovation
-  // portion, dim amber for the listing portion. Makes the listing portion
-  // visually distinct so the user can see the hand-off point. The progress
-  // fill (#uw-timeline-bar) overlays on top showing where they are.
-  if (bar && bar.parentElement && renoDays > 0 && listedDays > 0 && t.totalDays > 0) {
-    const renoPct = Math.max(0, Math.min(100, (renoDays / t.totalDays) * 100));
-    bar.parentElement.style.background =
-      'linear-gradient(90deg,' +
-        'rgba(99,102,241,0.18) 0%,' +
-        'rgba(99,102,241,0.18) ' + renoPct + '%,' +
-        'rgba(245,158,11,0.22) ' + renoPct + '%,' +
-        'rgba(245,158,11,0.22) 100%)';
-  } else if (bar && bar.parentElement) {
-    bar.parentElement.style.background = 'var(--panel-2)';
-  }
   if (bar) {
     bar.style.width = widthPct + '%';
     bar.style.background = _hrPctGradient(t.pct);
@@ -13069,47 +12857,9 @@ function _uwTimelineUpdateBar() {
     txt.style.color = color;
   }
   if (days) {
-    // Lead with "X days until listing" — that's the most actionable number
-    // for someone managing the renovation. Once renovation is past, switch
-    // to "Currently listing". Total-remaining + reno/listing breakdown
-    // follows as supporting info.
-    const daysSinceStart    = Math.max(0, t.totalDays - t.daysLeft);
-    const daysUntilListing  = renoDays > 0 ? (renoDays - daysSinceStart) : 0;
-    let primary;
-    if (renoDays > 0 && listedDays > 0) {
-      if (daysUntilListing > 0) {
-        primary = daysUntilListing.toLocaleString() + ' day' + (daysUntilListing === 1 ? '' : 's') + ' until listing';
-      } else if (t.daysLeft > 0) {
-        const daysListing = Math.min(listedDays, -daysUntilListing);
-        primary = 'Listing now · day ' + (daysListing + 1) + ' of ' + listedDays;
-      } else {
-        primary = 'Listing window over by ' + Math.abs(t.daysLeft).toLocaleString() + ' day' + (Math.abs(t.daysLeft) === 1 ? '' : 's');
-      }
-    } else {
-      primary = t.daysLeft >= 0
-        ? (t.daysLeft.toLocaleString() + ' of ' + t.totalDays.toLocaleString() + ' days remaining')
-        : (Math.abs(t.daysLeft).toLocaleString() + ' days over ' + t.totalDays.toLocaleString() + ' days');
-    }
-    // Break the renovation portion into repossession + reno-only so the
-    // user can read each phase's days separately. #s-rep holds the repo
-    // days (60 when occupied, 0 when vacant); the reno-only portion is
-    // whatever's left of renoDays (s-fin) once repossession is removed.
-    const _sRepRead   = document.getElementById('s-rep');
-    const _repoDaysCap = _sRepRead ? (parseFloat((_sRepRead.textContent || '').replace(/[^\d.\-]/g, '')) || 0) : 0;
-    const _renoOnly    = Math.max(0, renoDays - _repoDaysCap);
-    let secondary = '';
-    if (renoDays > 0 && listedDays > 0) {
-      // Build the phase breakdown: "Xd repossession + Yd renovation + Zd listing"
-      // (skip repossession when 0 so the caption stays clean for vacant deals).
-      const breakdownParts = [];
-      if (_repoDaysCap > 0) breakdownParts.push(_repoDaysCap + 'd repossession');
-      breakdownParts.push(_renoOnly + 'd renovation');
-      breakdownParts.push(listedDays + 'd listing');
-      secondary = '  ·  ' + (t.daysLeft >= 0 ? t.daysLeft.toLocaleString() : ('-' + Math.abs(t.daysLeft).toLocaleString()))
-                + ' of ' + t.totalDays.toLocaleString() + ' total · '
-                + breakdownParts.join(' + ');
-    }
-    days.textContent = primary + secondary;
+    days.textContent = t.daysLeft >= 0
+      ? (t.daysLeft.toLocaleString() + ' days of ' + t.totalDays.toLocaleString() + ' days remaining')
+      : (Math.abs(t.daysLeft).toLocaleString() + ' days over ' + t.totalDays.toLocaleString() + ' days');
     days.style.color = color;
   }
 }
@@ -13136,15 +12886,11 @@ const _UW_SECTION_TAB = {
   'timeline':             'strategy',
   'exit-strategy':        'strategy',
   'budget-overview':      'budget',
-  // 'scope-of-work' was merged into 'budget-overview' — no longer a separate
-  // section, so it doesn't appear here.
+  'scope-of-work':        'scope',
 };
 let _uwFolderSubtab = 'evaluation';
 function uwSetFolderSubtab(name) {
-  // Legacy 'scope' subtab was merged into 'budget' — redirect for any saved
-  // _uwFolderSubtab state or old call sites still passing 'scope'.
-  if (name === 'scope') name = 'budget';
-  if (name !== 'evaluation' && name !== 'renovation' && name !== 'strategy' && name !== 'budget') return;
+  if (name !== 'evaluation' && name !== 'renovation' && name !== 'strategy' && name !== 'budget' && name !== 'scope') return;
   _uwFolderSubtab = name;
   // Show/hide each top-level section based on which subtab it belongs to.
   // Always-visible sections (Deal Status, Property Info) stay shown.
@@ -13160,15 +12906,15 @@ function uwSetFolderSubtab(name) {
     btn.style.background = active ? '#6366f1' : 'transparent';
     btn.style.color      = active ? 'white'   : 'var(--text-dim)';
   });
-  // Lazy-render Budget & Scope contents when the user opens that tab so it
-  // picks up any rehab items they checked since last time. Also refresh the
-  // timeline bar in case the date inputs were just populated by _uwApply.
-  // Scope content (items list + phase Gantt + notes) was previously rendered
-  // only when the 'scope' subtab opened — now it shares the 'budget' subtab.
+  // Lazy-render Budget contents when the user opens that tab so it picks up
+  // any rehab items they checked since last time. Also refresh the timeline
+  // bar in case the date inputs were just populated by _uwApply.
   if (name === 'budget') {
     if (typeof uwRenderBudget       === 'function') uwRenderBudget();
     if (typeof _uwTimelineUpdateBar === 'function') _uwTimelineUpdateBar();
-    if (typeof uwRenderScopeOfWork  === 'function') uwRenderScopeOfWork();
+  }
+  if (name === 'scope') {
+    if (typeof uwRenderScopeOfWork === 'function') uwRenderScopeOfWork();
   }
 }
 window.uwSetFolderSubtab = uwSetFolderSubtab;
@@ -13187,13 +12933,12 @@ function _uwGetCurrentStage() {
   if (_uwNeedsHelp) return 'help';
   if (_uwIsPriority) return 'priority';
   if (_uwInChecking) return 'checking';
-  // Offered / Inspection / Contracted / Closed buttons were removed from
-  // the per-deal stage strip — those states are tracked separately (via the
-  // top-bar tabs and the Offer Status buttons). When a deal is in any of
-  // those derived states, the in-deal badge falls back to "Analyzed" so
-  // the strip always shows an action the user can actually change here.
   const ps = (document.getElementById('uw-packet-status')?.value || '').trim();
   if (!ps || ps === 'Evaluating') return 'analyzing';
+  if (ps === 'Offered')    return 'offered';
+  if (ps === 'Inspection') return 'inspection';
+  if (ps === 'Accepted')   return 'contracted';
+  if (ps === 'Closed')     return 'closed';
   return 'analyzed';
 }
 
@@ -13205,116 +12950,6 @@ function _uwUpdateCheckingButton() {
   // Repurposed: same single source of truth as Help — refresh the selector.
   _uwUpdateStageSelector();
 }
-
-// Map the internal packet_status value to its user-facing Offer Status
-// label. Internal values are kept as the legacy strings (Submitted /
-// Offered / Dead / Accepted) for backward compat with saved deals and
-// existing filters; this helper translates them to the labels the user
-// picks in the dropdown.
-// Legacy packet_status → display label mapper. Kept around because some
-// pre-existing deals still have offer info on packet_status (Submitted /
-// Offered / Dead / Accepted). For new deals the uw-offer-status field
-// already stores the user-facing label directly, so this just passes
-// modern values through unchanged.
-function _uwOfferStatusLabel(value) {
-  const v = (value || '').trim();
-  if (v === 'Submitted')  return 'Needed';
-  if (v === 'Offered')    return 'Sent';
-  if (v === 'Dead')       return 'Rejected';
-  if (v === 'Accepted')   return 'Accepted';
-  if (v === 'Evaluating') return 'Needed';  // legacy "Evaluating" rolls into the default "Needed" state
-  return v;
-}
-window._uwOfferStatusLabel = _uwOfferStatusLabel;
-
-// Per-status color used for the active button highlight. Tuned to match
-// the corresponding badge colors in the list-view preview so the button
-// and the badge feel like the same color language.
-const _UW_OFFER_STATUS_COLORS = {
-  Needed:     { bg: 'rgba(249,115,22,0.20)', fg: '#f97316' },   // orange (.badge.brand) — default
-  Sent:       { bg: 'rgba(56,189,248,0.20)', fg: '#38bdf8' },   // light blue (.badge.info)
-  Rejected:   { bg: 'rgba(239,68,68,0.20)',  fg: '#ef4444' },   // red (.badge.bad)
-  Accepted:   { bg: 'rgba(16,185,129,0.20)', fg: '#10b981' },   // green (.badge.ok)
-  Inspection: { bg: 'rgba(168,85,247,0.20)', fg: '#a855f7' },   // purple — inspection period
-  Contracted: { bg: 'rgba(234,179,8,0.20)',  fg: '#eab308' },   // amber — under contract
-  Closed:     { bg: 'rgba(20,184,166,0.20)', fg: '#14b8a6' },   // teal — deal closed
-};
-
-// Set the Offer Status from the 2×2 button grid. Writes to the
-// uw-offer-status hidden field ONLY — does NOT touch packet_status, so the
-// deal stays in whatever workflow group (Analyzing / Offered / Inspection
-// / etc.) it was already in. The autosave listener on the form picks up
-// the input event and persists it.
-function uwSetOfferStatus(value) {
-  const el = document.getElementById('uw-offer-status');
-  if (!el) return;
-  el.value = (el.value === value) ? '' : value;
-  // Fire change so the autosave / cascade listeners catch it.
-  el.dispatchEvent(new Event('change', { bubbles: true }));
-  _uwUpdateOfferStatusButtons();
-  // Refresh the header subtitle ("· Status: X") right away so the preview
-  // shows the new label without waiting for autosave/load.
-  if (typeof _uwRefreshHeaderStatus === 'function') _uwRefreshHeaderStatus();
-  // Repaint the workflow stage selector — Offered is now driven by this
-  // field, so changing it can move the deal in/out of the Offered stage.
-  if (typeof _uwUpdateStageSelector === 'function') _uwUpdateStageSelector();
-  // Re-render the deal list (Offered/Inspection/Contracted/Closed
-  // tabs all depend on this field).
-  if (typeof renderUnderwriteList === 'function') {
-    try { renderUnderwriteList(); } catch (_) {}
-  }
-}
-window.uwSetOfferStatus = uwSetOfferStatus;
-
-// Rebuilds the deal header subtitle ("city, state zip · Status: X") from
-// whatever's currently in the cache + DOM. Pulled out as a helper so the
-// header updates immediately when the Offer Status changes — not only on
-// the next deal-load cycle.
-function _uwRefreshHeaderStatus() {
-  const subtitleEl = document.getElementById('uw-detail-subtitle');
-  if (!subtitleEl || !_uwCurrentId) return;
-  const u = (cache && cache.underwrites && cache.underwrites[_uwCurrentId]) || null;
-  if (!u) return;
-  const sub = [u.city, u.state, u.zip].filter(Boolean).join(', ');
-  // Prefer the live DOM value of uw-offer-status (just-updated), fall back
-  // to the cached value, then to legacy packet_status.
-  const liveOffer = document.getElementById('uw-offer-status')?.value || '';
-  const cachedOffer = (u.data && u.data['uw-offer-status']) || '';
-  // Default to "Needed" when nothing is set. Deliberately does NOT fall
-  // back to packet_status — the Offer Status is independent of the
-  // workflow stage strip (Offered / Inspection / Contracted / Closed).
-  const offer = liveOffer || cachedOffer || 'Needed';
-  subtitleEl.textContent = sub + ' · Offer: ' + _uwOfferStatusLabel(offer);
-  // Keep the cache in sync so the list view + future renders read the
-  // latest value without waiting for autosave to finish.
-  if (u.data) u.data['uw-offer-status'] = liveOffer;
-}
-window._uwRefreshHeaderStatus = _uwRefreshHeaderStatus;
-
-// Repaint the four Offer Status buttons based on the current value of the
-// uw-offer-status hidden field. The active button gets its color highlight;
-// the rest fade back to the dim/transparent default.
-function _uwUpdateOfferStatusButtons() {
-  const el  = document.getElementById('uw-offer-status');
-  const cur = el ? el.value : '';
-  document.querySelectorAll('#uw-offer-status-btns [data-offer-btn]').forEach(b => {
-    const v   = b.getAttribute('data-offer-btn');
-    const isOn = v === cur;
-    const c    = _UW_OFFER_STATUS_COLORS[v];
-    if (isOn && c) {
-      b.style.background  = c.bg;
-      b.style.color       = c.fg;
-      b.style.borderColor = c.fg;
-      b.style.fontWeight  = '600';
-    } else {
-      b.style.background  = 'transparent';
-      b.style.color       = 'var(--text-dim)';
-      b.style.borderColor = 'var(--border)';
-      b.style.fontWeight  = '';
-    }
-  });
-}
-window._uwUpdateOfferStatusButtons = _uwUpdateOfferStatusButtons;
 
 // Highlight whichever button matches the current stage. Each stage has its own color.
 function _uwUpdateStageSelector() {
@@ -13330,9 +12965,6 @@ function _uwUpdateStageSelector() {
     contracted: { bg: 'rgba(234,179,8,0.20)',  fg: '#eab308' },
     closed:     { bg: 'rgba(20,184,166,0.20)', fg: '#14b8a6' },
   };
-  // Always keep the Offer Status buttons in sync — packet_status drives
-  // both the workflow stage strip and the 2×2 Offer Status grid.
-  if (typeof _uwUpdateOfferStatusButtons === 'function') _uwUpdateOfferStatusButtons();
   document.querySelectorAll('#uw-stage-selector [data-uw-stage]').forEach(b => {
     const s = b.getAttribute('data-uw-stage');
     if (s === cur) {
@@ -13354,10 +12986,6 @@ function uwSetStage(stage) {
   _uwIsPriority = false;
   _uwInChecking = false;
   const psEl = document.getElementById('uw-packet-status');
-  // NOTE: stage changes (Help / Analyzing / Priority / Check / Analyzed)
-  // intentionally DO NOT clear the Offer Status — those two are now
-  // independent axes. A deal can be in Check AND have Offer Status =
-  // Rejected at the same time; both tabs (Check + Offered) will list it.
   if (stage === 'help')      _uwNeedsHelp = true;
   else if (stage === 'priority') _uwIsPriority = true;
   else if (stage === 'checking') _uwInChecking = true;
@@ -13456,6 +13084,11 @@ async function uwLoadById(id) {
     cache.underwrites[id] = data;
   }
   const u = cache.underwrites[id];
+  // FLUSH any debounced autosave for the PREVIOUS deal before _uwApply()
+  // overwrites the in-memory state with the new deal's data. Without this,
+  // rapid bulk operations (e.g. moving 30 deals from Analyzed → Checking one
+  // after the other) silently drop each pending save when the next deal opens.
+  if (typeof _uwFlushAutosave === 'function') _uwFlushAutosave();
   // Don't overwrite _uwLastListView here — goUwView() already set it to whichever
   // subtab the user clicked from (offered, inspection, contracted, closed, etc.).
   // Overwriting it to analyzing/analyzed sent Back to the wrong tab.
@@ -13468,17 +13101,14 @@ async function uwLoadById(id) {
   const subtitleEl = document.getElementById('uw-detail-subtitle');
   if (subtitleEl) {
     const sub = [u.city, u.state, u.zip].filter(Boolean).join(', ');
-    // Offer Status is independent of packet_status (workflow stage). Default
-    // to "Needed" when the uw-offer-status field is empty.
-    const _offerStatusForHeader = (u.data && u.data['uw-offer-status']) || 'Needed';
-    subtitleEl.textContent = sub + ' · Offer: ' + _uwOfferStatusLabel(_offerStatusForHeader);
+    subtitleEl.textContent = sub + (u.packet_status ? ' · Status: ' + u.packet_status : '');
   }
   const idEl = document.getElementById('uw-current-id');
   if (idEl) idEl.textContent = '📂 Loaded · id ' + String(id).slice(0, 8);
   // Loaded deal is already persisted — start in "saved" state.
   _uwLastSavedAt = u.updated_at ? new Date(u.updated_at).getTime() : Date.now();
   if (typeof _uwSetSaveStatus === 'function') _uwSetSaveStatus('saved', _uwSavedAgoLabel());
-  if (_uwAutosaveTimer) { clearTimeout(_uwAutosaveTimer); _uwAutosaveTimer = null; }
+  // (autosave flush already happened above, before _uwApply overwrote state)
   // Show "Added on X · N days ago" badge under the address
   if (typeof _uwSetDealAge === 'function') _uwSetDealAge(u.created_at);
   // Show/hide the "Remove from Renovation/Holdings" button based on routing
@@ -13493,31 +13123,17 @@ async function uwLoadById(id) {
   // the saved values. This is SAFE because we only update best_exit /
   // best_profit (not the `data` JSONB blob) — eliminating the cross-
   // contamination risk that the older auto-backfill had.
-  // Wait 1500ms (was 250ms) before reading the BEST card. The rehab calc
-  // polls for #s-fin and the cascade can take >250ms to fully settle on
-  // some deals. Reading too early would see no highlighted card, return
-  // empty, and wipe the saved best_exit to null — which then forced the
-  // list-level recompute to pick Wholesale (the only exit it can compute
-  // from cached data) and re-save that. Result: Refi picks silently got
-  // downgraded to Wholesale on every load. 1500ms gives the cascade time
-  // to run; the guard below also refuses to write null in any case.
   setTimeout(() => {
     if (_uwCurrentId !== id) return; // user navigated away — abort
     try {
       const collected = (typeof _uwCollect === 'function') ? _uwCollect() : null;
       if (!collected) return;
       const newBestExit = collected.bestExit || null;
-      // SAFETY GUARD: if the cascade hasn't picked a BEST card yet (DOM
-      // not ready, calculator still settling, or this deal somehow lacks
-      // a winner), DO NOT write null — that would wipe a valid saved
-      // pick. Leave the existing value alone; the next save trigger
-      // (any field edit) will refresh it via the normal autosave path.
-      if (!newBestExit) return;
       const cleanProfit = (collected.bestProfitText || '').replace(/[^\d.\-−]/g, '').replace('−', '-');
       const newBestProfit = parseFloat(cleanProfit) || 0;
       const prevExit   = u.best_exit   || null;
       const prevProfit = parseFloat(u.best_profit) || 0;
-      const exitDiffers   = newBestExit !== (prevExit || '');
+      const exitDiffers   = (newBestExit || '') !== (prevExit || '');
       const profitDiffers = Math.abs(newBestProfit - prevProfit) > 1;
       if (!exitDiffers && !profitDiffers) return;
       sb.from('underwrites')
@@ -13539,7 +13155,7 @@ async function uwLoadById(id) {
           }
         });
     } catch (e) { console.warn('best_exit refresh exception:', e); }
-  }, 1500);
+  }, 250);
 }
 
 async function uwDelete(id) {
@@ -13615,13 +13231,12 @@ window.uwSetHoldingStatus = uwSetHoldingStatus;
 // Mechanicals phase (no separate parallel lanes by default). Planning and
 // Restructure auto-zero when no major systems are flagged in the rehab calc.
 const _UW_SCOPE_PHASE_DEFAULTS = [
-  { id: 'demo',         name: 'Demolition, Clean-Up & Permits',                 days: 7,  parallel: false },
-  { id: 'restructure',  name: 'Structural, Framing & Exterior Shell',           days: 14, parallel: false },
-  { id: 'mechanicals',  name: 'Mechanicals, Electrical & Plumbing',             days: 12, parallel: false },
-  { id: 'cosmetics',    name: 'Walls, Floors, Paint, & Curb Appeal',            days: 12, parallel: false },
-  { id: 'cabinetry',    name: 'Cabinetry, Fixtures & Appliances',               days: 7,  parallel: false },
-  { id: 'punch-list',   name: 'Punch List',                                     days: 5,  parallel: false },
-  { id: 'marketing',    name: 'Listing & Leasing',   days: 75, parallel: false },
+  { id: 'demo',         name: 'Demo',         days: 7,  parallel: false },
+  { id: 'planning',     name: 'Planning',     days: 7,  parallel: false },
+  { id: 'restructure',  name: 'Restructure',  days: 10, parallel: false },
+  { id: 'mechanicals',  name: 'Mechanicals',  days: 14, parallel: false },
+  { id: 'cosmetics',    name: 'Cosmetics',    days: 14, parallel: false },
+  { id: 'punch-list',   name: 'Punch List',   days: 5,  parallel: false },
 ];
 
 // Rehab-item IDs (or label substrings) that trigger Planning + Restructure
@@ -13727,7 +13342,6 @@ function uwScopeAutoFillFromRehab() {
   }
 }
 window.uwScopeAutoFillFromRehab = uwScopeAutoFillFromRehab;
-
 function _uwGetScopePhases() {
   if (!_uwCurrentId) return [];
   const u = (cache.underwrites || {})[_uwCurrentId];
@@ -13735,88 +13349,6 @@ function _uwGetScopePhases() {
   if (!u.data) u.data = {};
   if (!Array.isArray(u.data._scope_phases)) {
     u.data._scope_phases = JSON.parse(JSON.stringify(_UW_SCOPE_PHASE_DEFAULTS));
-  }
-  // ----- One-time auto-migration for the renamed/reorganized phase set -----
-  // Older deals saved data._scope_phases with the legacy stock list:
-  //   [demo, planning, restructure, mechanicals, cosmetics, punch-list]
-  // The new defaults are:
-  //   [demo, restructure, mechanicals, cosmetics, cabinetry, punch-list]
-  // Detect deals still on the legacy list by checking for the now-removed
-  // 'planning' id AND the absence of the new 'cabinetry' id, then map each
-  // phase's days into the new structure. Repossession (if present) and any
-  // user-added custom phases are preserved as-is.
-  const phaseIds = u.data._scope_phases.map(p => p && p.id);
-  const hasPlanning = phaseIds.includes('planning');
-  const hasCabinetry = phaseIds.includes('cabinetry');
-  if (hasPlanning && !hasCabinetry) {
-    const byId = {};
-    u.data._scope_phases.forEach(p => { if (p && p.id) byId[p.id] = p; });
-    const repo  = byId['repossession'];
-    const custom = u.data._scope_phases.filter(p =>
-      p && p.id && !['repossession','demo','planning','restructure','mechanicals','cosmetics','cabinetry','punch-list'].includes(p.id)
-    );
-    const migrated = [];
-    if (repo) migrated.push(repo);
-    // Map each new-default phase, preserving days from the closest legacy
-    // counterpart when it exists.
-    const _mk = (id, name, defaultDays, fromId) => {
-      const src = fromId ? byId[fromId] : null;
-      return {
-        id,
-        name,
-        days: src && Number(src.days) > 0 ? Number(src.days) : defaultDays,
-        parallel: src ? !!src.parallel : false,
-      };
-    };
-    migrated.push(_mk('demo',        'Demolition, Clean-Up & Permits',          7,  'demo'));
-    migrated.push(_mk('restructure', 'Structural, Framing & Exterior Shell',    14, 'restructure'));
-    migrated.push(_mk('mechanicals', 'Mechanicals, Electrical & Plumbing',      12, 'mechanicals'));
-    migrated.push(_mk('cosmetics',   'Walls, Floors, Paint, & Curb Appeal',     12, 'cosmetics'));
-    migrated.push(_mk('cabinetry',   'Cabinetry, Fixtures & Appliances',        7,  null));
-    migrated.push(_mk('punch-list',  'Punch List',                              5,  'punch-list'));
-    migrated.push(_mk('marketing',   'Listing & Leasing', 75, null));
-    // Re-append any user-added custom phases at the end so we don't lose them.
-    custom.forEach(p => migrated.push(p));
-    u.data._scope_phases = migrated;
-  }
-  // Phase-name normalization — runs every load so renamed stock phases
-  // pick up the current copy without forcing a full migration. Only
-  // touches the known stock phase IDs; custom user-added phase names are
-  // left alone.
-  const _STOCK_NAMES = {
-    demo:        'Demolition, Clean-Up & Permits',
-    restructure: 'Structural, Framing & Exterior Shell',
-    mechanicals: 'Mechanicals, Electrical & Plumbing',
-    cosmetics:   'Walls, Floors, Paint, & Curb Appeal',
-    cabinetry:   'Cabinetry, Fixtures & Appliances',
-    'punch-list':'Punch List',
-    marketing:   'Listing & Leasing',
-    repossession:'Repossession',
-  };
-  u.data._scope_phases.forEach(p => {
-    if (p && p.id && _STOCK_NAMES[p.id]) p.name = _STOCK_NAMES[p.id];
-  });
-  // Backfill the Marketing phase for deals migrated before it was added.
-  // If punch-list exists and marketing doesn't, append a default marketing
-  // phase right after the punch list so existing deals get the same plan.
-  const idsNow = u.data._scope_phases.map(p => p && p.id);
-  if (idsNow.includes('punch-list') && !idsNow.includes('marketing')) {
-    u.data._scope_phases.push({
-      id: 'marketing',
-      name: 'Listing & Leasing',
-      days: 75,
-      parallel: false,
-    });
-  }
-  // Auto-sync the Listing & Leasing phase duration to the deal's standard
-  // listed-time (uw-fl-listed-mo × 30). The user set 2.5 months as their
-  // standard; if they change it on a per-deal basis, this phase tracks it.
-  const listedMoEl   = document.getElementById('uw-fl-listed-mo');
-  const listedMoVal  = listedMoEl ? parseFloat(listedMoEl.value || '2.5') : 2.5;
-  const listedDays   = Math.max(1, Math.round((isFinite(listedMoVal) ? listedMoVal : 2.5) * 30));
-  const marketingPhase = u.data._scope_phases.find(p => p && p.id === 'marketing');
-  if (marketingPhase && marketingPhase.days !== listedDays) {
-    marketingPhase.days = listedDays;
   }
   return u.data._scope_phases;
 }
@@ -13878,14 +13410,6 @@ function uwScopeUpdatePhase(id, field, value) {
   const p = phases.find(p => p.id === id);
   if (!p) return;
   if (field === 'days') p.days = Math.max(0, parseFloat(value) || 0);
-  else if (field === 'realDays') {
-    // Real days — separate tracked value, doesn't affect the main timeline.
-    // Empty/zero clears the field so it falls back to estimated for Real
-    // Timeline rendering.
-    const n = parseFloat(value);
-    if (!isFinite(n) || n <= 0) delete p.realDays;
-    else p.realDays = Math.max(0, n);
-  }
   else if (field === 'name') p.name = String(value || '');
   else if (field === 'parallel') p.parallel = !!value;
   _uwSaveScopePhases();
@@ -13895,67 +13419,6 @@ function uwScopeUpdatePhase(id, field, value) {
   _uwRefreshScopePhaseEndDates();
 }
 window.uwScopeUpdatePhase = uwScopeUpdatePhase;
-
-// Set a phase's real completion date. Stores the date on
-// p.realCompletionDate AND derives p.realDays = (picked date − this
-// phase's start). The phase start uses, in priority order:
-//   1. The previous SEQUENTIAL phase's realCompletionDate (if set), OR
-//   2. The closing date + cumulative ESTIMATED days of prior phases.
-// This way users log dates sequentially as work completes; each phase's
-// "took X days" is the actual gap from the previous one's done-date.
-function uwScopeSetPhaseCompletionDate(inputEl) {
-  if (!inputEl) return;
-  const id          = inputEl.getAttribute('data-scope-phase-id');
-  const startOffset = parseInt(inputEl.getAttribute('data-scope-phase-startoffset') || '0', 10) || 0;
-  const dateStr     = inputEl.value || '';
-  if (!id) return;
-  const phases = _uwGetScopePhases();
-  if (!phases) return;
-  const p = phases.find(p => p.id === id);
-  if (!p) return;
-  // Clearing the field clears realCompletionDate + realDays.
-  if (!dateStr) {
-    delete p.realCompletionDate;
-    delete p.realDays;
-    _uwSaveScopePhases();
-    uwRenderScopeOfWork();
-    return;
-  }
-  // Closing date — same source the phase end-date labels use.
-  const u = _uwCurrentId ? ((cache.underwrites || {})[_uwCurrentId]) : null;
-  const closedOnStr = u && u.data && (u.data['uw-closed-on'] || u.data['uw-reno-start']);
-  if (!closedOnStr || !/^\d{4}-\d{2}-\d{2}/.test(closedOnStr)) {
-    if (typeof toast === 'function') toast('Set the Closed On date in Deal Status before logging completion dates.', 'warn');
-    return;
-  }
-  const parseDate = (s) => {
-    const [y, m, d] = s.slice(0, 10).split('-').map(Number);
-    return new Date(y, m - 1, d).getTime();
-  };
-  const closingMs = parseDate(closedOnStr);
-  const pickedMs  = parseDate(dateStr);
-  // Walk backward through prior sequential phases for the most recent one
-  // that has a realCompletionDate. That date is THIS phase's start.
-  const idx = phases.indexOf(p);
-  let phaseStartMs = closingMs + startOffset * 86400000;
-  for (let i = idx - 1; i >= 0; i--) {
-    const prev = phases[i];
-    if (prev && !prev.parallel && prev.realCompletionDate && /^\d{4}-\d{2}-\d{2}/.test(prev.realCompletionDate)) {
-      phaseStartMs = parseDate(prev.realCompletionDate);
-      break;
-    }
-  }
-  const diffDays = Math.round((pickedMs - phaseStartMs) / 86400000);
-  if (diffDays <= 0) {
-    if (typeof toast === 'function') toast('Pick a date AFTER this phase starts (after the last logged Done On, or after closing).', 'warn');
-    return;
-  }
-  p.realCompletionDate = dateStr;
-  p.realDays = diffDays;
-  _uwSaveScopePhases();
-  uwRenderScopeOfWork();
-}
-window.uwScopeSetPhaseCompletionDate = uwScopeSetPhaseCompletionDate;
 function uwScopeResetPhases() {
   if (!_uwCurrentId) return;
   if (!confirm('Reset phases to the default list? This will replace any custom phases you\'ve added.')) return;
@@ -13967,48 +13430,6 @@ function uwScopeResetPhases() {
   uwRenderScopeOfWork();
 }
 window.uwScopeResetPhases = uwScopeResetPhases;
-
-// Toggle "done" state for a single scope item chip. Persisted on
-// data._scopeItemsDone (object keyed by item label). Updates the chip's
-// visual state in place (no full re-render) so the click feels instant.
-function uwScopeToggleItemDone(chipEl, itemLabel) {
-  if (!_uwCurrentId || !itemLabel) return;
-  const u = (cache.underwrites || {})[_uwCurrentId];
-  if (!u) return;
-  u.data = u.data || {};
-  if (!u.data._scopeItemsDone || typeof u.data._scopeItemsDone !== 'object') u.data._scopeItemsDone = {};
-  const wasDone = !!u.data._scopeItemsDone[itemLabel];
-  if (wasDone) {
-    delete u.data._scopeItemsDone[itemLabel];
-  } else {
-    u.data._scopeItemsDone[itemLabel] = true;
-  }
-  // In-place visual update for snappy feedback.
-  if (chipEl) {
-    const isDone = !wasDone;
-    const doneBg = 'rgba(16,185,129,0.18)';
-    const doneFg = '#10b981';
-    if (isDone) {
-      chipEl.style.background = doneBg;
-      chipEl.style.color = doneFg;
-      chipEl.style.textDecoration = 'line-through';
-      if (!chipEl.textContent.startsWith('✓ ')) chipEl.textContent = '✓ ' + chipEl.textContent;
-      chipEl.title = 'Click to unmark as done';
-    } else {
-      // Reset back to the original (un-done) chip colors. Trigger phases use
-      // amber; normal phases use indigo. The chip's parent row carries no
-      // direct hint, so we restore via the standard non-trigger palette and
-      // accept that the next full re-render will set the right colors.
-      chipEl.style.background = 'rgba(99,102,241,0.14)';
-      chipEl.style.color = '#a5b4fc';
-      chipEl.style.textDecoration = '';
-      chipEl.textContent = chipEl.textContent.replace(/^✓ /, '');
-      chipEl.title = 'Click to mark as done';
-    }
-  }
-  if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
-}
-window.uwScopeToggleItemDone = uwScopeToggleItemDone;
 
 // Update the per-row "→ Mon DD, YYYY" end-date spans without re-rendering
 // the entire list (re-render would steal focus from the input being typed in).
@@ -14114,7 +13535,7 @@ function _uwRenderScopePhaseGantt() {
       const isNarrow = widthPct < 10;
       const nameFontPx = isNarrow ? 11 : 14;
       const subFontPx  = isNarrow ? 10 : 12;
-      html += '<div title="' + escapeHtml(p.name) + ' — ' + d + 'd (day ' + (cumulative - d + 1) + '–' + cumulative + (endLabel ? ', done by ' + endLabel : '') + ')" style="width:' + widthPct + '%;min-width:90px;background:' + colorFor(i) + ';border-right:1px solid rgba(0,0,0,0.2);display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-weight:700;overflow:hidden;padding:4px 3px;line-height:1.2">' +
+      html += '<div title="' + escapeHtml(p.name) + ' — ' + d + 'd (day ' + (cumulative - d + 1) + '–' + cumulative + (endLabel ? ', done by ' + endLabel : '') + ')" style="width:' + widthPct + '%;background:' + colorFor(i) + ';border-right:1px solid rgba(0,0,0,0.2);display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-weight:700;overflow:hidden;padding:4px 3px;line-height:1.2">' +
         '<div style="white-space:nowrap;text-align:center;font-size:' + nameFontPx + 'px;overflow:hidden;text-overflow:ellipsis;width:100%">' + escapeHtml(p.name) + '</div>' +
         '<div style="font-size:' + subFontPx + 'px;font-weight:600;opacity:0.92;margin-top:2px;white-space:nowrap;text-align:center">' + d + 'd</div>' +
       '</div>';
@@ -14122,7 +13543,7 @@ function _uwRenderScopePhaseGantt() {
     html += '</div>';
     // End-date row underneath, aligned with each bar so every phase's date
     // is readable even when bars are narrow.
-    html += '<div style="display:flex;background:rgba(0,0,0,0.18);border:1px solid var(--border);border-top:none;font-size:10px">';
+    html += '<div style="display:flex;background:rgba(0,0,0,0.18);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;font-size:10px">';
     let cumulative2 = 0;
     sequential.forEach((p, i) => {
       const d = Number(p.days) || 0;
@@ -14130,30 +13551,7 @@ function _uwRenderScopePhaseGantt() {
       const widthPct = (d / totalDays) * 100;
       cumulative2 += d;
       const endLabel = fmtEnd(cumulative2);
-      html += '<div style="width:' + widthPct + '%;min-width:90px;border-right:1px solid var(--border);text-align:right;padding:4px 6px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(p.name) + ' done by ' + escapeHtml(endLabel || '—') + '">' + escapeHtml(endLabel || '—') + '</div>';
-    });
-    html += '</div>';
-    // Always-on Real progress strip — thin colored bar attached under the
-    // date row. Each phase gets a segment matching its estimated-bar
-    // width; the segment fills with its phase color when realDays is
-    // logged, stays a dim placeholder otherwise. Lets the user eyeball
-    // actual progress against the estimate at a glance.
-    html += '<div style="display:flex;height:8px;background:rgba(0,0,0,0.28);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;overflow:hidden">';
-    sequential.forEach((p, i) => {
-      const d = Number(p.days) || 0;
-      if (d <= 0) return;
-      const widthPct = (d / totalDays) * 100;
-      const isReal = Number.isFinite(Number(p.realDays)) && Number(p.realDays) > 0;
-      const fillPct = isReal ? Math.min(100, (Number(p.realDays) / d) * 100) : 0;
-      const barColor = colorFor(i);
-      const tooltip = isReal
-        ? p.name + ' — actual ' + Number(p.realDays) + 'd vs estimated ' + d + 'd (' + Math.round(fillPct) + '% of est)'
-        : p.name + ' — no completion date logged yet';
-      html += '<div style="width:' + widthPct + '%;min-width:90px;border-right:1px solid rgba(0,0,0,0.3);position:relative" title="' + escapeHtml(tooltip) + '">';
-      if (isReal) {
-        html += '<div style="height:100%;width:' + fillPct + '%;background:' + barColor + '"></div>';
-      }
-      html += '</div>';
+      html += '<div style="width:' + widthPct + '%;border-right:1px solid var(--border);text-align:right;padding:4px 6px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(p.name) + ' done by ' + escapeHtml(endLabel || '—') + '">' + escapeHtml(endLabel || '—') + '</div>';
     });
     html += '</div></div>';
   }
@@ -14191,28 +13589,11 @@ function uwRenderScopeOfWork() {
   const countEl = document.getElementById('uw-scope-count');
   const notesEl = document.getElementById('uw-scope-notes');
   if (!itemsEl) return;
-  // Prefer the Rehab Calculator's official scope helper — same one the
-  // wholesale packet uses. Returns real groups like "Update Kitchen" with
-  // the line items the user actually ticked — NEVER the "Total Renovation"
-  // phantom that _uwRehabState uses internally as a math bridge.
+  // Pull from the live in-memory rehab state (this is what the calculator
+  // is currently editing). Falls back to saved data if state isn't loaded.
   let scope = [];
-  if (typeof window._rcGetScopeByGroup === 'function') {
-    const cols = window._rcGetScopeByGroup() || [];
-    cols.forEach(col => {
-      const groupLabel = col.label || '';
-      (col.items || []).forEach(label => {
-        if (label) scope.push({ label: String(label), color: '#6366f1', group: groupLabel });
-      });
-    });
-  }
-  // Fallback to _uwRehabState only if the helper wasn't registered yet
-  // (shouldn't happen in practice — the calculator IIFE registers it on load,
-  // but keeping this so the panel still shows something rather than blank).
-  if (scope.length === 0 && Array.isArray(_uwRehabState)) {
+  if (Array.isArray(_uwRehabState)) {
     _uwRehabState.forEach(col => {
-      // Skip the phantom "Total Renovation" bridge column used by the math
-      // pipeline — it's not a real scope item.
-      if (col && col.id === 'rc-bridge') return;
       const colColor = col.color || '#6366f1';
       (col.items || []).forEach(item => {
         if (item && item.needed && item.label) {
@@ -14240,77 +13621,12 @@ function uwRenderScopeOfWork() {
     if (typeof stored === 'string' && notesEl.value !== stored) notesEl.value = stored;
   }
   // Build item-to-phase map: walk every rehab item the user marked "needed"
-  // and classify it into one of the standard phases.
-  const itemsByPhaseId = { demo: [], planning: [], restructure: [], mechanicals: [], cosmetics: [], cabinetry: [], 'punch-list': [], marketing: [], repossession: [] };
+  // and classify it into one of the standard phases. Phases that don't have
+  // explicit items (Planning, Restructure, Punch List, Repossession) show
+  // the triggering items if applicable, else an em dash.
+  const itemsByPhaseId = { demo: [], planning: [], restructure: [], mechanicals: [], cosmetics: [], 'punch-list': [], repossession: [] };
   const planningTriggers = [];
-  // Keyword-based classifier for the v2 Rehab Calculator items (which come
-  // through _rcGetScopeByGroup as plain labels — no metadata for the legacy
-  // _uwClassifyRehabItem to read). Returns one of the phase ids above.
-  const _classifyV2 = (label) => {
-    const s = (label || '').toLowerCase();
-    if (!s) return null;
-    if (/punch\s*list|touch.?up|caulk\s|final\s*clean|sweep|walk.?through/.test(s))       return 'punch-list';
-    if (/trash|dumpster|haul|\bdemolition\b|\bdemo\b|clean.?out|junk/.test(s) ||
-        /\bpermit/.test(s) ||
-        /odor|\bmold\b|asbestos|lead\s*paint|biohaz/.test(s) ||
-        /tree\s*removal|deck\s*removal|chimney\s*removal/.test(s))                         return 'demo';
-    if (/subfloor|floor\s*leveling/.test(s) ||
-        /foundation|joist|\bstud\b|framing|structural|\bbeam\b|load.?bearing|sill\s*plate|crawl\s*space|carbon\s*fiber|re.?point|\bmortar\b|wall\s*anchor|helical|egress\s*window/.test(s) ||
-        /insulation|drywall/.test(s) ||
-        /garage\s*add|room\s*add|basement\s*finish|attic\s*conversion|pop.?top|\badu\b/.test(s) ||
-        /chimney/.test(s) ||
-        /\broof\b|gutter|soffit|fascia|siding|\bwindow\b|exterior\s*door|garage\s*door/.test(s))  return 'restructure';
-    if (/furnace|condenser|\bac\b|heat\s*pump|mini.?split|thermostat|\bhvac\b|ductwork|range\s*hood|exhaust\s*fan|\bvent\b/.test(s) ||
-        /\bwir(?:ing|es?)\b|panel\s*upgrade|\bbreaker\b|ev\s*charger|generator/.test(s) ||
-        /supply\s*line|drain\s*line|plumbing\s*vent|water\s*heater|water\s*softener|water\s*filter/.test(s) ||
-        /septic|leach\s*field|well\s*drill|\bsewer\b|sump|french\s*drain/.test(s) ||
-        /radon/.test(s))                                                                   return 'mechanicals';
-    if (/outdoor\s*light|landscap|driveway|fence|\bporch\b|\bpatio\b/.test(s) ||
-        /tub|shower|\btil(?:e|ing)\b|interior\s*door|\bfloor(?:ing)?\b|\btrim\b|molding|stair|railing|paint/.test(s))  return 'cosmetics';
-    if (/cabinet|kitchen\s*island|vanity|mirror|medicine/.test(s) ||
-        /countertop|backsplash|appliance/.test(s) ||
-        /\bsink\b|faucet|disposal|toilet|fixture|smoke|carbon|co\s*detect|chandelier|\blight(?:ing)?\b|hardware|\bknob\b/.test(s))  return 'cabinetry';
-    return 'cosmetics';  // fallback — uncategorized work defaults to interior finish
-  };
-  // Repossession defaults — these are workflow / legal items, not rehab
-  // line items, so they aren't in the rehab calc. Hard-coded here so they
-  // appear as clickable chips under the Repossession phase whenever that
-  // phase is in the deal's plan. If the user hasn't added Repossession
-  // (vacant deals), the chips simply won't render — the phase row doesn't
-  // exist for them.
-  itemsByPhaseId.repossession = [
-    'Notice of Ownership Change',
-    'Notice of Termination / Notice to Quit',
-    'Cash for Keys Offer',
-    'Eviction Filing',
-    'Court Hearing',
-    'Writ of Possession',
-    'Sheriff Lockout & Re-Key Locks',
-    'Personal Property Removal & Secure Property',
-  ];
-  // Marketing default checklist — workflow items, not rehab line items.
-  // Same pattern as Repossession: they appear as clickable chips under the
-  // Staging & Marketing phase when that phase is in the deal's plan.
-  itemsByPhaseId.marketing = [
-    'Pre-Listing Cleaning',
-    'Staging (Furniture Rental)',
-    'Professional Photos (Interior & Drone)',
-    'Listing Description / Copy',
-    'MLS Listing',
-    'Online Marketing',
-    'For Sale / For Rent Sign',
-    'Open Houses & Showings',
-    'Offer / Lease Negotiations',
-  ];
-  // Prefer the v2 scope (`scope` array we built above from
-  // _rcGetScopeByGroup) — that's the source of truth for v2 deals.
-  if (Array.isArray(scope) && scope.length > 0) {
-    scope.forEach(s => {
-      const cls = _classifyV2(s.label);
-      if (cls && itemsByPhaseId[cls]) itemsByPhaseId[cls].push(s.label);
-    });
-  } else if (Array.isArray(_uwRehabState)) {
-    // Legacy v1 path — uses _uwClassifyRehabItem on the rich item objects.
+  if (Array.isArray(_uwRehabState)) {
     _uwRehabState.forEach(col => {
       (col.items || []).forEach(item => {
         if (!item || !item.needed || !item.label) return;
@@ -14367,8 +13683,8 @@ function uwRenderScopeOfWork() {
         endDate = fmtEnd(cumulative);
       }
       const endLabel = endDate
-        ? '<span class="text-xs" data-scope-enddate="' + safeId + '" style="color:var(--text-dim);min-width:160px;text-align:right;white-space:nowrap;flex-shrink:0" title="Done by ' + endDate + (p.parallel ? ' (runs in parallel from start)' : '') + '">→ ' + endDate + '</span>'
-        : '<span class="text-xs" data-scope-enddate="' + safeId + '" style="color:var(--text-dim);min-width:160px;text-align:right;white-space:nowrap;flex-shrink:0" title="Set a Renovation Start date in the Budget tab to see completion dates">—</span>';
+        ? '<span class="text-xs" data-scope-enddate="' + safeId + '" style="color:var(--text-dim);min-width:120px;text-align:right" title="Done by ' + endDate + (p.parallel ? ' (runs in parallel from start)' : '') + '">→ ' + endDate + '</span>'
+        : '<span class="text-xs" data-scope-enddate="' + safeId + '" style="color:var(--text-dim);min-width:120px;text-align:right" title="Set a Renovation Start date in the Budget tab to see completion dates">—</span>';
       // Items belonging to this phase — rendered as soft chips below the row.
       const phaseItems = itemsByPhaseId[p.id] || [];
       let itemsBlock = '';
@@ -14377,73 +13693,24 @@ function uwRenderScopeOfWork() {
         const chipBg = isTrigger ? 'rgba(245,158,11,0.14)' : 'rgba(99,102,241,0.14)';
         const chipFg = isTrigger ? '#fbbf24' : '#a5b4fc';
         const verb = isTrigger ? 'triggered by' : 'includes';
-        // Per-item "done" state — persisted on data._scopeItemsDone (object
-        // keyed by item label). Clicking a chip toggles its done state.
-        // Done chips render with a green tint + strikethrough so the user can
-        // tell at a glance what's left.
-        const _data = (u2 && u2.data) || {};
-        const _done = (_data._scopeItemsDone && typeof _data._scopeItemsDone === 'object') ? _data._scopeItemsDone : {};
-        const doneBg = 'rgba(16,185,129,0.18)';
-        const doneFg = '#10b981';
         itemsBlock =
-          '<div style="margin-top:8px;padding-left:2px;display:flex;flex-wrap:wrap;align-items:center;gap:5px;max-width:100%;min-width:0;overflow:hidden">' +
+          '<div style="margin-top:8px;padding-left:2px;display:flex;flex-wrap:wrap;align-items:center;gap:5px">' +
             '<span class="text-xs" style="color:var(--text-dim);margin-right:4px">' + verb + ':</span>' +
-            phaseItems.map(n => {
-              const isDone = !!_done[n];
-              const bg = isDone ? doneBg : chipBg;
-              const fg = isDone ? doneFg : chipFg;
-              const prefix = isDone ? '✓ ' : '';
-              const decoration = isDone ? 'text-decoration:line-through;text-decoration-thickness:1px;' : '';
-              // Use a data-attribute for the item label instead of an
-              // inline onclick string-literal — apostrophes in labels
-              // (e.g. "Don't Replace") would otherwise break the inline
-              // string and crash the click handler.
-              return '<span onclick="uwScopeToggleItemDone(this, \'' + escapeHtml(String(n)).replace(/'/g, '\\&apos;') + '\')" title="Click to ' + (isDone ? 'unmark' : 'mark') + ' as done" style="padding:2px 9px;border-radius:10px;font-size:11px;cursor:pointer;user-select:none;' + decoration + 'background:' + bg + ';color:' + fg + '">' + prefix + escapeHtml(n) + '</span>';
-            }).join('') +
+            phaseItems.map(n =>
+              '<span style="padding:2px 9px;border-radius:10px;font-size:11px;background:' + chipBg + ';color:' + chipFg + '">' + escapeHtml(n) + '</span>'
+            ).join('') +
           '</div>';
       }
-      return '<div style="padding:8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;min-width:0;overflow:visible;box-sizing:border-box">' +
+      return '<div style="padding:8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px">' +
         '<div style="display:flex;align-items:center;gap:8px">' +
-          // Stock phase names are read-only — they're fixed titles tied to
-          // the phase id (used by classifier, migration, normalization).
-          // Only user-added custom phases get an editable name input.
-          (['repossession','demo','restructure','mechanicals','cosmetics','cabinetry','punch-list','marketing'].includes(p.id)
-            ? '<div style="flex:1;font-size:13px;padding:5px 8px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(p.name) + '">' + escapeHtml(p.name) + '</div>'
-            : '<input value="' + escapeHtml(p.name) + '" oninput="uwScopeUpdatePhase(\'' + safeId + '\',\'name\',this.value)" placeholder="Phase name" style="flex:1;font-size:13px;padding:5px 8px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:5px">'
-          ) +
-          // Estimated days — locked for stock phases (auto-derived / standard
-          // durations), editable for user-added custom phases.
-          '<div style="display:flex;flex-direction:column;align-items:flex-end;line-height:1">' +
-            '<span style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Est</span>' +
-            (['repossession','demo','restructure','mechanicals','cosmetics','cabinetry','punch-list','marketing'].includes(p.id)
-              ? '<div style="width:70px;font-size:18px;padding:2px 8px;color:var(--text);font-weight:700;text-align:right;font-variant-numeric:tabular-nums" title="Locked — standard phase duration">' + days + '</div>'
-              : '<input type="number" value="' + days + '" min="0" step="1" oninput="uwScopeUpdatePhase(\'' + safeId + '\',\'days\',this.value)" style="width:70px;font-size:16px;padding:3px 6px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:5px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600">'
-            ) +
-          '</div>' +
-          // Real tracking — pick the DATE this phase finished and the
-          // system shows how many days it took. The "took" calc uses the
-          // previous phase's real completion date when available, else
-          // falls back to the project start (closing date) + cumulative
-          // estimated days of prior phases. Stored on p.realCompletionDate.
-          // p.realDays is derived (also written for the Real Timeline Gantt).
-          '<div style="display:flex;flex-direction:column;align-items:flex-end;line-height:1">' +
-            '<span style="font-size:9px;color:#10b981;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Done On</span>' +
-            '<input type="date" value="' + escapeHtml(p.realCompletionDate || '') + '" data-scope-phase-id="' + safeId + '" data-scope-phase-startoffset="' + (cumulative - days) + '" onchange="uwScopeSetPhaseCompletionDate(this)" style="font-size:13px;padding:3px 6px;background:var(--panel);border:1px solid #10b981;color:var(--text);border-radius:5px;font-variant-numeric:tabular-nums" title="Pick the date this phase actually completed.">' +
-          '</div>' +
-          // Read-only display of the calculated real days (took from the
-          // last phase's done-date, or from project start if none yet).
-          '<div data-scope-phase-tookdisplay="' + safeId + '" style="display:flex;flex-direction:column;align-items:flex-end;line-height:1;min-width:74px">' +
-            '<span style="font-size:9px;color:#10b981;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Took</span>' +
-            '<div style="font-size:18px;padding:2px 8px;color:#10b981;font-weight:700;text-align:right;font-variant-numeric:tabular-nums">' + (Number.isFinite(Number(p.realDays)) && Number(p.realDays) > 0 ? Number(p.realDays) + 'd' : '—') + '</div>' +
-          '</div>' +
+          '<input value="' + escapeHtml(p.name) + '" oninput="uwScopeUpdatePhase(\'' + safeId + '\',\'name\',this.value)" placeholder="Phase name" style="flex:1;font-size:13px;padding:5px 8px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:5px">' +
+          '<input type="number" value="' + days + '" min="0" step="1" oninput="uwScopeUpdatePhase(\'' + safeId + '\',\'days\',this.value)" style="width:80px;font-size:13px;padding:5px 8px;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:5px;text-align:right">' +
           '<span class="text-xs" style="color:var(--text-dim)">days</span>' +
+          '<label class="text-xs" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap" title="If checked, this phase runs alongside the sequential timeline (e.g. exterior work happening in parallel with interior).">' +
+            '<input type="checkbox"' + (p.parallel ? ' checked' : '') + ' onchange="uwScopeUpdatePhase(\'' + safeId + '\',\'parallel\',this.checked)" style="width:auto"> Parallel' +
+          '</label>' +
           endLabel +
-          // Remove (✕) button — hidden for stock phases so they can't be
-          // accidentally deleted. Custom user-added phases still removable.
-          (['repossession','demo','restructure','mechanicals','cosmetics','cabinetry','punch-list','marketing'].includes(p.id)
-            ? ''
-            : '<button class="btn btn-ghost text-xs" style="color:#f87171" onclick="uwScopeRemovePhase(\'' + safeId + '\')" title="Remove this phase">✕</button>'
-          ) +
+          '<button class="btn btn-ghost text-xs" style="color:#f87171" onclick="uwScopeRemovePhase(\'' + safeId + '\')" title="Remove this phase">✕</button>' +
         '</div>' +
         itemsBlock +
       '</div>';
@@ -14606,10 +13873,12 @@ function _hrMountCalculator(targetSection) {
   }
   if (calc.parentNode !== mount) mount.appendChild(calc);
   if (tableWrap) tableWrap.style.display = 'none';
-  // Reveal the Budget & Scope folder subtab — only available inside H/R.
-  // (Previously was two subtabs; merged into one "Budget & Scope" panel.)
+  // Reveal the Budget folder subtab — only available inside Holdings/Renovation.
   const budgetBtn = document.querySelector('#uw-folder-subtabs [data-folder-subtab="budget"]');
   if (budgetBtn) budgetBtn.style.display = '';
+  // Reveal the Scope of Work subtab — same rule (only in H/R contexts).
+  const scopeBtn = document.querySelector('#uw-folder-subtabs [data-folder-subtab="scope"]');
+  if (scopeBtn) scopeBtn.style.display = '';
   // Hide the Underwriting workflow stage selector (Help / Analyzing / Priority /
   // Double-Check / Analyzed / Offered / Inspection / Contracted / Closed). This
   // property is already past those stages — it lives in Holdings or Renovation
@@ -14641,12 +13910,14 @@ function _hrUnmountCalculator() {
   // Restore both H/R table panels (we don't know which one was hidden).
   const ht = document.getElementById('hold-table-wrap'); if (ht) ht.style.display = '';
   const rt = document.getElementById('reno-table-wrap'); if (rt) rt.style.display = '';
-  // Hide the Budget & Scope subtab — not visible inside the Underwriting
-  // section. If it was the active tab, snap back to Evaluation so the user
-  // lands on a valid view next time the calculator opens from Underwriting.
+  // Hide Budget + Scope subtabs again — not visible inside the Underwriting
+  // section. If either was the active tab, snap back to Evaluation so the
+  // user lands on a valid view next time the calculator opens from Underwriting.
   const budgetBtn = document.querySelector('#uw-folder-subtabs [data-folder-subtab="budget"]');
   if (budgetBtn) budgetBtn.style.display = 'none';
-  if (_uwFolderSubtab === 'budget' && typeof uwSetFolderSubtab === 'function') {
+  const scopeBtn = document.querySelector('#uw-folder-subtabs [data-folder-subtab="scope"]');
+  if (scopeBtn) scopeBtn.style.display = 'none';
+  if ((_uwFolderSubtab === 'budget' || _uwFolderSubtab === 'scope') && typeof uwSetFolderSubtab === 'function') {
     uwSetFolderSubtab('evaluation');
   }
   // Restore the workflow stage selector for when the calculator is used
@@ -14706,9 +13977,7 @@ function _hrShowDealModal(id) {
   if (titleEl) titleEl.textContent = u.address || 'Property';
   if (subEl) {
     const loc = [u.city, u.state, u.zip].filter(Boolean).join(', ');
-    // Offer Status is independent of packet_status. Default to "Needed".
-    const _statusVal = (u.data && u.data['uw-offer-status']) || 'Needed';
-    const status = ' · ' + (typeof _uwOfferStatusLabel === 'function' ? _uwOfferStatusLabel(_statusVal) : _statusVal);
+    const status = u.packet_status ? ' · ' + u.packet_status : '';
     const route  = data._holdingStatus === 'holding' ? ' · 🏘️ In Holdings'
                  : data._holdingStatus === 'renovation' ? ' · 🔨 In Renovation' : '';
     subEl.textContent = (loc || '—') + status + route;
@@ -14760,7 +14029,7 @@ function _hrShowDealModal(id) {
         </div>
         <div class="panel-2" style="padding:12px">
           <div class="text-xs uppercase tracking-wide mb-2" style="color:var(--text-dim);font-weight:600">Meta</div>
-          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text-dim)">Offer Status</span><span>${escapeHtml((function(){ const v = (u.data && u.data['uw-offer-status']) || 'Needed'; return (typeof _uwOfferStatusLabel === 'function' ? _uwOfferStatusLabel(v) : v); })())}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text-dim)">Packet status</span><span>${escapeHtml(u.packet_status || '—')}</span></div>
           <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text-dim)">Imported</span><span>${u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</span></div>
           <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text-dim)">Last updated</span><span>${u.updated_at ? new Date(u.updated_at).toLocaleDateString() : '—'}</span></div>
           <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px"><span style="color:var(--text-dim)">ID</span><span style="font-family:monospace;font-size:11px">${escapeHtml(String(id).slice(0, 8))}</span></div>
@@ -15674,32 +14943,14 @@ function renderUnderwriteList() {
   const inChecking  = _notPri.filter(u => _isFlagged(u, '_inChecking'));
   const analyzing   = _notPri.filter(u => _uwIsAnalyzing(u) && !_isFlagged(u, '_inChecking'));
   const _postEval   = _notPri.filter(u => !_uwIsAnalyzing(u) && !_isFlagged(u, '_inChecking'));
-  // Offered / Inspection / Contracted / Closed are CROSS-CUTTING views,
-  // each driven by which Offer Status button is selected:
-  //   Sent / Rejected   → Offered
-  //   Inspection        → Inspection
-  //   Accepted / Contracted → Contracted
-  //   Closed            → Closed
-  // Like Hot, deals appear here AND in their primary workflow tab.
-  const _offerStatusOf = (u) => ((u && u.data && u.data['uw-offer-status']) || '').trim();
-  const offered    = all.filter(u => {
-    const os = _offerStatusOf(u);
-    return os === 'Sent' || os === 'Rejected';
+  const offered    = _postEval.filter(u => (u.packet_status || '').trim() === 'Offered');
+  const inspection = _postEval.filter(u => (u.packet_status || '').trim() === 'Inspection');
+  const contracted = _postEval.filter(u => (u.packet_status || '').trim() === 'Accepted');
+  const closed     = _postEval.filter(u => (u.packet_status || '').trim() === 'Closed');
+  const analyzed   = _postEval.filter(u => {
+    const s = (u.packet_status || '').trim();
+    return s !== 'Offered' && s !== 'Accepted' && s !== 'Closed' && s !== 'Inspection';
   });
-  const inspection = all.filter(u => _offerStatusOf(u) === 'Inspection');
-  const contracted = all.filter(u => {
-    const os = _offerStatusOf(u);
-    return os === 'Accepted' || os === 'Contracted';
-  });
-  // Closed driven by uw-offer-status with packet_status === 'Closed' kept
-  // as back-compat for old deals closed via the (now-removed) stage button.
-  const closed     = all.filter(u =>
-    _offerStatusOf(u) === 'Closed' || (u.packet_status || '').trim() === 'Closed'
-  );
-  // Analyzed no longer excludes deals with an Offer Status — those deals
-  // still show up here AND in the Offered / Inspection / Contracted tab.
-  // Only "Closed" deals leave the Analyzed tab entirely.
-  const analyzed   = _postEval.filter(u => (u.packet_status || '').trim() !== 'Closed');
 
   // ===== Hot list (CROSS-CUTTING) =====
   // Computed view — purely automatic, never manually toggled. A deal lands
@@ -15807,22 +15058,13 @@ function renderUnderwriteList() {
     // this deal" reads as a clear red $0 instead of a wishy-washy em-dash).
     const profitColor = u.best_profit > 0 ? '#10b981' : '#ef4444';
     const date = u.updated_at ? new Date(u.updated_at).toLocaleDateString() : '—';
-    // Offer Status is independent of packet_status (workflow stage strip).
-    // Reads uw-offer-status only; defaults to "Needed" when nothing's set.
-    // Badge palette:
-    //   Needed   → brand (orange) — default attention state
-    //   Sent     → info  (light blue) — offer is out, waiting on seller
-    //   Rejected → bad   (red)
-    //   Accepted → ok    (green)
-    const _displayStatus = (u.data && u.data['uw-offer-status']) || 'Needed';
-    const statusBadgeClass = _displayStatus === 'Sent'      ? 'info' :
-      _displayStatus === 'Rejected' || _displayStatus === 'Dead' ? 'bad' :
-      _displayStatus === 'Accepted' || _displayStatus === 'Closed' ? 'ok' :
-      _displayStatus === 'Contracted' ? 'warn' :
-      _displayStatus === 'Inspection' ? 'purple' : 'brand';
+    const statusBadgeClass = !u.packet_status ? 'brand' :
+      u.packet_status === 'Closed' ? 'ok' :
+      u.packet_status === 'Dead' ? 'bad' :
+      u.packet_status === 'Accepted' ? 'ok' : 'brand';
     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="_hrOpenDeal('${u.id}')" onmouseover="this.style.background='rgba(99,102,241,0.05)'" onmouseout="this.style.background=''">
       <td style="padding:8px 10px"><div style="font-weight:500">${escapeHtml(u.address || '—')}</div><div class="text-xs" style="color:var(--text-dim)">${escapeHtml([u.city, u.state, u.zip].filter(Boolean).join(', '))}</div></td>
-      <td style="padding:8px 10px"><span class="badge ${statusBadgeClass}" style="font-size:11px">${escapeHtml(typeof _uwOfferStatusLabel === 'function' ? _uwOfferStatusLabel(_displayStatus) : _displayStatus)}</span></td>
+      <td style="padding:8px 10px">${u.packet_status ? `<span class="badge ${statusBadgeClass}" style="font-size:11px">${escapeHtml(u.packet_status)}</span>` : '<span class="text-xs" style="color:var(--text-dim)">—</span>'}</td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt$(_uwComputeRentFromData(u.data))}</td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt$(_uwComputeArvFromData(u.data) || u.arv)}</td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt$(parseFloat((u.data && u.data['uw-asking']) || u.asking || 0) || 0)}</td>
@@ -20797,7 +20039,7 @@ async function saveListSource() {
 }
 
 // ---------- Storage estimation (client-side approximation) ----------
-const STORAGE_LIMIT_MB = 8192;  // Supabase Pro tier (8 GB = 8 × 1024 MB)
+const STORAGE_LIMIT_MB = 500;  // Supabase free tier
 // Average bytes per row for each table (rough estimates; JSONB blobs measured separately)
 const ROW_SIZE = {
   properties: 500,
@@ -28565,16 +27807,8 @@ function recalc(){
   if(total){ document.getElementById('bar-mat').style.width = (mat/total*100)+'%'; document.getElementById('bar-lab').style.width = (lab/total*100)+'%'; }
   const rawDays = hrs/8;
   const crewDays = rawDays/crew;
-  // Convert crew work days (Mon–Fri schedule) to calendar days. 5 work days
-  // = 1 week = 7 calendar days. Round UP to whole weeks so the timeline is
-  // cleanly bounded (e.g. 19 work days → ceil(19/5)=4 weeks → 28 cal days).
-  const _weeksMF  = Math.ceil(crewDays / 5);
-  const calDays   = _weeksMF * 7;
-  // Single buffer factor on calendar days — replaces the old chained
-  // "30% bottleneck × 25% contingency" pair the user found confusing.
-  // Rounded UP so the "X + Y" display always sums to clean integers.
-  const _bufferDays = Math.ceil(calDays * 0.25);
-  const finDaysBase = calDays + _bufferDays;
+  const calDays = crewDays*1.30;
+  const finDaysBase = calDays*(1+timeCont/100);
   // Occupancy adjustment — non-vacant adds 60 days (~2 months) for repossession.
   // Tenancy dropdown is informational only — doesn't affect the timeline.
   const _occEl = document.getElementById('rc-occupancy');
@@ -28590,20 +27824,7 @@ function recalc(){
   document.getElementById('s-raw').textContent = Math.round(rawDays).toLocaleString();
   document.getElementById('s-crew').textContent = Math.round(crewDays).toLocaleString();
   document.getElementById('s-crew-sub').textContent = 'w/ '+crew+' workers';
-  // Renovation w/ Crew — value displays as "X + Y" where X is the M-F
-  // calendar days from the work-days conversion and Y is the +25% buffer
-  // days (rounded up). Subtext shows the underlying work days + the single
-  // buffer factor — no separate "contingency" anymore.
-  const _renoTotalDays = finDaysBase;
-  document.getElementById('s-cal').textContent = _bufferDays > 0
-    ? (calDays + ' + ' + _bufferDays)
-    : calDays.toLocaleString();
-  const _sCalLabel = document.getElementById('s-cal-label');
-  if (_sCalLabel) _sCalLabel.textContent = 'Renovation w/ Crew (' + crew + ')';
-  const _sCalSub = document.getElementById('s-cal-sub');
-  if (_sCalSub) {
-    _sCalSub.textContent = Math.round(crewDays).toLocaleString() + ' work days + 25% buffer';
-  }
+  document.getElementById('s-cal').textContent = Math.round(calDays).toLocaleString();
   // Repossession days — sourced from the Occupancy panel.
   // 60 days when occupied (any non-vacant value), 0 when vacant.
   const _sRepEl = document.getElementById('s-rep');
@@ -28613,49 +27834,9 @@ function recalc(){
     const occLabel = _isOccupied ? (_occVal === 'tenant' ? 'tenant' : _occVal === 'squatter' ? 'squatter' : _occVal === 'family' ? 'family' : _occVal === 'owner' ? 'owner' : 'occupied') : 'vacant';
     _sRepSubEl.textContent = _isOccupied ? '~2 mo · ' + occLabel : 'vacant';
   }
-  // Listing time card — pulls from Strategy → Timeline's "Listed time"
-  // input (uw-fl-listed-mo, default 2.5 mo / 75 days). Lives outside the
-  // rehab calc proper but shown here for visibility next to the reno phases.
-  const _sListedEl = document.getElementById('s-listed');
-  const _sListedSub = document.getElementById('s-listed-sub');
-  if (_sListedEl) {
-    const _listedMoVal = parseFloat(document.getElementById('uw-fl-listed-mo')?.value || '2.5') || 2.5;
-    const _listedDaysVal = Math.round(_listedMoVal * 30);
-    _sListedEl.textContent = _listedDaysVal.toLocaleString();
-    if (_sListedSub) _sListedSub.textContent = '~' + _listedMoVal.toFixed(1) + ' mo · market default';
-  }
   document.getElementById('s-fin').textContent = Math.round(finDays).toLocaleString();
   document.getElementById('s-weeks').textContent = '~'+(finDays/5).toFixed(1)+' work weeks';
-  // Total Time card — the full hold period: repossession + reno-with-crew
-  // (rounded-up integer value matching the visible "X + Y" card) + listing.
-  // Using the rounded-up integers so the visible cards add up cleanly:
-  // 60 + (25 + 7) + 75 = 167. Previously this used Math.round(finDays)
-  // which gave 91, leaving a 1-day rounding discrepancy.
-  const _sTotalEl = document.getElementById('s-total');
-  const _sTotalSub = document.getElementById('s-total-sub');
-  if (_sTotalEl) {
-    const _listedMo2   = parseFloat(document.getElementById('uw-fl-listed-mo')?.value || '2.5') || 2.5;
-    const _listedDays2 = Math.round(_listedMo2 * 30);
-    const _totalDays   = occDays + _renoTotalDays + _listedDays2;
-    _sTotalEl.textContent = _totalDays.toLocaleString();
-    if (_sTotalSub) _sTotalSub.textContent = '~' + (_totalDays / 30).toFixed(1) + ' months · all-in';
-  }
-  // Estimated Project Duration — compact breakdown by phase. Reads the
-  // listing time from the Strategy → Timeline input (uw-fl-listed-mo, default
-  // 2.5 mo). Skips the repossession term when the property is vacant so the
-  // line stays clean.
-  (() => {
-    const _listedMoEd  = parseFloat(document.getElementById('uw-fl-listed-mo')?.value || '2.5') || 2.5;
-    const _repoMoEd    = occDays / 30;
-    const _renoMoEd    = finDaysBase / 30;
-    const _totalMoEd   = _repoMoEd + _renoMoEd + _listedMoEd;
-    const _parts = [];
-    if (occDays > 0) _parts.push(_repoMoEd.toFixed(1) + ' mo repossession');
-    _parts.push(_renoMoEd.toFixed(1) + ' mo renovation');
-    _parts.push(_listedMoEd.toFixed(1) + ' mo listing');
-    document.getElementById('s-display').textContent =
-      _parts.join(' + ') + ' = ' + _totalMoEd.toFixed(1) + ' mo total';
-  })();
+  document.getElementById('s-display').textContent = Math.round(finDays)+' days · '+(finDays/5).toFixed(1)+' weeks · '+(finDays/22).toFixed(1)+' months'+(occDays>0?' · +60 Day Repossession':'');
 
   // Push to UW bridge for underwriting math + downstream readers.
   // Strategy: write the GRAND TOTAL (rehab + new calc's cost contingency) as the
@@ -28687,9 +27868,6 @@ function recalc(){
     const subEl = document.getElementById('uw-rehab-subtotal');
     if (subEl) subEl.value = grandTotal > 0 ? Math.round(grandTotal).toLocaleString() : '';
     if (typeof uwRecalcRehabFinal === 'function') uwRecalcRehabFinal();
-    // (The s-fin MutationObserver — set up near _uwApplyAutoRehabMonths —
-    // now handles the cascade automatically whenever s-fin's value changes.
-    // No need to wire it from inside the rehab calc's bridge code.)
     if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
     // Also write the phantom directly into the in-memory cache for the currently-open
     // deal — that way the deal list reads the correct rehab number on its next render
@@ -28732,11 +27910,19 @@ _rcRoot.addEventListener('change', e=>{
     recalc();
   }
   if(['crew','costContingency','timeContingency','finishLevel','rc-occupancy','rc-tenancy'].includes(e.target.id)){
+    // When occupancy/tenancy changes, force-refresh the auto-set Renovation Time
+    // on the Flip + Rental Refi cards so holding costs always reflect the new total.
+    if(e.target.id === 'rc-occupancy' || e.target.id === 'rc-tenancy'){
+      window._uwForceAutoRehab = true;
+    }
     recalc();
   }
 });
 _rcRoot.addEventListener('input', e=>{
   if(['crew','costContingency','timeContingency','rc-occupancy','rc-tenancy'].includes(e.target.id)){
+    if(e.target.id === 'rc-occupancy' || e.target.id === 'rc-tenancy'){
+      window._uwForceAutoRehab = true;
+    }
     recalc();
   }
 });

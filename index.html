@@ -142,7 +142,7 @@
   .badge.info  { background: rgba(56,189,248,0.15); color: #38bdf8; }  /* light blue — used for "Sent" offer status */
   .badge.purple{ background: rgba(168,85,247,0.15); color: #a855f7; }  /* purple — used for "Inspection" offer status */
   .badge.indigo{ background: rgba(99,102,241,0.18); color: #6366f1; }  /* indigo — used for "Pending" offer status (paperwork in motion) */
-  .badge.dropped{ background: rgba(180,83,9,0.20); color: #b45309; }   /* burnt orange / brown — used for "Dropped" offer status (deal fell through) */
+  .badge.dropped{ background: rgba(148,163,184,0.18); color: #94a3b8; } /* muted slate grey — used for "Dropped" offer status (deal fell through) */
   .badge.teal  { background: rgba(20,184,166,0.18); color: #14b8a6; }  /* teal — used for "Closed" offer status (successful close) */
   .toast { position: fixed; bottom: 20px; right: 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; z-index: 200; opacity: 0; transition: opacity 0.2s; max-width: 400px; }
   .toast.show { opacity: 1; }
@@ -3791,6 +3791,11 @@
           </select>
           <input id="uw-closed-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="From (imported on or after)">
           <input id="uw-closed-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="To (imported on or before)">
+          <!-- Show Dropped toggle — default OFF so the Finalized list shows
+               ONLY successfully Closed deals. Click to also include deals
+               that fell through (Offer Status = Dropped). Matches the tab
+               badge count (which only counts Closed by default). -->
+          <button type="button" id="uw-closed-show-dropped" data-active="false" onclick="(function(b){var n=b.getAttribute('data-active')!=='true';b.setAttribute('data-active',String(n));if(n){b.style.background='#94a3b8';b.style.color='#fff';b.style.borderColor='#94a3b8';}else{b.style.background='var(--panel-2)';b.style.color='var(--text)';b.style.borderColor='var(--border)';}if(typeof renderUnderwriteList==='function')renderUnderwriteList();})(this)" title="Click to also show Dropped deals (deals that fell through). Off by default — Finalized normally shows only successfully Closed deals." style="height:34px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all 0.15s ease">⚠ Show Dropped</button>
           <input id="uw-closed-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
         </div>
       </div>
@@ -14001,7 +14006,7 @@ const _UW_OFFER_STATUS_COLORS = {
   Contracted: { bg: 'rgba(234,179,8,0.20)',  fg: '#eab308' },   // amber — under contract
   Pending:    { bg: 'rgba(99,102,241,0.20)', fg: '#6366f1' },   // indigo — paperwork in motion, distinct from Contracted's amber
   Closed:     { bg: 'rgba(20,184,166,0.20)', fg: '#14b8a6' },   // teal — deal closed successfully
-  Dropped:    { bg: 'rgba(180,83,9,0.22)',   fg: '#b45309' },   // burnt orange / dim brown — deal fell through, clearly distinct from Rejected red
+  Dropped:    { bg: 'rgba(148,163,184,0.20)',fg: '#94a3b8' },   // muted slate grey — deal fell through, reads as "inactive" without competing with other status colors
 };
 
 // Set the Offer Status from the 2×2 button grid. Writes to the
@@ -18130,13 +18135,24 @@ function renderUnderwriteList() {
     return os === 'Accepted' || os === 'Contracted' || os === 'Pending';
   });
   // Finalized (internally still keyed as "closed" for back-compat with
-  // saved view state, tab ids, etc.) — driven by uw-offer-status = Closed
-  // OR Dropped, with packet_status === 'Closed' kept as back-compat for old
-  // deals closed via the (now-removed) stage button.
-  const closed     = all.filter(u => {
+  // saved view state, tab ids, etc.) — driven by uw-offer-status:
+  //   • Default behavior:    list shows ONLY successfully Closed deals.
+  //   • "Show Dropped" toggle: also includes Dropped (deal-fell-through) rows.
+  // The tab badge count ALWAYS reflects just the Closed-only set, so the
+  // number doesn't jump when the toggle flips — Dropped deals are visible
+  // when you want them but they don't inflate the headline count.
+  const _showDroppedBtn = document.getElementById('uw-closed-show-dropped');
+  const _showDropped    = _showDroppedBtn && _showDroppedBtn.getAttribute('data-active') === 'true';
+  const closedOnly = all.filter(u => {
     const os = _offerStatusOf(u);
-    return os === 'Closed' || os === 'Dropped' || (u.packet_status || '').trim() === 'Closed';
+    return os === 'Closed' || (u.packet_status || '').trim() === 'Closed';
   });
+  const closed = _showDropped
+    ? all.filter(u => {
+        const os = _offerStatusOf(u);
+        return os === 'Closed' || os === 'Dropped' || (u.packet_status || '').trim() === 'Closed';
+      })
+    : closedOnly;
   // Analyzed no longer excludes deals with an Offer Status — those deals
   // still show up here AND in the Offered / Inspection / Contracted tab.
   // Only "Closed" deals leave the Analyzed tab entirely.
@@ -18220,8 +18236,11 @@ function renderUnderwriteList() {
   }
   const clCount = document.getElementById('uw-closed-count');
   if (clCount) {
-    clCount.textContent = closed.length.toLocaleString();
-    clCount.style.display = closed.length ? '' : 'none';
+    // Badge always reflects Closed-only — Dropped deals don't inflate the
+    // headline number. They show in the list only when the "Show Dropped"
+    // toggle is enabled.
+    clCount.textContent = closedOnly.length.toLocaleString();
+    clCount.style.display = closedOnly.length ? '' : 'none';
   }
   const hotCount = document.getElementById('uw-hot-count');
   if (hotCount) {

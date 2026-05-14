@@ -12435,6 +12435,17 @@ let _uwAutosaveInflight = false;
 let _uwAutosaveQueued = false;
 let _uwAutosaveAttached = false;
 let _uwLastSavedAt = 0;
+// WIPE PROTECTION STATE
+// _uwLoadingDeal — true while uwLoadById is mounting a deal into the form.
+//   During this window, _uwQueueAutosave refuses to fire. This stops any
+//   spurious input/change events (from programmatic .value assignments,
+//   recalc cascades, dropdown initialization, etc.) from triggering an
+//   autosave that would write half-populated form values over the saved
+//   deal. The flag clears ~2 seconds after the load starts.
+// _uwLoadingDealTimer — handle for the clear-flag timeout, so successive
+//   loads cancel the previous timer instead of leaking.
+let _uwLoadingDeal = false;
+let _uwLoadingDealTimer = null;
 
 function _uwSetSaveStatus(state, extra) {
   const dot = document.getElementById('uw-autosave-dot');
@@ -12496,6 +12507,17 @@ setInterval(() => {
 
 // Debounced trigger — fires uwSave(false) after the user stops editing
 function _uwQueueAutosave() {
+  // WIPE PROTECTION — GUARD 1: Don't autosave while a deal is being loaded.
+  // The load process sets form fields via _uwApply, fires off uwRecalc, may
+  // mount dropdowns and other widgets, etc. Any of these can briefly look
+  // like user input from the autosave listener's perspective. If autosave
+  // fired during this window with the form half-populated, it would write
+  // the half-populated state over the real saved data and wipe fields.
+  // The flag is set true at the start of uwLoadById and clears ~2s later.
+  if (_uwLoadingDeal) {
+    try { console.log('[autosave] suppressed — deal still loading'); } catch (_) {}
+    return;
+  }
   // Don't queue if there's no address yet (uwSave would no-op anyway)
   const addrEl = document.getElementById('uw-address');
   const addr = addrEl ? (addrEl.value || '').trim() : '';
@@ -12582,6 +12604,68 @@ async function uwSave(manual) {
     _uwSetSaveStatus('dirty');
     return;
   }
+  // WIPE PROTECTION — GUARD 2: Mass-clear detection. Before writing the
+  // save payload, compare the new data we're about to write with the
+  // currently-cached data for this deal. If the save would clear a lot
+  // of filled fields in one shot (typical signature of a stale-form
+  // autosave fired during a load or a broken cache state), block it.
+  // For auto-saves: silently block (user can still manually save).
+  // For manual saves: ask for confirmation before destroying the data.
+  // This guards against the "open deal, autosave fires, wipes data"
+  // scenario where the form is half-loaded but the save fires anyway.
+  try {
+    if (_uwCurrentId && cache.underwrites && cache.underwrites[_uwCurrentId]) {
+      const cachedData = cache.underwrites[_uwCurrentId].data || {};
+      // A "filled" value is anything not null/undefined/empty string.
+      // Empty objects and arrays don't count as filled either.
+      const isFilled = (v) => {
+        if (v == null || v === '') return false;
+        if (Array.isArray(v)) return v.length > 0;
+        if (typeof v === 'object') return Object.keys(v).length > 0;
+        return true;
+      };
+      let wouldClear = 0;
+      const sampleCleared = [];
+      Object.keys(cachedData).forEach(k => {
+        if (isFilled(cachedData[k]) && !isFilled(data[k])) {
+          wouldClear++;
+          if (sampleCleared.length < 5) sampleCleared.push(k);
+        }
+      });
+      // Threshold: 10+ fields about to be cleared = block.
+      // Picked as a balance: a real user rarely clears 10 fields at once,
+      // while a load-induced autosave typically wipes everything (50-150+).
+      if (wouldClear >= 10) {
+        try { console.warn('[autosave] wipe protection triggered — would clear ' + wouldClear + ' fields (e.g., ' + sampleCleared.join(', ') + ')'); } catch (_) {}
+        if (manual) {
+          // Manual save — ask the user. Default is Cancel.
+          const proceed = confirm(
+            'WARNING: This save would clear ' + wouldClear + ' filled fields on this deal.\n\n' +
+            'Examples: ' + sampleCleared.join(', ') + '\n\n' +
+            'This usually means the form didn\'t load fully. If you continue, those fields will be wiped.\n\n' +
+            'Click Cancel to skip the save (recommended).\n' +
+            'Click OK only if you really want to clear these fields.'
+          );
+          if (!proceed) {
+            _uwSetSaveStatus('saved', _uwSavedAgoLabel());
+            return;
+          }
+          // User confirmed — fall through to the normal save
+        } else {
+          // Auto-save — silently block. Show a toast so the user notices.
+          if (typeof toast === 'function') {
+            toast('⚠ Auto-save blocked: form may not have loaded fully (' + wouldClear + ' fields would be cleared)', 'warn');
+          }
+          _uwSetSaveStatus('saved', _uwSavedAgoLabel());
+          return;
+        }
+      }
+    }
+  } catch (e) {
+    // If the protection logic itself errors, log and continue — never
+    // let a check failure prevent a legitimate save from going through.
+    try { console.warn('[autosave] wipe protection check failed:', e); } catch (_) {}
+  }
   // Parse profit from "$12,345" or "−$12,345"
   const cleanProfit = bestProfitText.replace(/[^\d.\-−]/g, '').replace('−', '-');
   const bestProfit = parseFloat(cleanProfit) || 0;
@@ -12648,7 +12732,7 @@ async function uwSave(manual) {
       cache.underwrites[result.data.id] = result.data;
       if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
       // Show the "Added on X · N days ago" badge once we know created_at.
-      if (typeof _uwSetDealAge === 'function') _uwSetDealAge(result.data.created_at);
+      if (typeof _uwSetDealAge === 'function') _uwSetDealAge(result.data.created_at, result.data.last_submission_at);
     }
     _uwLastSavedAt = Date.now();
     _uwSetSaveStatus('saved', 'Saved just now');
@@ -13504,7 +13588,13 @@ function uwSetStage(stage) {
 
 // Format the "Added on X · N days ago" badge under the deal header.
 // Pass null to clear (used for new/reset deals).
-function _uwSetDealAge(createdAt) {
+// Render the "Added on / Last submission" header badge under the deal title.
+// Accepts the original created_at (always) and an optional lastSubmissionAt
+// timestamp. When lastSubmissionAt is present, BOTH dates are shown — the
+// original import date stays put (preserved forever, per the lockdown trigger)
+// and the last-submission date is appended next to it so the user can see
+// at a glance whether new activity has come in for this deal.
+function _uwSetDealAge(createdAt, lastSubmissionAt) {
   const el = document.getElementById('uw-deal-age');
   if (!el) return;
   if (!createdAt) { el.innerHTML = ''; return; }
@@ -13513,26 +13603,63 @@ function _uwSetDealAge(createdAt) {
   const now = new Date();
   // Use day-only diff (ignores time of day) so "today" doesn't show as 1 day.
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const days = Math.max(0, Math.round((startOfDay(now) - startOfDay(created)) / 86400000));
-  const dateStr = created.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-  let ageStr;
-  if (days === 0) ageStr = 'today';
-  else if (days === 1) ageStr = '1 day ago';
-  else ageStr = days.toLocaleString() + ' days ago';
-  // Color the badge based on age — fresh (green) → stale (amber) → cold (red)
-  let dotColor;
-  if (days <= 7) dotColor = '#10b981';
-  else if (days <= 30) dotColor = '#f59e0b';
-  else dotColor = '#ef4444';
-  el.innerHTML = '📅 Added <b style="color:var(--text)">' + dateStr + '</b> · ' +
-    '<span style="color:' + dotColor + ';font-weight:600">' + ageStr + '</span>';
-  el.title = 'Property entered the system on ' + dateStr + ' (' + ageStr + ').';
+  const fmtDate = (d) => d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  const ageInDays = (d) => Math.max(0, Math.round((startOfDay(now) - startOfDay(d)) / 86400000));
+  const fmtAgo = (d) => {
+    const days = ageInDays(d);
+    if (days === 0) return 'today';
+    if (days === 1) return '1 day ago';
+    return days.toLocaleString() + ' days ago';
+  };
+  // Color the age string based on freshness — fresh (green) → stale (amber) → cold (red)
+  const ageColor = (d) => {
+    const days = ageInDays(d);
+    if (days <= 7)  return '#10b981';
+    if (days <= 30) return '#f59e0b';
+    return '#ef4444';
+  };
+  // Original imported date — always shown
+  let html = '📅 Added <b style="color:var(--text)">' + fmtDate(created) + '</b> · ' +
+    '<span style="color:' + ageColor(created) + ';font-weight:600">' + fmtAgo(created) + '</span>';
+  // Newest-submission date. If the deal has never received a new submission
+  // since tracking started, the "newest" date is just the original import
+  // date — both labels show, both point to the same day. As soon as a real
+  // submission comes in, the trigger writes last_submission_at and that
+  // value takes over. This way the badge always shows the same shape and
+  // the user can see at a glance "no new activity yet" (dates match) vs
+  // "new submission today" (dates differ).
+  let newest = created;
+  let newestLabel = 'Last submission';
+  if (lastSubmissionAt) {
+    const lastSub = new Date(lastSubmissionAt);
+    if (!isNaN(lastSub.getTime())) newest = lastSub;
+  }
+  html += '<span style="margin:0 8px;color:var(--text-dim)">|</span>' +
+    '📥 ' + newestLabel + ' <b style="color:var(--text)">' + fmtDate(newest) + '</b> · ' +
+    '<span style="color:' + ageColor(newest) + ';font-weight:600">' + fmtAgo(newest) + '</span>';
+  el.innerHTML = html;
+  el.title = 'Property entered the system on ' + fmtDate(created) + ' (' + fmtAgo(created) + ').' +
+    ' Last submission ' + fmtDate(newest) + ' (' + fmtAgo(newest) + ').';
 }
 
 async function uwLoadById(id) {
+  // WIPE PROTECTION: set the loading lock as the very first thing. Any
+  // input/change events that fire during _uwApply + uwRecalc + dropdown
+  // mounting will hit _uwQueueAutosave and be suppressed by the loading
+  // flag. The flag clears ~2 seconds after this load starts, giving the
+  // form time to fully settle before autosave becomes active again.
+  _uwLoadingDeal = true;
+  if (_uwLoadingDealTimer) clearTimeout(_uwLoadingDealTimer);
+  _uwLoadingDealTimer = setTimeout(() => { _uwLoadingDeal = false; _uwLoadingDealTimer = null; }, 2000);
   if (!cache.underwrites || !cache.underwrites[id]) {
     const { data, error } = await sb.from('underwrites').select('*').eq('id', id).maybeSingle();
-    if (error || !data) { toast('Could not load deal.', 'err'); return; }
+    if (error || !data) {
+      // Loading failed — clear the lock so future user actions can save
+      _uwLoadingDeal = false;
+      if (_uwLoadingDealTimer) { clearTimeout(_uwLoadingDealTimer); _uwLoadingDealTimer = null; }
+      toast('Could not load deal.', 'err');
+      return;
+    }
     if (!cache.underwrites) cache.underwrites = {};
     cache.underwrites[id] = data;
   }
@@ -13565,8 +13692,11 @@ async function uwLoadById(id) {
   _uwLastSavedAt = u.updated_at ? new Date(u.updated_at).getTime() : Date.now();
   if (typeof _uwSetSaveStatus === 'function') _uwSetSaveStatus('saved', _uwSavedAgoLabel());
   // (autosave flush already happened above, before _uwApply overwrote state)
-  // Show "Added on X · N days ago" badge under the address
-  if (typeof _uwSetDealAge === 'function') _uwSetDealAge(u.created_at);
+  // Show "Added on X · N days ago" badge under the address. Also pass
+  // last_submission_at so the badge can include "📥 Last submission: ..." if
+  // a CallTools result or GHL submission has hit this deal since the
+  // lockdown trigger was deployed. NULL for deals that have never had one.
+  if (typeof _uwSetDealAge === 'function') _uwSetDealAge(u.created_at, u.last_submission_at);
   // Show/hide the "Remove from Renovation/Holdings" button based on routing
   if (typeof _uwUpdateRemoveRoutingButton === 'function') _uwUpdateRemoveRoutingButton();
   // Show/hide the Renovation phase mover button group based on routing

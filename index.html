@@ -2004,22 +2004,22 @@
   <div id="uwview-calculator" class="uwview" style="display:none">
 
     <!-- Top bar: back / save / reset
-         Layout is two rows wrapped in one panel:
-           Row 1 (top):    Back + title  |  autosave status, ID, action buttons (Reorder/Reset/Export CSV/Save Now)
-           Row 2 (bottom): Stage selector + Phase mover + Remove-from-Routing button (full width)
-         Action buttons stay in the top-right with nowrap so labels never split,
-         and the stage/phase pills get the full row below them so they breathe. -->
+         Layout: title block (left, can shrink) + action buttons (right, never wrap).
+         The flex-wrap was removed from the outer row so the button group stays
+         in the top-right even when the title block has multiple lines (address +
+         subtitle + Added/Last-submission badge). Title text can wrap within its
+         own div via min-width:0; action buttons stay in a single row to the right. -->
     <div class="panel p-4 mb-4">
-      <div class="flex items-center justify-between flex-wrap gap-3">
-        <div class="flex items-center gap-3">
-          <button class="btn btn-ghost text-sm" onclick="uwBackToList()" title="Back to the list">← Back</button>
-          <div>
+      <div class="flex items-start justify-between gap-3" style="flex-wrap:nowrap">
+        <div class="flex items-start gap-3" style="min-width:0;flex-shrink:1">
+          <button class="btn btn-ghost text-sm" onclick="uwBackToList()" title="Back to the list" style="flex-shrink:0">← Back</button>
+          <div style="min-width:0">
             <div class="font-semibold text-base" id="uw-detail-title">📐 Deal Calculator</div>
             <div class="text-xs text-[var(--text-dim)]" id="uw-detail-subtitle">Single-property underwrite. Enter inputs, formulas auto-recalculate.</div>
             <div id="uw-deal-age" class="text-xs mt-1" style="color:var(--text-dim)"></div>
           </div>
         </div>
-        <div class="flex items-center gap-2" style="flex-wrap:nowrap">
+        <div class="flex items-center gap-2" style="flex-wrap:nowrap;flex-shrink:0">
           <span id="uw-autosave-status" title="Auto-save status — saves a few seconds after you stop typing." style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim);padding:4px 10px;border-radius:999px;background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.25);margin-right:6px;min-width:90px;justify-content:center;white-space:nowrap;flex-shrink:0">
             <span id="uw-autosave-dot" style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block"></span>
             <span id="uw-autosave-text">Idle</span>
@@ -6163,18 +6163,29 @@ function _uwColorDistance(inputEl, miles) {
 }
 
 // Geocode a single address for comp-distance calculation, returning
-// { lat, lng } or null. Respects the user's geocoding provider setting
-// (Settings → Geocoding → Google or Census) by routing through the shared
-// geocodeAddress() function. Falls back to the other provider if the
-// preferred one fails on this address. Results are cached per session so
-// repeat lookups (e.g. re-running Refresh Distances) don't re-call.
+// { lat, lng } or null. Strategy: GOOGLE PRIMARY, Census fallback.
+//
+// We initially tried Census-first to save money, but the free Census API
+// has reliability problems in production: their direct endpoint doesn't
+// allow cross-origin browser requests (CORS), and the public proxy
+// services we fall through to (allorigins, corsproxy.io) are rate-limited
+// and frequently return 403. The net effect: Census fails on a large
+// share of addresses in real use, leaving comp distances blank.
+//
+// Google Geocoding API supports CORS natively (works from any origin with
+// proper API key), and the $200/month free credit covers thousands of
+// geocode calls — for the average user clicking Refresh Distances a few
+// dozen times a day, this stays well within the free tier. Caching per
+// session means repeat lookups for the same address never re-call either
+// provider.
+//
+// Census is kept as a fallback in the rare case Google's API is down or
+// rate-limited. In practice this almost never fires.
 async function _uwGeocodeOne(addr) {
   if (!addr) return null;
   const key = addr.trim().toLowerCase();
   if (_uwGeoCache[key]) return _uwGeoCache[key];
-  // Pick the user's provider, with the other one as fallback.
-  const preferred = (typeof geoSettings !== 'undefined' && geoSettings.provider) || 'google';
-  const tryWith = async (provider) => {
+  const tryProvider = async (provider) => {
     try {
       let result;
       if (provider === 'census') {
@@ -6186,19 +6197,27 @@ async function _uwGeocodeOne(addr) {
       }
       const lat = parseFloat(result?.lat);
       const lng = parseFloat(result?.lng);
-      if (!isFinite(lat) || !isFinite(lng)) return null;
+      if (!isFinite(lat) || !isFinite(lng)) {
+        // DIAGNOSTIC: surface why the provider gave us no coordinates.
+        // Most common when Google fails: error_reason will say
+        // "API key issue — request denied by Google" (Geocoding API not
+        // enabled, key restricted to wrong APIs, or quota exceeded).
+        const reason = result && result.error_reason ? result.error_reason : 'no coords returned';
+        console.warn('[uwGeocode] ' + provider + ' returned no coords for "' + addr + '" — reason: ' + reason);
+        return null;
+      }
       return { lat, lng };
     } catch (e) {
       console.warn('[uwGeocode]', provider, 'failed for', addr, e);
       return null;
     }
   };
-  let coords = await tryWith(preferred);
+  // 1st attempt: Google (reliable, CORS-friendly)
+  let coords = await tryProvider('google');
+  // 2nd attempt: Census fallback (rarely needed — only if Google is down)
   if (!coords) {
-    // Fall back to the OTHER provider — keeps comp distance working even if
-    // one provider is down or doesn't recognize this particular address.
-    const fallback = preferred === 'census' ? 'google' : 'census';
-    coords = await tryWith(fallback);
+    console.log('[uwGeocode] Google missed "' + addr + '" — trying Census fallback');
+    coords = await tryProvider('census');
   }
   if (!coords) return null;
   _uwGeoCache[key] = coords;
@@ -6217,11 +6236,14 @@ async function uwRefreshDistances() {
   const zip = (document.getElementById('uw-zip')?.value || '').trim();
   const subjFull = [subjAddr, city, state, zip].filter(Boolean).join(', ');
   _uwDistanceInflight = true;
-  toast('📍 Geocoding subject + comps via US Census…');
+  toast('📍 Geocoding subject + comps…');
   try {
     const subj = await _uwGeocodeOne(subjFull);
     if (!subj) {
-      toast('US Census could not geocode the subject address. Verify the street/city/state/zip are correct (Census is US-only).', 'err');
+      // Both Census (free, US-only) and Google (paid, broader coverage)
+      // failed for the subject address. Most likely the address itself
+      // is incomplete or malformed.
+      toast('Could not geocode the subject address — tried Census + Google. Verify street/city/state/zip are correct.', 'err');
       return;
     }
     const prefixes = ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3'];

@@ -18166,24 +18166,34 @@ function renderUnderwriteList() {
 
   // ===== Hot list (CROSS-CUTTING) =====
   // Computed view — purely automatic, never manually toggled. A deal lands
-  // here when ANY of these is true (and the rehab gate has been satisfied):
-  //   1. Asking is BELOW Max Offer — instant buy candidate, ANY gap size
-  //   2. |MaxOffer − Asking| ≤ $15,000 (close in dollars)
-  //   3. |MaxOffer − Asking| ÷ Asking ≤ 25% (close as a percentage)
-  // The rehab gate skips deals where nobody has priced rehab yet — $0 rehab
-  // almost always means "haven't gotten to this one", not "no work needed",
-  // and would falsely flag the deal as Hot.
+  // here when ALL gates pass AND any one of the three pricing rules is true:
+  //   GATE A. Rehab gate — at least $1 of rehab must be priced or at least
+  //           one rehab item must be checked. $0 rehab almost always means
+  //           "haven't gotten to this one", not "no work needed", and would
+  //           falsely flag the deal as Hot.
+  //   GATE B. Finalized gate — deals whose Offer Status is Closed or
+  //           Dropped (or legacy packet_status = Closed) are already past
+  //           the buy decision. Showing them as "hot opportunities" is
+  //           noise. Excluded entirely from Hot.
+  //   Pricing rules (any one):
+  //     1. Asking is BELOW Max Offer — instant buy candidate, ANY gap size
+  //     2. |MaxOffer − Asking| ≤ $15,000 (close in dollars)
+  //     3. |MaxOffer − Asking| ÷ Asking ≤ 25% (close as a percentage)
   // Cross-cuts every workflow tab: a "hot" deal still appears in
   // Analyzing/Analyzed/etc., and also gets a row in Hot. Both rows link to
   // the same underlying deal.
   const _hotMatches = (u) => {
     if (!u) return false;
     const data = u.data || {};
+    // GATE B: not Finalized (Closed or Dropped).
+    const _hotOffer = (data['uw-offer-status'] || '').trim();
+    const _hotPacket = (u.packet_status || '').trim();
+    if (_hotOffer === 'Closed' || _hotOffer === 'Dropped' || _hotPacket === 'Closed') return false;
     const asking   = parseFloat(data['uw-asking'] || u.asking || 0) || 0;
     const maxOffer = parseFloat(u.max_offer || data._maxOffer || 0) ||
                      (typeof _uwComputeMaxOfferFromData === 'function' ? _uwComputeMaxOfferFromData(data) : 0);
     if (asking <= 0 || maxOffer <= 0) return false;
-    // Rehab gate: skip if nobody has run the rehab numbers yet.
+    // GATE A: rehab gate — skip if nobody has priced or checked any rehab.
     const rehabOverride = parseFloat(String(data['uw-rehab-override'] || '').replace(/,/g, '')) || 0;
     const hasCheckedRehab = Array.isArray(data._rehab) && data._rehab.some(col =>
       (col && col.items || []).some(item => item && item.needed === true)

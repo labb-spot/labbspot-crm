@@ -4143,17 +4143,41 @@
        Underwriting calculator DOM is moved here so the user stays in
        Renovation but sees the full calculator. -->
   <div id="reno-calc-mount"></div>
-  <div id="reno-table-wrap">
-  <!-- Phase subtabs — same style as the Underwriting workflow subtabs. Filters the Renovation table by which phase the deal is currently in. -->
-  <div class="flex items-center gap-1 mb-4 panel p-1 w-fit" id="reno-subtabs">
-    <div class="subtab active" data-reno-subtab="all"          onclick="setRenoSubtab('all')">All <span id="reno-count-all" class="badge ok" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-reno-subtab="repossession" onclick="setRenoSubtab('repossession')" title="Deals currently in eviction / getting a tenant out.">🚪 Repossession <span id="reno-count-repossession" class="badge bad" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-reno-subtab="demo"         onclick="setRenoSubtab('demo')" title="Deals currently in demolition + clean out (tear-out work, trash haul-out, odor remediation).">💥 Demolition &amp; Clean Out <span id="reno-count-demo" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-reno-subtab="planning"     onclick="setRenoSubtab('planning')" title="Deals currently in the planning + permits phase (or restructure work).">📋 Planning &amp; Permits <span id="reno-count-planning" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-reno-subtab="mechanicals"  onclick="setRenoSubtab('mechanicals')" title="Deals currently in mechanicals + exterior shell work (drain/supply/electrical, HVAC, roof, siding, windows, gutters).">⚙️ Mechanicals &amp; Exterior <span id="reno-count-mechanicals" class="badge brand" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-reno-subtab="cosmetics"    onclick="setRenoSubtab('cosmetics')" title="Deals currently in cosmetics (paint, flooring, fixtures, cabinets).">🎨 Cosmetics <span id="reno-count-cosmetics" class="badge brand" style="margin-left:4px;font-size:10px;display:none"></span></div>
-    <div class="subtab" data-reno-subtab="punch-list"   onclick="setRenoSubtab('punch-list')" title="Deals currently in the final walkthrough / punch list.">✅ Punch List <span id="reno-count-punch-list" class="badge ok" style="margin-left:4px;font-size:10px;display:none"></span></div>
+
+  <!-- Top nav row — TWO disconnected panel pills on the same horizontal line:
+       1) Phase subtab strip — All / Repossession / Demo / Planning / Mechanicals
+          / Cosmetics / Punch List. Filters the Renovation deal table by phase.
+       2) Resources panel — Contractors + Lenders rolodex subviews (separate
+          workflows, not part of the renovation phase pipeline).
+       Same pattern as the Underwriting top bar (workflow tabs + GIS Maps pill).
+       Always visible at the top of the Renovation section regardless of which
+       subview (phase table, contractors, or lenders) is currently active. -->
+  <div id="reno-top-nav" class="flex items-center gap-2 mb-4" style="flex-wrap:wrap;min-width:0">
+    <!-- Phase subtabs — filter the renovation phase table by phase. Clicking
+         any of these also switches the view back from contractors/lenders to phases. -->
+    <div class="flex items-center gap-1 panel p-1" id="reno-subtabs" style="flex-shrink:1;min-width:0;width:fit-content;font-size:13px">
+      <div class="subtab subtab-compact active" data-reno-subtab="all"          onclick="setRenoSubtab('all')">All <span id="reno-count-all" class="badge ok" style="margin-left:4px;font-size:10px;display:none"></span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="repossession" onclick="setRenoSubtab('repossession')" title="Deals currently in eviction / getting a tenant out.">🚪 Repossession <span id="reno-count-repossession" class="badge bad" style="margin-left:4px;font-size:10px;display:none"></span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="demo"         onclick="setRenoSubtab('demo')" title="Deals currently in demolition + clean out (tear-out work, trash haul-out, odor remediation).">💥 Demolition &amp; Clean Out <span id="reno-count-demo" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="planning"     onclick="setRenoSubtab('planning')" title="Deals currently in the planning + permits phase (or restructure work).">📋 Planning &amp; Permits <span id="reno-count-planning" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="mechanicals"  onclick="setRenoSubtab('mechanicals')" title="Deals currently in mechanicals + exterior shell work (drain/supply/electrical, HVAC, roof, siding, windows, gutters).">⚙️ Mechanicals &amp; Exterior <span id="reno-count-mechanicals" class="badge brand" style="margin-left:4px;font-size:10px;display:none"></span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="cosmetics"    onclick="setRenoSubtab('cosmetics')" title="Deals currently in cosmetics (paint, flooring, fixtures, cabinets).">🎨 Cosmetics <span id="reno-count-cosmetics" class="badge brand" style="margin-left:4px;font-size:10px;display:none"></span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="punch-list"   onclick="setRenoSubtab('punch-list')" title="Deals currently in the final walkthrough / punch list.">✅ Punch List <span id="reno-count-punch-list" class="badge ok" style="margin-left:4px;font-size:10px;display:none"></span></div>
+    </div>
+    <!-- Resources panel — Contractors + Lenders + Agents + Attorneys + Buyers
+         pills, visually disconnected from the phase tabs. Placed AFTER the
+         phase tabs so the workflow pipeline reads left-to-right and the
+         rolodexes sit on the right. -->
+    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
+      <div class="subtab subtab-compact" data-renoview="contractors" onclick="setRenoView('contractors')" title="Contractors — your rolodex of trade vendors with ratings, prices, and contact info, organized in one place.">👷 Contractors</div>
+      <div class="subtab subtab-compact" data-renoview="lenders"     onclick="setRenoView('lenders')"     title="Lenders — your rolodex of banks, hard money sources, and private lenders with ratings, rates, and contact info.">🏦 Lenders</div>
+      <div class="subtab subtab-compact" data-renoview="realtors"    onclick="setRenoView('realtors')"    title="Agents — your rolodex of real estate agents with ratings, brokerages, specialties, commission terms, and contact info.">🤝 Agents</div>
+      <div class="subtab subtab-compact" data-renoview="attorneys"   onclick="setRenoView('attorneys')"   title="Attorneys — your rolodex of closing / eviction / contract attorneys with ratings, practice areas, fees, and contact info.">⚖️ Attorneys</div>
+      <div class="subtab subtab-compact" data-renoview="buyers"      onclick="setRenoView('buyers')"      title="Buyers — your rolodex of cash buyers and end-investors with ratings, buy criteria, funding type, and contact info.">💰 Buyers</div>
+    </div>
   </div>
+
+  <div id="reno-table-wrap">
   <div class="panel p-5">
     <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
       <div>
@@ -4188,6 +4212,463 @@
     </div>
   </div>
   </div><!-- /reno-table-wrap -->
+
+  <!-- Contractors subview — your rolodex of trade vendors. Hidden by default;
+       setRenoView('contractors') flips its display. Same UX pattern as the
+       GIS Maps subview inside Underwriting. -->
+  <div id="reno-contractors-wrap" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div>
+          <div class="font-semibold text-lg">👷 Contractors</div>
+          <div class="text-xs text-[var(--text-dim)]">Your rolodex of trade vendors. Ratings, prices, services, and contact info, all in one place. Click a row to see details or edit.</div>
+        </div>
+        <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
+          <button class="btn btn-primary text-sm" onclick="contractorOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new contractor to your rolodex.">+ Add Contractor</button>
+          <select id="contractors-service-filter" onchange="renderContractorsList()" title="Filter by trade / service offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
+            <option value="">All services</option>
+          </select>
+          <input id="contractors-search" type="text" placeholder="🔍 Search by name, city, or service..." oninput="renderContractorsList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" title="Filter by name, services, city, state, or notes. Matches anywhere." />
+          <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('contractors-search');if(i){i.value='';renderContractorsList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
+        </div>
+      </div>
+      <div id="contractors-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No contractors saved yet — click <b>+ Add Contractor</b> to start building your rolodex.</div>
+      <div class="overflow-auto" style="max-height:140vh">
+        <table id="contractors-table" style="width:100%;border-collapse:collapse">
+          <thead style="position:sticky;top:0;background:var(--panel);z-index:1">
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Name</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:110px">Rating</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Services</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Prices</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Contact</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:140px">Location</th>
+              <th style="padding:10px 12px;text-align:right;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:100px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="contractors-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / Edit Contractor modal — opened by the "+ Add Contractor" button
+       and the ✏ Edit action on each row. Creates or updates a row in the
+       `contractors` Supabase table. -->
+  <div id="contractor-add-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
+    <div class="panel" style="max-width:820px;width:100%;padding:32px;box-shadow:0 14px 50px rgba(0,0,0,0.6);max-height:92vh;overflow-y:auto">
+      <div class="flex items-center justify-between" style="margin-bottom:18px">
+        <div style="font-weight:700;font-size:24px" id="contractor-modal-title">👷 Add Contractor</div>
+        <button class="btn btn-ghost" onclick="contractorCloseAddModal()" style="padding:8px 14px;font-size:16px" title="Close without saving">✕</button>
+      </div>
+      <div style="font-size:14px;color:var(--text-dim);margin-bottom:22px;line-height:1.5">Fill in whatever info you have. Only Name is required — everything else is optional.</div>
+      <input type="hidden" id="contractor-edit-id" value="">
+      <div class="grid grid-cols-2 gap-4">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Company <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <input type="text" id="contractor-add-company" placeholder="e.g. Joe's HVAC LLC" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Contact Name *
+          <input type="text" id="contractor-add-name" placeholder="e.g. Joe Bloggs" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Rating <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(0 – 5)</span>
+          <input type="number" id="contractor-add-rating" min="0" max="5" step="0.5" placeholder="e.g. 4.5" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Phone
+          <input type="tel" id="contractor-add-phone" placeholder="e.g. (812) 555-1234" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Email
+          <input type="email" id="contractor-add-email" placeholder="e.g. joe@joeshvac.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">City
+          <input type="text" id="contractor-add-city" placeholder="e.g. Evansville" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">State
+          <input type="text" id="contractor-add-state" placeholder="e.g. IN" maxlength="2" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase;letter-spacing:1px">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Services <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
+          <input type="text" id="contractor-add-services" placeholder="e.g. HVAC, Plumbing, Electrical" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Prices <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(free text)</span>
+          <textarea id="contractor-add-prices" rows="3" placeholder="e.g. $85/hr labor • $2,500 whole-house repipe • $4k furnace install" style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <textarea id="contractor-add-notes" rows="3" placeholder="e.g. Reliable but slow to respond on weekends. Prefers texts over calls." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        </label>
+      </div>
+      <div class="flex items-center justify-between gap-3" style="margin-top:28px">
+        <button class="btn btn-ghost" onclick="contractorDeleteFromModal()" id="contractor-delete-btn" style="padding:11px 22px;font-size:15px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none">🗑 Delete</button>
+        <div style="margin-left:auto" class="flex items-center gap-3">
+          <button class="btn btn-ghost" onclick="contractorCloseAddModal()" style="padding:11px 22px;font-size:15px">Cancel</button>
+          <button class="btn btn-primary" onclick="contractorSaveNew()" id="contractor-add-save-btn" style="padding:11px 26px;font-size:15px;font-weight:600">💾 Save Contractor</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lenders subview — your rolodex of banks, hard money sources, and
+       private lenders. Hidden by default; setRenoView('lenders') flips its
+       display. Same UX pattern as Contractors above. -->
+  <div id="reno-lenders-wrap" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div>
+          <div class="font-semibold text-lg">🏦 Lenders</div>
+          <div class="text-xs text-[var(--text-dim)]">Your rolodex of lenders. Ratings, rates / terms, loan products, and contact info, all in one place. Click ✏ Edit to update or remove.</div>
+        </div>
+        <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
+          <button class="btn btn-primary text-sm" onclick="lenderOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new lender to your rolodex.">+ Add Lender</button>
+          <select id="lenders-type-filter" onchange="renderLendersList()" title="Filter by loan type / product offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
+            <option value="">All loan types</option>
+          </select>
+          <input id="lenders-search" type="text" placeholder="🔍 Search by name, city, or product..." oninput="renderLendersList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" title="Filter by name, loan types, city, state, or notes. Matches anywhere." />
+          <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('lenders-search');if(i){i.value='';renderLendersList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
+        </div>
+      </div>
+      <div id="lenders-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No lenders saved yet — click <b>+ Add Lender</b> to start building your rolodex.</div>
+      <div class="overflow-auto" style="max-height:140vh">
+        <table id="lenders-table" style="width:100%;border-collapse:collapse">
+          <thead style="position:sticky;top:0;background:var(--panel);z-index:1">
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Name</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:110px">Rating</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Loan Types</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Rates &amp; Terms</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Contact</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:140px">Location</th>
+              <th style="padding:10px 12px;text-align:right;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:100px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="lenders-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / Edit Lender modal — opened by + Add Lender and the ✏ Edit action.
+       Creates or updates a row in the `lenders` Supabase table. -->
+  <div id="lender-add-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
+    <div class="panel" style="max-width:820px;width:100%;padding:32px;box-shadow:0 14px 50px rgba(0,0,0,0.6);max-height:92vh;overflow-y:auto">
+      <div class="flex items-center justify-between" style="margin-bottom:18px">
+        <div style="font-weight:700;font-size:24px" id="lender-modal-title">🏦 Add Lender</div>
+        <button class="btn btn-ghost" onclick="lenderCloseAddModal()" style="padding:8px 14px;font-size:16px" title="Close without saving">✕</button>
+      </div>
+      <div style="font-size:14px;color:var(--text-dim);margin-bottom:22px;line-height:1.5">Fill in whatever info you have. Only Name is required — everything else is optional.</div>
+      <input type="hidden" id="lender-edit-id" value="">
+      <div class="grid grid-cols-2 gap-4">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Name *
+          <input type="text" id="lender-add-name" placeholder="e.g. Acme Hard Money" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Rating <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(0 – 5)</span>
+          <input type="number" id="lender-add-rating" min="0" max="5" step="0.5" placeholder="e.g. 4.5" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Phone
+          <input type="tel" id="lender-add-phone" placeholder="e.g. (812) 555-1234" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Email
+          <input type="email" id="lender-add-email" placeholder="e.g. bob@acmehm.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">City
+          <input type="text" id="lender-add-city" placeholder="e.g. Evansville" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">State
+          <input type="text" id="lender-add-state" placeholder="e.g. IN" maxlength="2" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase;letter-spacing:1px">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Loan Types <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
+          <input type="text" id="lender-add-loan-types" placeholder="e.g. Hard Money, DSCR, Bridge, Conventional" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Rates &amp; Terms <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(free text)</span>
+          <textarea id="lender-add-rates" rows="3" placeholder="e.g. 10% IO • 2 pts • 12-mo • 80% LTV • Up to $500k" style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <textarea id="lender-add-notes" rows="3" placeholder="e.g. Prefers experienced flippers. Closes in ~10 days. No prepayment penalty." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        </label>
+      </div>
+      <div class="flex items-center justify-between gap-3" style="margin-top:28px">
+        <button class="btn btn-ghost" onclick="lenderDeleteFromModal()" id="lender-delete-btn" style="padding:11px 22px;font-size:15px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none">🗑 Delete</button>
+        <div style="margin-left:auto" class="flex items-center gap-3">
+          <button class="btn btn-ghost" onclick="lenderCloseAddModal()" style="padding:11px 22px;font-size:15px">Cancel</button>
+          <button class="btn btn-primary" onclick="lenderSaveNew()" id="lender-add-save-btn" style="padding:11px 26px;font-size:15px;font-weight:600">💾 Save Lender</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agents subview — your rolodex of real estate agents. Hidden by default;
+       setRenoView('realtors') flips its display. The internal id "realtors"
+       is to avoid colliding with the existing CallTools "agents" table — the
+       UI labels everything Agents. -->
+  <div id="reno-realtors-wrap" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div>
+          <div class="font-semibold text-lg">🤝 Agents</div>
+          <div class="text-xs text-[var(--text-dim)]">Your rolodex of real estate agents. Ratings, brokerages, specialties, commission terms, and contact info, all in one place. Click ✏ Edit to update or remove.</div>
+        </div>
+        <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
+          <button class="btn btn-primary text-sm" onclick="realtorOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new agent to your rolodex.">+ Add Agent</button>
+          <select id="realtors-specialty-filter" onchange="renderRealtorsList()" title="Filter by specialty offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
+            <option value="">All specialties</option>
+          </select>
+          <input id="realtors-search" type="text" placeholder="🔍 Search by name, brokerage, or city..." oninput="renderRealtorsList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" title="Filter by name, brokerage, specialties, city, state, or notes. Matches anywhere." />
+          <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('realtors-search');if(i){i.value='';renderRealtorsList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
+        </div>
+      </div>
+      <div id="realtors-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No agents saved yet — click <b>+ Add Agent</b> to start building your rolodex.</div>
+      <div class="overflow-auto" style="max-height:140vh">
+        <table id="realtors-table" style="width:100%;border-collapse:collapse">
+          <thead style="position:sticky;top:0;background:var(--panel);z-index:1">
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Name</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:110px">Rating</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Specialties</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Commission</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Contact</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:140px">Location</th>
+              <th style="padding:10px 12px;text-align:right;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:100px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="realtors-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / Edit Agent modal — opened by + Add Agent and the ✏ Edit action.
+       Creates or updates a row in the `realtors` Supabase table. -->
+  <div id="realtor-add-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
+    <div class="panel" style="max-width:820px;width:100%;padding:32px;box-shadow:0 14px 50px rgba(0,0,0,0.6);max-height:92vh;overflow-y:auto">
+      <div class="flex items-center justify-between" style="margin-bottom:18px">
+        <div style="font-weight:700;font-size:24px" id="realtor-modal-title">🤝 Add Agent</div>
+        <button class="btn btn-ghost" onclick="realtorCloseAddModal()" style="padding:8px 14px;font-size:16px" title="Close without saving">✕</button>
+      </div>
+      <div style="font-size:14px;color:var(--text-dim);margin-bottom:22px;line-height:1.5">Fill in whatever info you have. Only Contact Name is required — everything else is optional.</div>
+      <input type="hidden" id="realtor-edit-id" value="">
+      <div class="grid grid-cols-2 gap-4">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Brokerage <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <input type="text" id="realtor-add-brokerage" placeholder="e.g. Keller Williams" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Contact Name *
+          <input type="text" id="realtor-add-name" placeholder="e.g. Jane Smith" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Rating <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(0 – 5)</span>
+          <input type="number" id="realtor-add-rating" min="0" max="5" step="0.5" placeholder="e.g. 4.5" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">License # <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <input type="text" id="realtor-add-license" placeholder="e.g. RB14000123" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Phone
+          <input type="tel" id="realtor-add-phone" placeholder="e.g. (812) 555-1234" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Email
+          <input type="email" id="realtor-add-email" placeholder="e.g. jane@kw.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">City
+          <input type="text" id="realtor-add-city" placeholder="e.g. Evansville" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">State
+          <input type="text" id="realtor-add-state" placeholder="e.g. IN" maxlength="2" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase;letter-spacing:1px">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Specialties <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
+          <input type="text" id="realtor-add-specialties" placeholder="e.g. Wholesale, REO, Investor-Friendly, Listings" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Commission / Terms <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(free text)</span>
+          <textarea id="realtor-add-commission" rows="3" placeholder="e.g. 3% buyer side • 5% listing • Flat $2,500 listing option • Will reduce on dual rep" style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <textarea id="realtor-add-notes" rows="3" placeholder="e.g. Brings deals before they hit MLS. Knows the south-side market." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        </label>
+      </div>
+      <div class="flex items-center justify-between gap-3" style="margin-top:28px">
+        <button class="btn btn-ghost" onclick="realtorDeleteFromModal()" id="realtor-delete-btn" style="padding:11px 22px;font-size:15px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none">🗑 Delete</button>
+        <div style="margin-left:auto" class="flex items-center gap-3">
+          <button class="btn btn-ghost" onclick="realtorCloseAddModal()" style="padding:11px 22px;font-size:15px">Cancel</button>
+          <button class="btn btn-primary" onclick="realtorSaveNew()" id="realtor-add-save-btn" style="padding:11px 26px;font-size:15px;font-weight:600">💾 Save Agent</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attorneys subview — closing, eviction, contract review attorneys. -->
+  <div id="reno-attorneys-wrap" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div>
+          <div class="font-semibold text-lg">⚖️ Attorneys</div>
+          <div class="text-xs text-[var(--text-dim)]">Your rolodex of attorneys — closings, evictions, contracts, entity formation. Click ✏ Edit to update or remove.</div>
+        </div>
+        <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
+          <button class="btn btn-primary text-sm" onclick="attorneyOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new attorney to your rolodex.">+ Add Attorney</button>
+          <select id="attorneys-area-filter" onchange="renderAttorneysList()" title="Filter by practice area." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
+            <option value="">All practice areas</option>
+          </select>
+          <input id="attorneys-search" type="text" placeholder="🔍 Search by name, firm, or area..." oninput="renderAttorneysList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" title="Filter by name, firm, practice areas, city, state, or notes. Matches anywhere." />
+          <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('attorneys-search');if(i){i.value='';renderAttorneysList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
+        </div>
+      </div>
+      <div id="attorneys-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No attorneys saved yet — click <b>+ Add Attorney</b> to start building your rolodex.</div>
+      <div class="overflow-auto" style="max-height:140vh">
+        <table id="attorneys-table" style="width:100%;border-collapse:collapse">
+          <thead style="position:sticky;top:0;background:var(--panel);z-index:1">
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Name</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:110px">Rating</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Practice Areas</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Fees</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Contact</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:140px">Location</th>
+              <th style="padding:10px 12px;text-align:right;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:100px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="attorneys-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / Edit Attorney modal -->
+  <div id="attorney-add-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
+    <div class="panel" style="max-width:820px;width:100%;padding:32px;box-shadow:0 14px 50px rgba(0,0,0,0.6);max-height:92vh;overflow-y:auto">
+      <div class="flex items-center justify-between" style="margin-bottom:18px">
+        <div style="font-weight:700;font-size:24px" id="attorney-modal-title">⚖️ Add Attorney</div>
+        <button class="btn btn-ghost" onclick="attorneyCloseAddModal()" style="padding:8px 14px;font-size:16px" title="Close without saving">✕</button>
+      </div>
+      <div style="font-size:14px;color:var(--text-dim);margin-bottom:22px;line-height:1.5">Fill in whatever info you have. Only Contact Name is required — everything else is optional.</div>
+      <input type="hidden" id="attorney-edit-id" value="">
+      <div class="grid grid-cols-2 gap-4">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Firm <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <input type="text" id="attorney-add-firm" placeholder="e.g. Johnson &amp; Wright LLP" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Contact Name *
+          <input type="text" id="attorney-add-name" placeholder="e.g. Sarah Johnson" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Rating <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(0 – 5)</span>
+          <input type="number" id="attorney-add-rating" min="0" max="5" step="0.5" placeholder="e.g. 4.5" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Bar # <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <input type="text" id="attorney-add-bar" placeholder="e.g. 28439-49" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Phone
+          <input type="tel" id="attorney-add-phone" placeholder="e.g. (812) 555-1234" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Email
+          <input type="email" id="attorney-add-email" placeholder="e.g. sarah@jwlawllp.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">City
+          <input type="text" id="attorney-add-city" placeholder="e.g. Evansville" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">State
+          <input type="text" id="attorney-add-state" placeholder="e.g. IN" maxlength="2" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase;letter-spacing:1px">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Practice Areas <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
+          <input type="text" id="attorney-add-practice-areas" placeholder="e.g. Closings, Eviction, LLC formation, Contracts" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Fees / Rates <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(free text)</span>
+          <textarea id="attorney-add-fees" rows="3" placeholder="e.g. $350/hr • Flat $450 per closing • $1,200 eviction filing • $750 LLC formation" style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <textarea id="attorney-add-notes" rows="3" placeholder="e.g. Closes same week. Available for emergency evictions. Doesn't take credit cards." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        </label>
+      </div>
+      <div class="flex items-center justify-between gap-3" style="margin-top:28px">
+        <button class="btn btn-ghost" onclick="attorneyDeleteFromModal()" id="attorney-delete-btn" style="padding:11px 22px;font-size:15px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none">🗑 Delete</button>
+        <div style="margin-left:auto" class="flex items-center gap-3">
+          <button class="btn btn-ghost" onclick="attorneyCloseAddModal()" style="padding:11px 22px;font-size:15px">Cancel</button>
+          <button class="btn btn-primary" onclick="attorneySaveNew()" id="attorney-add-save-btn" style="padding:11px 26px;font-size:15px;font-weight:600">💾 Save Attorney</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Buyers subview — cash buyers / end-investors for wholesale & assignments. -->
+  <div id="reno-buyers-wrap" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div>
+          <div class="font-semibold text-lg">💰 Buyers</div>
+          <div class="text-xs text-[var(--text-dim)]">Your cash buyers list. Ratings, buy criteria, funding type, price ranges, and contact info, all in one place. Click ✏ Edit to update or remove.</div>
+        </div>
+        <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
+          <button class="btn btn-primary text-sm" onclick="buyerOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new buyer to your rolodex.">+ Add Buyer</button>
+          <select id="buyers-criteria-filter" onchange="renderBuyersList()" title="Filter by buy-box criteria tag." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
+            <option value="">All criteria</option>
+          </select>
+          <input id="buyers-search" type="text" placeholder="🔍 Search by name, criteria, city..." oninput="renderBuyersList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" title="Filter by name, company, criteria, funding, city, state, or notes. Matches anywhere." />
+          <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('buyers-search');if(i){i.value='';renderBuyersList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
+        </div>
+      </div>
+      <div id="buyers-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No buyers saved yet — click <b>+ Add Buyer</b> to start building your rolodex.</div>
+      <div class="overflow-auto" style="max-height:140vh">
+        <table id="buyers-table" style="width:100%;border-collapse:collapse">
+          <thead style="position:sticky;top:0;background:var(--panel);z-index:1">
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Name</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:110px">Rating</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Buy Box</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Funding &amp; Price</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Contact</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:140px">Location</th>
+              <th style="padding:10px 12px;text-align:right;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:100px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="buyers-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / Edit Buyer modal -->
+  <div id="buyer-add-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
+    <div class="panel" style="max-width:820px;width:100%;padding:32px;box-shadow:0 14px 50px rgba(0,0,0,0.6);max-height:92vh;overflow-y:auto">
+      <div class="flex items-center justify-between" style="margin-bottom:18px">
+        <div style="font-weight:700;font-size:24px" id="buyer-modal-title">💰 Add Buyer</div>
+        <button class="btn btn-ghost" onclick="buyerCloseAddModal()" style="padding:8px 14px;font-size:16px" title="Close without saving">✕</button>
+      </div>
+      <div style="font-size:14px;color:var(--text-dim);margin-bottom:22px;line-height:1.5">Fill in whatever info you have. Only Contact Name is required — everything else is optional.</div>
+      <input type="hidden" id="buyer-edit-id" value="">
+      <div class="grid grid-cols-2 gap-4">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Company / Entity <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <input type="text" id="buyer-add-company" placeholder="e.g. Chen Holdings LLC" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Contact Name *
+          <input type="text" id="buyer-add-name" placeholder="e.g. Mike Chen" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Rating <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(0 – 5)</span>
+          <input type="number" id="buyer-add-rating" min="0" max="5" step="0.5" placeholder="e.g. 4.5" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Funding Type
+          <input type="text" id="buyer-add-funding" placeholder="e.g. Cash, Hard Money, Conventional" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Phone
+          <input type="tel" id="buyer-add-phone" placeholder="e.g. (812) 555-1234" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Email
+          <input type="email" id="buyer-add-email" placeholder="e.g. mike@chenholdings.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">City
+          <input type="text" id="buyer-add-city" placeholder="e.g. Evansville" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">State
+          <input type="text" id="buyer-add-state" placeholder="e.g. IN" maxlength="2" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase;letter-spacing:1px">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Buy Criteria <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
+          <input type="text" id="buyer-add-criteria" placeholder="e.g. SFR, 3+ bed, Evansville, BRRRR, Section 8" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Price Range / Budget <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(free text)</span>
+          <textarea id="buyer-add-price-notes" rows="3" placeholder="e.g. $50k – $150k purchase • Up to $200k ARV • Will pay up to 75% ARV − rehab" style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <textarea id="buyer-add-notes" rows="3" placeholder="e.g. Closes in 7 days. Will rehab anything. Prefers off-market deals." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        </label>
+      </div>
+      <div class="flex items-center justify-between gap-3" style="margin-top:28px">
+        <button class="btn btn-ghost" onclick="buyerDeleteFromModal()" id="buyer-delete-btn" style="padding:11px 22px;font-size:15px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none">🗑 Delete</button>
+        <div style="margin-left:auto" class="flex items-center gap-3">
+          <button class="btn btn-ghost" onclick="buyerCloseAddModal()" style="padding:11px 22px;font-size:15px">Cancel</button>
+          <button class="btn btn-primary" onclick="buyerSaveNew()" id="buyer-add-save-btn" style="padding:11px 26px;font-size:15px;font-weight:600">💾 Save Buyer</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- SECTION: Holdings -->
@@ -15827,6 +16308,1487 @@ function renderGisMapsList() {
   }).join('');
 }
 window.renderGisMapsList = renderGisMapsList;
+
+// ============================================================
+// CONTRACTORS — Renovation → 👷 Contractors subview
+// ============================================================
+// Rolodex of trade vendors (HVAC, plumbing, electrical, GCs, etc.) with
+// rating + price + contact info. Stored in the `contractors` Supabase table
+// (see sql/supabase-contractors.sql). UX mirrors the GIS Maps subview.
+
+// Currently-active Renovation subview: 'phases' (default) or one of the
+// rolodex views: 'contractors', 'lenders', 'realtors' (labeled Agents),
+// 'attorneys', 'buyers'.
+let _renoActiveView = 'phases';
+
+// Configuration table mapping each rolodex view to its DOM ids and loader.
+// Keeping this as data (rather than 5 hard-coded branches) so adding the
+// next rolodex is a one-line change.
+const _RENO_VIEW_CONFIG = {
+  contractors: { wrap: 'reno-contractors-wrap', pill: 'contractors', load: 'loadContractors', render: 'renderContractorsList' },
+  lenders:     { wrap: 'reno-lenders-wrap',     pill: 'lenders',     load: 'loadLenders',     render: 'renderLendersList' },
+  realtors:    { wrap: 'reno-realtors-wrap',    pill: 'realtors',    load: 'loadRealtors',    render: 'renderRealtorsList' },
+  attorneys:   { wrap: 'reno-attorneys-wrap',   pill: 'attorneys',   load: 'loadAttorneys',   render: 'renderAttorneysList' },
+  buyers:      { wrap: 'reno-buyers-wrap',      pill: 'buyers',      load: 'loadBuyers',      render: 'renderBuyersList' }
+};
+
+// Toggle the Renovation section's main content between the phase table and
+// any of the rolodex views above. Called by the pills at the top of the
+// section, and indirectly by setRenoSubtab (which switches back to 'phases'
+// whenever the user clicks a phase tab).
+function setRenoView(view) {
+  _renoActiveView = _RENO_VIEW_CONFIG[view] ? view : 'phases';
+  const tableWrap  = document.getElementById('reno-table-wrap');
+  const phasePills = document.querySelectorAll('#reno-subtabs [data-reno-subtab]');
+  // Hide table and ALL rolodex wraps; clear active state on every rolodex pill.
+  if (tableWrap) tableWrap.style.display = 'none';
+  Object.values(_RENO_VIEW_CONFIG).forEach(cfg => {
+    const w = document.getElementById(cfg.wrap);
+    if (w) w.style.display = 'none';
+    const p = document.querySelector(`#section-renovation [data-renoview="${cfg.pill}"]`);
+    if (p) p.classList.remove('active');
+  });
+  if (_renoActiveView === 'phases') {
+    if (tableWrap) tableWrap.style.display = '';
+    // Re-apply active to whichever phase subtab is current
+    phasePills.forEach(el => {
+      el.classList.toggle('active', el.getAttribute('data-reno-subtab') === _renoSubtab);
+    });
+    return;
+  }
+  // A rolodex view is active.
+  const cfg = _RENO_VIEW_CONFIG[_renoActiveView];
+  const w = document.getElementById(cfg.wrap);
+  if (w) w.style.display = '';
+  const p = document.querySelector(`#section-renovation [data-renoview="${cfg.pill}"]`);
+  if (p) p.classList.add('active');
+  phasePills.forEach(el => el.classList.remove('active'));
+  // Lazy-load and render
+  if (typeof window[cfg.load] === 'function') {
+    window[cfg.load]().then(() => {
+      if (typeof window[cfg.render] === 'function') window[cfg.render]();
+    });
+  }
+}
+window.setRenoView = setRenoView;
+
+// Hook setRenoSubtab so clicking any phase pill also switches back to
+// 'phases' view from any rolodex. Monkey-patch on top of the original.
+(function () {
+  if (typeof setRenoSubtab !== 'function' || setRenoSubtab.__withRenoView) return;
+  const orig = setRenoSubtab;
+  function patched(name) {
+    if (_renoActiveView !== 'phases') {
+      _renoActiveView = 'phases';
+      const tableWrap = document.getElementById('reno-table-wrap');
+      if (tableWrap) tableWrap.style.display = '';
+      Object.values(_RENO_VIEW_CONFIG).forEach(cfg => {
+        const w = document.getElementById(cfg.wrap);
+        if (w) w.style.display = 'none';
+        const p = document.querySelector(`#section-renovation [data-renoview="${cfg.pill}"]`);
+        if (p) p.classList.remove('active');
+      });
+    }
+    return orig.apply(this, arguments);
+  }
+  patched.__withRenoView = true;
+  window.setRenoSubtab = patched;
+})();
+
+// Load all contractor rows into the cache. Idempotent — bails if already
+// populated. Tolerates the table not existing yet (user hasn't run
+// sql/supabase-contractors.sql) by leaving the cache as {}.
+async function loadContractors() {
+  if (cache.contractors) return;
+  try {
+    if (typeof fetchAll !== 'function') { cache.contractors = {}; return; }
+    const rows = await fetchAll('contractors', '*');
+    cache.contractors = {};
+    rows.forEach(r => { if (r && r.id) cache.contractors[r.id] = r; });
+  } catch (e) {
+    console.warn('loadContractors:', e);
+    cache.contractors = {};
+  }
+}
+window.loadContractors = loadContractors;
+
+// Open the Add/Edit modal. When called with no id, opens in "add new" mode.
+// When called with a contractor id, prefills every field for editing.
+function contractorOpenAddModal(editId) {
+  const modal = document.getElementById('contractor-add-modal');
+  if (!modal) return;
+  const ids = [
+    'contractor-add-company','contractor-add-name','contractor-add-phone','contractor-add-email',
+    'contractor-add-services','contractor-add-city','contractor-add-state',
+    'contractor-add-rating','contractor-add-prices','contractor-add-notes'
+  ];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const hiddenId = document.getElementById('contractor-edit-id');
+  const title    = document.getElementById('contractor-modal-title');
+  const delBtn   = document.getElementById('contractor-delete-btn');
+  if (editId && cache.contractors && cache.contractors[editId]) {
+    const c = cache.contractors[editId];
+    if (hiddenId) hiddenId.value = editId;
+    if (title)    title.textContent = '✏ Edit Contractor';
+    if (delBtn)   delBtn.style.display = '';
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : String(v)); };
+    setVal('contractor-add-company',  c.company);
+    setVal('contractor-add-name',     c.name);
+    setVal('contractor-add-phone',    c.phone);
+    setVal('contractor-add-email',    c.email);
+    setVal('contractor-add-services', c.services);
+    setVal('contractor-add-city',     c.city);
+    setVal('contractor-add-state',    c.state);
+    setVal('contractor-add-rating',   c.rating);
+    setVal('contractor-add-prices',   c.price_notes);
+    setVal('contractor-add-notes',    c.notes);
+  } else {
+    if (hiddenId) hiddenId.value = '';
+    if (title)    title.textContent = '👷 Add Contractor';
+    if (delBtn)   delBtn.style.display = 'none';
+  }
+  modal.style.display = 'flex';
+  setTimeout(() => {
+    const f = document.getElementById('contractor-add-name');
+    if (f) f.focus();
+  }, 50);
+}
+window.contractorOpenAddModal = contractorOpenAddModal;
+
+function contractorCloseAddModal() {
+  const modal = document.getElementById('contractor-add-modal');
+  if (modal) modal.style.display = 'none';
+}
+window.contractorCloseAddModal = contractorCloseAddModal;
+
+// Insert or update a contractor row. Reads the modal fields, validates, and
+// upserts to Supabase. On success: refresh the cache and re-render.
+async function contractorSaveNew() {
+  const $ = (id) => document.getElementById(id);
+  const editId  = ($('contractor-edit-id')?.value || '').trim();
+  const company = ($('contractor-add-company')?.value  || '').trim();
+  const name    = ($('contractor-add-name')?.value     || '').trim();
+  const phone   = ($('contractor-add-phone')?.value    || '').trim();
+  const email   = ($('contractor-add-email')?.value    || '').trim();
+  const services= ($('contractor-add-services')?.value || '').trim();
+  const city    = ($('contractor-add-city')?.value     || '').trim();
+  const state   = ($('contractor-add-state')?.value    || '').trim().toUpperCase();
+  const ratingS = ($('contractor-add-rating')?.value   || '').trim();
+  const prices  = ($('contractor-add-prices')?.value   || '').trim();
+  const notes   = ($('contractor-add-notes')?.value    || '').trim();
+  if (!name) {
+    if (typeof toast === 'function') toast('Contact Name is required.', 'warn');
+    const n = $('contractor-add-name'); if (n) n.focus();
+    return;
+  }
+  if (state && state.length !== 2) {
+    if (typeof toast === 'function') toast('State must be a 2-letter code (e.g. IN, OH, KY).', 'warn');
+    const s = $('contractor-add-state'); if (s) s.focus();
+    return;
+  }
+  let rating = null;
+  if (ratingS !== '') {
+    const r = parseFloat(ratingS);
+    if (isNaN(r) || r < 0 || r > 5) {
+      if (typeof toast === 'function') toast('Rating must be between 0 and 5.', 'warn');
+      const rEl = $('contractor-add-rating'); if (rEl) rEl.focus();
+      return;
+    }
+    rating = r;
+  }
+  const btn = $('contractor-add-save-btn');
+  let prevLabel = '';
+  if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const payload = { name, company, phone, email, services, city, state, rating, price_notes: prices, notes };
+    let data, error;
+    if (editId) {
+      ({ data, error } = await sb.from('contractors').update(payload).eq('id', editId).select().single());
+    } else {
+      ({ data, error } = await sb.from('contractors').insert(payload).select().single());
+    }
+    if (error) throw error;
+    cache.contractors = cache.contractors || {};
+    if (data && data.id) cache.contractors[data.id] = data;
+    if (typeof toast === 'function') toast(editId ? ('Updated ' + name) : ('Added ' + name), 'ok');
+    contractorCloseAddModal();
+    renderContractorsList();
+  } catch (e) {
+    console.warn('contractorSaveNew:', e);
+    if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prevLabel || '💾 Save Contractor'; }
+  }
+}
+window.contractorSaveNew = contractorSaveNew;
+
+// Delete handler invoked from the modal's 🗑 Delete button (visible only in
+// edit mode).
+async function contractorDeleteFromModal() {
+  const editId = (document.getElementById('contractor-edit-id')?.value || '').trim();
+  if (!editId) return;
+  const c = cache.contractors && cache.contractors[editId];
+  const nm = c ? c.name : 'this contractor';
+  if (!confirm('Delete ' + nm + '? This cannot be undone.')) return;
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const { error } = await sb.from('contractors').delete().eq('id', editId);
+    if (error) throw error;
+    if (cache.contractors) delete cache.contractors[editId];
+    if (typeof toast === 'function') toast('Deleted ' + nm, 'ok');
+    contractorCloseAddModal();
+    renderContractorsList();
+  } catch (e) {
+    console.warn('contractorDeleteFromModal:', e);
+    if (typeof toast === 'function') toast('Delete failed: ' + (e.message || 'unknown'), 'err');
+  }
+}
+window.contractorDeleteFromModal = contractorDeleteFromModal;
+
+// Render the contractor rolodex table. Applies search + service-filter.
+function renderContractorsList() {
+  if (!cache.contractors) {
+    loadContractors().then(() => renderContractorsList());
+    return;
+  }
+  const tbody   = document.getElementById('contractors-tbody');
+  const empty   = document.getElementById('contractors-empty');
+  const tableEl = document.getElementById('contractors-table');
+  if (!tbody) return;
+
+  // ----- Build the service-filter dropdown options from the current set
+  //       of contractors. Preserve currently-selected value across renders. -----
+  const serviceSel = document.getElementById('contractors-service-filter');
+  const selectedService = serviceSel ? serviceSel.value : '';
+  if (serviceSel) {
+    const set = new Set();
+    Object.values(cache.contractors).forEach(c => {
+      const list = String((c && c.services) || '').split(',').map(s => s.trim()).filter(Boolean);
+      list.forEach(s => set.add(s));
+    });
+    const options = ['<option value="">All services</option>']
+      .concat(Array.from(set).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).map(s => `<option value="${s.replace(/"/g, '&quot;')}">${s}</option>`))
+      .join('');
+    if (serviceSel.innerHTML !== options) serviceSel.innerHTML = options;
+    if (selectedService && set.has(selectedService)) serviceSel.value = selectedService;
+  }
+
+  // ----- Gather + filter rows -----
+  let rows = Object.values(cache.contractors)
+    .filter(c => c && c.name)
+    .sort((a, b) => {
+      // Highest rating first; null ratings sort last; ties broken by name.
+      const ra = (a.rating == null ? -1 : Number(a.rating));
+      const rb = (b.rating == null ? -1 : Number(b.rating));
+      if (ra !== rb) return rb - ra;
+      return String(a.name || '').toLowerCase().localeCompare(String(b.name || '').toLowerCase());
+    });
+
+  const serviceFilter = serviceSel ? (serviceSel.value || '').toLowerCase() : '';
+  if (serviceFilter) {
+    rows = rows.filter(c => String(c.services || '').toLowerCase().split(',').map(s => s.trim()).includes(serviceFilter));
+  }
+
+  const searchEl = document.getElementById('contractors-search');
+  const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
+  if (q) {
+    rows = rows.filter(c => {
+      const haystack = [c.name, c.company, c.services, c.city, c.state, c.phone, c.email, c.notes, c.price_notes]
+        .map(v => String(v || '').toLowerCase()).join(' | ');
+      return haystack.includes(q);
+    });
+  }
+
+  if (rows.length === 0) {
+    if (empty) {
+      empty.style.display = '';
+      empty.innerHTML = q || serviceFilter
+        ? 'No contractors match the current filter. Try clearing the search or service filter.'
+        : 'No contractors saved yet — click <b>+ Add Contractor</b> to start building your rolodex.';
+    }
+    if (tableEl) tableEl.style.display = 'none';
+    tbody.innerHTML = '';
+    return;
+  }
+  if (empty)   empty.style.display = 'none';
+  if (tableEl) tableEl.style.display = '';
+
+  const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // Star rendering — render N full ★ then 5-N empty ☆. Half stars round up
+  // for display since we can't half-render a single glyph easily; the
+  // numeric value next to the stars tells the truth.
+  const renderStars = (r) => {
+    if (r == null || r === '') return '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const n = Math.max(0, Math.min(5, Number(r)));
+    const full = Math.round(n);
+    return `<span style="color:#fbbf24;font-size:13px;letter-spacing:1px" title="${n.toFixed(1)} / 5">${'★'.repeat(full)}<span style="color:var(--border)">${'★'.repeat(5 - full)}</span></span>
+            <span style="color:var(--text-dim);font-size:11px;margin-left:6px">${n.toFixed(1)}</span>`;
+  };
+
+  // Display phone in a clickable tel: link. Show as typed.
+  const renderPhone = (p) => {
+    const v = String(p || '').trim();
+    if (!v) return '';
+    const sanitized = v.replace(/[^0-9+]/g, '');
+    return `<a href="tel:${esc(sanitized)}" style="color:var(--text);text-decoration:none;font-size:12px" title="Call ${esc(v)}">📞 ${esc(v)}</a>`;
+  };
+  const renderEmail = (e) => {
+    const v = String(e || '').trim();
+    if (!v) return '';
+    return `<a href="mailto:${esc(v)}" style="color:var(--text);text-decoration:none;font-size:12px;display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle" title="Email ${esc(v)}">✉️ ${esc(v)}</a>`;
+  };
+
+  tbody.innerHTML = rows.map(c => {
+    const name      = esc(c.name || '');
+    const company   = esc(c.company || '');
+    const stars     = renderStars(c.rating);
+    const services  = c.services
+      ? String(c.services).split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="display:inline-block;padding:2px 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;font-size:11px;margin:1px 3px 1px 0;color:var(--text)">${esc(s)}</span>`).join('')
+      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const prices    = c.price_notes
+      ? `<div style="font-size:12px;max-width:280px;color:var(--text);white-space:pre-wrap;line-height:1.4">${esc(c.price_notes)}</div>`
+      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const contactParts = [];
+    if (c.phone) contactParts.push(renderPhone(c.phone));
+    if (c.email) contactParts.push(renderEmail(c.email));
+    const contact = contactParts.length ? contactParts.map(p => `<div style="margin:2px 0">${p}</div>`).join('') : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const loc = [c.city, c.state].filter(Boolean).map(esc).join(', ') || '<span style="color:var(--text-dim);font-size:11px">—</span>';
+
+    // Name column: Company on top in bold (the main identifier when present),
+    // contact name underneath in dimmer text. If no company is set, the contact
+    // name moves to the top so the row still has a clear title.
+    const nameBlock = company
+      ? `<div style="font-weight:600">${company}</div>
+         <div style="color:var(--text-dim);font-size:11px;margin-top:2px">${name}</div>`
+      : `<div style="font-weight:600">${name}</div>`;
+
+    return `
+      <tr style="border-bottom:1px solid var(--border)" data-contractor-id="${esc(c.id)}">
+        <td style="padding:10px 12px;font-size:13px;vertical-align:top">
+          ${nameBlock}
+          ${c.notes ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px;max-width:240px;line-height:1.4">${esc(c.notes)}</div>` : ''}
+        </td>
+        <td style="padding:10px 12px;vertical-align:top">${stars}</td>
+        <td style="padding:10px 12px;vertical-align:top;max-width:260px">${services}</td>
+        <td style="padding:10px 12px;vertical-align:top">${prices}</td>
+        <td style="padding:10px 12px;vertical-align:top">${contact}</td>
+        <td style="padding:10px 12px;vertical-align:top;font-size:12px">${loc}</td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:right">
+          <button class="btn btn-ghost text-xs" onclick="contractorOpenAddModal('${esc(c.id)}')" style="padding:5px 10px;white-space:nowrap" title="Edit this contractor">✏ Edit</button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+window.renderContractorsList = renderContractorsList;
+
+// ============================================================
+// LENDERS — Renovation → 🏦 Lenders subview
+// ============================================================
+// Rolodex of banks, hard money sources, and private lenders with rating +
+// rate/term info + contact. Stored in the `lenders` Supabase table (see
+// sql/supabase-lenders.sql). UX mirrors the Contractors subview.
+
+// Load all lender rows into the cache. Idempotent — bails if already
+// populated. Tolerates the table not existing yet by leaving the cache as {}.
+async function loadLenders() {
+  if (cache.lenders) return;
+  try {
+    if (typeof fetchAll !== 'function') { cache.lenders = {}; return; }
+    const rows = await fetchAll('lenders', '*');
+    cache.lenders = {};
+    rows.forEach(r => { if (r && r.id) cache.lenders[r.id] = r; });
+  } catch (e) {
+    console.warn('loadLenders:', e);
+    cache.lenders = {};
+  }
+}
+window.loadLenders = loadLenders;
+
+// Open the Add/Edit modal. No id = add mode; with id = edit mode (prefilled).
+function lenderOpenAddModal(editId) {
+  const modal = document.getElementById('lender-add-modal');
+  if (!modal) return;
+  const ids = [
+    'lender-add-name','lender-add-phone','lender-add-email',
+    'lender-add-loan-types','lender-add-city','lender-add-state',
+    'lender-add-rating','lender-add-rates','lender-add-notes'
+  ];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const hiddenId = document.getElementById('lender-edit-id');
+  const title    = document.getElementById('lender-modal-title');
+  const delBtn   = document.getElementById('lender-delete-btn');
+  if (editId && cache.lenders && cache.lenders[editId]) {
+    const l = cache.lenders[editId];
+    if (hiddenId) hiddenId.value = editId;
+    if (title)    title.textContent = '✏ Edit Lender';
+    if (delBtn)   delBtn.style.display = '';
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : String(v)); };
+    setVal('lender-add-name',       l.name);
+    setVal('lender-add-phone',      l.phone);
+    setVal('lender-add-email',      l.email);
+    setVal('lender-add-loan-types', l.loan_types);
+    setVal('lender-add-city',       l.city);
+    setVal('lender-add-state',      l.state);
+    setVal('lender-add-rating',     l.rating);
+    setVal('lender-add-rates',      l.rate_notes);
+    setVal('lender-add-notes',      l.notes);
+  } else {
+    if (hiddenId) hiddenId.value = '';
+    if (title)    title.textContent = '🏦 Add Lender';
+    if (delBtn)   delBtn.style.display = 'none';
+  }
+  modal.style.display = 'flex';
+  setTimeout(() => {
+    const f = document.getElementById('lender-add-name');
+    if (f) f.focus();
+  }, 50);
+}
+window.lenderOpenAddModal = lenderOpenAddModal;
+
+function lenderCloseAddModal() {
+  const modal = document.getElementById('lender-add-modal');
+  if (modal) modal.style.display = 'none';
+}
+window.lenderCloseAddModal = lenderCloseAddModal;
+
+// Insert or update a lender row. Reads modal fields, validates, upserts.
+async function lenderSaveNew() {
+  const $ = (id) => document.getElementById(id);
+  const editId  = ($('lender-edit-id')?.value || '').trim();
+  const name    = ($('lender-add-name')?.value       || '').trim();
+  const phone   = ($('lender-add-phone')?.value      || '').trim();
+  const email   = ($('lender-add-email')?.value      || '').trim();
+  const types   = ($('lender-add-loan-types')?.value || '').trim();
+  const city    = ($('lender-add-city')?.value       || '').trim();
+  const state   = ($('lender-add-state')?.value      || '').trim().toUpperCase();
+  const ratingS = ($('lender-add-rating')?.value     || '').trim();
+  const rates   = ($('lender-add-rates')?.value      || '').trim();
+  const notes   = ($('lender-add-notes')?.value      || '').trim();
+  if (!name) {
+    if (typeof toast === 'function') toast('Name is required.', 'warn');
+    const n = $('lender-add-name'); if (n) n.focus();
+    return;
+  }
+  if (state && state.length !== 2) {
+    if (typeof toast === 'function') toast('State must be a 2-letter code (e.g. IN, OH, KY).', 'warn');
+    const s = $('lender-add-state'); if (s) s.focus();
+    return;
+  }
+  let rating = null;
+  if (ratingS !== '') {
+    const r = parseFloat(ratingS);
+    if (isNaN(r) || r < 0 || r > 5) {
+      if (typeof toast === 'function') toast('Rating must be between 0 and 5.', 'warn');
+      const rEl = $('lender-add-rating'); if (rEl) rEl.focus();
+      return;
+    }
+    rating = r;
+  }
+  const btn = $('lender-add-save-btn');
+  let prevLabel = '';
+  if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const payload = { name, phone, email, loan_types: types, city, state, rating, rate_notes: rates, notes };
+    let data, error;
+    if (editId) {
+      ({ data, error } = await sb.from('lenders').update(payload).eq('id', editId).select().single());
+    } else {
+      ({ data, error } = await sb.from('lenders').insert(payload).select().single());
+    }
+    if (error) throw error;
+    cache.lenders = cache.lenders || {};
+    if (data && data.id) cache.lenders[data.id] = data;
+    if (typeof toast === 'function') toast(editId ? ('Updated ' + name) : ('Added ' + name), 'ok');
+    lenderCloseAddModal();
+    renderLendersList();
+  } catch (e) {
+    console.warn('lenderSaveNew:', e);
+    if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prevLabel || '💾 Save Lender'; }
+  }
+}
+window.lenderSaveNew = lenderSaveNew;
+
+// Delete handler invoked from the modal's 🗑 Delete button (visible only in
+// edit mode).
+async function lenderDeleteFromModal() {
+  const editId = (document.getElementById('lender-edit-id')?.value || '').trim();
+  if (!editId) return;
+  const l = cache.lenders && cache.lenders[editId];
+  const nm = l ? l.name : 'this lender';
+  if (!confirm('Delete ' + nm + '? This cannot be undone.')) return;
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const { error } = await sb.from('lenders').delete().eq('id', editId);
+    if (error) throw error;
+    if (cache.lenders) delete cache.lenders[editId];
+    if (typeof toast === 'function') toast('Deleted ' + nm, 'ok');
+    lenderCloseAddModal();
+    renderLendersList();
+  } catch (e) {
+    console.warn('lenderDeleteFromModal:', e);
+    if (typeof toast === 'function') toast('Delete failed: ' + (e.message || 'unknown'), 'err');
+  }
+}
+window.lenderDeleteFromModal = lenderDeleteFromModal;
+
+// Render the lender rolodex table. Applies search + loan-type-filter.
+function renderLendersList() {
+  if (!cache.lenders) {
+    loadLenders().then(() => renderLendersList());
+    return;
+  }
+  const tbody   = document.getElementById('lenders-tbody');
+  const empty   = document.getElementById('lenders-empty');
+  const tableEl = document.getElementById('lenders-table');
+  if (!tbody) return;
+
+  // ----- Build the loan-type filter dropdown from current lender set -----
+  const typeSel = document.getElementById('lenders-type-filter');
+  const selectedType = typeSel ? typeSel.value : '';
+  if (typeSel) {
+    const set = new Set();
+    Object.values(cache.lenders).forEach(l => {
+      const list = String((l && l.loan_types) || '').split(',').map(s => s.trim()).filter(Boolean);
+      list.forEach(s => set.add(s));
+    });
+    const options = ['<option value="">All loan types</option>']
+      .concat(Array.from(set).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).map(s => `<option value="${s.replace(/"/g, '&quot;')}">${s}</option>`))
+      .join('');
+    if (typeSel.innerHTML !== options) typeSel.innerHTML = options;
+    if (selectedType && set.has(selectedType)) typeSel.value = selectedType;
+  }
+
+  // ----- Gather + filter rows -----
+  let rows = Object.values(cache.lenders)
+    .filter(l => l && l.name)
+    .sort((a, b) => {
+      const ra = (a.rating == null ? -1 : Number(a.rating));
+      const rb = (b.rating == null ? -1 : Number(b.rating));
+      if (ra !== rb) return rb - ra;
+      return String(a.name || '').toLowerCase().localeCompare(String(b.name || '').toLowerCase());
+    });
+
+  const typeFilter = typeSel ? (typeSel.value || '').toLowerCase() : '';
+  if (typeFilter) {
+    rows = rows.filter(l => String(l.loan_types || '').toLowerCase().split(',').map(s => s.trim()).includes(typeFilter));
+  }
+
+  const searchEl = document.getElementById('lenders-search');
+  const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
+  if (q) {
+    rows = rows.filter(l => {
+      const haystack = [l.name, l.loan_types, l.city, l.state, l.phone, l.email, l.notes, l.rate_notes]
+        .map(v => String(v || '').toLowerCase()).join(' | ');
+      return haystack.includes(q);
+    });
+  }
+
+  if (rows.length === 0) {
+    if (empty) {
+      empty.style.display = '';
+      empty.innerHTML = q || typeFilter
+        ? 'No lenders match the current filter. Try clearing the search or loan-type filter.'
+        : 'No lenders saved yet — click <b>+ Add Lender</b> to start building your rolodex.';
+    }
+    if (tableEl) tableEl.style.display = 'none';
+    tbody.innerHTML = '';
+    return;
+  }
+  if (empty)   empty.style.display = 'none';
+  if (tableEl) tableEl.style.display = '';
+
+  const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const renderStars = (r) => {
+    if (r == null || r === '') return '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const n = Math.max(0, Math.min(5, Number(r)));
+    const full = Math.round(n);
+    return `<span style="color:#fbbf24;font-size:13px;letter-spacing:1px" title="${n.toFixed(1)} / 5">${'★'.repeat(full)}<span style="color:var(--border)">${'★'.repeat(5 - full)}</span></span>
+            <span style="color:var(--text-dim);font-size:11px;margin-left:6px">${n.toFixed(1)}</span>`;
+  };
+
+  const renderPhone = (p) => {
+    const v = String(p || '').trim();
+    if (!v) return '';
+    const sanitized = v.replace(/[^0-9+]/g, '');
+    return `<a href="tel:${esc(sanitized)}" style="color:var(--text);text-decoration:none;font-size:12px" title="Call ${esc(v)}">📞 ${esc(v)}</a>`;
+  };
+  const renderEmail = (e) => {
+    const v = String(e || '').trim();
+    if (!v) return '';
+    return `<a href="mailto:${esc(v)}" style="color:var(--text);text-decoration:none;font-size:12px;display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle" title="Email ${esc(v)}">✉️ ${esc(v)}</a>`;
+  };
+
+  tbody.innerHTML = rows.map(l => {
+    const name  = esc(l.name || '');
+    const stars = renderStars(l.rating);
+    const types = l.loan_types
+      ? String(l.loan_types).split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="display:inline-block;padding:2px 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;font-size:11px;margin:1px 3px 1px 0;color:var(--text)">${esc(s)}</span>`).join('')
+      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const rates = l.rate_notes
+      ? `<div style="font-size:12px;max-width:280px;color:var(--text);white-space:pre-wrap;line-height:1.4">${esc(l.rate_notes)}</div>`
+      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const contactParts = [];
+    if (l.phone) contactParts.push(renderPhone(l.phone));
+    if (l.email) contactParts.push(renderEmail(l.email));
+    const contact = contactParts.length ? contactParts.map(p => `<div style="margin:2px 0">${p}</div>`).join('') : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const loc = [l.city, l.state].filter(Boolean).map(esc).join(', ') || '<span style="color:var(--text-dim);font-size:11px">—</span>';
+
+    return `
+      <tr style="border-bottom:1px solid var(--border)" data-lender-id="${esc(l.id)}">
+        <td style="padding:10px 12px;font-size:13px;vertical-align:top">
+          <div style="font-weight:600">${name}</div>
+          ${l.notes ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px;max-width:240px;line-height:1.4">${esc(l.notes)}</div>` : ''}
+        </td>
+        <td style="padding:10px 12px;vertical-align:top">${stars}</td>
+        <td style="padding:10px 12px;vertical-align:top;max-width:260px">${types}</td>
+        <td style="padding:10px 12px;vertical-align:top">${rates}</td>
+        <td style="padding:10px 12px;vertical-align:top">${contact}</td>
+        <td style="padding:10px 12px;vertical-align:top;font-size:12px">${loc}</td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:right">
+          <button class="btn btn-ghost text-xs" onclick="lenderOpenAddModal('${esc(l.id)}')" style="padding:5px 10px;white-space:nowrap" title="Edit this lender">✏ Edit</button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+window.renderLendersList = renderLendersList;
+
+// ============================================================
+// AGENTS (realtors) — Renovation → 🤝 Agents subview
+// ============================================================
+// Rolodex of real estate agents. Table is named `realtors` to avoid
+// colliding with the existing CallTools `agents` table, but everything
+// the user sees says "Agents".
+
+async function loadRealtors() {
+  if (cache.realtors) return;
+  try {
+    if (typeof fetchAll !== 'function') { cache.realtors = {}; return; }
+    const rows = await fetchAll('realtors', '*');
+    cache.realtors = {};
+    rows.forEach(r => { if (r && r.id) cache.realtors[r.id] = r; });
+  } catch (e) {
+    console.warn('loadRealtors:', e);
+    cache.realtors = {};
+  }
+}
+window.loadRealtors = loadRealtors;
+
+function realtorOpenAddModal(editId) {
+  const modal = document.getElementById('realtor-add-modal');
+  if (!modal) return;
+  const ids = [
+    'realtor-add-brokerage','realtor-add-name','realtor-add-phone','realtor-add-email',
+    'realtor-add-specialties','realtor-add-city','realtor-add-state',
+    'realtor-add-rating','realtor-add-license','realtor-add-commission','realtor-add-notes'
+  ];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const hiddenId = document.getElementById('realtor-edit-id');
+  const title    = document.getElementById('realtor-modal-title');
+  const delBtn   = document.getElementById('realtor-delete-btn');
+  if (editId && cache.realtors && cache.realtors[editId]) {
+    const r = cache.realtors[editId];
+    if (hiddenId) hiddenId.value = editId;
+    if (title)    title.textContent = '✏ Edit Agent';
+    if (delBtn)   delBtn.style.display = '';
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : String(v)); };
+    setVal('realtor-add-brokerage',   r.brokerage);
+    setVal('realtor-add-name',        r.name);
+    setVal('realtor-add-phone',       r.phone);
+    setVal('realtor-add-email',       r.email);
+    setVal('realtor-add-specialties', r.specialties);
+    setVal('realtor-add-city',        r.city);
+    setVal('realtor-add-state',       r.state);
+    setVal('realtor-add-rating',      r.rating);
+    setVal('realtor-add-license',     r.license_number);
+    setVal('realtor-add-commission',  r.commission_notes);
+    setVal('realtor-add-notes',       r.notes);
+  } else {
+    if (hiddenId) hiddenId.value = '';
+    if (title)    title.textContent = '🤝 Add Agent';
+    if (delBtn)   delBtn.style.display = 'none';
+  }
+  modal.style.display = 'flex';
+  setTimeout(() => {
+    const f = document.getElementById('realtor-add-name');
+    if (f) f.focus();
+  }, 50);
+}
+window.realtorOpenAddModal = realtorOpenAddModal;
+
+function realtorCloseAddModal() {
+  const modal = document.getElementById('realtor-add-modal');
+  if (modal) modal.style.display = 'none';
+}
+window.realtorCloseAddModal = realtorCloseAddModal;
+
+async function realtorSaveNew() {
+  const $ = (id) => document.getElementById(id);
+  const editId    = ($('realtor-edit-id')?.value || '').trim();
+  const brokerage = ($('realtor-add-brokerage')?.value   || '').trim();
+  const name      = ($('realtor-add-name')?.value        || '').trim();
+  const phone     = ($('realtor-add-phone')?.value       || '').trim();
+  const email     = ($('realtor-add-email')?.value       || '').trim();
+  const specs     = ($('realtor-add-specialties')?.value || '').trim();
+  const city      = ($('realtor-add-city')?.value        || '').trim();
+  const state     = ($('realtor-add-state')?.value       || '').trim().toUpperCase();
+  const ratingS   = ($('realtor-add-rating')?.value      || '').trim();
+  const license   = ($('realtor-add-license')?.value     || '').trim();
+  const comm      = ($('realtor-add-commission')?.value  || '').trim();
+  const notes     = ($('realtor-add-notes')?.value       || '').trim();
+  if (!name) {
+    if (typeof toast === 'function') toast('Contact Name is required.', 'warn');
+    const n = $('realtor-add-name'); if (n) n.focus();
+    return;
+  }
+  if (state && state.length !== 2) {
+    if (typeof toast === 'function') toast('State must be a 2-letter code (e.g. IN, OH, KY).', 'warn');
+    const s = $('realtor-add-state'); if (s) s.focus();
+    return;
+  }
+  let rating = null;
+  if (ratingS !== '') {
+    const r = parseFloat(ratingS);
+    if (isNaN(r) || r < 0 || r > 5) {
+      if (typeof toast === 'function') toast('Rating must be between 0 and 5.', 'warn');
+      const rEl = $('realtor-add-rating'); if (rEl) rEl.focus();
+      return;
+    }
+    rating = r;
+  }
+  const btn = $('realtor-add-save-btn');
+  let prevLabel = '';
+  if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const payload = { name, brokerage, phone, email, specialties: specs, city, state, rating, commission_notes: comm, license_number: license, notes };
+    let data, error;
+    if (editId) {
+      ({ data, error } = await sb.from('realtors').update(payload).eq('id', editId).select().single());
+    } else {
+      ({ data, error } = await sb.from('realtors').insert(payload).select().single());
+    }
+    if (error) throw error;
+    cache.realtors = cache.realtors || {};
+    if (data && data.id) cache.realtors[data.id] = data;
+    if (typeof toast === 'function') toast(editId ? ('Updated ' + name) : ('Added ' + name), 'ok');
+    realtorCloseAddModal();
+    renderRealtorsList();
+  } catch (e) {
+    console.warn('realtorSaveNew:', e);
+    if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prevLabel || '💾 Save Agent'; }
+  }
+}
+window.realtorSaveNew = realtorSaveNew;
+
+async function realtorDeleteFromModal() {
+  const editId = (document.getElementById('realtor-edit-id')?.value || '').trim();
+  if (!editId) return;
+  const r = cache.realtors && cache.realtors[editId];
+  const nm = r ? r.name : 'this agent';
+  if (!confirm('Delete ' + nm + '? This cannot be undone.')) return;
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const { error } = await sb.from('realtors').delete().eq('id', editId);
+    if (error) throw error;
+    if (cache.realtors) delete cache.realtors[editId];
+    if (typeof toast === 'function') toast('Deleted ' + nm, 'ok');
+    realtorCloseAddModal();
+    renderRealtorsList();
+  } catch (e) {
+    console.warn('realtorDeleteFromModal:', e);
+    if (typeof toast === 'function') toast('Delete failed: ' + (e.message || 'unknown'), 'err');
+  }
+}
+window.realtorDeleteFromModal = realtorDeleteFromModal;
+
+function renderRealtorsList() {
+  if (!cache.realtors) {
+    loadRealtors().then(() => renderRealtorsList());
+    return;
+  }
+  const tbody   = document.getElementById('realtors-tbody');
+  const empty   = document.getElementById('realtors-empty');
+  const tableEl = document.getElementById('realtors-table');
+  if (!tbody) return;
+
+  const specSel = document.getElementById('realtors-specialty-filter');
+  const selectedSpec = specSel ? specSel.value : '';
+  if (specSel) {
+    const set = new Set();
+    Object.values(cache.realtors).forEach(r => {
+      const list = String((r && r.specialties) || '').split(',').map(s => s.trim()).filter(Boolean);
+      list.forEach(s => set.add(s));
+    });
+    const options = ['<option value="">All specialties</option>']
+      .concat(Array.from(set).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).map(s => `<option value="${s.replace(/"/g, '&quot;')}">${s}</option>`))
+      .join('');
+    if (specSel.innerHTML !== options) specSel.innerHTML = options;
+    if (selectedSpec && set.has(selectedSpec)) specSel.value = selectedSpec;
+  }
+
+  let rows = Object.values(cache.realtors)
+    .filter(r => r && r.name)
+    .sort((a, b) => {
+      const ra = (a.rating == null ? -1 : Number(a.rating));
+      const rb = (b.rating == null ? -1 : Number(b.rating));
+      if (ra !== rb) return rb - ra;
+      return String(a.name || '').toLowerCase().localeCompare(String(b.name || '').toLowerCase());
+    });
+
+  const specFilter = specSel ? (specSel.value || '').toLowerCase() : '';
+  if (specFilter) {
+    rows = rows.filter(r => String(r.specialties || '').toLowerCase().split(',').map(s => s.trim()).includes(specFilter));
+  }
+
+  const searchEl = document.getElementById('realtors-search');
+  const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
+  if (q) {
+    rows = rows.filter(r => {
+      const haystack = [r.name, r.brokerage, r.specialties, r.city, r.state, r.phone, r.email, r.notes, r.commission_notes, r.license_number]
+        .map(v => String(v || '').toLowerCase()).join(' | ');
+      return haystack.includes(q);
+    });
+  }
+
+  if (rows.length === 0) {
+    if (empty) {
+      empty.style.display = '';
+      empty.innerHTML = q || specFilter
+        ? 'No agents match the current filter. Try clearing the search or specialty filter.'
+        : 'No agents saved yet — click <b>+ Add Agent</b> to start building your rolodex.';
+    }
+    if (tableEl) tableEl.style.display = 'none';
+    tbody.innerHTML = '';
+    return;
+  }
+  if (empty)   empty.style.display = 'none';
+  if (tableEl) tableEl.style.display = '';
+
+  const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const renderStars = (r) => {
+    if (r == null || r === '') return '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const n = Math.max(0, Math.min(5, Number(r)));
+    const full = Math.round(n);
+    return `<span style="color:#fbbf24;font-size:13px;letter-spacing:1px" title="${n.toFixed(1)} / 5">${'★'.repeat(full)}<span style="color:var(--border)">${'★'.repeat(5 - full)}</span></span>
+            <span style="color:var(--text-dim);font-size:11px;margin-left:6px">${n.toFixed(1)}</span>`;
+  };
+
+  const renderPhone = (p) => {
+    const v = String(p || '').trim();
+    if (!v) return '';
+    const sanitized = v.replace(/[^0-9+]/g, '');
+    return `<a href="tel:${esc(sanitized)}" style="color:var(--text);text-decoration:none;font-size:12px" title="Call ${esc(v)}">📞 ${esc(v)}</a>`;
+  };
+  const renderEmail = (e) => {
+    const v = String(e || '').trim();
+    if (!v) return '';
+    return `<a href="mailto:${esc(v)}" style="color:var(--text);text-decoration:none;font-size:12px;display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle" title="Email ${esc(v)}">✉️ ${esc(v)}</a>`;
+  };
+
+  tbody.innerHTML = rows.map(r => {
+    const name      = esc(r.name || '');
+    const brokerage = esc(r.brokerage || '');
+    const stars     = renderStars(r.rating);
+    const specs     = r.specialties
+      ? String(r.specialties).split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="display:inline-block;padding:2px 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;font-size:11px;margin:1px 3px 1px 0;color:var(--text)">${esc(s)}</span>`).join('')
+      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const comm      = r.commission_notes
+      ? `<div style="font-size:12px;max-width:280px;color:var(--text);white-space:pre-wrap;line-height:1.4">${esc(r.commission_notes)}</div>`
+      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const contactParts = [];
+    if (r.phone) contactParts.push(renderPhone(r.phone));
+    if (r.email) contactParts.push(renderEmail(r.email));
+    const contact = contactParts.length ? contactParts.map(p => `<div style="margin:2px 0">${p}</div>`).join('') : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const loc = [r.city, r.state].filter(Boolean).map(esc).join(', ') || '<span style="color:var(--text-dim);font-size:11px">—</span>';
+
+    const nameBlock = brokerage
+      ? `<div style="font-weight:600">${brokerage}</div>
+         <div style="color:var(--text-dim);font-size:11px;margin-top:2px">${name}</div>`
+      : `<div style="font-weight:600">${name}</div>`;
+
+    return `
+      <tr style="border-bottom:1px solid var(--border)" data-realtor-id="${esc(r.id)}">
+        <td style="padding:10px 12px;font-size:13px;vertical-align:top">
+          ${nameBlock}
+          ${r.license_number ? `<div style="color:var(--text-dim);font-size:10px;margin-top:3px">Lic # ${esc(r.license_number)}</div>` : ''}
+          ${r.notes ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px;max-width:240px;line-height:1.4">${esc(r.notes)}</div>` : ''}
+        </td>
+        <td style="padding:10px 12px;vertical-align:top">${stars}</td>
+        <td style="padding:10px 12px;vertical-align:top;max-width:260px">${specs}</td>
+        <td style="padding:10px 12px;vertical-align:top">${comm}</td>
+        <td style="padding:10px 12px;vertical-align:top">${contact}</td>
+        <td style="padding:10px 12px;vertical-align:top;font-size:12px">${loc}</td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:right">
+          <button class="btn btn-ghost text-xs" onclick="realtorOpenAddModal('${esc(r.id)}')" style="padding:5px 10px;white-space:nowrap" title="Edit this agent">✏ Edit</button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+window.renderRealtorsList = renderRealtorsList;
+
+// ============================================================
+// ATTORNEYS — Renovation → ⚖️ Attorneys subview
+// ============================================================
+// Rolodex of real estate / business attorneys (closing attorneys, eviction
+// attorneys, contract review, etc.). Stored in the `attorneys` Supabase
+// table (see sql/supabase-attorneys.sql).
+
+async function loadAttorneys() {
+  if (cache.attorneys) return;
+  try {
+    if (typeof fetchAll !== 'function') { cache.attorneys = {}; return; }
+    const rows = await fetchAll('attorneys', '*');
+    cache.attorneys = {};
+    rows.forEach(a => { if (a && a.id) cache.attorneys[a.id] = a; });
+  } catch (e) {
+    console.warn('loadAttorneys:', e);
+    cache.attorneys = {};
+  }
+}
+window.loadAttorneys = loadAttorneys;
+
+function attorneyOpenAddModal(editId) {
+  const modal = document.getElementById('attorney-add-modal');
+  if (!modal) return;
+  const ids = [
+    'attorney-add-firm','attorney-add-name','attorney-add-phone','attorney-add-email',
+    'attorney-add-practice-areas','attorney-add-city','attorney-add-state',
+    'attorney-add-rating','attorney-add-bar','attorney-add-fees','attorney-add-notes'
+  ];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const hiddenId = document.getElementById('attorney-edit-id');
+  const title    = document.getElementById('attorney-modal-title');
+  const delBtn   = document.getElementById('attorney-delete-btn');
+  if (editId && cache.attorneys && cache.attorneys[editId]) {
+    const a = cache.attorneys[editId];
+    if (hiddenId) hiddenId.value = editId;
+    if (title)    title.textContent = '✏ Edit Attorney';
+    if (delBtn)   delBtn.style.display = '';
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : String(v)); };
+    setVal('attorney-add-firm',            a.firm);
+    setVal('attorney-add-name',            a.name);
+    setVal('attorney-add-phone',           a.phone);
+    setVal('attorney-add-email',           a.email);
+    setVal('attorney-add-practice-areas',  a.practice_areas);
+    setVal('attorney-add-city',            a.city);
+    setVal('attorney-add-state',           a.state);
+    setVal('attorney-add-rating',          a.rating);
+    setVal('attorney-add-bar',             a.bar_number);
+    setVal('attorney-add-fees',            a.fee_notes);
+    setVal('attorney-add-notes',           a.notes);
+  } else {
+    if (hiddenId) hiddenId.value = '';
+    if (title)    title.textContent = '⚖️ Add Attorney';
+    if (delBtn)   delBtn.style.display = 'none';
+  }
+  modal.style.display = 'flex';
+  setTimeout(() => {
+    const f = document.getElementById('attorney-add-name');
+    if (f) f.focus();
+  }, 50);
+}
+window.attorneyOpenAddModal = attorneyOpenAddModal;
+
+function attorneyCloseAddModal() {
+  const modal = document.getElementById('attorney-add-modal');
+  if (modal) modal.style.display = 'none';
+}
+window.attorneyCloseAddModal = attorneyCloseAddModal;
+
+async function attorneySaveNew() {
+  const $ = (id) => document.getElementById(id);
+  const editId   = ($('attorney-edit-id')?.value || '').trim();
+  const firm     = ($('attorney-add-firm')?.value           || '').trim();
+  const name     = ($('attorney-add-name')?.value           || '').trim();
+  const phone    = ($('attorney-add-phone')?.value          || '').trim();
+  const email    = ($('attorney-add-email')?.value          || '').trim();
+  const areas    = ($('attorney-add-practice-areas')?.value || '').trim();
+  const city     = ($('attorney-add-city')?.value           || '').trim();
+  const state    = ($('attorney-add-state')?.value          || '').trim().toUpperCase();
+  const ratingS  = ($('attorney-add-rating')?.value         || '').trim();
+  const bar      = ($('attorney-add-bar')?.value            || '').trim();
+  const fees     = ($('attorney-add-fees')?.value           || '').trim();
+  const notes    = ($('attorney-add-notes')?.value          || '').trim();
+  if (!name) {
+    if (typeof toast === 'function') toast('Contact Name is required.', 'warn');
+    const n = $('attorney-add-name'); if (n) n.focus();
+    return;
+  }
+  if (state && state.length !== 2) {
+    if (typeof toast === 'function') toast('State must be a 2-letter code (e.g. IN, OH, KY).', 'warn');
+    const s = $('attorney-add-state'); if (s) s.focus();
+    return;
+  }
+  let rating = null;
+  if (ratingS !== '') {
+    const r = parseFloat(ratingS);
+    if (isNaN(r) || r < 0 || r > 5) {
+      if (typeof toast === 'function') toast('Rating must be between 0 and 5.', 'warn');
+      const rEl = $('attorney-add-rating'); if (rEl) rEl.focus();
+      return;
+    }
+    rating = r;
+  }
+  const btn = $('attorney-add-save-btn');
+  let prevLabel = '';
+  if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const payload = { name, firm, phone, email, practice_areas: areas, city, state, rating, fee_notes: fees, bar_number: bar, notes };
+    let data, error;
+    if (editId) {
+      ({ data, error } = await sb.from('attorneys').update(payload).eq('id', editId).select().single());
+    } else {
+      ({ data, error } = await sb.from('attorneys').insert(payload).select().single());
+    }
+    if (error) throw error;
+    cache.attorneys = cache.attorneys || {};
+    if (data && data.id) cache.attorneys[data.id] = data;
+    if (typeof toast === 'function') toast(editId ? ('Updated ' + name) : ('Added ' + name), 'ok');
+    attorneyCloseAddModal();
+    renderAttorneysList();
+  } catch (e) {
+    console.warn('attorneySaveNew:', e);
+    if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prevLabel || '💾 Save Attorney'; }
+  }
+}
+window.attorneySaveNew = attorneySaveNew;
+
+async function attorneyDeleteFromModal() {
+  const editId = (document.getElementById('attorney-edit-id')?.value || '').trim();
+  if (!editId) return;
+  const a = cache.attorneys && cache.attorneys[editId];
+  const nm = a ? a.name : 'this attorney';
+  if (!confirm('Delete ' + nm + '? This cannot be undone.')) return;
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const { error } = await sb.from('attorneys').delete().eq('id', editId);
+    if (error) throw error;
+    if (cache.attorneys) delete cache.attorneys[editId];
+    if (typeof toast === 'function') toast('Deleted ' + nm, 'ok');
+    attorneyCloseAddModal();
+    renderAttorneysList();
+  } catch (e) {
+    console.warn('attorneyDeleteFromModal:', e);
+    if (typeof toast === 'function') toast('Delete failed: ' + (e.message || 'unknown'), 'err');
+  }
+}
+window.attorneyDeleteFromModal = attorneyDeleteFromModal;
+
+function renderAttorneysList() {
+  if (!cache.attorneys) {
+    loadAttorneys().then(() => renderAttorneysList());
+    return;
+  }
+  const tbody   = document.getElementById('attorneys-tbody');
+  const empty   = document.getElementById('attorneys-empty');
+  const tableEl = document.getElementById('attorneys-table');
+  if (!tbody) return;
+
+  const areaSel = document.getElementById('attorneys-area-filter');
+  const selectedArea = areaSel ? areaSel.value : '';
+  if (areaSel) {
+    const set = new Set();
+    Object.values(cache.attorneys).forEach(a => {
+      const list = String((a && a.practice_areas) || '').split(',').map(s => s.trim()).filter(Boolean);
+      list.forEach(s => set.add(s));
+    });
+    const options = ['<option value="">All practice areas</option>']
+      .concat(Array.from(set).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).map(s => `<option value="${s.replace(/"/g, '&quot;')}">${s}</option>`))
+      .join('');
+    if (areaSel.innerHTML !== options) areaSel.innerHTML = options;
+    if (selectedArea && set.has(selectedArea)) areaSel.value = selectedArea;
+  }
+
+  let rows = Object.values(cache.attorneys)
+    .filter(a => a && a.name)
+    .sort((a, b) => {
+      const ra = (a.rating == null ? -1 : Number(a.rating));
+      const rb = (b.rating == null ? -1 : Number(b.rating));
+      if (ra !== rb) return rb - ra;
+      return String(a.name || '').toLowerCase().localeCompare(String(b.name || '').toLowerCase());
+    });
+
+  const areaFilter = areaSel ? (areaSel.value || '').toLowerCase() : '';
+  if (areaFilter) {
+    rows = rows.filter(a => String(a.practice_areas || '').toLowerCase().split(',').map(s => s.trim()).includes(areaFilter));
+  }
+
+  const searchEl = document.getElementById('attorneys-search');
+  const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
+  if (q) {
+    rows = rows.filter(a => {
+      const haystack = [a.name, a.firm, a.practice_areas, a.city, a.state, a.phone, a.email, a.notes, a.fee_notes, a.bar_number]
+        .map(v => String(v || '').toLowerCase()).join(' | ');
+      return haystack.includes(q);
+    });
+  }
+
+  if (rows.length === 0) {
+    if (empty) {
+      empty.style.display = '';
+      empty.innerHTML = q || areaFilter
+        ? 'No attorneys match the current filter. Try clearing the search or practice-area filter.'
+        : 'No attorneys saved yet — click <b>+ Add Attorney</b> to start building your rolodex.';
+    }
+    if (tableEl) tableEl.style.display = 'none';
+    tbody.innerHTML = '';
+    return;
+  }
+  if (empty)   empty.style.display = 'none';
+  if (tableEl) tableEl.style.display = '';
+
+  const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const renderStars = (r) => {
+    if (r == null || r === '') return '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const n = Math.max(0, Math.min(5, Number(r)));
+    const full = Math.round(n);
+    return `<span style="color:#fbbf24;font-size:13px;letter-spacing:1px" title="${n.toFixed(1)} / 5">${'★'.repeat(full)}<span style="color:var(--border)">${'★'.repeat(5 - full)}</span></span>
+            <span style="color:var(--text-dim);font-size:11px;margin-left:6px">${n.toFixed(1)}</span>`;
+  };
+
+  const renderPhone = (p) => {
+    const v = String(p || '').trim();
+    if (!v) return '';
+    const sanitized = v.replace(/[^0-9+]/g, '');
+    return `<a href="tel:${esc(sanitized)}" style="color:var(--text);text-decoration:none;font-size:12px" title="Call ${esc(v)}">📞 ${esc(v)}</a>`;
+  };
+  const renderEmail = (e) => {
+    const v = String(e || '').trim();
+    if (!v) return '';
+    return `<a href="mailto:${esc(v)}" style="color:var(--text);text-decoration:none;font-size:12px;display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle" title="Email ${esc(v)}">✉️ ${esc(v)}</a>`;
+  };
+
+  tbody.innerHTML = rows.map(a => {
+    const name  = esc(a.name || '');
+    const firm  = esc(a.firm || '');
+    const stars = renderStars(a.rating);
+    const areas = a.practice_areas
+      ? String(a.practice_areas).split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="display:inline-block;padding:2px 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;font-size:11px;margin:1px 3px 1px 0;color:var(--text)">${esc(s)}</span>`).join('')
+      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const fees  = a.fee_notes
+      ? `<div style="font-size:12px;max-width:280px;color:var(--text);white-space:pre-wrap;line-height:1.4">${esc(a.fee_notes)}</div>`
+      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const contactParts = [];
+    if (a.phone) contactParts.push(renderPhone(a.phone));
+    if (a.email) contactParts.push(renderEmail(a.email));
+    const contact = contactParts.length ? contactParts.map(p => `<div style="margin:2px 0">${p}</div>`).join('') : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const loc = [a.city, a.state].filter(Boolean).map(esc).join(', ') || '<span style="color:var(--text-dim);font-size:11px">—</span>';
+
+    const nameBlock = firm
+      ? `<div style="font-weight:600">${firm}</div>
+         <div style="color:var(--text-dim);font-size:11px;margin-top:2px">${name}</div>`
+      : `<div style="font-weight:600">${name}</div>`;
+
+    return `
+      <tr style="border-bottom:1px solid var(--border)" data-attorney-id="${esc(a.id)}">
+        <td style="padding:10px 12px;font-size:13px;vertical-align:top">
+          ${nameBlock}
+          ${a.bar_number ? `<div style="color:var(--text-dim);font-size:10px;margin-top:3px">Bar # ${esc(a.bar_number)}</div>` : ''}
+          ${a.notes ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px;max-width:240px;line-height:1.4">${esc(a.notes)}</div>` : ''}
+        </td>
+        <td style="padding:10px 12px;vertical-align:top">${stars}</td>
+        <td style="padding:10px 12px;vertical-align:top;max-width:260px">${areas}</td>
+        <td style="padding:10px 12px;vertical-align:top">${fees}</td>
+        <td style="padding:10px 12px;vertical-align:top">${contact}</td>
+        <td style="padding:10px 12px;vertical-align:top;font-size:12px">${loc}</td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:right">
+          <button class="btn btn-ghost text-xs" onclick="attorneyOpenAddModal('${esc(a.id)}')" style="padding:5px 10px;white-space:nowrap" title="Edit this attorney">✏ Edit</button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+window.renderAttorneysList = renderAttorneysList;
+
+// ============================================================
+// BUYERS — Renovation → 💰 Buyers subview
+// ============================================================
+// Rolodex of cash buyers / end-investors for wholesale and assignment deals.
+
+async function loadBuyers() {
+  if (cache.buyers) return;
+  try {
+    if (typeof fetchAll !== 'function') { cache.buyers = {}; return; }
+    const rows = await fetchAll('buyers', '*');
+    cache.buyers = {};
+    rows.forEach(b => { if (b && b.id) cache.buyers[b.id] = b; });
+  } catch (e) {
+    console.warn('loadBuyers:', e);
+    cache.buyers = {};
+  }
+}
+window.loadBuyers = loadBuyers;
+
+function buyerOpenAddModal(editId) {
+  const modal = document.getElementById('buyer-add-modal');
+  if (!modal) return;
+  const ids = [
+    'buyer-add-company','buyer-add-name','buyer-add-phone','buyer-add-email',
+    'buyer-add-criteria','buyer-add-city','buyer-add-state',
+    'buyer-add-rating','buyer-add-funding','buyer-add-price-notes','buyer-add-notes'
+  ];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const hiddenId = document.getElementById('buyer-edit-id');
+  const title    = document.getElementById('buyer-modal-title');
+  const delBtn   = document.getElementById('buyer-delete-btn');
+  if (editId && cache.buyers && cache.buyers[editId]) {
+    const b = cache.buyers[editId];
+    if (hiddenId) hiddenId.value = editId;
+    if (title)    title.textContent = '✏ Edit Buyer';
+    if (delBtn)   delBtn.style.display = '';
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : String(v)); };
+    setVal('buyer-add-company',     b.company);
+    setVal('buyer-add-name',        b.name);
+    setVal('buyer-add-phone',       b.phone);
+    setVal('buyer-add-email',       b.email);
+    setVal('buyer-add-criteria',    b.criteria);
+    setVal('buyer-add-city',        b.city);
+    setVal('buyer-add-state',       b.state);
+    setVal('buyer-add-rating',      b.rating);
+    setVal('buyer-add-funding',     b.funding_type);
+    setVal('buyer-add-price-notes', b.price_notes);
+    setVal('buyer-add-notes',       b.notes);
+  } else {
+    if (hiddenId) hiddenId.value = '';
+    if (title)    title.textContent = '💰 Add Buyer';
+    if (delBtn)   delBtn.style.display = 'none';
+  }
+  modal.style.display = 'flex';
+  setTimeout(() => {
+    const f = document.getElementById('buyer-add-name');
+    if (f) f.focus();
+  }, 50);
+}
+window.buyerOpenAddModal = buyerOpenAddModal;
+
+function buyerCloseAddModal() {
+  const modal = document.getElementById('buyer-add-modal');
+  if (modal) modal.style.display = 'none';
+}
+window.buyerCloseAddModal = buyerCloseAddModal;
+
+async function buyerSaveNew() {
+  const $ = (id) => document.getElementById(id);
+  const editId   = ($('buyer-edit-id')?.value || '').trim();
+  const company  = ($('buyer-add-company')?.value     || '').trim();
+  const name     = ($('buyer-add-name')?.value        || '').trim();
+  const phone    = ($('buyer-add-phone')?.value       || '').trim();
+  const email    = ($('buyer-add-email')?.value       || '').trim();
+  const criteria = ($('buyer-add-criteria')?.value    || '').trim();
+  const city     = ($('buyer-add-city')?.value        || '').trim();
+  const state    = ($('buyer-add-state')?.value       || '').trim().toUpperCase();
+  const ratingS  = ($('buyer-add-rating')?.value      || '').trim();
+  const funding  = ($('buyer-add-funding')?.value     || '').trim();
+  const prices   = ($('buyer-add-price-notes')?.value || '').trim();
+  const notes    = ($('buyer-add-notes')?.value       || '').trim();
+  if (!name) {
+    if (typeof toast === 'function') toast('Contact Name is required.', 'warn');
+    const n = $('buyer-add-name'); if (n) n.focus();
+    return;
+  }
+  if (state && state.length !== 2) {
+    if (typeof toast === 'function') toast('State must be a 2-letter code (e.g. IN, OH, KY).', 'warn');
+    const s = $('buyer-add-state'); if (s) s.focus();
+    return;
+  }
+  let rating = null;
+  if (ratingS !== '') {
+    const r = parseFloat(ratingS);
+    if (isNaN(r) || r < 0 || r > 5) {
+      if (typeof toast === 'function') toast('Rating must be between 0 and 5.', 'warn');
+      const rEl = $('buyer-add-rating'); if (rEl) rEl.focus();
+      return;
+    }
+    rating = r;
+  }
+  const btn = $('buyer-add-save-btn');
+  let prevLabel = '';
+  if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const payload = { name, company, phone, email, criteria, city, state, rating, funding_type: funding, price_notes: prices, notes };
+    let data, error;
+    if (editId) {
+      ({ data, error } = await sb.from('buyers').update(payload).eq('id', editId).select().single());
+    } else {
+      ({ data, error } = await sb.from('buyers').insert(payload).select().single());
+    }
+    if (error) throw error;
+    cache.buyers = cache.buyers || {};
+    if (data && data.id) cache.buyers[data.id] = data;
+    if (typeof toast === 'function') toast(editId ? ('Updated ' + name) : ('Added ' + name), 'ok');
+    buyerCloseAddModal();
+    renderBuyersList();
+  } catch (e) {
+    console.warn('buyerSaveNew:', e);
+    if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prevLabel || '💾 Save Buyer'; }
+  }
+}
+window.buyerSaveNew = buyerSaveNew;
+
+async function buyerDeleteFromModal() {
+  const editId = (document.getElementById('buyer-edit-id')?.value || '').trim();
+  if (!editId) return;
+  const b = cache.buyers && cache.buyers[editId];
+  const nm = b ? b.name : 'this buyer';
+  if (!confirm('Delete ' + nm + '? This cannot be undone.')) return;
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const { error } = await sb.from('buyers').delete().eq('id', editId);
+    if (error) throw error;
+    if (cache.buyers) delete cache.buyers[editId];
+    if (typeof toast === 'function') toast('Deleted ' + nm, 'ok');
+    buyerCloseAddModal();
+    renderBuyersList();
+  } catch (e) {
+    console.warn('buyerDeleteFromModal:', e);
+    if (typeof toast === 'function') toast('Delete failed: ' + (e.message || 'unknown'), 'err');
+  }
+}
+window.buyerDeleteFromModal = buyerDeleteFromModal;
+
+function renderBuyersList() {
+  if (!cache.buyers) {
+    loadBuyers().then(() => renderBuyersList());
+    return;
+  }
+  const tbody   = document.getElementById('buyers-tbody');
+  const empty   = document.getElementById('buyers-empty');
+  const tableEl = document.getElementById('buyers-table');
+  if (!tbody) return;
+
+  const critSel = document.getElementById('buyers-criteria-filter');
+  const selectedCrit = critSel ? critSel.value : '';
+  if (critSel) {
+    const set = new Set();
+    Object.values(cache.buyers).forEach(b => {
+      const list = String((b && b.criteria) || '').split(',').map(s => s.trim()).filter(Boolean);
+      list.forEach(s => set.add(s));
+    });
+    const options = ['<option value="">All criteria</option>']
+      .concat(Array.from(set).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).map(s => `<option value="${s.replace(/"/g, '&quot;')}">${s}</option>`))
+      .join('');
+    if (critSel.innerHTML !== options) critSel.innerHTML = options;
+    if (selectedCrit && set.has(selectedCrit)) critSel.value = selectedCrit;
+  }
+
+  let rows = Object.values(cache.buyers)
+    .filter(b => b && b.name)
+    .sort((a, b) => {
+      const ra = (a.rating == null ? -1 : Number(a.rating));
+      const rb = (b.rating == null ? -1 : Number(b.rating));
+      if (ra !== rb) return rb - ra;
+      return String(a.name || '').toLowerCase().localeCompare(String(b.name || '').toLowerCase());
+    });
+
+  const critFilter = critSel ? (critSel.value || '').toLowerCase() : '';
+  if (critFilter) {
+    rows = rows.filter(b => String(b.criteria || '').toLowerCase().split(',').map(s => s.trim()).includes(critFilter));
+  }
+
+  const searchEl = document.getElementById('buyers-search');
+  const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
+  if (q) {
+    rows = rows.filter(b => {
+      const haystack = [b.name, b.company, b.criteria, b.funding_type, b.city, b.state, b.phone, b.email, b.notes, b.price_notes]
+        .map(v => String(v || '').toLowerCase()).join(' | ');
+      return haystack.includes(q);
+    });
+  }
+
+  if (rows.length === 0) {
+    if (empty) {
+      empty.style.display = '';
+      empty.innerHTML = q || critFilter
+        ? 'No buyers match the current filter. Try clearing the search or criteria filter.'
+        : 'No buyers saved yet — click <b>+ Add Buyer</b> to start building your rolodex.';
+    }
+    if (tableEl) tableEl.style.display = 'none';
+    tbody.innerHTML = '';
+    return;
+  }
+  if (empty)   empty.style.display = 'none';
+  if (tableEl) tableEl.style.display = '';
+
+  const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const renderStars = (r) => {
+    if (r == null || r === '') return '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const n = Math.max(0, Math.min(5, Number(r)));
+    const full = Math.round(n);
+    return `<span style="color:#fbbf24;font-size:13px;letter-spacing:1px" title="${n.toFixed(1)} / 5">${'★'.repeat(full)}<span style="color:var(--border)">${'★'.repeat(5 - full)}</span></span>
+            <span style="color:var(--text-dim);font-size:11px;margin-left:6px">${n.toFixed(1)}</span>`;
+  };
+
+  const renderPhone = (p) => {
+    const v = String(p || '').trim();
+    if (!v) return '';
+    const sanitized = v.replace(/[^0-9+]/g, '');
+    return `<a href="tel:${esc(sanitized)}" style="color:var(--text);text-decoration:none;font-size:12px" title="Call ${esc(v)}">📞 ${esc(v)}</a>`;
+  };
+  const renderEmail = (e) => {
+    const v = String(e || '').trim();
+    if (!v) return '';
+    return `<a href="mailto:${esc(v)}" style="color:var(--text);text-decoration:none;font-size:12px;display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle" title="Email ${esc(v)}">✉️ ${esc(v)}</a>`;
+  };
+
+  tbody.innerHTML = rows.map(b => {
+    const name     = esc(b.name || '');
+    const company  = esc(b.company || '');
+    const stars    = renderStars(b.rating);
+    const criteria = b.criteria
+      ? String(b.criteria).split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="display:inline-block;padding:2px 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;font-size:11px;margin:1px 3px 1px 0;color:var(--text)">${esc(s)}</span>`).join('')
+      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const fundingLine = b.funding_type
+      ? `<div style="font-size:11px;color:#a5b4fc;font-weight:600;margin-bottom:4px">${esc(b.funding_type)}</div>`
+      : '';
+    const priceLine = b.price_notes
+      ? `<div style="font-size:12px;max-width:280px;color:var(--text);white-space:pre-wrap;line-height:1.4">${esc(b.price_notes)}</div>`
+      : (b.funding_type ? '' : '<span style="color:var(--text-dim);font-size:11px">—</span>');
+    const fundPrice = fundingLine + priceLine;
+    const contactParts = [];
+    if (b.phone) contactParts.push(renderPhone(b.phone));
+    if (b.email) contactParts.push(renderEmail(b.email));
+    const contact = contactParts.length ? contactParts.map(p => `<div style="margin:2px 0">${p}</div>`).join('') : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const loc = [b.city, b.state].filter(Boolean).map(esc).join(', ') || '<span style="color:var(--text-dim);font-size:11px">—</span>';
+
+    const nameBlock = company
+      ? `<div style="font-weight:600">${company}</div>
+         <div style="color:var(--text-dim);font-size:11px;margin-top:2px">${name}</div>`
+      : `<div style="font-weight:600">${name}</div>`;
+
+    return `
+      <tr style="border-bottom:1px solid var(--border)" data-buyer-id="${esc(b.id)}">
+        <td style="padding:10px 12px;font-size:13px;vertical-align:top">
+          ${nameBlock}
+          ${b.notes ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px;max-width:240px;line-height:1.4">${esc(b.notes)}</div>` : ''}
+        </td>
+        <td style="padding:10px 12px;vertical-align:top">${stars}</td>
+        <td style="padding:10px 12px;vertical-align:top;max-width:260px">${criteria}</td>
+        <td style="padding:10px 12px;vertical-align:top">${fundPrice}</td>
+        <td style="padding:10px 12px;vertical-align:top">${contact}</td>
+        <td style="padding:10px 12px;vertical-align:top;font-size:12px">${loc}</td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:right">
+          <button class="btn btn-ghost text-xs" onclick="buyerOpenAddModal('${esc(b.id)}')" style="padding:5px 10px;white-space:nowrap" title="Edit this buyer">✏ Edit</button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+window.renderBuyersList = renderBuyersList;
 
 function renderUnderwriteList() {
   // Lazy-load on first visit to either list view

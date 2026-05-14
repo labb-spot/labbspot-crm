@@ -3770,7 +3770,13 @@
     <div class="panel p-5">
       <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
         <div>
-          <div class="font-semibold text-lg">🏁 Finalized</div>
+          <div class="font-semibold text-lg flex items-center gap-2">
+            🏁 Finalized
+            <!-- Count badge: shows "Closed / Total" — successfully Closed
+                 deals out of the combined Closed + Dropped total. Updated
+                 in renderUnderwriteList alongside the tab count. -->
+            <span id="uw-closed-header-count" style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(20,184,166,0.15);color:#14b8a6;letter-spacing:0.3px" title="Successfully Closed deals out of total finalized deals (Closed + Dropped).">—</span>
+          </div>
           <div class="text-sm text-[var(--text-dim)]">Deals that have reached a terminal state — either Closed (successful close) or Dropped (deal fell through). Click any row to open the full property details + calculator.</div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
@@ -18241,6 +18247,19 @@ function renderUnderwriteList() {
     // toggle is enabled.
     clCount.textContent = closedOnly.length.toLocaleString();
     clCount.style.display = closedOnly.length ? '' : 'none';
+  }
+  // In-header count for the Finalized subview: "X / Y Funded" where
+  //   X = number of successfully Closed deals
+  //   Y = total finalized deals (Closed + Dropped)
+  // Tells the user at a glance how many of their finalized deals actually
+  // funded vs. fell through.
+  const clHeader = document.getElementById('uw-closed-header-count');
+  if (clHeader) {
+    const _closedAll = all.filter(u => {
+      const os = _offerStatusOf(u);
+      return os === 'Closed' || os === 'Dropped' || (u.packet_status || '').trim() === 'Closed';
+    });
+    clHeader.textContent = closedOnly.length.toLocaleString() + ' / ' + _closedAll.length.toLocaleString() + ' Funded';
   }
   const hotCount = document.getElementById('uw-hot-count');
   if (hotCount) {

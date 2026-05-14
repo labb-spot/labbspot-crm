@@ -141,6 +141,9 @@
   .badge.brand { background: rgba(249,115,22,0.15); color: var(--brand); }
   .badge.info  { background: rgba(56,189,248,0.15); color: #38bdf8; }  /* light blue — used for "Sent" offer status */
   .badge.purple{ background: rgba(168,85,247,0.15); color: #a855f7; }  /* purple — used for "Inspection" offer status */
+  .badge.indigo{ background: rgba(99,102,241,0.18); color: #6366f1; }  /* indigo — used for "Pending" offer status (paperwork in motion) */
+  .badge.dropped{ background: rgba(180,83,9,0.20); color: #b45309; }   /* burnt orange / brown — used for "Dropped" offer status (deal fell through) */
+  .badge.teal  { background: rgba(20,184,166,0.18); color: #14b8a6; }  /* teal — used for "Closed" offer status (successful close) */
   .toast { position: fixed; bottom: 20px; right: 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; z-index: 200; opacity: 0; transition: opacity 0.2s; max-width: 400px; }
   .toast.show { opacity: 1; }
   .toast.ok { border-color: var(--good); }
@@ -2028,7 +2031,16 @@
          in the top-right even when the title block has multiple lines (address +
          subtitle + Added/Last-submission badge). Title text can wrap within its
          own div via min-width:0; action buttons stay in a single row to the right. -->
-    <div class="panel p-4 mb-4">
+    <div class="panel p-4 mb-4" style="position:relative">
+      <!-- Add to Renovation + Remove from Renovation — both absolutely
+           positioned in the bottom-right corner of the header panel so they
+           don't take any layout space (no extra row, no wrapping, no height
+           growth). They're mutually exclusive — never both visible at once —
+           so they share the exact same spot.
+           • Add    → shown when Offer Status is Closed AND deal isn't routed
+           • Remove → shown when the deal IS routed to Renovation/Holdings -->
+      <button class="btn text-sm" id="uw-add-to-reno-btn" onclick="uwAddToRenovation()" style="display:none;position:absolute;bottom:14px;right:14px;z-index:2;white-space:nowrap;background:#f97316;color:white;border:1px solid #f97316;font-weight:600" title="Send this property to the 🔨 Renovation tab. Only available when the Offer Status is Closed.">🔨 Add</button>
+      <button class="btn btn-ghost text-sm" id="uw-remove-routing-btn" style="display:none;position:absolute;bottom:14px;right:14px;z-index:2;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromRouting()" title="Remove this deal from Renovation/Holdings (the deal stays in the 🏁 Finalized tab).">✕ Remove</button>
       <div class="flex items-start justify-between gap-3" style="flex-wrap:nowrap">
         <div class="flex items-start gap-3" style="min-width:0;flex-shrink:1">
           <button class="btn btn-ghost text-sm" onclick="uwBackToList()" title="Back to the list" style="flex-shrink:0">← Back</button>
@@ -2081,9 +2093,10 @@
           <button type="button" data-reno-phase-btn="cosmetics"    onclick="uwSetRenoPhase('cosmetics')"    style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🎨 Cosmetics</button>
           <button type="button" data-reno-phase-btn="punch-list"   onclick="uwSetRenoPhase('punch-list')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;white-space:nowrap;flex-shrink:0">✅ Punch List</button>
         </div>
-        <!-- Remove from Renovation/Holdings — only visible when this deal is currently routed there.
-             margin-left:auto pushes it to the far right of the second row. -->
-        <button class="btn btn-ghost text-sm" id="uw-remove-routing-btn" style="display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap;flex-shrink:0;margin-left:auto" onclick="uwRemoveFromRouting()" title="Remove this deal from Renovation/Holdings (the deal stays in Closed).">✕ Remove from Renovation</button>
+        <!-- The "🔨 Add to Renovation" and "✕ Remove from Renovation" buttons
+             both live OUTSIDE this row — absolutely positioned in the panel's
+             bottom-right corner. See the top of the panel for both. That way
+             neither one contributes to row 2's height when it appears. -->
       </div>
     </div>
 
@@ -13968,9 +13981,9 @@ const _UW_OFFER_STATUS_COLORS = {
   Accepted:   { bg: 'rgba(16,185,129,0.20)', fg: '#10b981' },   // green (.badge.ok)
   Inspection: { bg: 'rgba(168,85,247,0.20)', fg: '#a855f7' },   // purple — inspection period
   Contracted: { bg: 'rgba(234,179,8,0.20)',  fg: '#eab308' },   // amber — under contract
-  Pending:    { bg: 'rgba(251,191,36,0.20)', fg: '#fbbf24' },   // bright amber/yellow — pending close
-  Closed:     { bg: 'rgba(20,184,166,0.20)', fg: '#14b8a6' },   // teal — deal closed
-  Dropped:    { bg: 'rgba(148,163,184,0.20)',fg: '#94a3b8' },   // muted slate — deal fell through
+  Pending:    { bg: 'rgba(99,102,241,0.20)', fg: '#6366f1' },   // indigo — paperwork in motion, distinct from Contracted's amber
+  Closed:     { bg: 'rgba(20,184,166,0.20)', fg: '#14b8a6' },   // teal — deal closed successfully
+  Dropped:    { bg: 'rgba(180,83,9,0.22)',   fg: '#b45309' },   // burnt orange / dim brown — deal fell through, clearly distinct from Rejected red
 };
 
 // Set the Offer Status from the 2×2 button grid. Writes to the
@@ -14021,6 +14034,8 @@ function _uwRefreshHeaderStatus() {
   // Keep the cache in sync so the list view + future renders read the
   // latest value without waiting for autosave to finish.
   if (u.data) u.data['uw-offer-status'] = liveOffer;
+  // Show/hide the "🔨 Add to Renovation" button based on the new status.
+  if (typeof _uwRefreshAddToRenoButton === 'function') _uwRefreshAddToRenoButton();
 }
 window._uwRefreshHeaderStatus = _uwRefreshHeaderStatus;
 
@@ -14275,6 +14290,9 @@ async function uwLoadById(id) {
   if (typeof _uwSetDealAge === 'function') _uwSetDealAge(u.created_at, u.last_submission_at);
   // Show/hide the "Remove from Renovation/Holdings" button based on routing
   if (typeof _uwUpdateRemoveRoutingButton === 'function') _uwUpdateRemoveRoutingButton();
+  // Show/hide the "🔨 Add to Renovation" header button. Only appears when
+  // the Offer Status is Closed and the deal isn't already in Renovation.
+  if (typeof _uwRefreshAddToRenoButton === 'function') _uwRefreshAddToRenoButton();
   // Show/hide the Renovation phase mover button group based on routing
   if (typeof _uwUpdateRenoPhaseSelector === 'function') _uwUpdateRenoPhaseSelector();
   toast('Loaded ' + (u.address || 'deal'), 'ok');
@@ -14398,6 +14416,42 @@ async function uwSetHoldingStatus(id, status) {
   }
 }
 window.uwSetHoldingStatus = uwSetHoldingStatus;
+
+// ----- "🔨 Add to Renovation" header button -----
+// Visible only when:
+//   1. The current deal's Offer Status is "Closed" (Dropped deals don't get
+//      a Reno option — you only renovate properties you actually closed on)
+//   2. The deal isn't already in Renovation (_holdingStatus !== 'renovation')
+// Hidden in every other case. Called from _uwRefreshHeaderStatus + on deal
+// load so the button appears/disappears immediately when status changes.
+function _uwRefreshAddToRenoButton() {
+  const btn = document.getElementById('uw-add-to-reno-btn');
+  if (!btn) return;
+  // Get current offer status from live DOM (post-edit) or fall back to cache.
+  const liveOffer = document.getElementById('uw-offer-status')?.value || '';
+  let cachedOffer = '';
+  let holdingStatus = '';
+  if (_uwCurrentId && cache && cache.underwrites && cache.underwrites[_uwCurrentId]) {
+    const u = cache.underwrites[_uwCurrentId];
+    cachedOffer   = (u.data && u.data['uw-offer-status']) || '';
+    holdingStatus = (u.data && u.data._holdingStatus) || '';
+  }
+  const offer = liveOffer || cachedOffer;
+  const show  = offer === 'Closed' && holdingStatus !== 'renovation';
+  btn.style.display = show ? '' : 'none';
+}
+window._uwRefreshAddToRenoButton = _uwRefreshAddToRenoButton;
+
+// Click handler — calls the existing routing function then refreshes the
+// header so the button hides itself.
+async function uwAddToRenovation() {
+  if (!_uwCurrentId) return;
+  if (typeof uwSetHoldingStatus === 'function') {
+    await uwSetHoldingStatus(_uwCurrentId, 'renovation');
+  }
+  _uwRefreshAddToRenoButton();
+}
+window.uwAddToRenovation = uwAddToRenovation;
 
 // ---------- Scope of Work — Phase Timelines ----------
 // Each phase = { id, name, days, parallel:bool }. Parallel phases (e.g.
@@ -15351,12 +15405,12 @@ function _uwUpdateRemoveRoutingButton() {
   const hs = u && u.data && u.data._holdingStatus;
   if (hs === 'renovation') {
     btn.style.display = '';
-    btn.textContent = '✕ Remove from Renovation';
-    btn.title = 'Remove this deal from Renovation. The deal stays in Closed.';
+    btn.textContent = '✕ Remove';
+    btn.title = 'Remove this deal from Renovation. The deal stays in the 🏁 Finalized tab.';
   } else if (hs === 'holding') {
     btn.style.display = '';
-    btn.textContent = '✕ Remove from Holdings';
-    btn.title = 'Remove this deal from Holdings. The deal stays in Closed.';
+    btn.textContent = '✕ Remove';
+    btn.title = 'Remove this deal from Holdings. The deal stays in the 🏁 Finalized tab.';
   } else {
     btn.style.display = 'none';
   }
@@ -18176,11 +18230,19 @@ function renderUnderwriteList() {
     //   Rejected → bad   (red)
     //   Accepted → ok    (green)
     const _displayStatus = (u.data && u.data['uw-offer-status']) || 'Needed';
-    const statusBadgeClass = _displayStatus === 'Sent'      ? 'info' :
-      _displayStatus === 'Rejected' || _displayStatus === 'Dead' ? 'bad' :
-      _displayStatus === 'Accepted' || _displayStatus === 'Closed' ? 'ok' :
-      _displayStatus === 'Contracted' ? 'warn' :
-      _displayStatus === 'Inspection' ? 'purple' : 'brand';
+    // Map each Offer Status to its preview-row badge color class. The colors
+    // here match the corresponding active-button colors in the deal calculator
+    // (see _UW_OFFER_STATUS_COLORS) so the same status reads the same color
+    // whether you're scanning the list or looking at the deal modal.
+    const statusBadgeClass = _displayStatus === 'Sent'       ? 'info'    :
+      _displayStatus === 'Rejected' || _displayStatus === 'Dead' ? 'bad'     :
+      _displayStatus === 'Accepted'                              ? 'ok'      :
+      _displayStatus === 'Closed'                                ? 'teal'    :
+      _displayStatus === 'Contracted'                            ? 'warn'    :
+      _displayStatus === 'Inspection'                            ? 'purple'  :
+      _displayStatus === 'Pending'                               ? 'indigo'  :
+      _displayStatus === 'Dropped'                               ? 'dropped' :
+                                                                   'brand';
     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="_hrOpenDeal('${u.id}')" onmouseover="this.style.background='rgba(99,102,241,0.05)'" onmouseout="this.style.background=''">
       <td style="padding:8px 10px"><div style="font-weight:500">${escapeHtml(u.address || '—')}</div><div class="text-xs" style="color:var(--text-dim)">${escapeHtml([u.city, u.state, u.zip].filter(Boolean).join(', '))}</div></td>
       <td style="padding:8px 10px"><span class="badge ${statusBadgeClass}" style="font-size:11px">${escapeHtml(typeof _uwOfferStatusLabel === 'function' ? _uwOfferStatusLabel(_displayStatus) : _displayStatus)}</span></td>

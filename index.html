@@ -14174,9 +14174,6 @@ function _uwSetDealAge(createdAt, lastSubmissionAt) {
     if (days <= 30) return '#f59e0b';
     return '#ef4444';
   };
-  // Original imported date — always shown
-  let html = '📅 Added <b style="color:var(--text)">' + fmtDate(created) + '</b> · ' +
-    '<span style="color:' + ageColor(created) + ';font-weight:600">' + fmtAgo(created) + '</span>';
   // Newest-submission date. If the deal has never received a new submission
   // since tracking started, the "newest" date is just the original import
   // date — both labels show, both point to the same day. As soon as a real
@@ -14190,10 +14187,21 @@ function _uwSetDealAge(createdAt, lastSubmissionAt) {
     const lastSub = new Date(lastSubmissionAt);
     if (!isNaN(lastSub.getTime())) newest = lastSub;
   }
-  html += '<span style="margin:0 8px;color:var(--text-dim)">|</span>' +
-    '📥 ' + newestLabel + ' <b style="color:var(--text)">' + fmtDate(newest) + '</b> · ' +
-    '<span style="color:' + ageColor(newest) + ';font-weight:600">' + fmtAgo(newest) + '</span>';
-  el.innerHTML = html;
+  // Render the two dates as block rows (Added on top, Last submission below)
+  // rather than one inline string. This keeps wrapping clean when the header
+  // is narrow — instead of the second date breaking mid-phrase, each row
+  // simply takes its own line.
+  const addedRow =
+    '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px">' +
+      '<span>📅 Added <b style="color:var(--text)">' + fmtDate(created) + '</b></span>' +
+      '<span style="color:' + ageColor(created) + ';font-weight:600">' + fmtAgo(created) + '</span>' +
+    '</div>';
+  const newestRow =
+    '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;margin-top:2px">' +
+      '<span>📥 ' + newestLabel + ' <b style="color:var(--text)">' + fmtDate(newest) + '</b></span>' +
+      '<span style="color:' + ageColor(newest) + ';font-weight:600">' + fmtAgo(newest) + '</span>' +
+    '</div>';
+  el.innerHTML = addedRow + newestRow;
   el.title = 'Property entered the system on ' + fmtDate(created) + ' (' + fmtAgo(created) + ').' +
     ' Last submission ' + fmtDate(newest) + ' (' + fmtAgo(newest) + ').';
 }

@@ -13293,12 +13293,28 @@ async function uwSave(manual) {
   // → first save → no _priorityHandled flag → Supabase trigger auto-routes
   // the row into ⭐ Priority. Only the CSV import path sets _priorityHandled
   // explicitly so bulk imports continue to land in Analyzing.
+  // packet_status preservation: if the form's hidden uw-packet-status field
+  // is empty BUT the existing cached row has a non-empty packet_status, keep
+  // the cached value. Without this, autosave demotes older deals (those
+  // whose JSONB doesn't have a uw-packet-status key) every time the user
+  // changes any field — e.g. editing the Asking price on an Analyzed deal
+  // would write packet_status=null and the deal would re-render in Analyzing.
+  let _packetForSave = data['uw-packet-status'] || null;
+  if (!_packetForSave && _uwCurrentId && cache.underwrites && cache.underwrites[_uwCurrentId]) {
+    const _cachedPS = (cache.underwrites[_uwCurrentId].packet_status || '').trim();
+    if (_cachedPS) {
+      _packetForSave = _cachedPS;
+      // Mirror back into the data JSONB so future saves don't need this
+      // fallback — keeps the two columns in sync going forward.
+      data['uw-packet-status'] = _cachedPS;
+    }
+  }
   const payload = {
     address,
     city: data['uw-city'] || null,
     state: data['uw-state'] || null,
     zip: data['uw-zip'] || null,
-    packet_status: data['uw-packet-status'] || null,
+    packet_status: _packetForSave,
     arv: arv || null,
     offer: offer || null,
     best_exit: bestExit || null,

@@ -539,9 +539,8 @@
 
 <!-- SECTION TABS -->
 <div class="px-6 pt-4 flex items-center gap-2 border-b border-[var(--border)]">
-  <div class="tab active" data-section="data" onclick="goSection('data')">📊 Data</div>
+  <div class="tab active" data-section="data" onclick="goSection('data')">📥 Imports</div>
   <div class="tab" data-section="marketing" onclick="goSection('marketing')">📣 Marketing</div>
-  <div class="tab" data-section="campaigns" onclick="goSection('campaigns')">🎯 Campaigns</div>
   <div class="tab" data-section="reports" onclick="goSection('reports')">📝 Logs</div>
   <div class="tab" data-section="results" onclick="goSection('results')">📈 Results</div>
   <div class="tab" data-section="underwriting" onclick="goSection('underwriting')">📐 Underwriting</div>
@@ -1265,10 +1264,18 @@
 <!-- SECTION: Marketing -->
 <div id="section-marketing" class="section-content p-6" style="display:none">
 
-  <!-- Marketing subtab bar -->
-  <div class="flex items-center gap-1 mb-4 panel p-1 w-fit">
-    <div class="subtab active" data-mview="lists" onclick="goMarketingView('lists')">📋 Lists</div>
-    <div class="subtab" data-mview="vendors" onclick="goMarketingView('vendors')">🏢 Vendors</div>
+  <!-- Marketing subtab row — TWO disconnected panel pills, same pattern as
+       the Renovation top bar (phase pills + resources pills). Lists / Vendors
+       are the data-collection workflow; Campaigns sits in its own pill to
+       visually flag that it's the downstream export workflow. -->
+  <div class="flex items-center gap-2 mb-4" style="flex-wrap:wrap;min-width:0">
+    <div class="flex items-center gap-1 panel p-1 w-fit">
+      <div class="subtab active" data-mview="lists" onclick="goMarketingView('lists')">📋 Lists</div>
+      <div class="subtab" data-mview="vendors" onclick="goMarketingView('vendors')">🏢 Vendors</div>
+    </div>
+    <div class="flex items-center gap-1 panel p-1 w-fit">
+      <div class="subtab" data-mview="campaigns" onclick="goMarketingView('campaigns')" title="Saved campaign snapshots — pick vendors, export ready-to-call CSVs.">🎯 Campaigns</div>
+    </div>
   </div>
 
   <!-- ============ Marketing: Lists subview ============ -->
@@ -1504,26 +1511,27 @@
     </div>
   </div><!-- /mview-vendors -->
 
-</div>
-
-
-<!-- SECTION: Campaigns -->
-<div id="section-campaigns" class="section-content p-6" style="display:none">
-  <div class="panel p-5">
-    <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-      <div>
-        <div class="font-semibold text-lg">🎯 Saved Campaigns</div>
-        <div class="text-xs text-[var(--text-dim)]">Each campaign is a saved snapshot of properties from the Marketing → All Properties view. Pick which vendors to include, then export ready-to-call CSVs.</div>
+  <!-- ============ Marketing: Campaigns subview ============ -->
+  <!-- Moved from the old top-level Campaigns section so the marketing
+       workflow (Lists → Vendors → Campaigns) lives in one place. -->
+  <div id="mview-campaigns" class="mview" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div>
+          <div class="font-semibold text-lg">🎯 Saved Campaigns</div>
+          <div class="text-xs text-[var(--text-dim)]">Each campaign is a saved snapshot of properties from the Marketing → All Properties view. Pick which vendors to include, then export ready-to-call CSVs.</div>
+        </div>
+        <button class="btn btn-ghost text-sm" onclick="loadCampaigns().then(renderCampaigns)">🔄 Refresh</button>
       </div>
-      <button class="btn btn-ghost text-sm" onclick="loadCampaigns().then(renderCampaigns)">🔄 Refresh</button>
+      <div id="campaigns-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
+        <div style="font-size:32px;margin-bottom:6px">📭</div>
+        No campaigns saved yet.<br>
+        <span class="text-xs">Go to Marketing → Lists, filter to the slice you want, then click 💾 Save as Campaign.</span>
+      </div>
+      <div id="campaigns-list"></div>
     </div>
-    <div id="campaigns-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
-      <div style="font-size:32px;margin-bottom:6px">📭</div>
-      No campaigns saved yet.<br>
-      <span class="text-xs">Go to Marketing → All Properties, filter to the slice you want, then click 💾 Save as Campaign.</span>
-    </div>
-    <div id="campaigns-list"></div>
-  </div>
+  </div><!-- /mview-campaigns -->
+
 </div>
 
 
@@ -1638,24 +1646,35 @@
 <div id="section-results" class="section-content p-6" style="display:none">
 
   <!-- Caller results (live under Results tab) -->
-  <!-- Upload + KPIs strip -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-    <div class="panel p-5 lg:col-span-1">
-      <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <div class="font-semibold text-lg">📥 Upload Call Results</div>
+  <!-- Upload + KPIs strip — scoped CSS shrinks the row to ~half the original
+       height. Overrides only target descendants of #results-upload-strip,
+       so KPI cards on the Marketing list-type grid (and elsewhere) stay
+       at their normal size. -->
+  <style>
+    #results-upload-strip .panel { padding: 14px 16px; }
+    #results-upload-strip .kpi   { padding: 10px 14px; }
+    #results-upload-strip .kpi-value { font-size: 22px; margin-top: 2px; }
+    #results-upload-strip .kpi-sub   { font-size: 11px; margin-top: 1px; }
+    #results-upload-strip .dropzone  { padding: 10px 14px; display:flex; align-items:center; justify-content:center; gap:10px; }
+    #results-upload-strip .dropzone .text-2xl { font-size: 18px; margin: 0; }
+  </style>
+  <div id="results-upload-strip" class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+    <div class="panel lg:col-span-1">
+      <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+        <div class="font-semibold text-sm">📥 Upload Call Results</div>
         <div class="flex gap-1">
           <button class="btn btn-ghost text-xs" onclick="copyResultsMigrationSql()" title="DB migration SQL">📋</button>
-          <button class="btn btn-ghost text-xs" style="color:#f87171" onclick="clearAllResults()" title="Wipe all call results">🗑 Clear all</button>
+          <button class="btn btn-ghost text-xs" style="color:#f87171" onclick="clearAllResults()" title="Wipe all call results">🗑 Clear</button>
         </div>
       </div>
-      <div class="text-xs text-[var(--text-dim)] mb-3">Drop a Twilio / BatchDialer / ReadyMode export. Matched to your properties by address and to your vendors by phone.</div>
-      <div class="dropzone" id="dz-results" style="padding:22px">
-        <div class="text-2xl mb-1">📞</div>
+      <div class="text-xs text-[var(--text-dim)] mb-2" style="line-height:1.35">Drop a Twilio / BatchDialer / ReadyMode export.</div>
+      <div class="dropzone" id="dz-results">
+        <div class="text-2xl">📞</div>
         <div class="font-medium text-sm">Drop CSV/XLSX</div>
         <input type="file" id="file-results" accept=".csv,.xlsx,.xls" class="hidden" />
       </div>
     </div>
-    <div class="lg:col-span-2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+    <div class="lg:col-span-2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
       <div class="kpi" title="Rows in the results table on Supabase — this is the source of truth. If 'Loaded in app' below doesn't match, click Refresh.">
         <div class="kpi-label">📊 Uploaded to DB</div>
         <div class="kpi-value" id="r-db-total">—</div>
@@ -18527,6 +18546,10 @@ function goMarketingView(v) {
   if (target) target.style.display = '';
   if (v === 'lists' && typeof renderListTypeWidgets === 'function') renderListTypeWidgets();
   if (v === 'vendors' && typeof renderVendorDownloadTable === 'function') renderVendorDownloadTable();
+  // Campaigns subview — lazy-load on first visit, then render.
+  if (v === 'campaigns' && typeof loadCampaigns === 'function') {
+    loadCampaigns().then(() => { if (typeof renderCampaigns === 'function') renderCampaigns(); });
+  }
 }
 
 // ---------- Marketing: Vendors subtab — quick CSV download per vendor ----------
@@ -19442,9 +19465,10 @@ async function saveCurrentAsCampaign() {
     if (error) throw error;
     cache.campaigns[data.id] = data;
     toast('✅ Campaign saved: ' + trimmed + ' · ' + propertyIds.length.toLocaleString() + ' properties', 'ok');
-    // Optionally jump to the campaigns tab so they see it
+    // Optionally jump to the Marketing → Campaigns subview so they see it
     if (confirm('Open the Campaigns tab to pick vendors and export?')) {
-      goSection('campaigns');
+      goSection('marketing');
+      if (typeof goMarketingView === 'function') goMarketingView('campaigns');
     }
   } catch (e) {
     if (e && e.code === '42P01') {
@@ -19630,8 +19654,15 @@ function goSection(s) {
     _hrLastSection = null;
   }
   if (s === "marketing" && typeof renderListTypeWidgets === "function") renderListTypeWidgets();
-  if (s === "campaigns" && typeof loadCampaigns === "function") {
-    loadCampaigns().then(() => { if (typeof renderCampaigns === 'function') renderCampaigns(); });
+  // Campaigns is now a Marketing subview, not a top-level section. If anything
+  // still calls goSection('campaigns') (legacy code paths, deep links), redirect
+  // to Marketing and switch its subtab to Campaigns.
+  if (s === "campaigns") {
+    if (typeof goMarketingView === 'function') {
+      // Defer the subview switch until after the Marketing section is shown below.
+      setTimeout(() => goMarketingView('campaigns'), 0);
+    }
+    s = "marketing";
   }
   if (s === "reports") {
     if (typeof loadNotebook === "function") loadNotebook();

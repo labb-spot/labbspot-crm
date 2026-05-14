@@ -4225,6 +4225,7 @@
         </div>
         <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
           <button class="btn btn-primary text-sm" onclick="contractorOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new contractor to your rolodex.">+ Add Contractor</button>
+          <button type="button" id="contractors-verified-filter" data-active="false" onclick="toggleVerifiedFilter('contractors-verified-filter', 'renderContractorsList')" title="Click to show only verified contractors. Click again to show all. Mark a contractor verified via the ✏ Edit modal once you've worked with them and confirmed they're legit." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
           <select id="contractors-service-filter" onchange="renderContractorsList()" title="Filter by trade / service offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
             <option value="">All services</option>
           </select>
@@ -4294,6 +4295,11 @@
         <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
           <textarea id="contractor-add-notes" rows="3" placeholder="e.g. Reliable but slow to respond on weekends. Prefers texts over calls." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
         </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer">
+          <input type="checkbox" id="contractor-add-verified" style="width:18px;height:18px;cursor:pointer;accent-color:#10b981">
+          <span>✓ Mark as Verified</span>
+          <span style="color:var(--text-dim);font-weight:normal;font-size:12px;margin-left:4px">— check this once you've worked with them and they're proven reliable.</span>
+        </label>
       </div>
       <div class="flex items-center justify-between gap-3" style="margin-top:28px">
         <button class="btn btn-ghost" onclick="contractorDeleteFromModal()" id="contractor-delete-btn" style="padding:11px 22px;font-size:15px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none">🗑 Delete</button>
@@ -4317,6 +4323,7 @@
         </div>
         <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
           <button class="btn btn-primary text-sm" onclick="lenderOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new lender to your rolodex.">+ Add Lender</button>
+          <button type="button" id="lenders-verified-filter" data-active="false" onclick="toggleVerifiedFilter('lenders-verified-filter', 'renderLendersList')" title="Click to show only verified lenders. Click again to show all." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
           <select id="lenders-type-filter" onchange="renderLendersList()" title="Filter by loan type / product offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
             <option value="">All loan types</option>
           </select>
@@ -4382,6 +4389,11 @@
         <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
           <textarea id="lender-add-notes" rows="3" placeholder="e.g. Prefers experienced flippers. Closes in ~10 days. No prepayment penalty." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
         </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer">
+          <input type="checkbox" id="lender-add-verified" style="width:18px;height:18px;cursor:pointer;accent-color:#10b981">
+          <span>✓ Mark as Verified</span>
+          <span style="color:var(--text-dim);font-weight:normal;font-size:12px;margin-left:4px">— check this once you've closed a loan with them and they're proven reliable.</span>
+        </label>
       </div>
       <div class="flex items-center justify-between gap-3" style="margin-top:28px">
         <button class="btn btn-ghost" onclick="lenderDeleteFromModal()" id="lender-delete-btn" style="padding:11px 22px;font-size:15px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none">🗑 Delete</button>
@@ -4406,6 +4418,7 @@
         </div>
         <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
           <button class="btn btn-primary text-sm" onclick="realtorOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new agent to your rolodex.">+ Add Agent</button>
+          <button type="button" id="realtors-verified-filter" data-active="false" onclick="toggleVerifiedFilter('realtors-verified-filter', 'renderRealtorsList')" title="Click to show only verified agents. Click again to show all." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
           <select id="realtors-specialty-filter" onchange="renderRealtorsList()" title="Filter by specialty offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
             <option value="">All specialties</option>
           </select>
@@ -4477,6 +4490,11 @@
         <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
           <textarea id="realtor-add-notes" rows="3" placeholder="e.g. Brings deals before they hit MLS. Knows the south-side market." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
         </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer">
+          <input type="checkbox" id="realtor-add-verified" style="width:18px;height:18px;cursor:pointer;accent-color:#10b981">
+          <span>✓ Mark as Verified</span>
+          <span style="color:var(--text-dim);font-weight:normal;font-size:12px;margin-left:4px">— check this once you've closed a deal with them and they're proven reliable.</span>
+        </label>
       </div>
       <div class="flex items-center justify-between gap-3" style="margin-top:28px">
         <button class="btn btn-ghost" onclick="realtorDeleteFromModal()" id="realtor-delete-btn" style="padding:11px 22px;font-size:15px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none">🗑 Delete</button>
@@ -4498,6 +4516,7 @@
         </div>
         <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
           <button class="btn btn-primary text-sm" onclick="attorneyOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new attorney to your rolodex.">+ Add Attorney</button>
+          <button type="button" id="attorneys-verified-filter" data-active="false" onclick="toggleVerifiedFilter('attorneys-verified-filter', 'renderAttorneysList')" title="Click to show only verified attorneys. Click again to show all." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
           <select id="attorneys-area-filter" onchange="renderAttorneysList()" title="Filter by practice area." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
             <option value="">All practice areas</option>
           </select>
@@ -4568,6 +4587,11 @@
         <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
           <textarea id="attorney-add-notes" rows="3" placeholder="e.g. Closes same week. Available for emergency evictions. Doesn't take credit cards." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
         </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer">
+          <input type="checkbox" id="attorney-add-verified" style="width:18px;height:18px;cursor:pointer;accent-color:#10b981">
+          <span>✓ Mark as Verified</span>
+          <span style="color:var(--text-dim);font-weight:normal;font-size:12px;margin-left:4px">— check this once you've worked with them and they're proven reliable.</span>
+        </label>
       </div>
       <div class="flex items-center justify-between gap-3" style="margin-top:28px">
         <button class="btn btn-ghost" onclick="attorneyDeleteFromModal()" id="attorney-delete-btn" style="padding:11px 22px;font-size:15px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none">🗑 Delete</button>
@@ -4589,6 +4613,7 @@
         </div>
         <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
           <button class="btn btn-primary text-sm" onclick="buyerOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new buyer to your rolodex.">+ Add Buyer</button>
+          <button type="button" id="buyers-verified-filter" data-active="false" onclick="toggleVerifiedFilter('buyers-verified-filter', 'renderBuyersList')" title="Click to show only verified buyers. Click again to show all." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
           <select id="buyers-criteria-filter" onchange="renderBuyersList()" title="Filter by buy-box criteria tag." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
             <option value="">All criteria</option>
           </select>
@@ -4658,6 +4683,11 @@
         </label>
         <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
           <textarea id="buyer-add-notes" rows="3" placeholder="e.g. Closes in 7 days. Will rehab anything. Prefers off-market deals." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer">
+          <input type="checkbox" id="buyer-add-verified" style="width:18px;height:18px;cursor:pointer;accent-color:#10b981">
+          <span>✓ Mark as Verified</span>
+          <span style="color:var(--text-dim);font-weight:normal;font-size:12px;margin-left:4px">— check this once they've closed a deal with you and they're proven reliable.</span>
         </label>
       </div>
       <div class="flex items-center justify-between gap-3" style="margin-top:28px">
@@ -16372,6 +16402,33 @@ function setRenoView(view) {
 }
 window.setRenoView = setRenoView;
 
+// ----- Verified filter toggle button (shared across all 5 rolodexes) -----
+// Each rolodex's "✓ Verified" button calls this with its own id + the render
+// function to re-run after toggling. Toggles the button's data-active flag
+// AND its visual style (gray when off, bright green when on), then re-renders.
+function toggleVerifiedFilter(btnId, renderFnName) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  const wasActive = btn.getAttribute('data-active') === 'true';
+  const nowActive = !wasActive;
+  btn.setAttribute('data-active', String(nowActive));
+  if (nowActive) {
+    btn.style.background   = '#10b981';
+    btn.style.color        = '#fff';
+    btn.style.borderColor  = '#10b981';
+    btn.style.boxShadow    = '0 0 0 2px rgba(16,185,129,0.25)';
+  } else {
+    btn.style.background   = 'var(--panel-2)';
+    btn.style.color        = 'var(--text)';
+    btn.style.borderColor  = 'var(--border)';
+    btn.style.boxShadow    = '';
+  }
+  if (renderFnName && typeof window[renderFnName] === 'function') {
+    window[renderFnName]();
+  }
+}
+window.toggleVerifiedFilter = toggleVerifiedFilter;
+
 // Hook setRenoSubtab so clicking any phase pill also switches back to
 // 'phases' view from any rolodex. Monkey-patch on top of the original.
 (function () {
@@ -16423,6 +16480,9 @@ function contractorOpenAddModal(editId) {
     'contractor-add-rating','contractor-add-prices','contractor-add-notes'
   ];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  // Checkboxes need .checked reset separately (setting .value doesn't toggle them).
+  const verResetEl = document.getElementById('contractor-add-verified');
+  if (verResetEl) verResetEl.checked = false;
   const hiddenId = document.getElementById('contractor-edit-id');
   const title    = document.getElementById('contractor-modal-title');
   const delBtn   = document.getElementById('contractor-delete-btn');
@@ -16442,6 +16502,7 @@ function contractorOpenAddModal(editId) {
     setVal('contractor-add-rating',   c.rating);
     setVal('contractor-add-prices',   c.price_notes);
     setVal('contractor-add-notes',    c.notes);
+    if (verResetEl) verResetEl.checked = !!c.verified;
   } else {
     if (hiddenId) hiddenId.value = '';
     if (title)    title.textContent = '👷 Add Contractor';
@@ -16476,6 +16537,7 @@ async function contractorSaveNew() {
   const ratingS = ($('contractor-add-rating')?.value   || '').trim();
   const prices  = ($('contractor-add-prices')?.value   || '').trim();
   const notes   = ($('contractor-add-notes')?.value    || '').trim();
+  const verified= !!($('contractor-add-verified')?.checked);
   if (!name) {
     if (typeof toast === 'function') toast('Contact Name is required.', 'warn');
     const n = $('contractor-add-name'); if (n) n.focus();
@@ -16501,7 +16563,7 @@ async function contractorSaveNew() {
   if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
   try {
     if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
-    const payload = { name, company, phone, email, services, city, state, rating, price_notes: prices, notes };
+    const payload = { name, company, phone, email, services, city, state, rating, price_notes: prices, notes, verified };
     let data, error;
     if (editId) {
       ({ data, error } = await sb.from('contractors').update(payload).eq('id', editId).select().single());
@@ -16590,6 +16652,10 @@ function renderContractorsList() {
     rows = rows.filter(c => String(c.services || '').toLowerCase().split(',').map(s => s.trim()).includes(serviceFilter));
   }
 
+  const verBtn = document.getElementById('contractors-verified-filter');
+  const verFilter = !!(verBtn && verBtn.getAttribute('data-active') === 'true');
+  if (verFilter) rows = rows.filter(c => c.verified === true);
+
   const searchEl = document.getElementById('contractors-search');
   const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
   if (q) {
@@ -16603,8 +16669,8 @@ function renderContractorsList() {
   if (rows.length === 0) {
     if (empty) {
       empty.style.display = '';
-      empty.innerHTML = q || serviceFilter
-        ? 'No contractors match the current filter. Try clearing the search or service filter.'
+      empty.innerHTML = q || serviceFilter || verFilter
+        ? 'No contractors match the current filter. Try clearing the search or filters.'
         : 'No contractors saved yet — click <b>+ Add Contractor</b> to start building your rolodex.';
     }
     if (tableEl) tableEl.style.display = 'none';
@@ -16658,11 +16724,16 @@ function renderContractorsList() {
 
     // Name column: Company on top in bold (the main identifier when present),
     // contact name underneath in dimmer text. If no company is set, the contact
-    // name moves to the top so the row still has a clear title.
+    // name moves to the top so the row still has a clear title. A green
+    // "✓ VERIFIED" badge appears inline next to the bold title when the
+    // contractor has been marked verified via the edit modal.
+    const verBadge = c.verified
+      ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;vertical-align:middle;margin-left:6px" title="Verified — you\'ve worked with them and they\'re proven reliable">✓ Verified</span>'
+      : '';
     const nameBlock = company
-      ? `<div style="font-weight:600">${company}</div>
+      ? `<div style="font-weight:600">${company}${verBadge}</div>
          <div style="color:var(--text-dim);font-size:11px;margin-top:2px">${name}</div>`
-      : `<div style="font-weight:600">${name}</div>`;
+      : `<div style="font-weight:600">${name}${verBadge}</div>`;
 
     return `
       <tr style="border-bottom:1px solid var(--border)" data-contractor-id="${esc(c.id)}">
@@ -16716,6 +16787,8 @@ function lenderOpenAddModal(editId) {
     'lender-add-rating','lender-add-rates','lender-add-notes'
   ];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const verResetEl = document.getElementById('lender-add-verified');
+  if (verResetEl) verResetEl.checked = false;
   const hiddenId = document.getElementById('lender-edit-id');
   const title    = document.getElementById('lender-modal-title');
   const delBtn   = document.getElementById('lender-delete-btn');
@@ -16734,6 +16807,7 @@ function lenderOpenAddModal(editId) {
     setVal('lender-add-rating',     l.rating);
     setVal('lender-add-rates',      l.rate_notes);
     setVal('lender-add-notes',      l.notes);
+    if (verResetEl) verResetEl.checked = !!l.verified;
   } else {
     if (hiddenId) hiddenId.value = '';
     if (title)    title.textContent = '🏦 Add Lender';
@@ -16766,6 +16840,7 @@ async function lenderSaveNew() {
   const ratingS = ($('lender-add-rating')?.value     || '').trim();
   const rates   = ($('lender-add-rates')?.value      || '').trim();
   const notes   = ($('lender-add-notes')?.value      || '').trim();
+  const verified= !!($('lender-add-verified')?.checked);
   if (!name) {
     if (typeof toast === 'function') toast('Name is required.', 'warn');
     const n = $('lender-add-name'); if (n) n.focus();
@@ -16791,7 +16866,7 @@ async function lenderSaveNew() {
   if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
   try {
     if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
-    const payload = { name, phone, email, loan_types: types, city, state, rating, rate_notes: rates, notes };
+    const payload = { name, phone, email, loan_types: types, city, state, rating, rate_notes: rates, notes, verified };
     let data, error;
     if (editId) {
       ({ data, error } = await sb.from('lenders').update(payload).eq('id', editId).select().single());
@@ -16878,6 +16953,10 @@ function renderLendersList() {
     rows = rows.filter(l => String(l.loan_types || '').toLowerCase().split(',').map(s => s.trim()).includes(typeFilter));
   }
 
+  const verBtn = document.getElementById('lenders-verified-filter');
+  const verFilter = !!(verBtn && verBtn.getAttribute('data-active') === 'true');
+  if (verFilter) rows = rows.filter(l => l.verified === true);
+
   const searchEl = document.getElementById('lenders-search');
   const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
   if (q) {
@@ -16891,8 +16970,8 @@ function renderLendersList() {
   if (rows.length === 0) {
     if (empty) {
       empty.style.display = '';
-      empty.innerHTML = q || typeFilter
-        ? 'No lenders match the current filter. Try clearing the search or loan-type filter.'
+      empty.innerHTML = q || typeFilter || verFilter
+        ? 'No lenders match the current filter. Try clearing the search or filters.'
         : 'No lenders saved yet — click <b>+ Add Lender</b> to start building your rolodex.';
     }
     if (tableEl) tableEl.style.display = 'none';
@@ -16938,11 +17017,14 @@ function renderLendersList() {
     if (l.email) contactParts.push(renderEmail(l.email));
     const contact = contactParts.length ? contactParts.map(p => `<div style="margin:2px 0">${p}</div>`).join('') : '<span style="color:var(--text-dim);font-size:11px">—</span>';
     const loc = [l.city, l.state].filter(Boolean).map(esc).join(', ') || '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const verBadge = l.verified
+      ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;vertical-align:middle;margin-left:6px" title="Verified — you\'ve closed a loan with them and they\'re proven reliable">✓ Verified</span>'
+      : '';
 
     return `
       <tr style="border-bottom:1px solid var(--border)" data-lender-id="${esc(l.id)}">
         <td style="padding:10px 12px;font-size:13px;vertical-align:top">
-          <div style="font-weight:600">${name}</div>
+          <div style="font-weight:600">${name}${verBadge}</div>
           ${l.notes ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px;max-width:240px;line-height:1.4">${esc(l.notes)}</div>` : ''}
         </td>
         <td style="padding:10px 12px;vertical-align:top">${stars}</td>
@@ -16988,6 +17070,8 @@ function realtorOpenAddModal(editId) {
     'realtor-add-rating','realtor-add-license','realtor-add-commission','realtor-add-notes'
   ];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const verResetEl = document.getElementById('realtor-add-verified');
+  if (verResetEl) verResetEl.checked = false;
   const hiddenId = document.getElementById('realtor-edit-id');
   const title    = document.getElementById('realtor-modal-title');
   const delBtn   = document.getElementById('realtor-delete-btn');
@@ -17008,6 +17092,7 @@ function realtorOpenAddModal(editId) {
     setVal('realtor-add-license',     r.license_number);
     setVal('realtor-add-commission',  r.commission_notes);
     setVal('realtor-add-notes',       r.notes);
+    if (verResetEl) verResetEl.checked = !!r.verified;
   } else {
     if (hiddenId) hiddenId.value = '';
     if (title)    title.textContent = '🤝 Add Agent';
@@ -17041,6 +17126,7 @@ async function realtorSaveNew() {
   const license   = ($('realtor-add-license')?.value     || '').trim();
   const comm      = ($('realtor-add-commission')?.value  || '').trim();
   const notes     = ($('realtor-add-notes')?.value       || '').trim();
+  const verified  = !!($('realtor-add-verified')?.checked);
   if (!name) {
     if (typeof toast === 'function') toast('Contact Name is required.', 'warn');
     const n = $('realtor-add-name'); if (n) n.focus();
@@ -17066,7 +17152,7 @@ async function realtorSaveNew() {
   if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
   try {
     if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
-    const payload = { name, brokerage, phone, email, specialties: specs, city, state, rating, commission_notes: comm, license_number: license, notes };
+    const payload = { name, brokerage, phone, email, specialties: specs, city, state, rating, commission_notes: comm, license_number: license, notes, verified };
     let data, error;
     if (editId) {
       ({ data, error } = await sb.from('realtors').update(payload).eq('id', editId).select().single());
@@ -17148,6 +17234,10 @@ function renderRealtorsList() {
     rows = rows.filter(r => String(r.specialties || '').toLowerCase().split(',').map(s => s.trim()).includes(specFilter));
   }
 
+  const verBtn = document.getElementById('realtors-verified-filter');
+  const verFilter = !!(verBtn && verBtn.getAttribute('data-active') === 'true');
+  if (verFilter) rows = rows.filter(r => r.verified === true);
+
   const searchEl = document.getElementById('realtors-search');
   const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
   if (q) {
@@ -17161,8 +17251,8 @@ function renderRealtorsList() {
   if (rows.length === 0) {
     if (empty) {
       empty.style.display = '';
-      empty.innerHTML = q || specFilter
-        ? 'No agents match the current filter. Try clearing the search or specialty filter.'
+      empty.innerHTML = q || specFilter || verFilter
+        ? 'No agents match the current filter. Try clearing the search or filters.'
         : 'No agents saved yet — click <b>+ Add Agent</b> to start building your rolodex.';
     }
     if (tableEl) tableEl.style.display = 'none';
@@ -17210,10 +17300,13 @@ function renderRealtorsList() {
     const contact = contactParts.length ? contactParts.map(p => `<div style="margin:2px 0">${p}</div>`).join('') : '<span style="color:var(--text-dim);font-size:11px">—</span>';
     const loc = [r.city, r.state].filter(Boolean).map(esc).join(', ') || '<span style="color:var(--text-dim);font-size:11px">—</span>';
 
+    const verBadge = r.verified
+      ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;vertical-align:middle;margin-left:6px" title="Verified — you\'ve closed a deal with them and they\'re proven reliable">✓ Verified</span>'
+      : '';
     const nameBlock = brokerage
-      ? `<div style="font-weight:600">${brokerage}</div>
+      ? `<div style="font-weight:600">${brokerage}${verBadge}</div>
          <div style="color:var(--text-dim);font-size:11px;margin-top:2px">${name}</div>`
-      : `<div style="font-weight:600">${name}</div>`;
+      : `<div style="font-weight:600">${name}${verBadge}</div>`;
 
     return `
       <tr style="border-bottom:1px solid var(--border)" data-realtor-id="${esc(r.id)}">
@@ -17265,6 +17358,8 @@ function attorneyOpenAddModal(editId) {
     'attorney-add-rating','attorney-add-bar','attorney-add-fees','attorney-add-notes'
   ];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const verResetEl = document.getElementById('attorney-add-verified');
+  if (verResetEl) verResetEl.checked = false;
   const hiddenId = document.getElementById('attorney-edit-id');
   const title    = document.getElementById('attorney-modal-title');
   const delBtn   = document.getElementById('attorney-delete-btn');
@@ -17285,6 +17380,7 @@ function attorneyOpenAddModal(editId) {
     setVal('attorney-add-bar',             a.bar_number);
     setVal('attorney-add-fees',            a.fee_notes);
     setVal('attorney-add-notes',           a.notes);
+    if (verResetEl) verResetEl.checked = !!a.verified;
   } else {
     if (hiddenId) hiddenId.value = '';
     if (title)    title.textContent = '⚖️ Add Attorney';
@@ -17318,6 +17414,7 @@ async function attorneySaveNew() {
   const bar      = ($('attorney-add-bar')?.value            || '').trim();
   const fees     = ($('attorney-add-fees')?.value           || '').trim();
   const notes    = ($('attorney-add-notes')?.value          || '').trim();
+  const verified = !!($('attorney-add-verified')?.checked);
   if (!name) {
     if (typeof toast === 'function') toast('Contact Name is required.', 'warn');
     const n = $('attorney-add-name'); if (n) n.focus();
@@ -17343,7 +17440,7 @@ async function attorneySaveNew() {
   if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
   try {
     if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
-    const payload = { name, firm, phone, email, practice_areas: areas, city, state, rating, fee_notes: fees, bar_number: bar, notes };
+    const payload = { name, firm, phone, email, practice_areas: areas, city, state, rating, fee_notes: fees, bar_number: bar, notes, verified };
     let data, error;
     if (editId) {
       ({ data, error } = await sb.from('attorneys').update(payload).eq('id', editId).select().single());
@@ -17425,6 +17522,10 @@ function renderAttorneysList() {
     rows = rows.filter(a => String(a.practice_areas || '').toLowerCase().split(',').map(s => s.trim()).includes(areaFilter));
   }
 
+  const verBtn = document.getElementById('attorneys-verified-filter');
+  const verFilter = !!(verBtn && verBtn.getAttribute('data-active') === 'true');
+  if (verFilter) rows = rows.filter(a => a.verified === true);
+
   const searchEl = document.getElementById('attorneys-search');
   const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
   if (q) {
@@ -17438,8 +17539,8 @@ function renderAttorneysList() {
   if (rows.length === 0) {
     if (empty) {
       empty.style.display = '';
-      empty.innerHTML = q || areaFilter
-        ? 'No attorneys match the current filter. Try clearing the search or practice-area filter.'
+      empty.innerHTML = q || areaFilter || verFilter
+        ? 'No attorneys match the current filter. Try clearing the search or filters.'
         : 'No attorneys saved yet — click <b>+ Add Attorney</b> to start building your rolodex.';
     }
     if (tableEl) tableEl.style.display = 'none';
@@ -17487,10 +17588,13 @@ function renderAttorneysList() {
     const contact = contactParts.length ? contactParts.map(p => `<div style="margin:2px 0">${p}</div>`).join('') : '<span style="color:var(--text-dim);font-size:11px">—</span>';
     const loc = [a.city, a.state].filter(Boolean).map(esc).join(', ') || '<span style="color:var(--text-dim);font-size:11px">—</span>';
 
+    const verBadge = a.verified
+      ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;vertical-align:middle;margin-left:6px" title="Verified — you\'ve worked with them and they\'re proven reliable">✓ Verified</span>'
+      : '';
     const nameBlock = firm
-      ? `<div style="font-weight:600">${firm}</div>
+      ? `<div style="font-weight:600">${firm}${verBadge}</div>
          <div style="color:var(--text-dim);font-size:11px;margin-top:2px">${name}</div>`
-      : `<div style="font-weight:600">${name}</div>`;
+      : `<div style="font-weight:600">${name}${verBadge}</div>`;
 
     return `
       <tr style="border-bottom:1px solid var(--border)" data-attorney-id="${esc(a.id)}">
@@ -17540,6 +17644,8 @@ function buyerOpenAddModal(editId) {
     'buyer-add-rating','buyer-add-funding','buyer-add-price-notes','buyer-add-notes'
   ];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const verResetEl = document.getElementById('buyer-add-verified');
+  if (verResetEl) verResetEl.checked = false;
   const hiddenId = document.getElementById('buyer-edit-id');
   const title    = document.getElementById('buyer-modal-title');
   const delBtn   = document.getElementById('buyer-delete-btn');
@@ -17560,6 +17666,7 @@ function buyerOpenAddModal(editId) {
     setVal('buyer-add-funding',     b.funding_type);
     setVal('buyer-add-price-notes', b.price_notes);
     setVal('buyer-add-notes',       b.notes);
+    if (verResetEl) verResetEl.checked = !!b.verified;
   } else {
     if (hiddenId) hiddenId.value = '';
     if (title)    title.textContent = '💰 Add Buyer';
@@ -17593,6 +17700,7 @@ async function buyerSaveNew() {
   const funding  = ($('buyer-add-funding')?.value     || '').trim();
   const prices   = ($('buyer-add-price-notes')?.value || '').trim();
   const notes    = ($('buyer-add-notes')?.value       || '').trim();
+  const verified = !!($('buyer-add-verified')?.checked);
   if (!name) {
     if (typeof toast === 'function') toast('Contact Name is required.', 'warn');
     const n = $('buyer-add-name'); if (n) n.focus();
@@ -17618,7 +17726,7 @@ async function buyerSaveNew() {
   if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
   try {
     if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
-    const payload = { name, company, phone, email, criteria, city, state, rating, funding_type: funding, price_notes: prices, notes };
+    const payload = { name, company, phone, email, criteria, city, state, rating, funding_type: funding, price_notes: prices, notes, verified };
     let data, error;
     if (editId) {
       ({ data, error } = await sb.from('buyers').update(payload).eq('id', editId).select().single());
@@ -17700,6 +17808,10 @@ function renderBuyersList() {
     rows = rows.filter(b => String(b.criteria || '').toLowerCase().split(',').map(s => s.trim()).includes(critFilter));
   }
 
+  const verBtn = document.getElementById('buyers-verified-filter');
+  const verFilter = !!(verBtn && verBtn.getAttribute('data-active') === 'true');
+  if (verFilter) rows = rows.filter(b => b.verified === true);
+
   const searchEl = document.getElementById('buyers-search');
   const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
   if (q) {
@@ -17713,8 +17825,8 @@ function renderBuyersList() {
   if (rows.length === 0) {
     if (empty) {
       empty.style.display = '';
-      empty.innerHTML = q || critFilter
-        ? 'No buyers match the current filter. Try clearing the search or criteria filter.'
+      empty.innerHTML = q || critFilter || verFilter
+        ? 'No buyers match the current filter. Try clearing the search or filters.'
         : 'No buyers saved yet — click <b>+ Add Buyer</b> to start building your rolodex.';
     }
     if (tableEl) tableEl.style.display = 'none';
@@ -17766,10 +17878,13 @@ function renderBuyersList() {
     const contact = contactParts.length ? contactParts.map(p => `<div style="margin:2px 0">${p}</div>`).join('') : '<span style="color:var(--text-dim);font-size:11px">—</span>';
     const loc = [b.city, b.state].filter(Boolean).map(esc).join(', ') || '<span style="color:var(--text-dim);font-size:11px">—</span>';
 
+    const verBadge = b.verified
+      ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;vertical-align:middle;margin-left:6px" title="Verified — they\'ve closed a deal with you and they\'re proven reliable">✓ Verified</span>'
+      : '';
     const nameBlock = company
-      ? `<div style="font-weight:600">${company}</div>
+      ? `<div style="font-weight:600">${company}${verBadge}</div>
          <div style="color:var(--text-dim);font-size:11px;margin-top:2px">${name}</div>`
-      : `<div style="font-weight:600">${name}</div>`;
+      : `<div style="font-weight:600">${name}${verBadge}</div>`;
 
     return `
       <tr style="border-bottom:1px solid var(--border)" data-buyer-id="${esc(b.id)}">

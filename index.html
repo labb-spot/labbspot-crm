@@ -13085,7 +13085,7 @@ setInterval(() => {
 }, 5000);
 
 // Debounced trigger — fires uwSave(false) after the user stops editing
-function _uwQueueAutosave() {
+function _uwQueueAutosave(force) {
   // WIPE PROTECTION — GUARD 1: Don't autosave while a deal is being loaded.
   // The load process sets form fields via _uwApply, fires off uwRecalc, may
   // mount dropdowns and other widgets, etc. Any of these can briefly look
@@ -13093,9 +13093,27 @@ function _uwQueueAutosave() {
   // fired during this window with the form half-populated, it would write
   // the half-populated state over the real saved data and wipe fields.
   // The flag is set true at the start of uwLoadById and clears ~2s later.
-  if (_uwLoadingDeal) {
+  //
+  // EXCEPTION (force=true): Explicit user actions — clicking a workflow
+  // stage button (uwSetStage), clicking an Offer Status button
+  // (uwSetOfferStatus), etc. — bypass this guard. The user obviously
+  // intends to save the change, and we'd rather risk a slightly-stale
+  // form snapshot than silently drop their click. Without this exception,
+  // if you opened a deal and quickly clicked Priority / Pending / Closed
+  // within the first 2 seconds, the workflow move would never persist
+  // and the deal would revert on refresh.
+  if (_uwLoadingDeal && !force) {
     try { console.log('[autosave] suppressed — deal still loading'); } catch (_) {}
     return;
+  }
+  // Force mode: explicit user action — clear the loading flag entirely so
+  // any follow-up form events also save normally.
+  if (force && _uwLoadingDeal) {
+    _uwLoadingDeal = false;
+    if (typeof _uwLoadingDealTimer !== 'undefined' && _uwLoadingDealTimer) {
+      clearTimeout(_uwLoadingDealTimer);
+      _uwLoadingDealTimer = null;
+    }
   }
   // Don't queue if there's no address yet (uwSave would no-op anyway)
   const addrEl = document.getElementById('uw-address');
@@ -14009,6 +14027,11 @@ function uwSetOfferStatus(value) {
   if (typeof renderUnderwriteList === 'function') {
     try { renderUnderwriteList(); } catch (_) {}
   }
+  // force=true — bypass the loading-deal guard so explicit Offer Status
+  // clicks always persist. Without this, clicking Pending/Closed/Dropped
+  // within 2 seconds of opening a deal would silently fail to save and the
+  // change would revert on refresh.
+  if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave(true);
 }
 window.uwSetOfferStatus = uwSetOfferStatus;
 
@@ -14164,7 +14187,10 @@ function uwSetStage(stage) {
   }
   _uwUpdateStageSelector();
   if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
-  if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+  // force=true — bypass the loading-deal guard. The user explicitly clicked
+  // this stage button so the save must persist even if the click happens
+  // within the 2s post-load window.
+  if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave(true);
   const labels = { help: '❓ Help', analyzing: '🔍 Analyzing', priority: '⭐ Priority', checking: '🕵️ Double-Check', analyzed: '✅ Analyzed', hot: '🔥 Hot', offered: '📤 Offered', inspection: '📷 Inspection', contracted: '📝 Contracted', closed: '🏁 Finalized' };
   toast('Moved to ' + labels[stage], 'ok');
 }

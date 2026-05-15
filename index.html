@@ -479,6 +479,7 @@
       🌍 <b>0</b> this mo · <b>$0.00</b>
     </div>
     <button class="btn btn-ghost text-sm" onclick="diagnoseLists()" title="Inspect DB row counts across every table">🔍 Diagnose</button>
+    <button class="btn btn-ghost text-sm" id="header-sop-btn" onclick="toggleSopSection()" title="Open Standard Operating Procedures (click again to return to where you were).">📋 SOP</button>
     <button class="btn btn-ghost text-sm" onclick="openSettings();if(typeof syncGeoProviderRadios==='function')syncGeoProviderRadios()">⚙️ Settings</button>
     <button class="btn btn-ghost text-sm" onclick="logoutApp()" title="Sign out">🚪</button>
   </div>
@@ -559,7 +560,7 @@
 </div>
 
 <!-- SECTION TABS -->
-<div class="px-6 pt-4 flex items-center gap-2 border-b border-[var(--border)]">
+<div id="section-tabs-row" class="px-6 pt-4 flex items-center gap-2 border-b border-[var(--border)]">
   <div class="tab active" data-section="data" onclick="goSection('data')">📥 Imports</div>
   <div class="tab" data-section="marketing" onclick="goSection('marketing')">📣 Marketing</div>
   <div class="tab" data-section="reports" onclick="goSection('reports')">📝 Logs</div>
@@ -2980,7 +2981,7 @@
             <span style="color:#fca5a5;font-weight:600;font-size:12px;white-space:nowrap">🔁 Override</span>
             <span style="display:inline-flex;align-items:center;background:rgba(239,68,68,0.08);border:1.5px solid #fca5a5;border-radius:8px;padding:6px 12px;gap:2px">
               <span style="font-family:monospace;font-weight:700;font-size:24px;color:#fca5a5">$</span>
-              <input type="text" inputmode="numeric" id="uw-rehab-override" oninput="(function(el){var raw=el.value.replace(/[^\d.]/g,'');var num=parseFloat(raw);el.value=isFinite(num)&&raw!==''?num.toLocaleString('en-US',{maximumFractionDigits:0}):raw;})(this);uwRecalcRehabFinal();if(typeof uwIfpAutoFromRehab==='function')uwIfpAutoFromRehab(false);" placeholder="0" style="font-family:monospace;font-weight:700;font-size:24px;color:#fca5a5;background:transparent;border:none;outline:none;padding:0;width:170px;text-align:right">
+              <input type="text" inputmode="numeric" id="uw-rehab-override" oninput="(function(el){var raw=el.value.replace(/[^\d.]/g,'');var num=parseFloat(raw);el.value=isFinite(num)&&raw!==''?num.toLocaleString('en-US',{maximumFractionDigits:0}):raw;})(this);uwRecalcRehabFinal();if(typeof window._rcRecalc==='function')window._rcRecalc();if(typeof uwIfpAutoFromRehab==='function')uwIfpAutoFromRehab(false);" placeholder="0" style="font-family:monospace;font-weight:700;font-size:24px;color:#fca5a5;background:transparent;border:none;outline:none;padding:0;width:170px;text-align:right">
             </span>
           </div>
         </div>
@@ -4816,6 +4817,978 @@
     </div>
   </div>
   </div><!-- /hold-table-wrap -->
+</div>
+
+<!-- SECTION: SOP — Standard Operating Procedure
+     Full real estate wholesaling playbook rendered as a clean diagram.
+     Read-only reference; no inputs, no save state. Mirrors the user's
+     handwritten chart but formatted as styled cards arranged in rows. -->
+<div id="section-sop" class="section-content" style="display:none">
+  <style>
+    /* ===== Fullscreen SOP layout =====
+       When the body has .sop-active (set by goSection when SOP is the active
+       section), hide the regular section-tabs row and make the SOP section
+       fill the entire viewport below the website top bar. The toolbar stays
+       at the top inside the section; the canvas viewport flexes to fill the
+       remaining vertical space. */
+    body.sop-active #section-tabs-row { display: none !important; }
+    body.sop-active #section-sop {
+      display: flex !important;
+      flex-direction: column;
+      padding: 12px 16px 0;
+      height: calc(100vh - 64px); /* 64px ≈ top bar height */
+      box-sizing: border-box;
+    }
+    /* Compact the toolbar + banner so they don't eat too much vertical space */
+    body.sop-active #section-sop > .flex.items-center.justify-between { margin-bottom: 8px !important; }
+    body.sop-active #section-sop .sop-edit-banner,
+    body.sop-active #section-sop .sop-free-banner { margin-bottom: 8px !important; padding: 6px 12px !important; }
+  </style>
+  <style>
+    /* SOP-only styles — scoped via #section-sop ancestor so they don't bleed
+       into other sections. Layout: rows of boxes with explicit arrow cells
+       between them where the flow demands it. Arrow columns are 36px wide
+       so they sit visually between the boxes without crowding them. */
+    #section-sop .sop-row { display: grid; gap: 12px; margin-bottom: 16px; align-items: stretch; }
+    /* Parallel rows (no flow between boxes) */
+    #section-sop .sop-row.r3 { grid-template-columns: repeat(3, 1fr); }
+    #section-sop .sop-row.r2 { grid-template-columns: repeat(2, 1fr); }
+    #section-sop .sop-row.r1 { grid-template-columns: 1fr; }
+    /* Flow rows (arrows between boxes) — 3, 4 boxes interleaved with 36px arrow cells */
+    #section-sop .sop-row.flow3 { grid-template-columns: 1fr 36px 1fr 36px 1fr; }
+    #section-sop .sop-row.flow4 { grid-template-columns: 1fr 36px 1fr 36px 1fr 36px 1fr; }
+    #section-sop .sop-row.flow2 { grid-template-columns: 1fr 36px 1fr; }
+    /* Vertical-arrow connector strip between rows */
+    #section-sop .sop-connect { display: flex; align-items: center; justify-content: center; margin: -6px 0 -2px; }
+    #section-sop .sop-connect-text { font-size: 11px; color: var(--text-dim); padding: 2px 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 999px; }
+    #section-sop .sop-arrow { display: flex; align-items: center; justify-content: center; font-size: 28px; color: #a78bfa; font-weight: 400; line-height: 1; }
+    #section-sop .sop-arrow.dual::before { content: "⇄"; }
+    #section-sop .sop-arrow.right::before { content: "→"; }
+    #section-sop .sop-arrow.down::before { content: "↓"; }
+    #section-sop .sop-box   { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; --sop-scale: 1; --sop-font-mult: 1; }
+    /* Title / sub-label / list font-sizes scale by TWO multipliers:
+         --sop-scale    : auto-fit shrink factor (0.5–1.0) chosen by _sopFitText
+                          based on the box's current dimensions
+         --sop-font-mult: user-controlled font-size override (0.5–2.5) bumped
+                          via the per-box A+ / A- buttons in edit mode
+       Effective size = base * scale * mult. Auto-fit re-runs after every mult
+       change so content still fits inside the box. */
+    #section-sop .sop-title { font-weight: 700; font-size: calc(15px * var(--sop-scale) * var(--sop-font-mult)); letter-spacing: 0.2px; margin-bottom: calc(10px * var(--sop-scale) * var(--sop-font-mult)); padding-bottom: calc(8px * var(--sop-scale) * var(--sop-font-mult)); border-bottom: 1px solid var(--border); }
+    #section-sop .sop-sub   { display: inline-block; padding: calc(3px * var(--sop-scale) * var(--sop-font-mult)) calc(10px * var(--sop-scale) * var(--sop-font-mult)); border-radius: 6px; font-size: calc(11px * var(--sop-scale) * var(--sop-font-mult)); font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; margin-bottom: calc(6px * var(--sop-scale) * var(--sop-font-mult)); }
+    #section-sop .sop-group { margin-bottom: 12px; }
+    #section-sop .sop-group:last-child { margin-bottom: 0; }
+    #section-sop .sop-list  { list-style: none; padding: 0; margin: 0; font-size: calc(13px * var(--sop-scale) * var(--sop-font-mult)); line-height: 1.55; color: var(--text); }
+    #section-sop .sop-list li { padding: 1px 0; }
+    /* Free-text divs inside boxes (descriptions etc.) also scale */
+    #section-sop .sop-box > div:not(.sop-title):not(.sop-sub):not(.sop-group):not(.sop-grid2):not(.sop-grid3) { font-size: calc(13px * var(--sop-scale) * var(--sop-font-mult)); }
+    #section-sop .sop-list li::before { content: "•  "; color: var(--text-dim); }
+    #section-sop .sop-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    #section-sop .sop-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    #section-sop .sop-arrow { display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--text-dim); font-weight:700; }
+    /* Color tokens — match the highlighter colors in the original chart */
+    #section-sop .t-purple { color: #a78bfa; }
+    #section-sop .t-pink   { color: #f472b6; }
+    #section-sop .t-blue   { color: #60a5fa; }
+    #section-sop .t-orange { color: #fb923c; }
+    #section-sop .t-green  { color: #34d399; }
+    #section-sop .t-red    { color: #f87171; }
+    #section-sop .t-yellow { color: #fbbf24; }
+    #section-sop .bg-purple { background: rgba(167,139,250,0.18); color: #c4b5fd; }
+    #section-sop .bg-pink   { background: rgba(244,114,182,0.18); color: #f9a8d4; }
+    #section-sop .bg-blue   { background: rgba(96,165,250,0.18); color: #93c5fd; }
+    #section-sop .bg-orange { background: rgba(251,146,60,0.18); color: #fdba74; }
+    #section-sop .bg-green  { background: rgba(52,211,153,0.18); color: #6ee7b7; }
+    #section-sop .bg-red    { background: rgba(248,113,113,0.18); color: #fca5a5; }
+    #section-sop .bg-yellow { background: rgba(251,191,36,0.18); color: #fcd34d; }
+
+    /* ===== EDIT MODE — only active when #section-sop has .sop-editing ===== */
+    /* Editable text gets a subtle background so user can see what's editable. */
+    #section-sop.sop-editing [contenteditable="true"] { background: rgba(99,102,241,0.08); border-radius: 4px; padding: 1px 4px; outline: none; }
+    #section-sop.sop-editing [contenteditable="true"]:focus { background: rgba(99,102,241,0.18); box-shadow: 0 0 0 2px rgba(99,102,241,0.5); }
+    /* Per-box delete (×) button — top-right corner, only shown in edit mode */
+    #section-sop .sop-box { position: relative; }
+    #section-sop .sop-del-box { display: none; position: absolute; top: 6px; right: 6px; background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.4); border-radius: 4px; width: 22px; height: 22px; font-size: 13px; cursor: pointer; padding: 0; line-height: 1; z-index: 6; }
+    #section-sop.sop-editing .sop-del-box { display: inline-flex; align-items: center; justify-content: center; }
+    /* "+ Inside" button — sits next to × in the top-right corner. Adds a
+       nested child box inside the parent. Only visible in edit mode. */
+    #section-sop .sop-add-inside { display: none; position: absolute; top: 6px; right: 32px; background: rgba(16,185,129,0.18); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.45); border-radius: 4px; padding: 0 7px; height: 22px; font-size: 11px; cursor: pointer; line-height: 20px; font-weight: 600; z-index: 6; }
+    #section-sop.sop-editing .sop-add-inside { display: inline-flex; align-items: center; justify-content: center; }
+    #section-sop .sop-add-inside:hover { background: rgba(16,185,129,0.3); color: #d1fae5; }
+    /* A+ / A- per-box text-size buttons — sit to the LEFT of the + Inside
+       button. Only visible in Free Mode (sizing/layout tool).
+       Size and positioning are scaled by --sop-box-scale (set by JS based on
+       each box's actual width), so larger boxes get larger buttons and tiny
+       boxes get small ones — they always look proportional to their box. */
+    #section-sop .sop-font-btn {
+      display: none;
+      position: absolute;
+      top: calc(6px * var(--sop-box-scale, 1));
+      background: rgba(99,102,241,0.18); color: #c7d2fe;
+      border: 1px solid rgba(99,102,241,0.45); border-radius: 4px;
+      width:  calc(22px * var(--sop-box-scale, 1));
+      height: calc(22px * var(--sop-box-scale, 1));
+      font-size:   calc(11px * var(--sop-box-scale, 1));
+      line-height: calc(20px * var(--sop-box-scale, 1));
+      cursor: pointer; padding: 0;
+      font-weight: 700; z-index: 6; text-align: center;
+    }
+    /* Font-size buttons are a sizing tool — grouped with drag/resize in Free Mode. */
+    #section-sop.sop-free .sop-font-btn { display: inline-flex; align-items: center; justify-content: center; }
+    #section-sop .sop-font-btn:hover { background: rgba(99,102,241,0.35); color: white; }
+    #section-sop .sop-font-down { right: calc(116px * var(--sop-box-scale, 1)); }
+    #section-sop .sop-font-up   { right: calc(90px  * var(--sop-box-scale, 1)); }
+    /* Nested boxes (= any .sop-box living inside another .sop-box) ALWAYS
+       use the secondary "flat" format: no card chrome, transparent background,
+       no border, no shadow. They look like inline sub-sections instead of
+       mini-cards, which keeps a clear visual hierarchy — primary boxes only
+       at the top level, secondary content nested inside.
+       A faint dashed border appears on hover in edit mode so the user can
+       still see where the draggable container lives. */
+    #section-sop .sop-box .sop-box { background: transparent !important; border: 1px dashed transparent !important; box-shadow: none !important; padding: 6px 8px !important; }
+    #section-sop.sop-editing .sop-box .sop-box { border: 1px dashed rgba(99,102,241,0.25) !important; }
+    #section-sop.sop-editing .sop-box .sop-box:hover { border-color: rgba(99,102,241,0.55) !important; background: rgba(99,102,241,0.05) !important; }
+    /* Legacy .sop-flat class is now an alias for the descendant rule above,
+       kept so explicitly-flagged boxes still work even at the top level. */
+    #section-sop .sop-box.sop-flat { background: transparent !important; border: 1px dashed transparent !important; box-shadow: none !important; padding: 6px 8px !important; }
+    #section-sop.sop-editing .sop-box.sop-flat { border: 1px dashed rgba(99,102,241,0.25) !important; }
+    #section-sop.sop-editing .sop-box.sop-flat:hover { border-color: rgba(99,102,241,0.55) !important; background: rgba(99,102,241,0.05) !important; }
+    /* Per-list-item delete button — small × shown on hover during edit mode */
+    #section-sop.sop-editing .sop-list li { position: relative; padding-right: 22px; }
+    #section-sop.sop-editing .sop-list li::after { content: "×"; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #f87171; opacity: 0; font-size: 14px; font-weight: 700; transition: opacity 0.1s; }
+    #section-sop.sop-editing .sop-list li:hover::after { opacity: 1; }
+    /* Add-control toolbar inside each box — only shown in edit mode */
+    #section-sop .sop-box-tools { display: none; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+    #section-sop.sop-editing .sop-box-tools { display: flex; flex-wrap: wrap; }
+    #section-sop .sop-mini-btn { background: var(--panel-2); border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; padding: 3px 9px; font-size: 11px; cursor: pointer; font-weight: 600; }
+    #section-sop .sop-mini-btn:hover { background: rgba(99,102,241,0.15); color: #a5b4fc; border-color: rgba(99,102,241,0.4); }
+    /* Row-level controls — appended at the END of each row's grid */
+    #section-sop .sop-row-tools { display: none; gap: 6px; padding: 4px 0; }
+    #section-sop.sop-editing .sop-row-tools { display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    /* Banner shown when in edit mode */
+    #section-sop .sop-edit-banner { display: none; margin-bottom: 14px; padding: 10px 14px; border-radius: 8px; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.35); color: #c7d2fe; font-size: 13px; }
+    #section-sop.sop-editing .sop-edit-banner { display: block; }
+    /* Free Mode info banner — same look, different color */
+    #section-sop .sop-free-banner { display: none; margin-bottom: 14px; padding: 10px 14px; border-radius: 8px; background: rgba(16,185,129,0.10); border: 1px solid rgba(16,185,129,0.35); color: #6ee7b7; font-size: 13px; }
+    #section-sop.sop-free:not(.sop-editing) .sop-free-banner { display: block; }
+    /* Arrow editing — click on an arrow in edit mode to cycle direction */
+    #section-sop.sop-editing .sop-arrow { cursor: pointer; }
+    #section-sop.sop-editing .sop-arrow:hover { background: rgba(99,102,241,0.18); border-radius: 6px; }
+
+    /* ===== POSITIONED LAYOUT — used by BOTH Lock and Free modes ===== */
+    /* The .sop-positioned class activates absolute layout. Once the user
+       has dragged anything, this class stays on permanently (regardless of
+       lock state) — Lock just disables drag interaction; the positions
+       themselves stay visible. The clean grid layout is the default before
+       any customization. */
+    /* Canvas has a 20px grid background to help the user line boxes up
+       visually. Two layered linear-gradients draw vertical + horizontal
+       hairlines every 20px. Very subtle (8% opacity) so it doesn't
+       dominate; gets stronger (15%) when actively editing. */
+    /* ===== Map-style canvas viewport with zoom + pan =====
+       #sop-viewport is the visible window (height-capped, overflow:auto so
+       the user can scroll left/right/up/down to see more of the map).
+       #sop-canvas is the actual large workspace (default 6000×4000) that
+       lives inside the viewport. A CSS transform (--sop-zoom) scales the
+       canvas in place; the viewport's native scrollbars handle pan. */
+    #section-sop #sop-viewport {
+      position: relative;
+      width: 100%;
+      /* The section itself is a flex column sized to fill the screen below
+         the website header; the viewport flexes to fill the remaining space
+         below the toolbar + banner. flex-basis: 0 + min-height: 0 lets it
+         shrink below its content's natural size. overflow:hidden hides the
+         scrollbars — the user pans by dragging the canvas instead. The DOM
+         scrollLeft/scrollTop properties still work programmatically, which
+         is what _sopPanMove + _sopWheelZoom use to shift the view. */
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+      border: 2px dashed rgba(99,102,241,0.25);
+      border-radius: 10px;
+      background: var(--panel);
+      cursor: grab;
+    }
+    #section-sop #sop-viewport.sop-panning { cursor: grabbing; }
+    /* Grab cursor on the canvas background hints that you can drag-to-pan.
+       Boxes have their own cursors (move/edit) so they override. */
+    #section-sop.sop-positioned #sop-canvas { cursor: grab; }
+    #section-sop.sop-positioned #sop-viewport.sop-panning #sop-canvas { cursor: grabbing; }
+    #section-sop.sop-positioned #sop-canvas {
+      position: relative;
+      width: 6000px;
+      height: 4000px;
+      padding: 20px;
+      transform-origin: 0 0;
+      transform: scale(var(--sop-zoom, 1));
+      /* Aged-paper / parchment grid look. The base color is a warm cream
+         yellow; the grid lines are a faint sepia. Two extra radial gradients
+         layered behind add subtle uneven shading so the surface reads like
+         rough hand-made paper rather than a flat color. */
+      background-color: #f3e6c0;
+      background-image:
+        linear-gradient(to right,  rgba(120, 78, 35, 0.18) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(120, 78, 35, 0.18) 1px, transparent 1px),
+        radial-gradient(circle at 18% 22%, rgba(120, 78, 35, 0.10) 0%, transparent 45%),
+        radial-gradient(circle at 78% 68%, rgba(160, 110, 50, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(255, 245, 210, 0.25) 0%, transparent 70%);
+      background-size: 20px 20px, 20px 20px, 100% 100%, 100% 100%, 100% 100%;
+    }
+    #section-sop.sop-positioned.sop-editing #sop-canvas {
+      /* In edit mode, deepen the grid contrast so alignment is easier. */
+      background-image:
+        linear-gradient(to right,  rgba(120, 78, 35, 0.30) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(120, 78, 35, 0.30) 1px, transparent 1px),
+        radial-gradient(circle at 18% 22%, rgba(120, 78, 35, 0.12) 0%, transparent 45%),
+        radial-gradient(circle at 78% 68%, rgba(160, 110, 50, 0.10) 0%, transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(255, 245, 210, 0.25) 0%, transparent 70%);
+    }
+    /* Soften the dashed border around the parchment so it doesn't look stark
+       against the warm tones. */
+    #section-sop #sop-viewport { border-color: rgba(120, 78, 35, 0.35); }
+    /* Zoom badge in toolbar */
+    #section-sop .sop-zoom-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 56px; padding: 6px 10px;
+      font-size: 13px; font-variant-numeric: tabular-nums;
+      background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25);
+      border-radius: 6px; color: #c7d2fe;
+    }
+    /* ===== Arrow SVG layer =====
+       Sits on top of the canvas, same size, follows the same zoom transform.
+       Pointer-events default to 'none' so arrows don't intercept box clicks;
+       individual <path> elements re-enable pointer-events for hover/click in
+       edit mode (so the user can delete an arrow). */
+    #section-sop #sop-arrows {
+      position: absolute; top: 0; left: 0;
+      width: 6000px; height: 4000px;
+      pointer-events: none;
+      overflow: visible;
+      z-index: 1;
+    }
+    #section-sop #sop-arrows .sop-arrow-path {
+      fill: none;
+      stroke: #a5b4fc;
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
+    }
+    #section-sop.sop-editing #sop-arrows .sop-arrow-path,
+    #section-sop.sop-free #sop-arrows .sop-arrow-path { pointer-events: stroke; cursor: pointer; }
+    #section-sop.sop-editing #sop-arrows .sop-arrow-path:hover,
+    #section-sop.sop-free #sop-arrows .sop-arrow-path:hover { stroke: #f87171; stroke-width: 4; }
+    /* Wider transparent hit area underneath the visible stroke so the user
+       doesn't have to be pixel-perfect to click an arrow */
+    #section-sop #sop-arrows .sop-arrow-hit {
+      fill: none;
+      stroke: transparent;
+      stroke-width: 18;
+      pointer-events: none;
+    }
+    #section-sop.sop-editing #sop-arrows .sop-arrow-hit,
+    #section-sop.sop-free #sop-arrows .sop-arrow-hit { pointer-events: stroke; cursor: pointer; }
+    /* When an arrow-add mode is active: dim boxes that aren't candidates,
+       highlight hover, and show a crosshair cursor on the canvas */
+    #section-sop.sop-arrowing #sop-canvas { cursor: crosshair; }
+    #section-sop.sop-arrowing .sop-box { cursor: crosshair !important; }
+    #section-sop.sop-arrowing .sop-box:hover { box-shadow: 0 0 0 3px #a5b4fc, 0 4px 16px rgba(165,180,252,0.5) !important; }
+    #section-sop.sop-arrowing .sop-box.sop-arrow-from { box-shadow: 0 0 0 3px #10b981, 0 4px 16px rgba(16,185,129,0.5) !important; }
+    /* Boxes need to sit ABOVE the arrow layer */
+    #section-sop.sop-positioned .sop-box { z-index: 2; }
+    /* Midpoint handle for curved arrows — visible only in edit mode, lets
+       the user drag the curve's bow shape */
+    #section-sop #sop-arrows .sop-arrow-cp {
+      fill: #a5b4fc; stroke: #1e1b4b; stroke-width: 2;
+      display: none; cursor: move; pointer-events: auto;
+    }
+    #section-sop.sop-editing #sop-arrows .sop-arrow-cp { display: inline; }
+    #section-sop #sop-arrows .sop-arrow-cp:hover { fill: #c7d2fe; }
+    #section-sop.sop-positioned .sop-row,
+    #section-sop.sop-positioned .sop-connect { display: none; }
+    /* Boxes positioned absolutely on the canvas */
+    #section-sop.sop-positioned .sop-box {
+      position: absolute;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      transition: box-shadow 0.15s;
+    }
+    /* Free Mode = move/size/font. Cursor is "move" on top-level boxes; box
+       content children are made inert (pointer-events:none) so a click goes
+       to the BOX itself instead of being intercepted by text or list items —
+       drag starts cleanly. The interactive layout controls (resize handle,
+       A+/A- buttons) are explicitly re-enabled below. */
+    #section-sop.sop-positioned.sop-free .sop-box { min-width: 200px; min-height: 100px; overflow: hidden; cursor: move; }
+    #section-sop.sop-positioned.sop-free .sop-box .sop-box { cursor: default; }
+    #section-sop.sop-positioned.sop-free .sop-box > * { pointer-events: none; }
+    #section-sop.sop-positioned.sop-free .sop-box > .sop-resize-handle,
+    #section-sop.sop-positioned.sop-free .sop-box > .sop-font-btn { pointer-events: auto; }
+    #section-sop.sop-positioned.sop-free .sop-box:hover { box-shadow: 0 4px 16px rgba(99,102,241,0.35); }
+    /* Edit Mode = text edits + add/delete + arrows. Boxes get the same size
+       constraints but no "move" cursor since drag is disabled here. */
+    #section-sop.sop-positioned.sop-editing .sop-box { min-width: 200px; min-height: 100px; overflow: hidden; }
+    /* Custom resize handle — visible triangle in the bottom-right corner.
+       Shown in FREE MODE (sizing is a layout/visual action, grouped with
+       drag and font-size). Styled with diagonal stripes so it's obvious
+       you can grab it. */
+    #section-sop .sop-resize-handle { display: none; }
+    #section-sop.sop-positioned.sop-free .sop-resize-handle {
+      display: block;
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 32px;
+      height: 32px;
+      cursor: nwse-resize;
+      /* Diagonal stripes + a solid corner triangle so it's unmissable */
+      background:
+        linear-gradient(135deg, transparent 0%, transparent 35%, #6366f1 35%, #6366f1 45%, transparent 45%, transparent 55%, #6366f1 55%, #6366f1 65%, transparent 65%, transparent 75%, #6366f1 75%, #6366f1 85%, transparent 85%),
+        linear-gradient(135deg, transparent 50%, rgba(99,102,241,0.20) 50%);
+      border-bottom-right-radius: 10px;
+      opacity: 0.95;
+      z-index: 100;
+      /* Hint that this is interactive */
+      box-shadow: inset -2px -2px 0 rgba(99,102,241,0.6);
+      pointer-events: auto;
+    }
+    #section-sop.sop-positioned.sop-free .sop-resize-handle:hover {
+      opacity: 1;
+      background:
+        linear-gradient(135deg, transparent 0%, transparent 35%, #818cf8 35%, #818cf8 45%, transparent 45%, transparent 55%, #818cf8 55%, #818cf8 65%, transparent 65%, transparent 75%, #818cf8 75%, #818cf8 85%, transparent 85%),
+        linear-gradient(135deg, transparent 50%, rgba(99,102,241,0.45) 50%);
+      box-shadow: inset -2px -2px 0 #818cf8, 0 0 0 2px rgba(99,102,241,0.4);
+    }
+    /* During an active drag, suppress text selection + transitions for snappiness */
+    #section-sop.sop-dragging .sop-box { transition: none; user-select: none; }
+    #section-sop.sop-dragging .sop-box.sop-dragging-this { box-shadow: 0 8px 24px rgba(99,102,241,0.55); opacity: 0.95; }
+    /* `.sop-scroll` — applied by _sopFitText when even the minimum text scale
+       (0.5) can't squeeze content inside the box. Flips overflow to auto so
+       the user can scroll up/down/left/right inside the box instead of having
+       the content clipped. Custom scrollbar styling keeps it visually in
+       theme; padding-right reserves room so the scrollbar doesn't sit on top
+       of text. Edit Mode also keeps the resize handle out of the scroll area
+       by anchoring it to the box (its container, not the scrolling content). */
+    #section-sop .sop-box.sop-scroll { overflow: auto; scrollbar-width: thin; scrollbar-color: rgba(99,102,241,0.55) transparent; }
+    #section-sop .sop-box.sop-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+    #section-sop .sop-box.sop-scroll::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.55); border-radius: 4px; }
+    #section-sop .sop-box.sop-scroll::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.85); }
+    #section-sop .sop-box.sop-scroll::-webkit-scrollbar-track { background: transparent; }
+  </style>
+
+  <div class="flex items-center flex-wrap gap-2 mb-3">
+    <div class="font-semibold text-xl" style="margin-right:12px;white-space:nowrap">📋 Standard Operating Procedures</div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <!-- Undo / Redo -->
+      <button class="btn btn-ghost text-sm" id="sop-undo-btn" onclick="sopUndo()" style="white-space:nowrap" title="Undo the last change (Ctrl+Z). Tracks moves, resizes, text edits, additions, deletions, and arrow changes.">↶ Undo</button>
+      <button class="btn btn-ghost text-sm" id="sop-redo-btn" onclick="sopRedo()" style="white-space:nowrap" title="Redo the last undone change (Ctrl+Shift+Z).">↷ Redo</button>
+      <span style="display:inline-block;width:1px;height:22px;background:rgba(255,255,255,0.1);margin:0 2px"></span>
+      <!-- Zoom controls -->
+      <button class="btn btn-ghost text-sm" onclick="sopZoomOut()" style="white-space:nowrap" title="Zoom out (shrinks canvas; see more of the map).">−</button>
+      <span class="sop-zoom-badge" id="sop-zoom-badge" title="Click to reset to 100% zoom and center the view.">100%</span>
+      <button class="btn btn-ghost text-sm" onclick="sopZoomIn()" style="white-space:nowrap" title="Zoom in (enlarges canvas; see fewer boxes but bigger).">+</button>
+      <button class="btn btn-ghost text-sm" onclick="sopZoomReset()" style="white-space:nowrap" title="Reset zoom to 100% and scroll back to the top-left.">⊙ Fit</button>
+      <span style="display:inline-block;width:1px;height:22px;background:rgba(255,255,255,0.1);margin:0 2px"></span>
+      <button class="btn btn-ghost text-sm" id="sop-mode-btn" onclick="sopToggleMode()" style="white-space:nowrap" title="Switch between Lock Grid (boxes snap to a clean grid layout) and Free Mode (drag any box anywhere on the canvas).">🔒 Lock Grid</button>
+      <button class="btn btn-ghost text-sm" id="sop-edit-btn" onclick="sopToggleEdit()" style="white-space:nowrap;border:1px solid rgba(99,102,241,0.4);color:#a5b4fc" title="Toggle edit mode. In edit mode you can change any text, delete boxes, drag in free mode, and resize boxes via their corner handle.">📝 Edit Mode</button>
+      <button class="btn btn-ghost text-sm" id="sop-add-box-btn" onclick="sopAddBox()" style="display:none;white-space:nowrap;background:#10b981;color:white;border:1px solid #10b981;font-weight:600" title="Add a new empty box to the canvas. Drag it where you want.">+ Add Box</button>
+      <!-- Arrow tools — visible only in edit mode -->
+      <button class="btn btn-ghost text-sm sop-arrow-tool-btn" id="sop-add-arrow-btn" onclick="sopStartAddArrow('line')" style="display:none;white-space:nowrap;background:#3b82f6;color:white;border:1px solid #3b82f6;font-weight:600" title="Add a straight arrow. Click the source box, then the destination box. Esc cancels.">↗ Arrow</button>
+      <button class="btn btn-ghost text-sm sop-arrow-tool-btn" id="sop-add-curve-btn" onclick="sopStartAddArrow('curve')" style="display:none;white-space:nowrap;background:#8b5cf6;color:white;border:1px solid #8b5cf6;font-weight:600" title="Add a curved arrow. Click the source box, then the destination box. Drag the midpoint handle to bend the curve. Esc cancels.">⤴ Curve</button>
+      <button class="btn btn-ghost text-sm" onclick="sopResetDefault()" style="white-space:nowrap;color:#f87171;border:1px solid rgba(239,68,68,0.3)" title="Discard all edits and restore the original SOP chart. Warning: this can't be undone.">↺ Reset</button>
+    </div>
+  </div>
+
+  <!-- Banner only shown in edit mode -->
+  <div class="sop-edit-banner">
+    📝 <b>Edit Mode is ON.</b> Click text to edit · <b>+ Add Box / + Inside</b> adds boxes · click <b>×</b> to delete · <b>↗ Arrow / ⤴ Curve</b> connects boxes (click source then destination; click an arrow to delete) · <b>↶ Undo / ↷ Redo</b> (or <b>Ctrl+Z</b>). <i>Layout actions (drag, resize, font size) live in <b>🔓 Free Mode</b>.</i> Drag empty canvas or wheel to pan, <b>Ctrl + wheel</b> to zoom. Auto-saves.
+  </div>
+
+  <!-- Map viewport wraps the canvas so the user can scroll a large area. -->
+  <div id="sop-viewport">
+  <!-- All SOP content lives inside #sop-canvas. In Lock mode this renders as
+       a grid of rows with arrows; in Free mode the boxes break out to be
+       individually positioned on an absolute canvas. The editor JS attaches
+       drag/resize/edit handlers and persists state to localStorage. -->
+  <div id="sop-canvas">
+  <!-- SVG layer for user-drawn arrows. <defs> holds a single arrowhead marker
+       that all arrow paths reference. Paths are appended dynamically by JS. -->
+  <svg id="sop-arrows" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="sop-arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#a5b4fc"></path>
+      </marker>
+    </defs>
+  </svg>
+
+  <!-- ===== ROW 1: Market Research ===== -->
+  <div class="sop-row r3">
+    <div class="sop-box">
+      <div class="sop-title t-purple">📍 Location</div>
+      <div class="sop-group">
+        <span class="sop-sub bg-purple">Demand</span>
+        <ul class="sop-list">
+          <li>Population size + growth</li>
+          <li>Average home price + appreciation</li>
+          <li>Vacancy rate</li>
+        </ul>
+      </div>
+      <div class="sop-group">
+        <span class="sop-sub bg-purple">Affordability</span>
+        <ul class="sop-list">
+          <li>Property sales + inventory</li>
+          <li>Employment growth</li>
+        </ul>
+      </div>
+      <div class="sop-group">
+        <span class="sop-sub bg-purple">Bonus</span>
+        <ul class="sop-list">
+          <li>Laws + regulations</li>
+          <li>Lending potential + military base</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sop-box">
+      <div class="sop-title t-purple">🤝 Connections &amp; Community</div>
+      <div class="sop-grid2">
+        <div>
+          <span class="sop-sub bg-pink">Community</span>
+          <ul class="sop-list">
+            <li>Verbiage / slang</li>
+            <li>Facebook groups</li>
+            <li>Investor meet-ups</li>
+          </ul>
+        </div>
+        <div>
+          <span class="sop-sub bg-pink">Government</span>
+          <ul class="sop-list">
+            <li>Cost of counts</li>
+            <li>Building demolition</li>
+            <li>Fire department</li>
+            <li>Contract delivery</li>
+            <li>Public records</li>
+          </ul>
+        </div>
+      </div>
+      <div class="sop-group" style="margin-top:12px">
+        <span class="sop-sub bg-pink">Boots on Ground</span>
+        <ul class="sop-list">
+          <li>Photographer + inspector</li>
+          <li>Leads · Contractors · Partners · Wholesalers · Agents</li>
+        </ul>
+      </div>
+      <div class="sop-grid2" style="margin-top:12px">
+        <div>
+          <span class="sop-sub bg-pink">Know the Area</span>
+          <ul class="sop-list">
+            <li>Crime rates</li>
+            <li>Flood zones</li>
+            <li>Best + worst zip codes</li>
+            <li>History / culture</li>
+          </ul>
+        </div>
+        <div>
+          <span class="sop-sub bg-pink">Quality Buyers List</span>
+          <ul class="sop-list">
+            <li>All requirements documented</li>
+            <li>Title company (maps)</li>
+            <li>Assignments · Earnest money</li>
+            <li>Split HUD · Title changes</li>
+            <li>Closing timeline · Communication</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="sop-box">
+      <div class="sop-title t-purple">📋 List Creation</div>
+      <div class="sop-group">
+        <span class="sop-sub bg-orange">Driving for Dollars</span>
+        <ul class="sop-list">
+          <li><b>A.</b> Basic filters</li>
+          <li><b>B.</b> Add each stack-view without overlap</li>
+        </ul>
+      </div>
+      <div class="sop-grid3">
+        <div>
+          <span class="sop-sub bg-blue">Government List</span>
+          <ul class="sop-list">
+            <li>Tax delinquent</li>
+            <li>Code violations</li>
+            <li>Evictions</li>
+            <li>Foreclosure</li>
+            <li>Probate</li>
+          </ul>
+        </div>
+        <div>
+          <span class="sop-sub bg-pink">Niche (Stacked)</span>
+          <ul class="sop-list">
+            <li>Utility liens</li>
+            <li>Bankruptcy</li>
+            <li>Pre-foreclosure</li>
+            <li>Vacant · Probate</li>
+            <li>Property liens</li>
+            <li>Personal liens</li>
+          </ul>
+        </div>
+        <div>
+          <span class="sop-sub bg-yellow">Priority</span>
+          <ul class="sop-list">
+            <li>Foreclosure</li>
+            <li>Probate</li>
+            <li>Eviction</li>
+            <li>Utility liens</li>
+            <li>Code violations</li>
+            <li>Tax delinquent</li>
+            <li>Absentee</li>
+          </ul>
+        </div>
+      </div>
+      <div class="sop-grid3" style="margin-top:12px">
+        <div>
+          <span class="sop-sub bg-green">Umbrella</span>
+          <ul class="sop-list">
+            <li>Emotional</li>
+            <li>Financial</li>
+            <li>Medical</li>
+            <li>Condition</li>
+          </ul>
+        </div>
+        <div>
+          <span class="sop-sub bg-green">Basic Info</span>
+          <ul class="sop-list">
+            <li>Owner name</li>
+            <li>Full address</li>
+            <li>Source + date</li>
+          </ul>
+        </div>
+        <div>
+          <span class="sop-sub bg-green">Basic Factors</span>
+          <ul class="sop-list">
+            <li>Equity</li>
+            <li>Property type</li>
+            <li>Owner type / age</li>
+            <li>Ownership length</li>
+            <li>Properties owned</li>
+          </ul>
+        </div>
+      </div>
+      <div class="sop-group" style="margin-top:12px">
+        <span class="sop-sub bg-red">Marketing Factors</span>
+        <ul class="sop-list">
+          <li>Evicted · Foreclosure · Probate · Bankruptcy</li>
+          <li>Divorce · Tax delinquent · Vacant</li>
+          <li>Out-of-state · Business owner</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector: Market research → Lead generation -->
+  <div class="sop-connect"><div class="sop-connect-text">↓ Build outreach list ↓</div></div>
+
+  <!-- ===== ROW 2: Lead Generation (Skiptracing → Outbound + Inbound) ===== -->
+  <div class="sop-row flow3">
+    <div class="sop-box">
+      <div class="sop-title t-purple">🔍 Skiptracing</div>
+      <ul class="sop-list">
+        <li>Full address</li>
+        <li>Owner name</li>
+        <li>Mailing address</li>
+        <li>Phone number (+ type)</li>
+        <li>Email</li>
+        <li>Source + date</li>
+      </ul>
+    </div>
+
+    <div class="sop-arrow right"></div>
+
+    <div class="sop-box">
+      <div class="sop-title t-purple">📞 Outbound Marketing</div>
+      <div class="sop-grid2">
+        <div>
+          <span class="sop-sub bg-blue">Cold Calling</span>
+          <ul class="sop-list">
+            <li>Time calling · Redial funnel</li>
+            <li>Number of bars · Number registration</li>
+            <li>Spam prevention · Voicemail settings</li>
+            <li>Agent script</li>
+            <li>Landlords vs wholesalers</li>
+          </ul>
+        </div>
+        <div>
+          <span class="sop-sub bg-blue">SMS / Emails</span>
+          <ul class="sop-list">
+            <li>Time bar · Pretexting</li>
+            <li>Templates · Opt-out structure</li>
+            <li>ID registration</li>
+            <li>Spam prevention</li>
+          </ul>
+        </div>
+      </div>
+      <div class="sop-group" style="margin-top:12px">
+        <span class="sop-sub bg-red">Disposition</span>
+        <ul class="sop-list">
+          <li>Motivated · Failure reason</li>
+          <li>Not interested · Locked listing</li>
+          <li>Different language · Already sold</li>
+          <li>Potential buyer · Spam tagged</li>
+        </ul>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-dim)">Tag: <b style="color:var(--text)">Outbound</b></div>
+    </div>
+
+    <div class="sop-arrow" style="font-size:24px">+</div>
+
+    <div class="sop-box">
+      <div class="sop-title t-purple">📨 Inbound Marketing</div>
+      <div class="sop-group">
+        <span class="sop-sub bg-blue">Mail · Ads · Notes · Site</span>
+        <ul class="sop-list">
+          <li>Inbound human availability</li>
+          <li>Templates · Style · Unique</li>
+          <li>Localized or branded</li>
+          <li>Delivery structure (T, W, Th)</li>
+        </ul>
+      </div>
+      <div class="sop-group">
+        <span class="sop-sub bg-orange">Connections</span>
+        <ul class="sop-list">
+          <li>Agents</li>
+          <li>Realtors</li>
+          <li>Wholesalers</li>
+        </ul>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-dim)">Tag: <b style="color:var(--text)">Partner / Inbound</b></div>
+    </div>
+  </div>
+
+  <!-- Connector: Marketing → Conversion -->
+  <div class="sop-connect"><div class="sop-connect-text">↓ Responses come back ↓</div></div>
+
+  <!-- ===== ROW 3: Lead Conversion (Conditioning ⇄ Evaluation) ===== -->
+  <div class="sop-row flow2">
+    <div class="sop-box">
+      <div class="sop-title t-purple">🌡 Conditioning &amp; Follow-Up</div>
+      <div class="sop-group">
+        <span class="sop-sub bg-purple">Drip Campaigns (M–F)</span>
+        <ul class="sop-list">
+          <li>New lead → 2–5 days + calls</li>
+          <li>Future failure → 10 days + 5 days</li>
+          <li>Disengaged → 30 days</li>
+          <li>Not interested → 120 days + 30 days</li>
+          <li>Locked listing → 30 days + 5–7 days</li>
+          <li>Rejected offer / funding → 15–22 days</li>
+          <li>Signal reflective → 5–7 days</li>
+        </ul>
+      </div>
+      <div class="sop-grid3" style="margin-top:10px">
+        <div style="text-align:center">
+          <span class="sop-sub bg-blue">Cold</span>
+          <div style="font-size:18px;margin:4px 0;color:var(--text-dim)">→</div>
+          <div style="font-size:13px"><b>Appointment</b></div>
+        </div>
+        <div style="text-align:center">
+          <span class="sop-sub bg-orange">Warm</span>
+          <div style="font-size:18px;margin:4px 0;color:var(--text-dim)">→</div>
+          <div style="font-size:13px"><b>Motivated</b></div>
+        </div>
+        <div style="text-align:center">
+          <span class="sop-sub bg-red">Hot</span>
+          <div style="font-size:18px;margin:4px 0;color:var(--text-dim)">→</div>
+          <div style="font-size:13px"><b>Rapport · Condition · Timeline · Price</b></div>
+        </div>
+      </div>
+      <div class="sop-group" style="margin-top:14px">
+        <span class="sop-sub bg-yellow">Response</span>
+        <ul class="sop-list">
+          <li>Negative + PMC</li>
+          <li>Neutral</li>
+          <li>None → Cold</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sop-arrow dual"></div>
+
+    <div class="sop-box">
+      <div class="sop-title t-purple">📊 Evaluation &amp; Offers</div>
+      <div class="sop-grid3">
+        <div>
+          <span class="sop-sub bg-purple">Property</span>
+          <ul class="sop-list">
+            <li>Year built</li>
+            <li>Floors</li>
+            <li>Bedrooms · Bathrooms</li>
+            <li>Square footage · Lot size</li>
+            <li>Construction type</li>
+            <li>Foundation type · Zoning</li>
+          </ul>
+        </div>
+        <div>
+          <span class="sop-sub bg-pink">Market</span>
+          <ul class="sop-list">
+            <li>Rent</li>
+            <li>Renovated value</li>
+            <li>Crime rating</li>
+            <li>Flood zone</li>
+            <li>Comparables</li>
+          </ul>
+        </div>
+        <div>
+          <span class="sop-sub bg-blue">Returns</span>
+          <ul class="sop-list">
+            <li>Location</li>
+            <li>Margin</li>
+            <li>Cashflow</li>
+            <li>Appreciation</li>
+          </ul>
+        </div>
+      </div>
+      <div class="sop-group" style="margin-top:12px">
+        <span class="sop-sub bg-red">Renovations</span>
+        <div style="font-size:13px;color:var(--text-dim);margin-top:4px">Full rehab calculator drives wholetail / flip / rental budgets.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector: Conversion → Contracting -->
+  <div class="sop-connect"><div class="sop-connect-text">↓ Deal terms accepted ↓</div></div>
+
+  <!-- ===== ROW 4: Contracting (sequential flow) ===== -->
+  <div class="sop-row flow4">
+    <div class="sop-box">
+      <div class="sop-title t-purple">📝 Contracts</div>
+      <ul class="sop-list">
+        <li>Date · Execution expiration</li>
+        <li>Seller · Buyer · Address</li>
+        <li>Legal description / ID</li>
+        <li>Earnest money</li>
+        <li>Purchase price</li>
+        <li>Inspection · Closing timeline</li>
+        <li>Closing fees · Promotions</li>
+        <li>Property damages · Refunds</li>
+        <li>Successor · Assignability</li>
+        <li>Title delays · Tenant delays</li>
+        <li>Inspection delays · Profit intent</li>
+        <li>Title company · Contingency</li>
+        <li>Disclosures · Representation</li>
+      </ul>
+    </div>
+
+    <div class="sop-arrow right"></div>
+
+    <div class="sop-box">
+      <div class="sop-title t-purple">🔍 Inspections</div>
+      <div class="sop-group">
+        <span class="sop-sub bg-blue">Pre-Inspect</span>
+        <ul class="sop-list">
+          <li>Personal</li>
+          <li>Access</li>
+          <li>Occupancy</li>
+          <li>Scheduling</li>
+        </ul>
+      </div>
+      <div class="sop-group">
+        <span class="sop-sub bg-green">On-Site</span>
+        <ul class="sop-list">
+          <li>Exterior · Interior</li>
+          <li>Mechanicals</li>
+          <li>Street view · Layout</li>
+          <li>Additional structures</li>
+          <li>Smells · Feeling · Sounds</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sop-arrow right"></div>
+
+    <div class="sop-box">
+      <div class="sop-title t-purple">📁 Property Folder</div>
+      <ul class="sop-list">
+        <li>Download → save</li>
+        <li>Verify folder quality</li>
+        <li>Pay photographer</li>
+        <li>Verify property condition</li>
+      </ul>
+    </div>
+
+    <div class="sop-arrow right"></div>
+
+    <div class="sop-box">
+      <div class="sop-title t-purple">📦 Disposition</div>
+      <ul class="sop-list">
+        <li>Contacting</li>
+        <li>Packets + delivery</li>
+        <li>Walkthroughs / inspections</li>
+        <li>Offers</li>
+        <li>Earnest money deposit</li>
+        <li>Financing</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Connector: Contracting → Closing -->
+  <div class="sop-connect"><div class="sop-connect-text">↓ Contract in hand ↓</div></div>
+
+  <!-- ===== ROW 5: Closing + Execution (sequential flow) ===== -->
+  <div class="sop-row flow4">
+    <div class="sop-box">
+      <div class="sop-title t-purple">💵 Financing</div>
+      <ul class="sop-list">
+        <li>Cash buyers</li>
+        <li>Hard money</li>
+        <li>DSCR loans</li>
+        <li>Conventional</li>
+        <li>Private lenders</li>
+        <li>Refi terms</li>
+      </ul>
+    </div>
+
+    <div class="sop-arrow right"></div>
+
+    <div class="sop-box">
+      <div class="sop-title t-purple">🏦 Escrow</div>
+      <ul class="sop-list">
+        <li>Title search orders</li>
+        <li>Earnest money deposit</li>
+        <li>Title reports</li>
+        <li>Seller updates</li>
+        <li>Quiet title · Probate</li>
+        <li>Excessive liens</li>
+        <li>HUD statements</li>
+        <li>Mobile notaries</li>
+        <li>Scheduling · Coordination</li>
+      </ul>
+    </div>
+
+    <div class="sop-arrow right"></div>
+
+    <div class="sop-box">
+      <div class="sop-title t-purple">🚪 Exit</div>
+      <ul class="sop-list">
+        <li>Wholesale</li>
+        <li>Wholetail</li>
+        <li>Flip</li>
+        <li>Rental</li>
+        <li>Creative</li>
+      </ul>
+      <div class="sop-group" style="margin-top:10px">
+        <span class="sop-sub bg-red">Each Exit Tracks</span>
+        <ul class="sop-list">
+          <li>Contingency · Timelines</li>
+          <li>Property manager</li>
+          <li>Handyman · Realtors</li>
+          <li>Tenants · Contracts</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sop-arrow right"></div>
+
+    <div class="sop-box">
+      <div class="sop-title t-purple">👷 Contractors</div>
+      <ul class="sop-list">
+        <li>Referrals / reviews</li>
+        <li>Facebook / comments</li>
+        <li>Contract / terms</li>
+        <li>Deposit / small commitment</li>
+        <li>Walkthrough quote</li>
+        <li>Weekly update</li>
+        <li>Verify refunds / returns</li>
+        <li>Finish replace</li>
+        <li>Full payment</li>
+      </ul>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-dim);font-style:italic">Payment only after verified work.</div>
+    </div>
+  </div>
+
+  <!-- Connector: Execution → KPIs (track everything) -->
+  <div class="sop-connect"><div class="sop-connect-text">↓ Measure everything ↓</div></div>
+
+  <!-- ===== ROW 6: KPIs ===== -->
+  <div class="sop-row r1">
+    <div class="sop-box">
+      <div class="sop-title t-purple">📈 KPIs — Key Performance Indicators</div>
+      <div class="sop-grid3">
+        <div>
+          <span class="sop-sub bg-purple">List Quality</span>
+          <ul class="sop-list">
+            <li>Owners to lead</li>
+            <li>Leads to contract</li>
+            <li>Marketing factors present</li>
+            <li>Prospect contract tolerance</li>
+            <li>Sold properties present in list</li>
+          </ul>
+        </div>
+        <div>
+          <span class="sop-sub bg-blue">Skiptracing</span>
+          <ul class="sop-list">
+            <li>Wrong numbers · Correct owners</li>
+            <li>Inactive numbers</li>
+            <li>Hit rate</li>
+            <li>Mail undeliverable</li>
+            <li>Email failure to send</li>
+            <li>Contracted owners who sold</li>
+          </ul>
+        </div>
+        <div>
+          <span class="sop-sub bg-orange">Marketing Quality</span>
+          <ul class="sop-list">
+            <li>Connect rate · Pickup rate</li>
+            <li>Response rate</li>
+            <li>Abandonment rate</li>
+            <li>Wait time + contract calling</li>
+            <li>Lead source split</li>
+            <li>Mails to prospects</li>
+            <li>Easy to work with reps</li>
+          </ul>
+        </div>
+      </div>
+      <div class="sop-grid2" style="margin-top:14px">
+        <div>
+          <span class="sop-sub bg-green">Funnel (+ cost to)</span>
+          <ul class="sop-list">
+            <li>Owners talked to</li>
+            <li>Owners → leads</li>
+            <li>Leads → qualified</li>
+            <li>Qualified → offers</li>
+            <li>Offers → signed</li>
+            <li>Signed → closed</li>
+            <li><b>★ Profit + cost for closing</b></li>
+          </ul>
+        </div>
+        <div>
+          <span class="sop-sub bg-yellow">Buyer Conversion / Trackable Factors</span>
+          <ul class="sop-list">
+            <li>Raw lead → qualified lead</li>
+            <li>Engagement → tour</li>
+            <li>Tour → offer</li>
+            <li>Offer → closed</li>
+            <li>Cost to acquire · Cost to close</li>
+            <li>Profit/loss at each stage</li>
+            <li>Common response times + days</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector: KPIs → Disposition status -->
+  <div class="sop-connect"><div class="sop-connect-text">↓ Status tracking ↓</div></div>
+
+  <!-- ===== Bottom: Disposition Tracking ===== -->
+  <div class="sop-row r2">
+    <div class="sop-box">
+      <div class="sop-title t-purple">🏁 Initial Disposition</div>
+      <div style="font-size:13px;color:var(--text-dim);line-height:1.6">First-touch outcome from the lead — Motivated / Not Interested / Failure Reason / Already Sold / etc. Logged at the moment of first contact.</div>
+    </div>
+    <div class="sop-box">
+      <div class="sop-title t-purple">🔁 Current Disposition</div>
+      <div style="font-size:13px;color:var(--text-dim);line-height:1.6">Live status as the lead progresses through follow-up, conditioning, evaluation, contract, and close. Updates each time the deal moves.</div>
+    </div>
+  </div>
+
+  </div><!-- /#sop-canvas -->
+  </div><!-- /#sop-viewport -->
 </div>
 
 <!-- MODAL: Holdings / Renovation deal detail (read-only inside H/R, doesn't navigate to Underwriting) -->
@@ -7958,6 +8931,13 @@ function _uwRehabCascade() {
     if (typeof _uwApplyAutoRehabMonths === 'function') _uwApplyAutoRehabMonths(sqft);
     if (typeof uwRecalc === 'function') uwRecalc();
     if (typeof _uwTimelineUpdateBar === 'function') _uwTimelineUpdateBar();
+    // Auto-rebalance the Scope of Work phase days every time the rehab calc
+    // updates so the SOW always stays in sync. Silent mode (no toast).
+    // Stock phase days are locked, so only the standard 6 phase IDs get
+    // re-allocated — user-added custom phases keep their hand-entered days.
+    if (typeof uwScopeAutoFillFromRehab === 'function') {
+      try { uwScopeAutoFillFromRehab(true); } catch (e) { /* non-fatal */ }
+    }
   } catch (e) { console.warn('[rehab cascade]', e); }
   // Snapshot s-fin's value AFTER the cascade completes — so the next
   // MutationObserver firing knows whether the cascade caused a real change.
@@ -14820,6 +15800,1319 @@ async function uwRescanAllProfits() {
 }
 window.uwRescanAllProfits = uwRescanAllProfits;
 
+// ===========================================================================
+// SOP EDITOR — drag/resize/edit boxes on the Standard Operating Procedure tab
+// ===========================================================================
+// Two modes:
+//   • LOCK GRID (default) — boxes lay out in the original CSS-grid rows with
+//     arrows between them. Read-only positioning; box content can still be
+//     edited when Edit Mode is on.
+//   • FREE — boxes break out of the grid into absolute positioning. User can
+//     drag any box anywhere and resize via the bottom-right corner. Position
+//     + size + edited HTML all saved to localStorage so it survives reloads.
+//
+// State shape (localStorage key 'labb-sop-state'):
+//   {
+//     mode: 'lock' | 'free',
+//     boxes: {
+//       '<auto-id>': { x, y, w, h, html: '<edited inner HTML or null>' }
+//     }
+//   }
+// Box IDs are assigned on first render (sop-box-0, sop-box-1, ...) and
+// written into data-sop-id so the same box can be tracked across reloads.
+
+const _SOP_LS_KEY = 'labb-sop-state';
+let _sopEditing = false;
+let _sopMode = 'lock';     // 'lock' | 'free'
+let _sopState = { mode: 'lock', boxes: {} };
+
+function _sopLoadState() {
+  try {
+    const raw = localStorage.getItem(_SOP_LS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        _sopState = {
+          mode:   parsed.mode   || 'lock',
+          boxes:  parsed.boxes  || {},
+          arrows: Array.isArray(parsed.arrows) ? parsed.arrows : [],
+          zoom:   (typeof parsed.zoom === 'number') ? parsed.zoom : 1
+        };
+        _sopMode = _sopState.mode;
+        if (typeof _sopState.zoom === 'number') _sopZoom = _sopState.zoom;
+      }
+    }
+  } catch (_) { /* corrupted or unavailable — fall back to defaults */ }
+}
+
+function _sopSaveState() {
+  try {
+    _sopState.mode = _sopMode;
+    localStorage.setItem(_SOP_LS_KEY, JSON.stringify(_sopState));
+  } catch (_) { /* localStorage might be full or disabled — silently no-op */ }
+}
+
+// Assign stable IDs to every box on first encounter, then re-apply any
+// saved per-box state (position, size, edited HTML).
+function _sopAssignIdsAndRestore() {
+  const boxes = document.querySelectorAll('#section-sop .sop-box');
+  boxes.forEach((box, i) => {
+    if (!box.dataset.sopId) box.dataset.sopId = 'sop-box-' + i;
+    const id = box.dataset.sopId;
+    const saved = _sopState.boxes[id];
+    if (!saved) return;
+    // Restore edited inner HTML if present. NOTE: this rebuilds any nested
+    // children inside `box` — DOM elements that existed before this call get
+    // detached. That's why we re-query `.sop-box` below before attaching the
+    // delete/resize/inside buttons.
+    if (typeof saved.html === 'string' && saved.html.length > 0) {
+      box.innerHTML = saved.html;
+    }
+    // Restore position/size if in free mode (only applied when .sop-free is on,
+    // but we set the inline styles regardless so the data is there to toggle to).
+    if (typeof saved.x === 'number') box.style.left   = saved.x + 'px';
+    if (typeof saved.y === 'number') box.style.top    = saved.y + 'px';
+    if (typeof saved.w === 'number') box.style.width  = saved.w + 'px';
+    if (typeof saved.h === 'number') box.style.height = saved.h + 'px';
+  });
+  // CRITICAL: re-query the box list AFTER the innerHTML restoration above.
+  // The first loop may have wiped + rebuilt nested .sop-box children inside
+  // their parents, so the original NodeList contains stale references to
+  // detached DOM nodes. We need the freshly-rebuilt children (which include
+  // any nested boxes from saved.html) so we can attach their buttons.
+  // Also assign IDs to any newly-rebuilt children that lack one.
+  const freshBoxes = document.querySelectorAll('#section-sop .sop-box');
+  freshBoxes.forEach((box, i) => {
+    if (!box.dataset.sopId) box.dataset.sopId = 'sop-box-' + i;
+  });
+  // Re-attach delete (×) buttons + resize handles if not present
+  freshBoxes.forEach(box => {
+    // Only consider the box's IMMEDIATE delete button, not descendants'.
+    const hasOwnDel = Array.from(box.children).some(c => c.classList && c.classList.contains('sop-del-box'));
+    if (!hasOwnDel) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'sop-del-box';
+      del.innerHTML = '×';
+      del.title = 'Delete this box';
+      del.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (!_sopEditing) return;
+        if (!confirm('Delete this box?')) return;
+        const parentBox = box.parentElement && box.parentElement.classList && box.parentElement.classList.contains('sop-box')
+          ? box.parentElement : null;
+        const id = box.dataset.sopId;
+        if (id) delete _sopState.boxes[id];
+        // Drop any arrows that touch this box
+        if (Array.isArray(_sopState.arrows)) {
+          _sopState.arrows = _sopState.arrows.filter(a => a.from !== id && a.to !== id);
+        }
+        box.remove();
+        // If this was nested, re-snapshot the parent so the deletion sticks.
+        if (parentBox) _sopSnapshotBox(parentBox);
+        _sopSaveState();
+        if (typeof _sopRenderArrows === 'function') _sopRenderArrows();
+        if (typeof _sopHistoryPush === 'function') _sopHistoryPush();
+      });
+      box.appendChild(del);
+    }
+    // Always (re-)attach a fresh resize handle with a live listener. If a
+    // stale handle survived from saved HTML (no listener), it would silently
+    // swallow clicks; nuking + re-creating guarantees the listener is bound.
+    // Only attach to the box's IMMEDIATE handle, not nested children's handles.
+    Array.from(box.children).filter(c => c.classList && c.classList.contains('sop-resize-handle')).forEach(h => h.remove());
+    const handle = document.createElement('div');
+    handle.className = 'sop-resize-handle';
+    handle.title = 'Drag to resize this box';
+    handle.addEventListener('mousedown', _sopResizeStart);
+    box.appendChild(handle);
+    // "+ Inside" button — only on every box, creates a nested child.
+    // Skip if one already exists as a direct child (don't double-add).
+    const hasInside = Array.from(box.children).some(c => c.classList && c.classList.contains('sop-add-inside'));
+    if (!hasInside) {
+      const insideBtn = document.createElement('button');
+      insideBtn.type = 'button';
+      insideBtn.className = 'sop-add-inside';
+      insideBtn.textContent = '+ Inside';
+      insideBtn.title = 'Add a nested box inside this one';
+      insideBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (!_sopEditing) return;
+        _sopAddNestedBox(box);
+      });
+      box.appendChild(insideBtn);
+    }
+    // A- / A+ per-box text-size buttons. Skip if already present.
+    const hasFontDown = Array.from(box.children).some(c => c.classList && c.classList.contains('sop-font-down'));
+    if (!hasFontDown) {
+      const fd = document.createElement('button');
+      fd.type = 'button';
+      fd.className = 'sop-font-btn sop-font-down';
+      fd.textContent = 'A−';
+      fd.title = 'Decrease text size in this box';
+      fd.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (_sopMode !== 'free') return;
+        _sopAdjustBoxFont(box, -0.1);
+      });
+      box.appendChild(fd);
+    }
+    const hasFontUp = Array.from(box.children).some(c => c.classList && c.classList.contains('sop-font-up'));
+    if (!hasFontUp) {
+      const fu = document.createElement('button');
+      fu.type = 'button';
+      fu.className = 'sop-font-btn sop-font-up';
+      fu.textContent = 'A+';
+      fu.title = 'Increase text size in this box';
+      fu.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (_sopMode !== 'free') return;
+        _sopAdjustBoxFont(box, +0.1);
+      });
+      box.appendChild(fu);
+    }
+    // Apply any saved per-box font multiplier (set as CSS var on the box).
+    if (box.dataset.sopId) {
+      const savedMult = _sopState.boxes[box.dataset.sopId]?.fontMult;
+      if (typeof savedMult === 'number') {
+        box.style.setProperty('--sop-font-mult', savedMult.toFixed(3));
+      }
+    }
+  });
+  // Compute the per-box visual scale so the corner buttons (A+/A-, etc.)
+  // size themselves proportionally to each box's actual width.
+  if (typeof _sopUpdateAllBoxScales === 'function') _sopUpdateAllBoxScales();
+  _sopApplyModeClass();
+}
+
+function _sopApplyModeClass() {
+  const sec = document.getElementById('section-sop');
+  if (!sec) return;
+  // .sop-free toggles drag interaction (only active in Free Mode).
+  sec.classList.toggle('sop-free', _sopMode === 'free');
+  sec.classList.toggle('sop-editing', _sopEditing);
+  // .sop-positioned activates the absolute-layout canvas. Once the user has
+  // moved ANY box (saved positions exist), this class stays on permanently
+  // — Lock mode just disables drag, it doesn't revert to the grid layout.
+  // Free mode always uses positioned layout, even if no boxes have been
+  // moved yet, so the user can start dragging from anywhere.
+  const hasSavedPositions = Object.values(_sopState.boxes || {}).some(b => b && (typeof b.x === 'number' || typeof b.y === 'number'));
+  // Use positioned layout in Free Mode, after the user has moved a box, OR
+  // any time Edit Mode is on (so the resize handles always have a positioned
+  // box to anchor on and the user can grow/shrink boxes from a fresh state).
+  const usePositioned = (_sopMode === 'free') || hasSavedPositions || _sopEditing;
+  sec.classList.toggle('sop-positioned', usePositioned);
+  // When switching INTO positioned layout for the first time, seed each box's
+  // position from its current grid-rendered location so boxes don't all
+  // collapse to (0,0) at the canvas corner.
+  if (usePositioned) _sopSeedPositionsFromGrid();
+  const btn = document.getElementById('sop-mode-btn');
+  if (btn) btn.textContent = _sopMode === 'free' ? '🔓 Free Mode (drag enabled)' : '🔒 Lock Grid';
+  const addBtn = document.getElementById('sop-add-box-btn');
+  if (addBtn) addBtn.style.display = _sopEditing ? '' : 'none';
+  const editBtn = document.getElementById('sop-edit-btn');
+  if (editBtn) editBtn.textContent = _sopEditing ? '✓ Done Editing' : '📝 Edit Mode';
+  // Arrow-tool buttons live next to + Add Box — visible whenever editing.
+  document.querySelectorAll('#section-sop .sop-arrow-tool-btn').forEach(b => {
+    b.style.display = _sopEditing ? '' : 'none';
+  });
+  // Re-draw arrows so they line up with current box layout/zoom.
+  if (typeof _sopRenderArrows === 'function') _sopRenderArrows();
+}
+
+// Seed left/top/width/height on every box that doesn't already have saved
+// position, then MOVE the box out of its .sop-row parent and reparent it
+// directly to #sop-canvas. This is critical because positioned mode hides
+// the .sop-row containers — if we left boxes inside their rows, they'd
+// disappear (hidden parent → hidden children). Reparenting once is fine;
+// the boxes already have stable IDs.
+function _sopSeedPositionsFromGrid() {
+  const canvas = document.getElementById('sop-canvas');
+  const sec = document.getElementById('section-sop');
+  if (!canvas || !sec) return;
+  // We need to measure in the GRID layout. If positioned class is already on,
+  // temporarily remove it to measure, then restore.
+  const wasPositioned = sec.classList.contains('sop-positioned');
+  if (wasPositioned) sec.classList.remove('sop-positioned');
+  const canvasRect = canvas.getBoundingClientRect();
+  // Only seed TOP-LEVEL boxes (parent is .sop-row or #sop-canvas itself).
+  // Nested boxes live inside their parent .sop-box and stay there — their
+  // position/size is already captured by their parent's saved HTML.
+  document.querySelectorAll('#section-sop .sop-box').forEach(box => {
+    const parent = box.parentElement;
+    const isNested = parent && parent.classList && parent.classList.contains('sop-box');
+    if (isNested) return;
+    const id = box.dataset.sopId;
+    if (!id) return;
+    const saved = _sopState.boxes[id] || {};
+    if (typeof saved.x !== 'number' || typeof saved.y !== 'number') {
+      // First-time seed — measure where this box currently renders in the
+      // grid layout (relative to the canvas) and persist that.
+      const r = box.getBoundingClientRect();
+      saved.x = Math.round(r.left - canvasRect.left);
+      saved.y = Math.round(r.top  - canvasRect.top);
+      saved.w = Math.round(r.width);
+      saved.h = Math.round(r.height);
+      _sopState.boxes[id] = saved;
+    }
+    // Apply the inline styles (whether freshly seeded or already saved).
+    box.style.left   = saved.x + 'px';
+    box.style.top    = saved.y + 'px';
+    box.style.width  = saved.w + 'px';
+    box.style.height = saved.h + 'px';
+    // CRITICAL: reparent the box directly to #sop-canvas so hiding .sop-row
+    // doesn't hide the box. Only move if not already a direct child.
+    if (box.parentElement !== canvas) canvas.appendChild(box);
+  });
+  if (wasPositioned) sec.classList.add('sop-positioned');
+  _sopSaveState();
+}
+
+function sopToggleMode() {
+  _sopMode = (_sopMode === 'free') ? 'lock' : 'free';
+  // Free Mode and Edit Mode are mutually exclusive: turning Free on must
+  // turn Edit off so the user can't try to edit and drag at the same time.
+  if (_sopMode === 'free' && _sopEditing) {
+    _sopEditing = false;
+    // Disable contenteditable on every text element so clicks during Free
+    // Mode don't accidentally enter edit-text on the box children.
+    document.querySelectorAll('#section-sop .sop-box [contenteditable="true"]').forEach(el => {
+      el.contentEditable = 'false';
+    });
+  }
+  _sopApplyModeClass();
+  _sopSaveState();
+}
+window.sopToggleMode = sopToggleMode;
+
+function sopToggleEdit() {
+  _sopEditing = !_sopEditing;
+  // Edit Mode and Free Mode are mutually exclusive: turning Edit on must
+  // turn Free off so the user can't try to drag boxes while editing text.
+  if (_sopEditing && _sopMode === 'free') {
+    _sopMode = 'lock';
+    _sopSaveState();
+  }
+  _sopApplyModeClass();
+  // Toggle contenteditable on every text element inside boxes
+  document.querySelectorAll('#section-sop .sop-box').forEach(box => {
+    box.querySelectorAll('.sop-title, .sop-sub, .sop-list li, .sop-list, div').forEach(el => {
+      // Don't make the delete button editable; don't make the box itself editable
+      // (only its inner text-bearing children).
+      if (el.classList.contains('sop-del-box')) return;
+      if (el === box) return;
+      el.contentEditable = _sopEditing ? 'true' : 'false';
+    });
+    // Click-to-delete on list items in edit mode (the ::after × is visual; we
+    // also wire a click that detects the right-edge zone)
+    if (_sopEditing) {
+      box.querySelectorAll('.sop-list li').forEach(li => {
+        if (li.__sopWired) return;
+        li.__sopWired = true;
+        li.addEventListener('click', (ev) => {
+          if (!_sopEditing) return;
+          // Only fire if click is near the right edge (where the × is rendered)
+          const rect = li.getBoundingClientRect();
+          if (ev.clientX > rect.right - 22) {
+            ev.stopPropagation();
+            li.remove();
+            _sopSnapshotBox(box);
+          }
+        });
+      });
+    }
+  });
+  // Listen for blur on any editable to save the box's HTML
+  document.querySelectorAll('#section-sop .sop-box').forEach(box => {
+    if (box.__sopBlurWired) return;
+    box.__sopBlurWired = true;
+    box.addEventListener('blur', () => _sopSnapshotBox(box), true);
+    box.addEventListener('input', () => {
+      // Debounce input → snapshot
+      if (box.__sopInputT) clearTimeout(box.__sopInputT);
+      box.__sopInputT = setTimeout(() => _sopSnapshotBox(box), 600);
+    }, true);
+  });
+}
+window.sopToggleEdit = sopToggleEdit;
+
+// Walk up the DOM tree to find the top-level .sop-box for any given box.
+// A "top-level" box is one whose parent is NOT another .sop-box (i.e., the
+// canvas itself or a row container). Used so that snapshots of nested boxes
+// bubble up to the top-level ancestor — nested state is captured inside the
+// parent's HTML snapshot, not as separate state entries.
+function _sopTopLevelBox(box) {
+  let cur = box;
+  while (cur && cur.parentElement && cur.parentElement.classList && cur.parentElement.classList.contains('sop-box')) {
+    cur = cur.parentElement;
+  }
+  return cur;
+}
+
+// Capture the box's current inner HTML + position/size into state, then save.
+// If `box` is nested inside another .sop-box, this snapshots the TOP-LEVEL
+// ancestor instead — the nested layout/state lives inside the parent's
+// serialized HTML, so we only ever need one state entry per top-level box.
+function _sopSnapshotBox(box) {
+  if (!box) return;
+  const top = _sopTopLevelBox(box);
+  if (!top || !top.dataset.sopId) return;
+  const id = top.dataset.sopId;
+  const prev = _sopState.boxes[id] || {};
+  // Strip transient/interactive elements (delete + resize + inside buttons)
+  // from the saved HTML so they aren't persisted as dead DOM. Restore re-
+  // attaches them with fresh listeners; leaving the old elements in causes
+  // the re-attach guards to skip them and they become inert.
+  const clone = top.cloneNode(true);
+  clone.querySelectorAll('.sop-del-box, .sop-resize-handle, .sop-add-inside, .sop-font-btn').forEach(b => b.remove());
+  prev.html = clone.innerHTML;
+  // Persist this top-level box's own font multiplier so it survives reloads.
+  // (Nested boxes carry their multiplier via inline style inside the parent's
+  // saved HTML, but top-level boxes have only their innerHTML saved, not
+  // their own style attribute — so we mirror it into state explicitly.)
+  const mult = parseFloat(top.style.getPropertyValue('--sop-font-mult'));
+  if (isFinite(mult) && mult !== 1) prev.fontMult = Math.round(mult * 100) / 100;
+  else delete prev.fontMult;
+  if (_sopMode === 'free' || _sopEditing) {
+    // Capture position + size from inline styles (set during drag/resize)
+    const x = parseFloat(top.style.left);
+    const y = parseFloat(top.style.top);
+    const w = parseFloat(top.style.width);
+    const h = parseFloat(top.style.height);
+    if (isFinite(x)) prev.x = Math.round(x);
+    if (isFinite(y)) prev.y = Math.round(y);
+    if (isFinite(w)) prev.w = Math.round(w);
+    if (isFinite(h)) prev.h = Math.round(h);
+  }
+  _sopState.boxes[id] = prev;
+  _sopSaveState();
+  // Push an undo entry. Skipped if history is currently disabled (i.e. we're
+  // mid-apply of a previous undo/redo).
+  if (typeof _sopHistoryPush === 'function') _sopHistoryPush();
+}
+
+// ----- Per-box visual scale (drives A+/A- button size) -----
+// Sets --sop-box-scale on the box based on its current width. Larger boxes
+// get bigger control buttons; smaller boxes get smaller ones, so the corner
+// controls always look proportional. Baseline = 240px (default new-box width);
+// clamped to [0.6, 1.5] so buttons never get unusably tiny or absurdly large.
+function _sopUpdateBoxScale(box) {
+  if (!box) return;
+  const w = box.offsetWidth || parseFloat(box.style.width) || 240;
+  const scale = Math.min(1.5, Math.max(0.6, w / 240));
+  box.style.setProperty('--sop-box-scale', scale.toFixed(3));
+}
+function _sopUpdateAllBoxScales() {
+  document.querySelectorAll('#section-sop .sop-box').forEach(_sopUpdateBoxScale);
+}
+
+// ----- Per-box text-size adjustment -----
+// Multiplies the box's --sop-font-mult CSS variable (which is then compounded
+// with the auto-fit --sop-scale). Range clamped to 0.5–2.5 in 0.1 steps.
+// After adjusting, re-runs _sopFitText so the auto-fit recalculates against
+// the new effective size (in case the larger text doesn't fit anymore).
+function _sopAdjustBoxFont(box, delta) {
+  if (!box) return;
+  // Font-size adjustment is a sizing/layout action — only in Free Mode.
+  if (_sopMode !== 'free') return;
+  const cur = parseFloat(box.style.getPropertyValue('--sop-font-mult')) || 1;
+  let next = Math.round((cur + delta) * 100) / 100;
+  if (next < 0.5) next = 0.5;
+  if (next > 2.5) next = 2.5;
+  box.style.setProperty('--sop-font-mult', next);
+  _sopFitText(box);
+  _sopSnapshotBox(box);
+  if (typeof _sopRenderArrows === 'function') _sopRenderArrows();
+}
+
+// ----- Create a nested child box inside a parent -----
+// Children inherit all .sop-box behaviors automatically because they ARE
+// .sop-box elements; the drag/resize handlers read inline styles relative
+// to offsetParent, which for nested boxes is the parent box (since .sop-box
+// has position: relative). No additional plumbing needed beyond CSS.
+function _sopAddNestedBox(parent) {
+  if (!parent) return;
+  // Default to existing-sibling dimensions so new boxes look consistent.
+  // Priority:
+  //  1. The most recent nested .sop-box sibling (user-added secondary box)
+  //  2. The average size of the parent's .sop-group sub-sections (the original
+  //     COMMUNITY / GOVERNMENT / etc. styled sections)
+  //  3. A sensible default if nothing to copy from
+  let childW = 240, childH = 100;
+  const nestedSibs = Array.from(parent.children).filter(c => c.classList && c.classList.contains('sop-box'));
+  if (nestedSibs.length > 0) {
+    const last = nestedSibs[nestedSibs.length - 1];
+    const lw = parseFloat(last.style.width)  || last.offsetWidth  || 0;
+    const lh = parseFloat(last.style.height) || last.offsetHeight || 0;
+    if (lw > 0) childW = lw;
+    if (lh > 0) childH = lh;
+  } else {
+    const groups = parent.querySelectorAll(':scope > .sop-group');
+    if (groups.length > 0) {
+      let totW = 0, totH = 0, cnt = 0;
+      groups.forEach(g => {
+        const r = g.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) {
+          totW += r.width; totH += r.height; cnt++;
+        }
+      });
+      if (cnt > 0) {
+        childW = Math.round(totW / cnt);
+        childH = Math.round(totH / cnt);
+      }
+    }
+  }
+  // Sanity clamps so we never end up with a wildly oversized or tiny default
+  childW = Math.max(160, Math.min(800, childW));
+  childH = Math.max(60,  Math.min(500, childH));
+  // Find a non-overlapping spot inside the parent. Strategy: try a series
+  // of cascaded positions (each offset 24px right + 24px down from the last).
+  // If none fit without overlapping an existing nested .sop-box, fall back
+  // to stacking the new box BELOW the lowest existing one.
+  const existing = Array.from(parent.children).filter(c => c.classList && c.classList.contains('sop-box'));
+  function overlapsExisting(x, y) {
+    return existing.some(e => {
+      const ex = parseFloat(e.style.left) || 0;
+      const ey = parseFloat(e.style.top)  || 0;
+      const ew = parseFloat(e.style.width)  || e.offsetWidth  || childW;
+      const eh = parseFloat(e.style.height) || e.offsetHeight || childH;
+      return !(x + childW <= ex || x >= ex + ew || y + childH <= ey || y >= ey + eh);
+    });
+  }
+  // Pick a starting spot that's below the parent's title row (~40px from top).
+  let pickX = 24, pickY = 50;
+  let placed = false;
+  for (let i = 0; i < 25; i++) {
+    const x = 24 + i * 24;
+    const y = 50 + i * 24;
+    if (!overlapsExisting(x, y)) { pickX = x; pickY = y; placed = true; break; }
+  }
+  if (!placed) {
+    // Stack below the lowest existing box, leaving a 10px gap
+    let maxBottom = 50;
+    existing.forEach(e => {
+      const ey = parseFloat(e.style.top) || 0;
+      const eh = parseFloat(e.style.height) || e.offsetHeight || childH;
+      maxBottom = Math.max(maxBottom, ey + eh + 10);
+    });
+    pickX = 24;
+    pickY = maxBottom;
+  }
+  // Grow the parent if necessary so the new child fits without immediately
+  // overflowing (which would clip it via overflow:hidden + force scroll).
+  const neededW = pickX + childW + 24;
+  const neededH = pickY + childH + 24;
+  const curW = parseFloat(parent.style.width)  || parent.offsetWidth  || 0;
+  const curH = parseFloat(parent.style.height) || parent.offsetHeight || 0;
+  if (curW < neededW) parent.style.width  = neededW + 'px';
+  if (curH < neededH) parent.style.height = neededH + 'px';
+  // Create the child. Stable ID with timestamp + random suffix avoids collisions.
+  // .sop-flat strips the card chrome so nested boxes look like inline sub-
+  // sections instead of mini-cards (visually distinct from top-level boxes).
+  const childId = 'sop-nested-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+  const child = document.createElement('div');
+  child.className = 'sop-box sop-flat';
+  child.dataset.sopId = childId;
+  child.style.position = 'absolute';
+  child.style.left   = pickX + 'px';
+  child.style.top    = pickY + 'px';
+  child.style.width  = childW + 'px';
+  child.style.height = childH + 'px';
+  child.style.padding = '10px';
+  // Match the visual style of the original SOP sub-sections (e.g. COMMUNITY,
+  // GOVERNMENT) — a purple pill-badge title above a bullet list — so nested
+  // boxes look consistent with the rest of the chart. Wrap in .sop-group so
+  // the pill + list spacing matches existing sub-sections exactly.
+  child.innerHTML =
+    '<div class="sop-group" style="margin:0">' +
+      '<span class="sop-sub bg-purple" contenteditable="' + (_sopEditing ? 'true' : 'false') + '">NESTED</span>' +
+      '<ul class="sop-list"><li contenteditable="' + (_sopEditing ? 'true' : 'false') + '">Item</li></ul>' +
+    '</div>';
+  parent.appendChild(child);
+  // CRITICAL ORDER: snapshot the parent FIRST so its saved.html includes the
+  // new child. If we called _sopAssignIdsAndRestore first, it would set
+  // `parent.innerHTML = saved.html` from the OLD saved html (without the new
+  // child) and immediately wipe the child out. Snapshotting first means the
+  // restore loop sees the new child in saved.html and rebuilds it intact.
+  _sopSnapshotBox(parent);
+  _sopAssignIdsAndRestore();
+  _sopRenderArrows();
+}
+
+// ----- Drag-to-move in free mode -----
+let _sopDragBox = null, _sopDragStartX = 0, _sopDragStartY = 0, _sopDragBoxX = 0, _sopDragBoxY = 0;
+
+function _sopDragStart(ev) {
+  // Arrow-add mode: any click on a box creates/completes an arrow instead
+  // of starting a drag.
+  if (_sopArrowAddType) {
+    const boxA = ev.target.closest('.sop-box');
+    if (boxA) { _sopArrowBoxClick(ev); return; }
+    // Click on empty canvas while arrowing cancels the in-progress add.
+    if (ev.target.closest('#sop-canvas')) {
+      _sopCancelAddArrow();
+      return;
+    }
+  }
+  // Drag is ONLY enabled in Free Mode (the dedicated drag mode). Edit Mode
+  // is for text/structure changes and explicitly disables dragging so the
+  // two modes don't fight each other. Nested boxes are NOT draggable —
+  // dragging is reserved for top-level (primary) boxes only.
+  if (_sopMode !== 'free') return;
+  if (_sopEditing) return;
+  const box = ev.target.closest('.sop-box');
+  if (!box) return;
+  const isNested = box.parentElement && box.parentElement.classList && box.parentElement.classList.contains('sop-box');
+  if (isNested) return;
+  // Don't start drag when clicking on interactive controls (defensive — these
+  // shouldn't be visible in Free Mode since they're edit-only, but just in
+  // case the user has them on a stale frame).
+  if (ev.target.isContentEditable) return;
+  if (ev.target.closest('.sop-del-box')) return;
+  if (ev.target.closest('.sop-add-inside')) return;
+  if (ev.target.closest('.sop-font-btn')) return;
+  if (ev.target.closest('.sop-resize-handle')) return;
+  const rect = box.getBoundingClientRect();
+  _sopDragBox = box;
+  _sopDragStartX = ev.clientX;
+  _sopDragStartY = ev.clientY;
+  _sopDragBoxX = parseFloat(box.style.left) || rect.left;
+  _sopDragBoxY = parseFloat(box.style.top)  || rect.top;
+  box.classList.add('sop-dragging-this');
+  document.getElementById('section-sop')?.classList.add('sop-dragging');
+  ev.preventDefault();
+}
+
+// 20px snap-to-grid — matches the visible canvas grid lines so boxes line up
+// cleanly. Snap is OFF by default for free placement; hold Shift while
+// dragging or resizing to ENGAGE the 20px snap when you want alignment.
+const _SOP_GRID = 20;
+function _sopSnap(v, ev) {
+  if (ev && ev.shiftKey) return Math.round(v / _SOP_GRID) * _SOP_GRID;
+  return Math.round(v);
+}
+
+function _sopDragMove(ev) {
+  if (!_sopDragBox) return;
+  // Adjust for zoom — when the canvas is scaled, a 1px mouse move corresponds
+  // to (1/zoom) px of canvas movement, otherwise the box appears to lag.
+  const dx = (ev.clientX - _sopDragStartX) / (_sopZoom || 1);
+  const dy = (ev.clientY - _sopDragStartY) / (_sopZoom || 1);
+  const nx = _sopSnap(_sopDragBoxX + dx, ev);
+  const ny = _sopSnap(_sopDragBoxY + dy, ev);
+  _sopDragBox.style.left = nx + 'px';
+  _sopDragBox.style.top  = ny + 'px';
+  // If this box is nested inside another box, the parent has overflow:hidden
+  // and clips anything outside its bounds. Auto-grow the parent if the child
+  // goes past its current right/bottom edge so the child stays visible.
+  const par = _sopDragBox.parentElement;
+  if (par && par.classList && par.classList.contains('sop-box')) {
+    const childW = _sopDragBox.offsetWidth  || 0;
+    const childH = _sopDragBox.offsetHeight || 0;
+    const needRight  = nx + childW + 16;
+    const needBottom = ny + childH + 16;
+    const parW = parseFloat(par.style.width)  || par.offsetWidth  || 0;
+    const parH = parseFloat(par.style.height) || par.offsetHeight || 0;
+    if (parW < needRight)  par.style.width  = needRight  + 'px';
+    if (parH < needBottom) par.style.height = needBottom + 'px';
+  }
+  // Live-update arrows that touch this box so they follow the drag
+  if (typeof _sopRenderArrows === 'function') _sopRenderArrows();
+}
+
+function _sopDragEnd() {
+  if (!_sopDragBox) return;
+  _sopDragBox.classList.remove('sop-dragging-this');
+  document.getElementById('section-sop')?.classList.remove('sop-dragging');
+  _sopSnapshotBox(_sopDragBox);
+  _sopDragBox = null;
+}
+
+// ----- Resize handler — drag the bottom-right corner handle to resize -----
+// Only fires when Edit Mode + Free Mode are both on (handle is hidden
+// otherwise via CSS so the mousedown event never reaches us).
+let _sopResizeBox = null, _sopResizeStartX = 0, _sopResizeStartY = 0, _sopResizeStartW = 0, _sopResizeStartH = 0;
+const _SOP_MIN_W = 180, _SOP_MIN_H = 80;
+
+function _sopResizeStart(ev) {
+  // Resize is a sizing operation, grouped with drag + font-size under Free
+  // Mode. Edit Mode doesn't allow resize (it's for content changes, not
+  // visual layout). User can flip to Free Mode briefly to resize a box.
+  if (_sopMode !== 'free') return;
+  const box = ev.target.closest('.sop-box');
+  if (!box) return;
+  // Make sure the box has explicit inline w/h so resize has a baseline to
+  // grow from. If the box is currently using grid layout (no inline width
+  // because the user never entered Free Mode), seed it from the current
+  // rendered size.
+  if (!box.style.width || !box.style.height) {
+    const r = box.getBoundingClientRect();
+    box.style.width  = Math.round(r.width)  + 'px';
+    box.style.height = Math.round(r.height) + 'px';
+  }
+  ev.stopPropagation();
+  ev.stopImmediatePropagation();
+  ev.preventDefault();
+  _sopResizeBox = box;
+  const rect = box.getBoundingClientRect();
+  _sopResizeStartX = ev.clientX;
+  _sopResizeStartY = ev.clientY;
+  _sopResizeStartW = rect.width;
+  _sopResizeStartH = rect.height;
+  document.getElementById('section-sop')?.classList.add('sop-dragging');
+  box.classList.add('sop-dragging-this');
+  document.addEventListener('mousemove', _sopResizeMove);
+  document.addEventListener('mouseup',   _sopResizeEnd);
+}
+
+function _sopResizeMove(ev) {
+  if (!_sopResizeBox) return;
+  // Adjust for zoom (see _sopDragMove for rationale).
+  const dx = (ev.clientX - _sopResizeStartX) / (_sopZoom || 1);
+  const dy = (ev.clientY - _sopResizeStartY) / (_sopZoom || 1);
+  // Snap width/height to the 20px grid (hold Shift to bypass).
+  const rawW = Math.max(_SOP_MIN_W, _sopResizeStartW / (_sopZoom || 1) + dx);
+  const rawH = Math.max(_SOP_MIN_H, _sopResizeStartH / (_sopZoom || 1) + dy);
+  const newW = _sopSnap(rawW, ev);
+  const newH = _sopSnap(rawH, ev);
+  _sopResizeBox.style.width  = Math.max(_SOP_MIN_W, newW) + 'px';
+  _sopResizeBox.style.height = Math.max(_SOP_MIN_H, newH) + 'px';
+  // Recalculate the box-scale CSS var so the A+/A- buttons resize with the box
+  if (typeof _sopUpdateBoxScale === 'function') _sopUpdateBoxScale(_sopResizeBox);
+  // Live-fit text as the box shrinks so the user sees content scale smoothly.
+  _sopFitText(_sopResizeBox);
+  // Live-update arrows that touch this box so they follow the resize
+  if (typeof _sopRenderArrows === 'function') _sopRenderArrows();
+}
+
+function _sopResizeEnd() {
+  if (!_sopResizeBox) return;
+  _sopResizeBox.classList.remove('sop-dragging-this');
+  document.getElementById('section-sop')?.classList.remove('sop-dragging');
+  _sopFitText(_sopResizeBox);
+  _sopSnapshotBox(_sopResizeBox);
+  _sopResizeBox = null;
+  document.removeEventListener('mousemove', _sopResizeMove);
+  document.removeEventListener('mouseup',   _sopResizeEnd);
+}
+
+// ----- Auto-fit text inside a resized box -----
+// All text inside .sop-box uses calc(<size> * var(--sop-scale)). This function
+// binary-searches the right --sop-scale value so the content fits in the box
+// without overflow. Called every time a box resizes (end of drag) and on
+// initial load. Floor at 0.5 to keep text readable; if content STILL overflows
+// at that minimum scale, the box is flipped to `.sop-scroll` mode and gains
+// scrollbars instead of being clipped — so the user can resize boxes very
+// small and still scroll through their content.
+const _SOP_MIN_SCALE = 0.5;
+function _sopFitText(box) {
+  if (!box) return;
+  // Reset scale to 1 first to measure natural height
+  box.style.setProperty('--sop-scale', '1');
+  box.classList.remove('sop-scroll');
+  // Force reflow so the new font-sizes are measured
+  void box.offsetHeight;
+  // If it already fits at full size, leave at 1.0.
+  if (box.scrollHeight <= box.clientHeight + 2 && box.scrollWidth <= box.clientWidth + 2) return;
+  // Binary search between MIN_SCALE and 1.0 to find the largest scale that fits
+  let low = _SOP_MIN_SCALE, high = 1.0, best = _SOP_MIN_SCALE;
+  for (let i = 0; i < 10; i++) {
+    const mid = (low + high) / 2;
+    box.style.setProperty('--sop-scale', mid.toFixed(3));
+    void box.offsetHeight;
+    if (box.scrollHeight <= box.clientHeight + 2 && box.scrollWidth <= box.clientWidth + 2) {
+      best = mid; low = mid;
+    } else {
+      high = mid;
+    }
+  }
+  box.style.setProperty('--sop-scale', best.toFixed(3));
+  // After locking in the best scale, check whether content STILL overflows.
+  // If it does — meaning even the floor scale of 0.5 isn't small enough —
+  // mark the box as scrollable so the user can scroll up/down/left/right
+  // through the content instead of having it clipped.
+  void box.offsetHeight;
+  if (box.scrollHeight > box.clientHeight + 2 || box.scrollWidth > box.clientWidth + 2) {
+    box.classList.add('sop-scroll');
+  }
+}
+
+// Fit every box on the SOP canvas — used on initial load and after layout flips.
+function _sopFitAllBoxes() {
+  document.querySelectorAll('#section-sop .sop-box').forEach(_sopFitText);
+}
+
+// (Old ResizeObserver path removed — we now manage resize explicitly via the
+// custom handle so we know exactly when to snapshot dimensions to state.)
+function _sopWatchResize() { /* no-op — custom resize handles it */ }
+
+// ============================================================
+// ===== Zoom + pan (map-style viewport)
+// ============================================================
+// The canvas is a 6000×4000 workspace inside #sop-viewport (overflow:auto).
+// Zoom is implemented by setting --sop-zoom on the canvas, which a CSS
+// transform: scale(var(--sop-zoom)) reads. Pan is just native scroll on
+// the viewport. We also expose Ctrl + wheel to zoom centered on the cursor,
+// and middle-mouse / space-drag to pan with a grabbing cursor.
+let _sopZoom = 1;
+const _SOP_ZOOM_MIN = 0.25, _SOP_ZOOM_MAX = 2.5, _SOP_ZOOM_STEP = 0.1;
+
+function _sopApplyZoom() {
+  const canvas = document.getElementById('sop-canvas');
+  if (canvas) canvas.style.setProperty('--sop-zoom', _sopZoom.toFixed(3));
+  // The SVG arrow layer is a child of #sop-canvas so it inherits the canvas's
+  // transform — no separate scale needed. (Earlier versions double-scaled it.)
+  const badge = document.getElementById('sop-zoom-badge');
+  if (badge) badge.textContent = Math.round(_sopZoom * 100) + '%';
+  _sopState.zoom = _sopZoom;
+  _sopSaveState();
+}
+
+function sopZoomIn()  { _sopZoom = Math.min(_SOP_ZOOM_MAX, Math.round((_sopZoom + _SOP_ZOOM_STEP) * 100) / 100); _sopApplyZoom(); }
+function sopZoomOut() { _sopZoom = Math.max(_SOP_ZOOM_MIN, Math.round((_sopZoom - _SOP_ZOOM_STEP) * 100) / 100); _sopApplyZoom(); }
+function sopZoomReset() {
+  _sopZoom = 1;
+  _sopApplyZoom();
+  const vp = document.getElementById('sop-viewport');
+  if (vp) { vp.scrollLeft = 0; vp.scrollTop = 0; }
+}
+window.sopZoomIn = sopZoomIn;
+window.sopZoomOut = sopZoomOut;
+window.sopZoomReset = sopZoomReset;
+
+// Mouse-wheel handler. With Ctrl/Cmd held → zoom centered on cursor; without
+// any modifier → pan the view (scrollTop / scrollLeft). With Shift → horizontal
+// pan. Since the viewport now has overflow:hidden, we drive scrollLeft/
+// scrollTop manually instead of relying on native scroll.
+function _sopWheelZoom(ev) {
+  const vp = document.getElementById('sop-viewport');
+  if (!vp) return;
+  if (ev.ctrlKey || ev.metaKey) {
+    // Ctrl/Cmd + wheel = zoom centered on cursor
+    ev.preventDefault();
+    const rect = vp.getBoundingClientRect();
+    const cx = ev.clientX - rect.left;
+    const cy = ev.clientY - rect.top;
+    const beforeX = (vp.scrollLeft + cx) / _sopZoom;
+    const beforeY = (vp.scrollTop  + cy) / _sopZoom;
+    const delta = ev.deltaY > 0 ? -_SOP_ZOOM_STEP : _SOP_ZOOM_STEP;
+    const newZoom = Math.max(_SOP_ZOOM_MIN, Math.min(_SOP_ZOOM_MAX, Math.round((_sopZoom + delta) * 100) / 100));
+    if (newZoom === _sopZoom) return;
+    _sopZoom = newZoom;
+    _sopApplyZoom();
+    vp.scrollLeft = beforeX * _sopZoom - cx;
+    vp.scrollTop  = beforeY * _sopZoom - cy;
+    return;
+  }
+  // Plain wheel → pan. Shift swaps wheel-Y to horizontal pan.
+  ev.preventDefault();
+  if (ev.shiftKey) {
+    vp.scrollLeft += (ev.deltaY || ev.deltaX);
+  } else {
+    vp.scrollTop  += ev.deltaY;
+    vp.scrollLeft += ev.deltaX;
+  }
+}
+
+// Middle-mouse drag to pan (also works for left-click drag on empty canvas).
+let _sopPanning = false, _sopPanStartX = 0, _sopPanStartY = 0, _sopPanStartScrollL = 0, _sopPanStartScrollT = 0;
+function _sopPanStart(ev) {
+  // Middle button (button 1) OR holding Space — full-bore pan everywhere.
+  // Left button on the canvas background (NOT a box) also pans.
+  const vp = document.getElementById('sop-viewport');
+  if (!vp) return;
+  const onBox = ev.target.closest('.sop-box');
+  const onSvg = ev.target.closest('#sop-arrows');
+  const middleClick = (ev.button === 1);
+  const bgLeftClick = (ev.button === 0 && !onBox && !onSvg && ev.target.closest('#sop-canvas'));
+  if (!middleClick && !bgLeftClick) return;
+  // Don't pan if user is in arrow-add mode (they're trying to click a box)
+  if (_sopArrowAddType) return;
+  _sopPanning = true;
+  _sopPanStartX = ev.clientX;
+  _sopPanStartY = ev.clientY;
+  _sopPanStartScrollL = vp.scrollLeft;
+  _sopPanStartScrollT = vp.scrollTop;
+  vp.classList.add('sop-panning');
+  ev.preventDefault();
+}
+function _sopPanMove(ev) {
+  if (!_sopPanning) return;
+  const vp = document.getElementById('sop-viewport');
+  if (!vp) return;
+  vp.scrollLeft = _sopPanStartScrollL - (ev.clientX - _sopPanStartX);
+  vp.scrollTop  = _sopPanStartScrollT - (ev.clientY - _sopPanStartY);
+}
+function _sopPanEnd() {
+  if (!_sopPanning) return;
+  _sopPanning = false;
+  document.getElementById('sop-viewport')?.classList.remove('sop-panning');
+}
+
+// ============================================================
+// ===== Arrows (SVG paths between boxes)
+// ============================================================
+// _sopState.arrows is an array of { id, from, to, type: 'line'|'curve', cp?: {x,y} }
+// where from/to are box dataset IDs. Arrows are rendered into #sop-arrows
+// (an SVG layer over the canvas). When a box moves or resizes, we re-render
+// all arrows so they follow.
+let _sopArrowAddType = null;   // 'line' | 'curve' | null when not adding
+let _sopArrowFromId  = null;   // first-picked box ID during add flow
+
+function _sopEnsureArrowsArray() {
+  if (!Array.isArray(_sopState.arrows)) _sopState.arrows = [];
+}
+
+// Convert a box's position (which is stored as inline left/top relative to
+// its offsetParent — the canvas for top-level boxes, the parent box for
+// nested ones) into ABSOLUTE canvas coordinates by walking the offsetParent
+// chain. Arrows are drawn in canvas-space so we need absolute coords.
+function _sopBoxAbsPos(box) {
+  const canvas = document.getElementById('sop-canvas');
+  let x = 0, y = 0;
+  let cur = box;
+  while (cur && cur !== canvas) {
+    x += cur.offsetLeft;
+    y += cur.offsetTop;
+    cur = cur.offsetParent;
+    if (!cur) break;
+  }
+  return { x, y };
+}
+
+// Compute the intersection point of a line from a box's center toward a
+// target point, with the box's rectangular edge. This makes arrows visually
+// terminate at the box border rather than its center. Uses absolute canvas
+// coordinates so nested boxes work correctly.
+function _sopBoxEdgePoint(box, towardX, towardY) {
+  const abs = _sopBoxAbsPos(box);
+  const w = box.offsetWidth  || 200;
+  const h = box.offsetHeight || 100;
+  const cx = abs.x + w / 2;
+  const cy = abs.y + h / 2;
+  const dx = towardX - cx;
+  const dy = towardY - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  // Slope-based clipping to the rectangle border
+  const halfW = w / 2, halfH = h / 2;
+  const scale = Math.min(
+    halfW / Math.max(1e-6, Math.abs(dx)),
+    halfH / Math.max(1e-6, Math.abs(dy))
+  );
+  return { x: cx + dx * scale, y: cy + dy * scale };
+}
+
+function _sopBoxCenter(box) {
+  const abs = _sopBoxAbsPos(box);
+  const w = box.offsetWidth  || 200;
+  const h = box.offsetHeight || 100;
+  return { x: abs.x + w/2, y: abs.y + h/2, w, h };
+}
+
+function _sopRenderArrows() {
+  const svg = document.getElementById('sop-arrows');
+  if (!svg) return;
+  _sopEnsureArrowsArray();
+  // Strip every previous arrow path/handle; keep <defs> at the top.
+  Array.from(svg.querySelectorAll('.sop-arrow-group')).forEach(g => g.remove());
+  _sopState.arrows.forEach(arrow => _sopRenderOneArrow(arrow, svg));
+}
+
+function _sopRenderOneArrow(arrow, svg) {
+  const fromBox = document.querySelector('#sop-canvas .sop-box[data-sop-id="' + arrow.from + '"]');
+  const toBox   = document.querySelector('#sop-canvas .sop-box[data-sop-id="' + arrow.to   + '"]');
+  if (!fromBox || !toBox) return;  // box deleted? skip silently
+  const fromC = _sopBoxCenter(fromBox);
+  const toC   = _sopBoxCenter(toBox);
+  // For curves, the default control point bows the line perpendicular to its
+  // direction; user can override by dragging the midpoint handle.
+  let cp;
+  if (arrow.type === 'curve') {
+    if (arrow.cp && typeof arrow.cp.x === 'number') {
+      cp = { x: arrow.cp.x, y: arrow.cp.y };
+    } else {
+      const mx = (fromC.x + toC.x) / 2;
+      const my = (fromC.y + toC.y) / 2;
+      const dx = toC.x - fromC.x, dy = toC.y - fromC.y;
+      const len = Math.hypot(dx, dy) || 1;
+      // Perpendicular vector, magnitude = 25% of line length
+      const px = -dy / len, py = dx / len;
+      cp = { x: mx + px * len * 0.25, y: my + py * len * 0.25 };
+    }
+  }
+  // Endpoint clipping: from-edge points toward the control point (for curves)
+  // or toward the to-center (for lines); to-edge analogously.
+  const fromTarget = (arrow.type === 'curve') ? cp : toC;
+  const toTarget   = (arrow.type === 'curve') ? cp : fromC;
+  const fromPt = _sopBoxEdgePoint(fromBox, fromTarget.x, fromTarget.y);
+  const toPt   = _sopBoxEdgePoint(toBox,   toTarget.x,   toTarget.y);
+  // Build the SVG path string
+  let d;
+  if (arrow.type === 'curve') {
+    d = 'M ' + fromPt.x + ' ' + fromPt.y + ' Q ' + cp.x + ' ' + cp.y + ' ' + toPt.x + ' ' + toPt.y;
+  } else {
+    d = 'M ' + fromPt.x + ' ' + fromPt.y + ' L ' + toPt.x + ' ' + toPt.y;
+  }
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const g = document.createElementNS(svgNS, 'g');
+  g.setAttribute('class', 'sop-arrow-group');
+  g.dataset.arrowId = arrow.id;
+  // Wider invisible hit area for easier clicking
+  const hit = document.createElementNS(svgNS, 'path');
+  hit.setAttribute('class', 'sop-arrow-hit');
+  hit.setAttribute('d', d);
+  hit.addEventListener('click', (ev) => _sopArrowClick(ev, arrow.id));
+  g.appendChild(hit);
+  // Visible stroke
+  const path = document.createElementNS(svgNS, 'path');
+  path.setAttribute('class', 'sop-arrow-path');
+  path.setAttribute('d', d);
+  path.setAttribute('marker-end', 'url(#sop-arrowhead)');
+  path.addEventListener('click', (ev) => _sopArrowClick(ev, arrow.id));
+  g.appendChild(path);
+  // For curves, add a draggable midpoint handle (visible in edit mode)
+  if (arrow.type === 'curve') {
+    const cpHandle = document.createElementNS(svgNS, 'circle');
+    cpHandle.setAttribute('class', 'sop-arrow-cp');
+    cpHandle.setAttribute('cx', cp.x);
+    cpHandle.setAttribute('cy', cp.y);
+    cpHandle.setAttribute('r', 7);
+    cpHandle.dataset.arrowId = arrow.id;
+    cpHandle.addEventListener('mousedown', (ev) => _sopCpDragStart(ev, arrow.id));
+    g.appendChild(cpHandle);
+  }
+  svg.appendChild(g);
+}
+
+function _sopArrowClick(ev, arrowId) {
+  if (!_sopEditing) return;
+  ev.stopPropagation();
+  if (!confirm('Delete this arrow?')) return;
+  _sopState.arrows = (_sopState.arrows || []).filter(a => a.id !== arrowId);
+  _sopSaveState();
+  _sopRenderArrows();
+  if (typeof _sopHistoryPush === 'function') _sopHistoryPush();
+}
+
+// ----- Curve control-point dragging -----
+let _sopCpArrowId = null;
+function _sopCpDragStart(ev, arrowId) {
+  if (!_sopEditing) return;
+  ev.stopPropagation();
+  ev.preventDefault();
+  _sopCpArrowId = arrowId;
+  document.addEventListener('mousemove', _sopCpDragMove);
+  document.addEventListener('mouseup',   _sopCpDragEnd);
+}
+function _sopCpDragMove(ev) {
+  if (!_sopCpArrowId) return;
+  const canvas = document.getElementById('sop-canvas');
+  const vp = document.getElementById('sop-viewport');
+  if (!canvas || !vp) return;
+  const rect = canvas.getBoundingClientRect();
+  // Convert client-coords → canvas-coords (account for current zoom)
+  const x = (ev.clientX - rect.left) / _sopZoom;
+  const y = (ev.clientY - rect.top)  / _sopZoom;
+  const arrow = (_sopState.arrows || []).find(a => a.id === _sopCpArrowId);
+  if (!arrow) return;
+  arrow.cp = { x: Math.round(x), y: Math.round(y) };
+  _sopRenderArrows();
+}
+function _sopCpDragEnd() {
+  if (!_sopCpArrowId) return;
+  _sopCpArrowId = null;
+  _sopSaveState();
+  if (typeof _sopHistoryPush === 'function') _sopHistoryPush();
+  document.removeEventListener('mousemove', _sopCpDragMove);
+  document.removeEventListener('mouseup',   _sopCpDragEnd);
+}
+
+// ----- Add-arrow flow -----
+function sopStartAddArrow(type) {
+  if (!_sopEditing) { if (typeof toast === 'function') toast('Turn on Edit Mode first.', 'warn'); return; }
+  _sopArrowAddType = type;
+  _sopArrowFromId  = null;
+  document.getElementById('section-sop')?.classList.add('sop-arrowing');
+  if (typeof toast === 'function') toast('Click the source box, then the destination box. Esc cancels.', 'info');
+}
+window.sopStartAddArrow = sopStartAddArrow;
+
+function _sopCancelAddArrow() {
+  _sopArrowAddType = null;
+  _sopArrowFromId = null;
+  document.getElementById('section-sop')?.classList.remove('sop-arrowing');
+  document.querySelectorAll('#section-sop .sop-box.sop-arrow-from').forEach(b => b.classList.remove('sop-arrow-from'));
+}
+
+function _sopArrowBoxClick(ev) {
+  if (!_sopArrowAddType) return;
+  const box = ev.target.closest('.sop-box');
+  if (!box || !box.dataset.sopId) return;
+  ev.stopPropagation();
+  ev.preventDefault();
+  if (!_sopArrowFromId) {
+    _sopArrowFromId = box.dataset.sopId;
+    box.classList.add('sop-arrow-from');
+    return;
+  }
+  if (box.dataset.sopId === _sopArrowFromId) {
+    if (typeof toast === 'function') toast('Pick a DIFFERENT destination box.', 'warn');
+    return;
+  }
+  _sopEnsureArrowsArray();
+  _sopState.arrows.push({
+    id: 'arr-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+    from: _sopArrowFromId,
+    to:   box.dataset.sopId,
+    type: _sopArrowAddType
+  });
+  _sopSaveState();
+  _sopCancelAddArrow();
+  _sopRenderArrows();
+  if (typeof _sopHistoryPush === 'function') _sopHistoryPush();
+}
+
+// ============================================================
+// ===== Undo / Redo history
+// ============================================================
+// Every time a state-changing action completes (drag end, resize end, text
+// edit debounce, add/delete box, add/delete arrow, curve CP drag end), we
+// push a snapshot to _sopHistory. Undo walks the index back and re-applies
+// the snapshot; Redo walks forward. New actions truncate any redo branch.
+// Snapshot = { html: <canvas innerHTML with transient elements stripped>,
+//              state: <JSON of _sopState> } — re-running _sopAssignIdsAndRestore
+// after restoring rebuilds all listeners and inline styles.
+let _sopHistory = [];
+let _sopHistoryIdx = -1;
+let _sopHistoryEnabled = true;   // set false while applying so we don't recurse
+const _SOP_HIST_MAX = 50;
+
+function _sopHistorySnapshot() {
+  const canvas = document.getElementById('sop-canvas');
+  if (!canvas) return null;
+  // Clone so we can strip transient elements without mutating live DOM.
+  const clone = canvas.cloneNode(true);
+  clone.querySelectorAll('.sop-del-box, .sop-resize-handle, .sop-add-inside, .sop-font-btn').forEach(b => b.remove());
+  // Rendered arrow groups (paths) are re-built from state.arrows; strip the
+  // groups but keep the <svg> shell + <defs> so the marker is preserved.
+  clone.querySelectorAll('#sop-arrows .sop-arrow-group').forEach(g => g.remove());
+  return {
+    html:  clone.innerHTML,
+    state: JSON.stringify(_sopState || {}),
+    mode:  _sopMode,
+    edit:  _sopEditing,
+    zoom:  _sopZoom
+  };
+}
+
+function _sopHistoryPush() {
+  if (!_sopHistoryEnabled) return;
+  const snap = _sopHistorySnapshot();
+  if (!snap) return;
+  // Skip if identical to the current head (avoids duplicate entries from
+  // back-to-back snapshots that didn't actually change anything).
+  if (_sopHistoryIdx >= 0) {
+    const head = _sopHistory[_sopHistoryIdx];
+    if (head && head.html === snap.html && head.state === snap.state) return;
+  }
+  // Truncate any redo branch — once a fresh action happens, you can't redo
+  // past it anymore.
+  if (_sopHistoryIdx < _sopHistory.length - 1) {
+    _sopHistory = _sopHistory.slice(0, _sopHistoryIdx + 1);
+  }
+  _sopHistory.push(snap);
+  // Cap memory usage
+  while (_sopHistory.length > _SOP_HIST_MAX) {
+    _sopHistory.shift();
+  }
+  _sopHistoryIdx = _sopHistory.length - 1;
+  _sopHistoryUpdateButtons();
+}
+
+function _sopHistoryApply(entry) {
+  if (!entry) return;
+  const canvas = document.getElementById('sop-canvas');
+  if (!canvas) return;
+  _sopHistoryEnabled = false;
+  try {
+    // Replace canvas innerHTML (which includes the SVG shell + the boxes).
+    canvas.innerHTML = entry.html;
+    // Restore state
+    try {
+      const parsed = JSON.parse(entry.state);
+      _sopState = parsed || _sopState;
+      _sopMode  = entry.mode || _sopState.mode || 'lock';
+      _sopEditing = !!entry.edit;
+      if (typeof entry.zoom === 'number') _sopZoom = entry.zoom;
+    } catch (_) { /* ignore parse errors */ }
+    // Re-attach buttons, restore per-box styles, re-render arrows.
+    _sopAssignIdsAndRestore();
+    _sopApplyModeClass();    // also re-renders arrows
+    _sopApplyZoom();
+    _sopRenderArrows();
+    _sopSaveState();
+  } finally {
+    _sopHistoryEnabled = true;
+  }
+  _sopHistoryUpdateButtons();
+}
+
+function sopUndo() {
+  if (_sopHistoryIdx <= 0) return;
+  _sopHistoryIdx--;
+  _sopHistoryApply(_sopHistory[_sopHistoryIdx]);
+}
+function sopRedo() {
+  if (_sopHistoryIdx >= _sopHistory.length - 1) return;
+  _sopHistoryIdx++;
+  _sopHistoryApply(_sopHistory[_sopHistoryIdx]);
+}
+window.sopUndo = sopUndo;
+window.sopRedo = sopRedo;
+
+function _sopHistoryUpdateButtons() {
+  const u = document.getElementById('sop-undo-btn');
+  const r = document.getElementById('sop-redo-btn');
+  if (u) {
+    const canUndo = _sopHistoryIdx > 0;
+    u.disabled = !canUndo;
+    u.style.opacity = canUndo ? '1' : '0.35';
+    u.style.cursor  = canUndo ? 'pointer' : 'not-allowed';
+  }
+  if (r) {
+    const canRedo = _sopHistoryIdx < _sopHistory.length - 1;
+    r.disabled = !canRedo;
+    r.style.opacity = canRedo ? '1' : '0.35';
+    r.style.cursor  = canRedo ? 'pointer' : 'not-allowed';
+  }
+}
+
+// Keyboard: Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z (or Ctrl/Cmd+Y) = redo.
+// Only when the SOP section is visible and focus isn't in a regular input.
+function _sopHistoryKeyHandler(ev) {
+  const sec = document.getElementById('section-sop');
+  if (!sec || sec.style.display === 'none' || !sec.offsetParent) return;
+  // Ignore if user is typing into a normal <input>/<textarea>, but DO handle
+  // contenteditable text inside boxes — they shouldn't block undo of structural
+  // changes.
+  const tgt = ev.target;
+  if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.tagName === 'SELECT')) return;
+  const ctrl = ev.ctrlKey || ev.metaKey;
+  if (!ctrl) return;
+  const key = ev.key.toLowerCase();
+  if (key === 'z' && !ev.shiftKey) {
+    ev.preventDefault();
+    sopUndo();
+  } else if ((key === 'z' && ev.shiftKey) || key === 'y') {
+    ev.preventDefault();
+    sopRedo();
+  }
+}
+
+// ----- Add a new empty top-level box (Edit Mode only) -----
+function sopAddBox() {
+  if (!_sopEditing) {
+    if (typeof toast === 'function') toast('Turn on Edit Mode to add boxes.', 'warn');
+    return;
+  }
+  const canvas = document.getElementById('sop-canvas');
+  if (!canvas) return;
+  const newId = 'sop-box-custom-' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'sop-box';
+  div.dataset.sopId = newId;
+  div.style.left = '40px';
+  div.style.top  = '40px';
+  div.style.width  = '260px';
+  div.style.height = '180px';
+  div.innerHTML =
+    '<div class="sop-title t-purple" contenteditable="' + (_sopEditing ? 'true' : 'false') + '">New Box</div>' +
+    '<ul class="sop-list"><li contenteditable="' + (_sopEditing ? 'true' : 'false') + '">First item</li></ul>';
+  canvas.appendChild(div);
+  // Use the canonical plumbing path — assigns ID + attaches × delete,
+  // resize handle, AND the + Inside button (so the user can nest right away).
+  _sopAssignIdsAndRestore();
+  _sopSnapshotBox(div);
+  _sopRenderArrows();
+}
+window.sopAddBox = sopAddBox;
+
+// ----- Reset to default (wipe all saved state) -----
+function sopResetDefault() {
+  if (!confirm('Reset the SOP to its original layout? All your edits will be lost.')) return;
+  try { localStorage.removeItem(_SOP_LS_KEY); } catch (_) {}
+  location.reload();
+}
+window.sopResetDefault = sopResetDefault;
+
+// ===== One-time wire-up on page load =====
+// Load saved state, assign IDs, restore overrides, and attach the global
+// drag listeners. We only attach the drag listeners once at the document
+// level; the per-box check inside the handler filters by SOP context.
+(function _sopInit() {
+  const start = () => {
+    _sopLoadState();
+    _sopAssignIdsAndRestore();
+    _sopWatchResize();
+    // Apply restored zoom and draw any saved arrows.
+    _sopApplyZoom();
+    setTimeout(() => { _sopRenderArrows(); }, 50);
+    // Global drag listeners — only act when an SOP box is being dragged.
+    document.addEventListener('mousedown', _sopDragStart);
+    document.addEventListener('mousemove', _sopDragMove);
+    document.addEventListener('mouseup', _sopDragEnd);
+    // Pan listeners (middle-click drag, or left-click on empty canvas)
+    document.addEventListener('mousedown', _sopPanStart);
+    document.addEventListener('mousemove', _sopPanMove);
+    document.addEventListener('mouseup', _sopPanEnd);
+    // Ctrl/Cmd + wheel zooms; wheel alone is left to native scroll for pan.
+    const vp = document.getElementById('sop-viewport');
+    if (vp) vp.addEventListener('wheel', _sopWheelZoom, { passive: false });
+    // Esc cancels arrow-add mode
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && _sopArrowAddType) _sopCancelAddArrow();
+    });
+    // Undo/Redo keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z, Cmd on Mac)
+    document.addEventListener('keydown', _sopHistoryKeyHandler);
+    // First-time fit pass (some boxes might be smaller than natural content
+    // because of saved sizes). Delayed slightly so the layout settles. After
+    // the layout settles, take the initial undo snapshot so the user can
+    // always undo back to the starting state.
+    setTimeout(() => {
+      _sopFitAllBoxes();
+      _sopRenderArrows();
+      _sopHistoryPush();   // baseline entry
+      _sopHistoryUpdateButtons();
+    }, 100);
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
+})();
+
+// When user navigates INTO the SOP tab, re-fit every box. CSS calc + scale
+// only measures correctly when the section is visible (display:none yields
+// 0 sizes), so we trigger the fit pass at the moment the section becomes
+// visible. Hook into goSection if available.
+(function _sopWireSectionShow() {
+  if (typeof window === 'undefined') return;
+  const orig = window.goSection;
+  if (typeof orig !== 'function') return;
+  window.goSection = function (s) {
+    const r = orig.apply(this, arguments);
+    if (s === 'sop') {
+      setTimeout(() => {
+        _sopFitAllBoxes();
+        _sopApplyZoom();
+        _sopRenderArrows();
+      }, 60);
+    }
+    return r;
+  };
+})();
+
 // ----- "🔨 Add to Renovation" header button -----
 // Visible only when:
 //   1. The current deal's Offer Status is "Closed" (Dropped deals don't get
@@ -14899,6 +17192,39 @@ const _UW_COSMETIC_LABEL_SUBSTRINGS = [
   'paint', 'floor', 'fixture', 'cabinet', 'tile', 'vanity', 'counter', 'backsplash', 'appliance', 'trim'
 ];
 
+// Keyword-based classifier for v2 (new rehab calculator) item labels.
+// Maps each item label to one of the SOW phase IDs (demo / restructure /
+// mechanicals / cosmetics / cabinetry / punch-list). Shared by the SOW
+// renderer AND the auto-fill so the days a phase gets always match the
+// items rendered under it. Returns null when no match.
+function _uwClassifyV2Label(label) {
+  const s = String(label || '').toLowerCase();
+  if (!s) return null;
+  if (/punch\s*list|touch.?up|caulk\s|final\s*clean|sweep|walk.?through/.test(s))       return 'punch-list';
+  if (/trash|dumpster|haul|\bdemolition\b|\bdemo\b|clean.?out|junk/.test(s) ||
+      /\bpermit/.test(s) ||
+      /odor|\bmold\b|asbestos|lead\s*paint|biohaz/.test(s) ||
+      /tree\s*removal|deck\s*removal|chimney\s*removal/.test(s))                         return 'demo';
+  if (/subfloor|floor\s*leveling/.test(s) ||
+      /foundation|joist|\bstud\b|framing|structural|\bbeam\b|load.?bearing|sill\s*plate|crawl\s*space|carbon\s*fiber|re.?point|\bmortar\b|wall\s*anchor|helical|egress\s*window/.test(s) ||
+      /insulation|drywall/.test(s) ||
+      /garage\s*add|room\s*add|basement\s*finish|attic\s*conversion|pop.?top|\badu\b/.test(s) ||
+      /chimney/.test(s) ||
+      /\broof\b|gutter|soffit|fascia|siding|\bwindow\b|exterior\s*door|garage\s*door/.test(s))  return 'restructure';
+  if (/furnace|condenser|\bac\b|heat\s*pump|mini.?split|thermostat|\bhvac\b|ductwork|range\s*hood|exhaust\s*fan|\bvent\b/.test(s) ||
+      /\bwir(?:ing|es?)\b|panel\s*upgrade|\bbreaker\b|ev\s*charger|generator/.test(s) ||
+      /supply\s*line|drain\s*line|plumbing\s*vent|water\s*heater|water\s*softener|water\s*filter/.test(s) ||
+      /septic|leach\s*field|well\s*drill|\bsewer\b|sump|french\s*drain/.test(s) ||
+      /radon/.test(s))                                                                   return 'mechanicals';
+  if (/outdoor\s*light|landscap|driveway|fence|\bporch\b|\bpatio\b/.test(s) ||
+      /tub|shower|\btil(?:e|ing)\b|interior\s*door|\bfloor(?:ing)?\b|\btrim\b|molding|stair|railing|paint/.test(s))  return 'cosmetics';
+  if (/cabinet|kitchen\s*island|vanity|mirror|medicine/.test(s) ||
+      /countertop|backsplash|appliance/.test(s) ||
+      /\bsink\b|faucet|disposal|toilet|fixture|smoke|carbon|co\s*detect|chandelier|\blight(?:ing)?\b|hardware|\bknob\b/.test(s))  return 'cabinetry';
+  return 'cosmetics';
+}
+window._uwClassifyV2Label = _uwClassifyV2Label;
+
 function _uwClassifyRehabItem(item) {
   // Returns one of: 'demo' | 'mechanicals' | 'cosmetics' | 'planning-trigger' | null
   // (planning-trigger items are also mechanicals — caller checks both lists.)
@@ -14924,41 +17250,142 @@ function _uwIsPlanningTrigger(item) {
 // names + parallel flag, so any custom phases the user added stick around
 // (with whatever their existing days are — only the well-known phase IDs
 // get recalculated).
-function uwScopeAutoFillFromRehab() {
-  if (!_uwCurrentId) { if (typeof toast === 'function') toast('Open a deal first', 'warn'); return; }
+// Returns the "final" rehab budget — override if the user has typed one,
+// otherwise the calculator's subtotal (raw × contingency). Used by every
+// downstream calc (renovation timeline, SOW auto-fill, burn-down) so a
+// single source of truth governs the rehab number.
+window._uwGetRehabFinal = function() {
+  const ovEl = document.getElementById('uw-rehab-override');
+  const ov = ovEl ? (parseFloat(String(ovEl.value).replace(/,/g, '')) || 0) : 0;
+  if (ov > 0) return ov;
+  return (typeof _uwRehabLastActual === 'number') ? _uwRehabLastActual : 0;
+};
+
+function uwScopeAutoFillFromRehab(silent) {
+  // silent=true: skip the toast notification (used by automatic re-runs
+  // hooked into the rehab cascade). silent omitted/false: show the toast
+  // (manual ✨ Auto-fill button click).
+  if (!_uwCurrentId) {
+    if (!silent && typeof toast === 'function') toast('Open a deal first', 'warn');
+    return;
+  }
   const phases = _uwGetScopePhases();
   if (!phases) return;
-  // Walk every "needed" rehab item, classify into demo / mechanicals / cosmetics.
-  let demoCount = 0, mechCount = 0, cosmeticCount = 0;
+  // ===== Phase days = phase budget / $750 (matches the renovation timeline) =====
+  // For each rehab item we know the user has checked, classify it using the
+  // SAME logic the SOW renderer uses — _uwClassifyV2Label — so the days that
+  // a phase gets always match the items shown under it.
+  // Items per phase are counted; the grand total is then split across phases
+  // in proportion to those counts; each phase's days = ceil(budget / 750).
+  // Use the override-aware rehab total — _uwGetRehabFinal returns the
+  // manual override when set, otherwise the calc subtotal.
+  const grandTotal = (typeof window._uwGetRehabFinal === 'function')
+    ? window._uwGetRehabFinal()
+    : ((typeof _uwRehabLastActual === 'number' && _uwRehabLastActual > 0) ? _uwRehabLastActual : 0);
+  // Phase counters — every phase ID the renderer uses must be represented.
+  const phaseItems = { demo: 0, restructure: 0, mechanicals: 0, cosmetics: 0, cabinetry: 0, 'punch-list': 0 };
+  let totalItems = 0;
   let anyPlanningTrigger = false;
-  if (Array.isArray(_uwRehabState)) {
+  // Source 1 (preferred): v2 rehab calc via _rcGetScopeByGroup — every item
+  // gets fed through the keyword classifier.
+  let usedV2 = false;
+  if (typeof window._rcGetScopeByGroup === 'function') {
+    const groups = window._rcGetScopeByGroup() || [];
+    if (groups.length > 0) {
+      usedV2 = true;
+      groups.forEach(g => {
+        (g.items || []).forEach(name => {
+          const cls = (typeof _uwClassifyV2Label === 'function') ? _uwClassifyV2Label(name) : null;
+          if (cls && phaseItems.hasOwnProperty(cls)) {
+            phaseItems[cls]++;
+            totalItems++;
+          }
+          // Planning + Restructure trigger: drain / supply / electrical / septic
+          if (/drain|supply|elec(?:tric)?\s*wir|septic|panel\s*upgrade|breaker/.test(name.toLowerCase())) {
+            anyPlanningTrigger = true;
+          }
+        });
+      });
+    }
+  }
+  // Source 2 (fallback): legacy v1 _uwRehabState — used by older deals or if
+  // the v2 calc isn't initialized yet.
+  if (!usedV2 && Array.isArray(_uwRehabState)) {
     _uwRehabState.forEach(col => {
       (col.items || []).forEach(item => {
         if (!item || !item.needed) return;
-        if (_uwIsPlanningTrigger(item)) anyPlanningTrigger = true;
-        const cls = _uwClassifyRehabItem(item);
-        if (cls === 'demo')        demoCount++;
-        else if (cls === 'mechanicals') mechCount++;
-        else if (cls === 'cosmetics')   cosmeticCount++;
+        if (typeof _uwIsPlanningTrigger === 'function' && _uwIsPlanningTrigger(item)) anyPlanningTrigger = true;
+        const cls = (typeof _uwClassifyV2Label === 'function') ? _uwClassifyV2Label(item.label) : null;
+        if (cls && phaseItems.hasOwnProperty(cls)) {
+          phaseItems[cls]++;
+          totalItems++;
+        }
       });
     });
   }
-  // Suggested durations:
-  //   Demo         = 3 base + 2 per demo item, min 3 / max 14
-  //   Planning     = 7 if any planning trigger, else 0
-  //   Restructure  = 10 if any planning trigger, else 0
-  //   Mechanicals  = 5 base + 2 per mech item, min 5 / max 30
-  //   Cosmetics    = 5 base + 1.5 per cosmetic item, min 5 / max 30
-  //   Punch List   = 3-5 default (left at 5 unless customized)
-  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
+  // ===== Distribute grand total + days across rehab phases =====
+  // Two requirements:
+  //   (a) Phase BUDGETS sum exactly to grandTotal (used for burn-down).
+  //   (b) Phase DAYS sum exactly to totalRenoDays = ceil(grandTotal/750), so
+  //       the SOW gantt total matches the rehab calc's renovation timeline
+  //       (no more 80 vs 87 mismatch).
+  //
+  // We allocate proportionally by phase item count; if nothing classifies,
+  // fall back to typical industry proportions (15% demo, 20% restructure,
+  // 20% mech, 20% cosm, 20% cabinetry, 5% punch).
+  const fallbackPct = { demo: 0.15, restructure: 0.20, mechanicals: 0.20, cosmetics: 0.20, cabinetry: 0.20, 'punch-list': 0.05 };
+  const renoPhaseIds = ['demo', 'restructure', 'mechanicals', 'cosmetics', 'cabinetry', 'punch-list'];
+  // Punch List always gets a small share even if no items map there (it's a
+  // standard final phase — touch-ups + walk-through).
+  if (phaseItems['punch-list'] === 0 && totalItems > 0) {
+    phaseItems['punch-list'] = Math.max(1, Math.round(totalItems * 0.05));
+    totalItems += phaseItems['punch-list'];
+  }
+  // Phase proportions
+  const phaseProp = {};
+  renoPhaseIds.forEach(id => {
+    phaseProp[id] = totalItems > 0
+      ? (phaseItems[id] / totalItems)
+      : (fallbackPct[id] || 0);
+  });
+  // Phase budgets — clean proportional split
+  const phaseBudgets = {};
+  renoPhaseIds.forEach(id => { phaseBudgets[id] = grandTotal * phaseProp[id]; });
+  // Total renovation days target (same as the rehab calc's project duration)
+  const totalRenoDays = grandTotal > 0 ? Math.ceil(grandTotal / 750) : 0;
+  // Allocate days with floor + redistribute remainder by largest fractional
+  // part. This guarantees sum(phaseDays) === totalRenoDays exactly.
+  const daysFloat = {}, daysFloor = {};
+  let remainder = totalRenoDays;
+  renoPhaseIds.forEach(id => {
+    daysFloat[id]  = phaseProp[id] * totalRenoDays;
+    daysFloor[id]  = Math.floor(daysFloat[id]);
+    remainder -= daysFloor[id];
+  });
+  const fracSorted = renoPhaseIds.slice().sort((a, b) =>
+    (daysFloat[b] - daysFloor[b]) - (daysFloat[a] - daysFloor[a])
+  );
+  for (let i = 0; i < remainder; i++) {
+    daysFloor[fracSorted[i % fracSorted.length]] += 1;
+  }
   const suggestions = {
-    'demo':        clamp(3 + demoCount * 2,        3,  14),
+    'demo':        daysFloor['demo']        || 0,
+    'restructure': daysFloor['restructure'] || 0,
+    'mechanicals': daysFloor['mechanicals'] || 0,
+    'cosmetics':   daysFloor['cosmetics']   || 0,
+    'cabinetry':   daysFloor['cabinetry']   || 0,
+    'punch-list':  daysFloor['punch-list']  || 0,
     'planning':    anyPlanningTrigger ? 7 : 0,
-    'restructure': anyPlanningTrigger ? 10 : 0,
-    'mechanicals': clamp(5 + mechCount * 2,        5,  30),
-    'cosmetics':   clamp(5 + cosmeticCount * 1.5,  5,  30),
-    'punch-list':  5,
   };
+  // Stash the per-phase budget allocations on the current deal so the
+  // renderer can use them to display "Remaining: $X" per phase row.
+  try {
+    const u = (_uwCurrentId && cache && cache.underwrites) ? cache.underwrites[_uwCurrentId] : null;
+    if (u) {
+      if (!u.data) u.data = {};
+      u.data._scopePhaseBudgets = phaseBudgets;
+    }
+  } catch (_) {}
   let updated = 0;
   phases.forEach(p => {
     if (suggestions.hasOwnProperty(p.id)) {
@@ -14968,11 +17395,9 @@ function uwScopeAutoFillFromRehab() {
   });
   _uwSaveScopePhases();
   if (typeof uwRenderScopeOfWork === 'function') uwRenderScopeOfWork();
-  if (typeof toast === 'function') {
-    const triggerNote = anyPlanningTrigger
-      ? 'Planning + Restructure included (drain/supply/electrical/septic detected).'
-      : 'No drain/supply/electrical/septic items — Planning + Restructure set to 0d.';
-    toast('Phase days auto-filled · ' + triggerNote, 'ok');
+  if (!silent && typeof toast === 'function') {
+    const fallbackNote = totalItems === 0 ? ' (fallback proportions — no rehab items detected)' : '';
+    toast('Phase days set @ $750/day' + fallbackNote, 'ok');
   }
 }
 window.uwScopeAutoFillFromRehab = uwScopeAutoFillFromRehab;
@@ -15603,6 +18028,32 @@ function uwRenderScopeOfWork() {
     // Repossession blocks parallel phases — parallel phases run AFTER it.
     const repoPhase2 = phases.find(p => p.id === 'repossession');
     const parOffsetRow = repoPhase2 ? (Number(repoPhase2.days) || 0) : 0;
+    // ===== Per-phase remaining budget (phase burn-down) =====
+    // At the start of each phase, show how much of the renovation budget is
+    // still available — total minus the BUDGETS of all earlier rehab phases.
+    // Walks phases in order, accumulates each phase's saved budget, and the
+    // next phase's remaining = total − accumulated. Repossession + Listing
+    // are non-rehab phases (no budget impact). This burns down at the phase
+    // level regardless of whether individual items are marked done — gives
+    // a clean "at this stage you'll have X left in the kitty" view.
+    // Override-aware rehab total — same source as the renovation timeline
+    // and SOW auto-fill so all three stay in lockstep.
+    const _grandTotal = (typeof window._uwGetRehabFinal === 'function')
+      ? window._uwGetRehabFinal()
+      : ((typeof _uwRehabLastActual === 'number' && _uwRehabLastActual > 0) ? _uwRehabLastActual : 0);
+    const _phaseBudgetsSaved = (u2 && u2.data && u2.data._scopePhaseBudgets) || {};
+    const remainingAtStart = {};
+    {
+      let runningSpent = 0;
+      phases.forEach(p => {
+        remainingAtStart[p.id] = Math.max(0, _grandTotal - runningSpent);
+        // Add THIS phase's budget to the running total so the NEXT phase
+        // shows the burn-down. Phases without a saved budget (repossession,
+        // marketing/listing, custom user phases) contribute 0.
+        const phaseBudget = _phaseBudgetsSaved[p.id] || 0;
+        runningSpent += phaseBudget;
+      });
+    }
     let cumulative = 0;
     listEl.innerHTML = phases.map(p => {
       const safeId = escapeHtml(p.id);
@@ -15687,6 +18138,14 @@ function uwRenderScopeOfWork() {
           '</div>' +
           '<span class="text-xs" style="color:var(--text-dim)">days</span>' +
           endLabel +
+          // Remaining renovation budget at the START of this phase. Useful
+          // for spotting when you'll run low on cash — if $58k remains at
+          // demo but only $4k at cabinetry, you can see the burn-down.
+          // Only shown when the grand-total is set (skip on $0 / unknown).
+          (_grandTotal > 0
+            ? '<span class="text-xs" data-scope-remaining="' + safeId + '" style="color:#6ee7b7;min-width:140px;text-align:right;white-space:nowrap;flex-shrink:0" title="Estimated renovation budget remaining at the START of this phase (total − paid items in earlier phases)">💰 $' + Math.round(remainingAtStart[p.id]).toLocaleString() + ' left</span>'
+            : ''
+          ) +
           // Remove (✕) button — hidden for stock phases so they can't be
           // accidentally deleted. Custom user-added phases still removable.
           (['repossession','demo','restructure','mechanicals','cosmetics','cabinetry','punch-list','marketing'].includes(p.id)
@@ -20211,9 +22670,35 @@ function goSection(s) {
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.section === s));
   document.querySelectorAll(".section-content").forEach(el => el.style.display = "none");
   const target = document.getElementById("section-" + s);
-  if (target) target.style.display = "block";
+  // SOP uses a fullscreen flex layout; everything else uses block.
+  if (target) target.style.display = (s === "sop") ? "flex" : "block";
+  // Toggle a body class so the fullscreen CSS for SOP (hides section-tabs
+  // row, sizes the section to fill the viewport) only applies when SOP is
+  // the active section.
+  document.body.classList.toggle('sop-active', s === 'sop');
   if (s === "results" && typeof updateResultsDBCount === "function") updateResultsDBCount();
 }
+
+// SOP toggle — the header's 📋 SOP button calls this so clicking once opens
+// SOP, clicking again returns to the section the user was on before. The
+// previous section is remembered between calls so a quick check-of-the-SOP-
+// then-back-to-work flow is one button press in each direction.
+let _sopPrevSection = 'data';
+function toggleSopSection() {
+  if (document.body.classList.contains('sop-active')) {
+    // Already on SOP — go back to the remembered previous section.
+    goSection(_sopPrevSection || 'data');
+  } else {
+    // Save the currently-visible section (so we can return on the next click).
+    const cur = Array.from(document.querySelectorAll('.section-content'))
+      .find(el => el.style.display && el.style.display !== 'none');
+    if (cur && cur.id && cur.id.startsWith('section-')) {
+      _sopPrevSection = cur.id.replace('section-', '');
+    }
+    goSection('sop');
+  }
+}
+window.toggleSopSection = toggleSopSection;
 function goResView(v) {
   document.querySelectorAll('.subtab[data-resview]').forEach(t => t.classList.toggle('active', t.dataset.resview === v));
   document.querySelectorAll('[data-resview-panel]').forEach(p => { p.style.display = (p.dataset.resviewPanel === v) ? '' : 'none'; });
@@ -31455,15 +33940,26 @@ function recalc(){
   const rawDays = hrs/8;
   const crewDays = rawDays/crew;
   // Convert crew work days (Mon–Fri schedule) to calendar days. 5 work days
-  // = 1 week = 7 calendar days. Round UP to whole weeks so the timeline is
-  // cleanly bounded (e.g. 19 work days → ceil(19/5)=4 weeks → 28 cal days).
+  // = 1 week = 7 calendar days. Kept around as informational display in
+  // s-raw + s-crew, but NO LONGER drives the actual renovation timeline.
   const _weeksMF  = Math.ceil(crewDays / 5);
   const calDays   = _weeksMF * 7;
-  // Single buffer factor on calendar days — replaces the old chained
-  // "30% bottleneck × 25% contingency" pair the user found confusing.
-  // Rounded UP so the "X + Y" display always sums to clean integers.
   const _bufferDays = Math.ceil(calDays * 0.25);
-  const finDaysBase = calDays + _bufferDays;
+  // ===== Renovation timeline (budget-based) =====
+  // Every $750 of rehab grand-total = 1 day, rounded UP to the next whole
+  // day. Reads the OVERRIDE first — if the user typed a manual rehab number
+  // in the Override Rehab $ field, that value drives the timeline instead
+  // of the calculator-derived subtotal. Falls back to (raw total × cost
+  // contingency) when no override is set.
+  //   $750  → 1 day      $3,000  → 4 days    $15,000 → 20 days
+  //   $1,500 → 2 days    $5,000  → 7 days    $30,000 → 40 days
+  const _ovTimingEl = document.getElementById('uw-rehab-override');
+  const _ovTimingVal = _ovTimingEl ? (parseFloat(String(_ovTimingEl.value).replace(/,/g, '')) || 0) : 0;
+  const _grandTotalForTiming = _ovTimingVal > 0
+    ? _ovTimingVal
+    : (total * (1 + costCont/100));
+  const _budgetDays = Math.max(0, Math.ceil(_grandTotalForTiming / 750));
+  const finDaysBase = _budgetDays;
   // Occupancy adjustment — non-vacant adds 60 days (~2 months) for repossession.
   // Tenancy dropdown is informational only — doesn't affect the timeline.
   const _occEl = document.getElementById('rc-occupancy');
@@ -31484,14 +33980,16 @@ function recalc(){
   // days (rounded up). Subtext shows the underlying work days + the single
   // buffer factor — no separate "contingency" anymore.
   const _renoTotalDays = finDaysBase;
-  document.getElementById('s-cal').textContent = _bufferDays > 0
-    ? (calDays + ' + ' + _bufferDays)
-    : calDays.toLocaleString();
+  // s-cal now displays the budget-based renovation timeline instead of the
+  // labor calc. Format: just the rounded-up day count. The subtext shows
+  // how it was derived ($budget ÷ $750 = days).
+  document.getElementById('s-cal').textContent = _budgetDays.toLocaleString();
   const _sCalLabel = document.getElementById('s-cal-label');
-  if (_sCalLabel) _sCalLabel.textContent = 'Renovation w/ Crew (' + crew + ')';
+  if (_sCalLabel) _sCalLabel.textContent = 'Renovation Timeline';
   const _sCalSub = document.getElementById('s-cal-sub');
   if (_sCalSub) {
-    _sCalSub.textContent = Math.round(crewDays).toLocaleString() + ' work days + 25% buffer';
+    const _gtFmt = '$' + Math.round(_grandTotalForTiming).toLocaleString();
+    _sCalSub.textContent = _gtFmt + ' ÷ $750 = ' + _budgetDays + ' days';
   }
   // Repossession days — sourced from the Occupancy panel.
   // 60 days when occupied (any non-vacant value), 0 when vacant.
@@ -31752,6 +34250,19 @@ window._rcRecalc = function(){ if(typeof recalc === 'function') recalc(); };
 //   - finish level, crew, cost/time contingencies
 // Rate edits (LAB Custom .r values) are NOT saved per-deal — they're a global
 // preference saved to localStorage under LAB_STORAGE_KEY.
+// Exposed wrapper around the IIFE's internal recalc(). Used by external
+// inputs that don't live in _rcRoot (like the Rehab Override field in the
+// Underwriting form) to force a refresh of the rehab calc displays after
+// they change. Re-entry guarded so the bridge code inside recalc() that
+// calls back into uwRecalcRehabFinal can't loop.
+let _rcRecalcInProgress = false;
+window._rcRecalc = function(){
+  if (_rcRecalcInProgress) return;
+  _rcRecalcInProgress = true;
+  try { recalc(); } catch(e) { console.warn('[_rcRecalc]', e); }
+  finally { _rcRecalcInProgress = false; }
+};
+
 window._rcGetState = function(){
   try {
     const out = { v: 1, items: {}, specialCases: [] };

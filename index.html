@@ -485,6 +485,24 @@
 </div>
 
 <!-- Geocode cost modal -->
+<!-- Rescan All Profits overlay — fullscreen loading screen shown during the
+     bulk rescan operation. Blocks clicks on the rest of the app so the user
+     doesn't accidentally interrupt the cascade-load-save loop. Z-index above
+     other modals so it always sits on top. -->
+<div id="uw-rescan-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+  <div style="text-align:center;padding:40px;max-width:480px">
+    <div style="font-size:48px;margin-bottom:18px">🔄</div>
+    <div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px">Rescanning all deals…</div>
+    <div id="uw-rescan-subtext" style="font-size:14px;color:var(--text-dim);margin-bottom:20px;line-height:1.5">Each deal gets loaded into the calculator, the cascade re-runs, and the corrected profit is saved back to Supabase. This can take a few minutes for large lists.</div>
+    <div style="background:var(--panel-2);border:1px solid var(--border);border-radius:999px;height:14px;overflow:hidden;margin-bottom:12px">
+      <div id="uw-rescan-bar" style="background:linear-gradient(90deg, #6366f1, #a5b4fc);height:100%;width:0%;transition:width 0.25s ease;border-radius:999px"></div>
+    </div>
+    <div id="uw-rescan-progress" style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:18px">0 of 0 deals</div>
+    <div id="uw-rescan-current" style="font-size:11px;color:var(--text-dim);margin-bottom:22px;min-height:14px;font-family:monospace"></div>
+    <button class="btn btn-ghost text-sm" id="uw-rescan-cancel-btn" onclick="window._uwRescanCancel = true" style="padding:8px 22px;color:#f87171;border:1px solid rgba(239,68,68,0.4)" title="Stop the rescan after the current deal finishes saving. Already-processed deals keep their new values.">✕ Cancel after current deal</button>
+  </div>
+</div>
+
 <div id="modal-geo-cost" class="modal-bg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this) this.style.display='none'">
   <div class="panel" style="max-width:520px;width:92%;padding:20px;max-height:90vh;overflow:auto">
     <div class="flex items-center justify-between mb-2">
@@ -2862,7 +2880,7 @@
             <div>
               <div>Estimated Total</div>
               <div id="basic-total" style="font-family:monospace;font-weight:700;font-size:24px;color:#10b981">$0</div>
-              <div style="font-size:10px;color:var(--text-dim);margin-top:1px;font-style:italic">excludes special cases &amp; contingency</div>
+              <div style="font-size:10px;color:var(--text-dim);margin-top:1px;font-style:italic">includes special cases · excludes contingency</div>
             </div>
           </div>
         </div>
@@ -3081,7 +3099,7 @@
       <!-- ====== WHOLETAIL editable assumptions ======
            Each field has a default `value=` so the math works even when no
            deal is loaded; per-deal overrides are persisted via UW_FIELDS. -->
-      <div data-uw-slot="wt-sale-pct"><label class="text-xs">Resale % of ARV<input type="number" id="uw-wt-sale-pct" value="70" step="1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="wt-sale-pct"><label class="text-xs">Resale % of ARV<input type="number" id="uw-wt-sale-pct" value="75" step="1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="wt-cap-pct"><label class="text-xs">Capital Invested (% of ARV)<input type="number" id="uw-wt-cap-pct" value="10" step="1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="wt-reno-mo"><label class="text-xs">Renovation Time (mo)<input type="number" id="uw-wt-reno-mo" value="1" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="wt-listed-mo"><label class="text-xs">Listed Time (mo)<input type="number" id="uw-wt-listed-mo" value="2" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
@@ -3207,7 +3225,7 @@
     <!-- ===== Timeline (Flip + Refi only) =====
          Sliding-scale tool for the renovation scope. Drives the auto-default
          "Renovation Time" on the Flip + Rental-Refi cards. Doesn't apply to
-         Wholesale (no construction) or Wholetail (capped at 120 days).
+         Wholesale (no construction) or Wholetail (capped at 90 days).
          Listed-time defaults to 2.5 mo regardless of scope (market-driven). -->
     <div class="panel p-5 mb-4" data-uw-section="timeline" data-uw-section-label="📅 Timeline" style="border:2px solid #06b6d4;background:rgba(6,182,212,0.06)">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:8px">
@@ -3921,6 +3939,11 @@
           <input id="uw-all-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none">
           <input id="uw-all-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none">
           <input id="uw-all-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <!-- Rescan All Profits — loops every cached deal through the live
+               calculator cascade and re-saves the corrected Flip / Wholetail /
+               Refi profits back to Supabase. Useful when the math has changed
+               and you want to refresh stale numbers all at once. -->
+          <button class="btn btn-ghost text-sm" onclick="uwRescanAllProfits()" title="Open each deal in the calculator one-by-one, recompute Flip / Wholetail / Refi profits with the current math, and save the corrected values to Supabase. Use this once after big formula changes to refresh stale numbers app-wide." style="white-space:nowrap;border:1px solid rgba(99,102,241,0.4);color:#a5b4fc">🔄 Rescan All Profits</button>
         </div>
       </div>
       <div id="uw-all-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -4113,7 +4136,7 @@
         <div class="text-sm mt-3" style="line-height:1.7">
           <p>Five strategies are computed in parallel using your inputs. The card with the green border + "BEST" badge is the highest annualized return.</p>
           <p class="mt-2"><b>🤝 Wholesale (Assignment)</b> — never close, assign the contract to a cash investor. Profit = (70% ARV − rehab) − your contract price. Days to close ≈ 14. Capital tied up = $0.</p>
-          <p class="mt-2"><b>🔨 Wholetail</b> — light cosmetic ($5k or 1/3 of full rehab, whichever is less), sell at ~85% ARV. ~2 month timeline.</p>
+          <p class="mt-2"><b>🔨 Wholetail</b> — light cosmetic + clean-out (capped at $30/sqft), sell at ~80% ARV. Max 90-day timeline; anything heavier or longer is a full Flip.</p>
           <p class="mt-2"><b>🏗️ Full Flip</b> — full rehab + retail sale at ARV. Use the rehab months + listing months to set timeline.</p>
           <p class="mt-2"><b>💵 Cash Rental</b> — buy with cash, no leverage. Pure cashflow + cap rate. Capital tied up = buy + rehab + closing.</p>
           <p class="mt-2"><b>🏦 Financed Rental</b> — 25% down, 75% loan at 6.5% / 30yr. Best leveraged return.</p>
@@ -4166,7 +4189,7 @@
           <div>Real Profit = ARV − Effective Buy Price − Total Flip Cost</div>
           <div>Commission = (Max Offer − Accepted/Asking) × 15%</div>
           <div>Wholesale Profit = (70% ARV − Rehab) − Buy Price</div>
-          <div>Wholetail Sale = 85% ARV</div>
+          <div>Wholetail Sale = 80% ARV (standard)</div>
           <div>Cap Rate = (Annual Rent × 0.55) ÷ ARV</div>
           <div>Financed Rental Down = (Buy + Rehab) × 25%</div>
         </div>
@@ -6354,7 +6377,7 @@ function uwNewDeal() {
     'uw-buy-agent-pct': '2.5', 'uw-loan-rate': '6.5',
     'uw-loan-yrs': '30', 'uw-units': '1', 'uw-units-rental': '1',
     // Wholetail defaults — match the documented assumptions in uwComputeExits
-    'uw-wt-sale-pct': '70', 'uw-wt-cap-pct': '10',
+    'uw-wt-sale-pct': '75', 'uw-wt-cap-pct': '10',
     'uw-wt-reno-mo': '1', 'uw-wt-listed-mo': '2',
     'uw-wt-elec': '', 'uw-wt-water': '',
     'uw-wt-ins': '150', 'uw-wt-tax': '',
@@ -7118,7 +7141,7 @@ function uwReset() {
     'uw-buy-agent-pct': '2.5', 'uw-loan-rate': '6.5',
     'uw-loan-yrs': '30', 'uw-units': '1', 'uw-units-rental': '1',
     // Wholetail defaults — match the documented assumptions in uwComputeExits
-    'uw-wt-sale-pct': '70', 'uw-wt-cap-pct': '10',
+    'uw-wt-sale-pct': '75', 'uw-wt-cap-pct': '10',
     'uw-wt-reno-mo': '1', 'uw-wt-listed-mo': '2',
     'uw-wt-elec': '', 'uw-wt-water': '',
     'uw-wt-ins': '150', 'uw-wt-tax': '',
@@ -7340,6 +7363,21 @@ function uwRecalc() {
     _uwRehabState.forEach(col => (col.items || []).forEach(item => {
       if (item.needed) rehabActual += (item.price || 0) * sqft;
     }));
+  }
+  // Add SPECIAL CASES from the v2 Rehab Calculator. Each special case has a
+  // severity (light / moderate / heavy) that maps to a fixed dollar cost.
+  // Without this addition, special cases were displayed in the rehab calc UI
+  // but never flowed into the underwriting math — flip/wholetail/rental
+  // budgets all under-counted whenever the user marked a special case.
+  if (typeof specialCases !== 'undefined' && Array.isArray(specialCases)) {
+    specialCases.forEach(sc => {
+      if (!sc || !sc.sev) return;
+      let cost = 0;
+      if      (sc.sev === 'light')    cost = sc.light || 0;
+      else if (sc.sev === 'moderate') cost = sc.mod   || 0;
+      else if (sc.sev === 'heavy')    cost = sc.heavy || 0;
+      rehabActual += cost;
+    });
   }
   const rehabContingencyPct = _uwGetN('uw-rehab-contingency-pct');
   const rehabContingencyAmt = rehabActual * (rehabContingencyPct / 100);
@@ -7751,8 +7789,11 @@ function _uwWtCapPctFromIfp(sliderVal) {
   return _UW_WT_CAP_STOPS[_UW_WT_CAP_STOPS.length - 1].pct;
 }
 // ===== Wholetail "Resale % of ARV" default scale =====
-// Heavier rehab → buyers expect a bigger discount when you resell as-is, so
-// the resale percentage you can realistically clear drops as severity climbs.
+// HISTORICAL: this scale used to set the auto-default for resale % based on
+// rehab severity (Cosmetic 90% → Monster 65%). It's now superseded by a
+// standard 80% default applied in _uwApplyAutoWtSalePct above — the scale
+// values below are kept only in case any other code path still references
+// the table for reporting purposes. Active auto-apply ignores them.
 //   Cosmetic 90% · Light 85% · Medium 80% · Heavy 75% · Complete 70% · Monster 65%
 const _UW_WT_SALE_STOPS = [
   { x:   0, pct: 90 },
@@ -7801,8 +7842,13 @@ function _uwApplyAutoWtCapPct() {
     () => _uwWtCapPctFromIfp(_uwReadRehabScopeVal()));
 }
 function _uwApplyAutoWtSalePct() {
-  _uwApplyHardAuto('uw-wt-sale-pct',
-    () => _uwWtSalePctFromIfp(_uwReadRehabScopeVal()));
+  // Wholetail resale % is now a STANDARD 75% across the board — no longer
+  // scales with rehab severity. The previous rehab-aware scale (90→65%
+  // from Cosmetic→Monster) was overriding the user's expectation on
+  // light-rehab deals. The user can still manually type a different value
+  // in the Resale % field and it'll stick (_uwApplyHardAuto respects
+  // user-typed overrides).
+  _uwApplyHardAuto('uw-wt-sale-pct', () => 75);
 }
 // Auto-place the slider where the rehab/ARV ratio implies. Cosmetic ≤5%,
 // Complete ≥30%. Maps that range linearly onto the 0–80 portion of the
@@ -8249,19 +8295,35 @@ function uwComputeExits(ctx) {
     const n = parseFloat(el.value);
     return isFinite(n) && el.value !== '' ? n : def;
   };
-  const wtSalePct       = _wtVal('uw-wt-sale-pct', 70);  // resale = X% of ARV
+  const wtSalePct       = _wtVal('uw-wt-sale-pct', 75);  // resale = X% of ARV (standard wholetail)
   const wtCapPct        = _wtVal('uw-wt-cap-pct',  10);  // capital invested = X% of ARV
   // Timeline split into the two real phases — reno (light cosmetic + cleanup)
   // and listed (on market until close). Holding cost = (reno + listed) months.
   const wtRenoMo        = _wtVal('uw-wt-reno-mo',   1);
   const wtListedMo      = _wtVal('uw-wt-listed-mo', 2);
-  // Hard cap: wholetail = light-touch / clean-out exit, never more than 120
-  // days start to finish. If reno + listed exceeds 4 months, clamp here so
-  // holding costs and the annualized math reflect the realistic ceiling.
-  const WT_MAX_MONTHS   = 4;
+  // Hard cap: wholetail = light-touch / clean-out exit, never more than
+  // 90 days (3 months) start to finish. If reno + listed exceeds 3 months,
+  // clamp here so holding costs and the annualized math reflect the
+  // realistic ceiling. Anything longer than 90 days isn't a wholetail
+  // anymore — it's a full Flip and the Flip card handles it.
+  const WT_MAX_MONTHS   = 3;
   const wholetailMonths = Math.min(WT_MAX_MONTHS, wtRenoMo + wtListedMo);
   const wholetailSale   = arv * (wtSalePct / 100);
-  const wholetailRehab  = arv * (wtCapPct  / 100);
+  // Wholetail rehab budget = 60% of the full flip rehab. Captures the
+  // partial-reno nature of wholetail — meaningful cleanup + cosmetic
+  // touch-up, not full reno.
+  // The $30/sqft ceiling is a DISQUALIFIER, not a clamp: if 60% of flip
+  // rehab exceeds sqft × $30, this deal isn't a wholetail (it's a real
+  // flip) and the cascade rejects it. We do NOT silently clamp the
+  // displayed rehab amount to the cap — that hid the real math from the
+  // user and made the card look artificially profitable.
+  // Falls back to the % of ARV input ONLY if there's no flip rehab data
+  // yet (new deal, nothing priced) so the card doesn't render as $0.
+  const WT_REHAB_PER_SQFT_CAP = 30;
+  const WT_REHAB_PCT_OF_FLIP  = 0.60;
+  const _wtFromFlipFrac  = WT_REHAB_PCT_OF_FLIP * (fRehab || 0);
+  const _wtFallbackByPct = arv * (wtCapPct / 100);
+  const wholetailRehab   = _wtFromFlipFrac > 0 ? _wtFromFlipFrac : _wtFallbackByPct;
   // Itemized monthly holding costs (vacant property — user-editable)
   // Two different bases drive the Wholetail auto-defaults:
   //   • Utilities (Electric, Water/Sewer, Other utilities) scale with the
@@ -8351,7 +8413,15 @@ function uwComputeExits(ctx) {
   const wtFinTotalInt   = wtFinMonthlyInt * wholetailMonths;
   const wtFinProfit     = wholetailCashProfit - wtFinOrig - wtFinTotalInt;
   const wtFinAnnualized = wtFinProfit > 0 ? wtFinProfit * (12 / wholetailMonths) : 0;
-  const wtFinCapital    = wtFinDown + wtFinOrig;
+  // Capital tied up (Wholetail Financed) = real cash out of pocket only:
+  //   • Down payment   (typically $0 — loan is 100% of basis; only bumps
+  //                    above $0 if the 70% ARV cap forces equity in)
+  //   • Origination    (loan fee, paid at close — NOT loaned)
+  //   • Total interest (monthly interest payments during the hold)
+  // Holding + buying closing are NOT included — the loan basis already
+  // covers them (wtFinBaseCost = buy + rehab + holding + buying closing),
+  // so adding them here would double-count.
+  const wtFinCapital    = wtFinDown + wtFinOrig + (wtFinTotalInt || 0);
   // Mode resolution — picks Cash or Financed view. Mirrors the Flip pattern
   // so `wholetailProfit`, `wholetailAnnualized`, and `wholetailCapital` all
   // reflect whichever mode the user has the toggle set to.
@@ -8684,7 +8754,10 @@ function uwComputeExits(ctx) {
   const flPurchClosingTotal = flBuyClose + flPurchSellClose; // 3% of purchase
   // ====== Flip CASH math ======
   const flipCashProfit     = flipSale - buyPrice - flipRehabAmt - flPurchClosingTotal - flipHolding - flipSelling;
-  const flipCashCapital    = buyPrice + flipRehabAmt + flPurchClosingTotal; // money you put up
+  // Capital tied up (Flip Cash) = buy + rehab + holding + buying closing.
+  // Matches Wholetail Cash: holding costs ARE out of pocket in cash mode
+  // because there's no rent coming in during the rehab + listed period.
+  const flipCashCapital    = buyPrice + flipRehabAmt + (flipHolding || 0) + (flPurchClosingTotal || 0);
   const flipCashAnnualized = flipCashProfit > 0 ? flipCashProfit * (12 / flipMonths) : 0;
   // ====== Flip FINANCED math (hard money loan) ======
   // Editable: interest %/yr (default 12), origination % (default 2).
@@ -8710,7 +8783,15 @@ function uwComputeExits(ctx) {
   // Cash vs financed differ ONLY by the financing-cost adjustments (origination + interest)
   const flipFinProfit     = flipCashProfit - flHmOrig - flHmTotalInt;
   // Capital you actually put up = down + origination (loan covers buy + rehab + closing + holding)
-  const flipFinCapital    = flHmDown + flHmOrig;
+  // Capital tied up (Flip Financed) = real cash out of pocket only:
+  //   • Down payment   (typically $0 — loan is 100% of basis; only bumps
+  //                    above $0 if the 70% ARV cap forces equity in)
+  //   • Origination    (loan fee, paid at close — NOT loaned)
+  //   • Total interest (monthly interest payments during the hold)
+  // Holding + buying closing are NOT included — the loan basis already
+  // covers them (flBaseCost = buy + rehab + holding + buying closing),
+  // so adding them here would double-count.
+  const flipFinCapital    = flHmDown + flHmOrig + (flHmTotalInt || 0);
   const flipFinAnnualized = flipFinProfit > 0 ? flipFinProfit * (12 / flipMonths) : 0;
   // ====== Pick the active set based on the per-deal toggle ======
   const flipMode  = (typeof _uwFlipMode !== 'undefined' && _uwFlipMode === 'financed') ? 'financed' : 'cash';
@@ -8876,21 +8957,30 @@ function uwComputeExits(ctx) {
       mode: wholetailMode === 'financed' ? 'Financed' : 'Cash',
       profit: wholetailProfit, time: wholetailMonths + ' mo', timeMo: wholetailMonths,
       annualized: wholetailAnnualized,
-      lines: wholetailMode === 'financed' ? [
-        ['Resale @ ' + wtSalePct + '% ARV', fmt(wholetailSale)],
-        ['Capital invested (' + wtCapPct + '% ARV)', fmt(wholetailRehab)],
-        ['Down payment' + (wtFinCapBinds ? ' (70% ARV cap)' : ''), fmt(wtFinDown)],
-        ['Capital you put up', fmt(wtFinCapital)],
-      ] : [
-        ['Resale @ ' + wtSalePct + '% ARV', fmt(wholetailSale)],
-        ['Capital invested (' + wtCapPct + '% ARV)', fmt(wholetailRehab)],
-        ['Capital tied up', fmt(wholetailCashCapital)],
-      ],
+      // Unified layout for both Cash and Financed Wholetail:
+      //   Resale Value → Capital Invested → Holding → Buying → Selling
+      //   → (Financing costs, financed only) → Capital tied up.
+      // Financing costs only show in financed mode — they're literally $0
+      // in cash mode and would just be noise.
+      lines: (() => {
+        const _rows = [
+          ['Resale Value @ ' + wtSalePct + '% ARV', fmt(wholetailSale)],
+          ['Capital invested (60% of flip rehab)', fmt(wholetailRehab)],
+          ['Holding costs (' + wholetailMonths + ' mo)', fmt(wholetailHolding)],
+          ['Buying costs', fmt(wtPurchClosingTotal)],
+          ['Selling costs', fmt((wtSaleClosingTotal || 0) + (wtAgentTotal || 0))],
+        ];
+        if (wholetailMode === 'financed') {
+          _rows.push(['Financing costs', fmt((wtFinOrig || 0) + (wtFinTotalInt || 0))]);
+        }
+        _rows.push(['Capital tied up', fmt(wholetailMode === 'financed' ? wtFinCapital : wholetailCashCapital)]);
+        return _rows;
+      })(),
       details: (wholetailMode === 'financed' ? [
         { title: '💰 Resale Math', rows: [
           ['Resale @ ' + wtSalePct + '% ARV', fmt(wholetailSale)],
           ['Buy price', '−' + fmt(buyPrice)],
-          ['Capital invested (' + wtCapPct + '% ARV)', '−' + fmt(wholetailRehab)],
+          ['Capital invested (60% of flip rehab)', '−' + fmt(wholetailRehab)],
           ['Holding (' + wholetailMonths + ' mo)', '−' + fmt(wholetailHolding)],
           ['Purchase closing (3%)', '−' + fmt(wtPurchClosingTotal)],
           ['Resale closing (3%)', '−' + fmt(wtSaleClosingTotal)],
@@ -8900,7 +8990,7 @@ function uwComputeExits(ctx) {
         ]},
         { title: '🏦 Financing (100% basis · ' + wtFinRatePct + '%/yr · ' + wtFinOrigPct + 'pt · ' + WT_FIN_ARV_CAP_PCT + '% ARV cap)', rows: [
           ['Buy price', fmt(buyPrice)],
-          ['Capital invested (' + wtCapPct + '% ARV)', fmt(wholetailRehab)],
+          ['Capital invested (60% of flip rehab)', fmt(wholetailRehab)],
           ['Holding (' + wholetailMonths + ' mo)', fmt(wholetailHolding)],
           ['Purchase closing', fmt(wtPurchClosingTotal)],
           ['Loan basis', fmt(wtFinBaseCost)],
@@ -8912,7 +9002,10 @@ function uwComputeExits(ctx) {
           ['Monthly interest', fmt(wtFinMonthlyInt)],
           ['Interest (' + wholetailMonths + ' mo)', fmt(wtFinTotalInt)],
           ['Total financing cost', fmt(wtFinOrig + wtFinTotalInt), 'profit'],
-          ['Capital you put up', fmt(wtFinCapital)],
+          // Total Capital Put Up = real cash out of pocket = down + orig + interest.
+          // Matches the Capital tied up line on the summary card. Same line
+          // shape as the Flip Financing panel.
+          ['💰 Total Capital Put Up', fmt(wtFinCapital), 'profit'],
         ]},
         { title: '🏠 Holding (' + wholetailMonths + ' mo · ' + wtRenoMo + ' reno + ' + wtListedMo + ' listed)', rows: [
           ['Electric · $' + Math.round(wtElec).toLocaleString() + '/mo' + (_wtElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(wtElec * wholetailMonths).toLocaleString()],
@@ -8934,7 +9027,7 @@ function uwComputeExits(ctx) {
         { title: '💰 Resale Math', rows: [
           ['Resale @ ' + wtSalePct + '% ARV', fmt(wholetailSale)],
           ['Buy price', '−' + fmt(buyPrice)],
-          ['Capital invested (' + wtCapPct + '% ARV)', '−' + fmt(wholetailRehab)],
+          ['Capital invested (60% of flip rehab)', '−' + fmt(wholetailRehab)],
           ['Holding (' + wholetailMonths + ' mo)', '−' + fmt(wholetailHolding)],
           ['Purchase closing (3%)', '−' + fmt(wtPurchClosingTotal)],
           ['Resale closing (3%)', '−' + fmt(wtSaleClosingTotal)],
@@ -8970,16 +9063,24 @@ function uwComputeExits(ctx) {
       mode: flipMode === 'financed' ? 'Financed' : 'Cash',
       profit: flipProfit, time: flipMonths.toFixed(1) + ' mo', timeMo: flipMonths,
       annualized: flipAnnualized,
-      lines: flipMode === 'financed' ? [
-        ['Resale @ 100% ARV', fmt(flipSale)],
-        ['Rehab budget', fmt(flipRehabAmt)],
-        ['Down payment' + (flHmCapBinds ? ' (70% ARV cap)' : ''), fmt(flHmDown)],
-        ['Capital you put up', fmt(flipFinCapital)],
-      ] : [
-        ['Resale @ 100% ARV', fmt(flipSale)],
-        ['Rehab budget', fmt(flipRehabAmt)],
-        ['Capital tied up', fmt(flipCashCapital)],
-      ],
+      // Unified layout for both Cash and Financed Flip — same shape as the
+      // Wholetail card so the user can compare exits at a glance.
+      //   Resale Value → Capital Invested → Holding → Buying → Selling
+      //   → (Financing costs, financed only) → Capital tied up.
+      lines: (() => {
+        const _rows = [
+          ['Resale Value @ 100% ARV', fmt(flipSale)],
+          ['Capital invested (rehab)', fmt(flipRehabAmt)],
+          ['Holding costs (' + flipMonths + ' mo)', fmt(flipHolding)],
+          ['Buying costs', fmt(flPurchClosingTotal)],
+          ['Selling costs', fmt((flipSellClose || 0) + (flipSellAgent || 0) + (flipBuyerAgent || 0))],
+        ];
+        if (flipMode === 'financed') {
+          _rows.push(['Financing costs', fmt((flHmOrig || 0) + (flHmTotalInt || 0))]);
+        }
+        _rows.push(['Capital tied up', fmt(flipMode === 'financed' ? flipFinCapital : flipCashCapital)]);
+        return _rows;
+      })(),
       details: (flipMode === 'financed' ? [
         { title: '💰 Resale Math', rows: [
           ['Resale @ 100% ARV', fmt(flipSale)],
@@ -9008,6 +9109,12 @@ function uwComputeExits(ctx) {
           ['Monthly interest', fmt(flHmMonthlyInt)],
           ['Interest (' + flipMonths + ' mo)', fmt(flHmTotalInt)],
           ['Total financing cost', fmt(flHmOrig + flHmTotalInt), 'profit'],
+          // Total Capital Put Up = real cash out of pocket = down + orig + interest.
+          // Matches the Capital tied up line on the summary card. When the
+          // 70% ARV cap binds, down > 0 and this number is higher than
+          // Total financing cost; when the loan covers full basis (down=$0),
+          // they're equal.
+          ['💰 Total Capital Put Up', fmt(flipFinCapital), 'profit'],
         ]},
         { title: '🏠 Holding (' + flipMonths.toFixed(1) + ' mo · ' + flipHoldBreakdown + ')', rows: [
           ['Electric · $' + Math.round(flElec).toLocaleString() + '/mo' + (_flElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flElec * flipMonths).toLocaleString()],
@@ -9076,22 +9183,48 @@ function uwComputeExits(ctx) {
       // panel renders, so the user can browse any scenario without changing
       // which rental mode is "best" for the deal.
       annualized: bestRentalAnnualized,
-      lines: rentalMode === 'refi' ? [
-        ['Monthly cashflow (max-LTV)', fmt(rfCashflowMax)],
-        ['Cash-on-cash (max-LTV)', rfLeftInMax < 1 ? '∞ (all capital out)' : rfCoCMax.toFixed(1) + '%'],
-        ['Max cash you could pull', fmt(rfCashFromRefiMax)],
-        ['Bonus over what you put in', fmt(rfCashOutMax)],
-      ] : rentalMode === 'financed' ? [
-        ['Monthly cashflow', fmt(finCashflow)],
-        ['Cash-on-cash', finCoC.toFixed(1) + '%'],
-        ['Rehab budget', fmt(rRehab)],
-        ['Down payment', fmt(finDown)],
-      ] : [
-        ['Monthly cashflow', fmt(cashRentalCashflow)],
-        ['Cap rate', cashRentalCoC.toFixed(1) + '%'],
-        ['Rehab budget', fmt(rRehab)],
-        ['Capital tied up', fmt(cashInvestment)],
-      ],
+      lines: (() => {
+        // Immediate equity = ARV − loan balance at day 1. Differs by mode:
+        //   • Cash rental:  no loan → equity = full ARV (you own it all)
+        //   • Financed:     equity = ARV − financed loan amount
+        //   • Refi:         equity = ARV − refi loan amount
+        // This is the "what's your net position in the property" view.
+        // Distinct from the "forced equity" spread (ARV − buy − rehab) which
+        // is shown in the detail panel — same for all 3 modes.
+        // Monthly equity gain = monthly loan paydown + monthly appreciation.
+        //   • Cash rental: no loan, so just appreciation.
+        //   • Financed:   finPrincipal/mo + appreciation/mo.
+        //   • Refi:       rfPrincipalMax/mo (post-refi) + appreciation/mo.
+        const _apprMo = (rtAnnualAppreciation || 0) / 12;
+        const _finEquityMo  = (finPrincipal || 0)    + _apprMo;
+        const _refiEquityMo = (rfPrincipalMax || 0)  + _apprMo;
+        const _cashEquityMo = _apprMo;
+        const _cashImmediateEq = arv;
+        const _finImmediateEq  = Math.max(0, (arv || 0) - (finLoan    || 0));
+        const _refiImmediateEq = Math.max(0, (arv || 0) - (rfLoanMax  || rfLoan || 0));
+        return rentalMode === 'refi' ? [
+          ['Monthly cashflow (max-LTV)', fmt(rfCashflowMax)],
+          ['Immediate equity (day 1)', fmt(_refiImmediateEq)],
+          ['Equity gain /mo', fmt(_refiEquityMo)],
+          ['Cash-on-cash (max-LTV)', rfLeftInMax < 1 ? '∞ (all capital out)' : rfCoCMax.toFixed(1) + '%'],
+          ['Max cash you could pull', fmt(rfCashFromRefiMax)],
+          ['Bonus over what you put in', fmt(rfCashOutMax)],
+        ] : rentalMode === 'financed' ? [
+          ['Monthly cashflow', fmt(finCashflow)],
+          ['Immediate equity (day 1)', fmt(_finImmediateEq)],
+          ['Equity gain /mo', fmt(_finEquityMo)],
+          ['Cash-on-cash', finCoC.toFixed(1) + '%'],
+          ['Rehab budget', fmt(rRehab)],
+          ['Down payment', fmt(finDown)],
+        ] : [
+          ['Monthly cashflow', fmt(cashRentalCashflow)],
+          ['Immediate equity (day 1)', fmt(_cashImmediateEq)],
+          ['Equity gain /mo', fmt(_cashEquityMo)],
+          ['Cap rate', cashRentalCoC.toFixed(1) + '%'],
+          ['Rehab budget', fmt(rRehab)],
+          ['Capital tied up', fmt(cashInvestment)],
+        ];
+      })(),
       details: rentalMode === 'refi' ? [
         { title: '🏦 Initial Financing (' + rfHmLtvPct + '% · ' + rfHmRatePct + '%/yr · ' + rfHmOrigPct + '% · ' + rfStabMo + ' mo)', rows: [
           ['Buy + rehab', fmt(buyPrice + rRehab)],
@@ -9147,6 +9280,12 @@ function uwComputeExits(ctx) {
           ['Target LTV needed', ((rfTargetLoan/arv)*100).toFixed(1) + '% of ARV'],
           ['⚠ LTV cap of ' + RF_LTV_CAP_PCT + '% blocks this loan size', 'Cap maxes at ' + fmt(_rfLtvCapLoan)],
           ['At max-LTV loan, capital LEFT IN deal', fmt(rfLeftInMax), 'profit'],
+          // Equity gain at the max-LTV refi loan — useful context next to
+          // the $200/mo target so the user sees the full monthly return.
+          ['📈 Equity gain /mo at max-LTV', fmt((rfPrincipalMax || 0) + ((rtAnnualAppreciation || 0) / 12)), 'profit'],
+          // Immediate equity if you accept the LTV-capped loan instead of
+          // the target loan needed for $200/mo cashflow.
+          ['🏛 Immediate equity at max-LTV (ARV − loan)', fmt(Math.max(0, (arv || 0) - (_rfLtvCapLoan || 0))), 'profit'],
           ['(To get $200 cashflow, you must leave this much in OR raise rent / lower opex)', ''],
         ] : [
           ['Target P&I that hits $200/mo', fmt(rfTargetPi)],
@@ -9156,6 +9295,13 @@ function uwComputeExits(ctx) {
           rfTargetCashOut > 0
             ? ['💵 Cash you could TAKE OUT (above what you put in)', fmt(rfTargetCashOut), 'profit']
             : ['💰 Capital you\'d need to LEAVE IN the deal', fmt(rfTargetLeftIn), 'profit'],
+          // Equity gain at the max-LTV refi loan — useful context next to
+          // the $200/mo target so the user sees the full monthly return.
+          ['📈 Equity gain /mo at max-LTV', fmt((rfPrincipalMax || 0) + ((rtAnnualAppreciation || 0) / 12)), 'profit'],
+          // Immediate equity if you accept the TARGET loan (the one that
+          // hits $200/mo cashflow). Tells the user what they'll own day-1
+          // of the smaller refi loan: ARV minus that target loan amount.
+          ['🏛 Immediate equity if you leave that in (ARV − target loan)', fmt(Math.max(0, (arv || 0) - (rfTargetLoanLtvLimited || 0))), 'profit'],
         ]},
         { title: '📈 Equity Gain', rows: [
           ['Day-1 forced equity (ARV − buy − rehab)', fmt(rtForcedEquity)],
@@ -9216,6 +9362,15 @@ function uwComputeExits(ctx) {
           finExtraDownIn > 0
             ? ['💰 Extra down payment to LEAVE IN deal', fmt(finExtraDownIn), 'profit']
             : ['💵 Cash you could TAKE OUT (smaller down + bigger loan)', fmt(finCashCouldPull), 'profit'],
+          // Equity gain at the CURRENT loan size — useful context alongside
+          // the $200/mo cashflow target so the user sees both the visible
+          // cashflow AND the invisible monthly equity build.
+          ['📈 Equity gain /mo at current loan', fmt((finPrincipal || 0) + ((rtAnnualAppreciation || 0) / 12)), 'profit'],
+          // Immediate equity if the user LEAVES the extra down payment in to
+          // hit $200/mo — i.e., they accept the smaller loan. Equity = ARV
+          // minus the target loan. Tells the user: "if I commit that extra
+          // down payment, here's how much of the property I own from day 1."
+          ['🏛 Immediate equity if you leave that in (ARV − target loan)', fmt(Math.max(0, (arv || 0) - (finTargetLoan || 0))), 'profit'],
           ['(Adjust Down Payment % above to size the loan)', ''],
         ]},
         { title: '📈 Equity Gain', rows: [
@@ -9399,69 +9554,95 @@ function uwComputeExits(ctx) {
     }
   }
 
-  // Rule 4: Flip — auto-pick mode via drag rule
+  // Rule 4: Wholetail — auto-pick mode via drag rule, plus flip ≤ 1.25× wholetail.
+  // Evaluated BEFORE Flip because a profitable wholetail (faster turnaround,
+  // less capital deployed) should win over a flip with similar/lower profit.
+  // Wholetail cedes to Flip only when Flip's best profit > 1.25× wholetail's.
+  let _wtPick = null;
+  if (!best) {
+    // GATE: wholetail's REHAB BUDGET (60% of the full flip rehab) must
+    // fit within $30/sqft. If 60% of the flip rehab exceeds sqft × $30,
+    // this isn't a wholetail-grade property — kick to Flip. Binary
+    // disqualifier, same enforcement model as the D/F crime gate.
+    const _wtSqftCap     = (sqft > 0) ? (sqft * WT_REHAB_PER_SQFT_CAP) : Infinity;
+    const _wt60OfFlip    = WT_REHAB_PCT_OF_FLIP * (typeof flipRehabAmt === 'number' ? flipRehabAmt : (fRehab || 0));
+    const _wtCapBinds    = _wt60OfFlip > _wtSqftCap;
+    if (_wtCapBinds) {
+      const _psf = sqft > 0 ? (_wt60OfFlip / sqft).toFixed(2) : '—';
+      rejections.push({
+        rule: 'Wholetail',
+        reason: '60% of flip rehab = ' + _fmt$(_wt60OfFlip) + ' ($' + _psf + '/sqft) — exceeds the $' +
+                WT_REHAB_PER_SQFT_CAP + '/sqft wholetail ceiling (' + _fmt$(_wtSqftCap) +
+                ' max for ' + Math.round(sqft).toLocaleString() + ' sqft). This is a Flip, not a wholetail.'
+      });
+    } else if (wholesaleProfit <= 0) {
+      rejections.push({ rule: 'Wholetail', reason: 'Wholesale profit not positive — multiplier rules can\'t fire.' });
+    } else {
+      // Wholetail must hit 2× wholesale profit to qualify as Best.
+      _wtPick = _pickMode(wholetailCashProfit, wtFinProfit, 2);
+      if (_wtPick) {
+        // STRICT PRIORITY: wholetail wins whenever it qualifies (hits 2×
+        // wholesale and the $35/sqft cap doesn't bind), regardless of how
+        // much profit Flip would generate. The user's cascade priority is
+        // Rentals → Wholetail → Flip → Wholesale, so a qualifying wholetail
+        // beats a more profitable flip.
+        const wtExit = exits.find(e => e.key === 'wholetail');
+        if (wtExit) {
+          wtExit.bestMode = _wtPick.mode === 'financed' ? 'Financed' : 'Cash';
+          best = wtExit;
+          bestModeAuto = _wtPick.mode;
+        }
+      } else {
+        rejections.push({ rule: 'Wholetail', reason: 'Neither cash (' + _fmt$(wholetailCashProfit) + ') nor financed (' + _fmt$(wtFinProfit) + ') hits 2× wholesale (' + _fmt$(2 * wholesaleProfit) + ').' });
+      }
+    }
+  }
+
+  // Rule 5: Flip — qualifies if its best profit clears EITHER bar:
+  //   • Bar A: 3× wholesale   (worth the rehab risk vs. a fast assignment)
+  //   • Bar B: 1.5× wholetail (clearly better than a wholetail strategy)
+  //                           AND ≥ 2× wholesale  (anti-edge-case floor:
+  //                           when wholetail is disqualified by the cap,
+  //                           its profit can shrink and a mediocre Flip
+  //                           would otherwise sneak in via Bar B. The 2×
+  //                           wholesale floor ensures Flip always at least
+  //                           doubles the assignment fee even on Bar B.)
+  // Evaluated AFTER Wholetail (which has strict priority when it qualifies),
+  // so we only reach this rule when Wholetail rejected itself on its own
+  // gates (cap, 2× wholesale floor, or wholesale not positive).
   let _flipPick = null;
   if (!best) {
     if (wholesaleProfit <= 0) {
       rejections.push({ rule: 'Flip', reason: 'Wholesale profit not positive — multiplier rules can\'t fire.' });
     } else {
-      _flipPick = _pickMode(flipCashProfit, flipFinProfit, 2.5);
-      if (_flipPick) {
-        // Flip wins. Tag the exit card with the cascade-picked mode so the
-        // BEST badge + recommendation banner + saved best_exit all reflect
-        // the auto-pick. The card's displayed profit/lines still follow
-        // the toggle (Option A — toggle is a what-if explorer).
+      const _bestFlipProfit  = Math.max(flipCashProfit, flipFinProfit);
+      const _bestWtProfit    = Math.max(wholetailCashProfit, wtFinProfit);
+      const _flipBarWholesale = 3   * wholesaleProfit;
+      const _flipBarWholetail = 1.5 * _bestWtProfit;
+      const _flipFloor        = 2   * wholesaleProfit;  // anti-edge-case floor for Bar B
+      const _passBarA = _bestFlipProfit > _flipBarWholesale;
+      const _passBarB = _bestFlipProfit > _flipBarWholetail && _bestFlipProfit >= _flipFloor;
+      const _flipQualifies = _passBarA || _passBarB;
+      if (_flipQualifies) {
+        // Flip qualifies under at least one bar. Use the drag rule to pick
+        // Cash vs Financed — we run _pickMode with a 0 threshold so it
+        // just picks the better mode without re-checking the multiplier
+        // (the qualification was already established above).
+        _flipPick = _pickMode(flipCashProfit, flipFinProfit, 0);
         const flipExit = exits.find(e => e.key === 'flip');
-        if (flipExit) {
+        if (flipExit && _flipPick) {
           flipExit.bestMode = _flipPick.mode === 'financed' ? 'Financed' : 'Cash';
           best = flipExit;
           bestModeAuto = _flipPick.mode;
         }
       } else {
-        rejections.push({ rule: 'Flip', reason: 'Neither cash (' + _fmt$(flipCashProfit) + ') nor financed (' + _fmt$(flipFinProfit) + ') hits 2.5× wholesale (' + _fmt$(2.5 * wholesaleProfit) + ').' });
-      }
-    }
-  }
-
-  // Rule 5: Wholetail — auto-pick mode via drag rule, plus flip ≤ 1.25× wholetail
-  let _wtPick = null;
-  if (!best) {
-    if (wholesaleProfit <= 0) {
-      rejections.push({ rule: 'Wholetail', reason: 'Wholesale profit not positive — multiplier rules can\'t fire.' });
-    } else {
-      _wtPick = _pickMode(wholetailCashProfit, wtFinProfit, 1.5);
-      if (_wtPick) {
-        // Compare flip's BEST profit against the BEST wholetail profit
-        // (whichever wholetail mode is higher). Using the BEST wholetail
-        // here matches "prefer wholetail unless flip is meaningfully better
-        // than wholetail's best case." If we used the drag-picked mode, a
-        // small financing-cost preference for Financed wholetail could
-        // accidentally tank the whole strategy when Cash wholetail would
-        // have cleared the ceiling. Mode selection (Cash vs Financed)
-        // happens via the drag rule independently, after the strategy is
-        // confirmed to win.
-        const _bestFlipProfit     = Math.max(flipCashProfit, flipFinProfit);
-        const _bestWholetailProf  = Math.max(wholetailCashProfit, wtFinProfit);
-        const _flipCeiling        = 1.25 * _bestWholetailProf;
-        if (_bestFlipProfit > _flipCeiling) {
-          rejections.push({
-            rule: 'Wholetail',
-            reason: 'Flip\'s best profit (' + _fmt$(_bestFlipProfit) + ') exceeds 1.25× wholetail\'s best (' + _fmt$(_flipCeiling) + ') — flip is meaningfully better, but it didn\'t hit 2.5× wholesale either.'
-          });
-          _wtPick = null; // failed the comparison
-        } else {
-          // Wholetail wins. Tag the exit card with the cascade-picked mode
-          // so the BEST badge + recommendation banner + saved best_exit all
-          // reflect the auto-pick. Card profit/lines still follow the toggle.
-          const wtExit = exits.find(e => e.key === 'wholetail');
-          if (wtExit) {
-            wtExit.bestMode = _wtPick.mode === 'financed' ? 'Financed' : 'Cash';
-            best = wtExit;
-            bestModeAuto = _wtPick.mode;
-          }
-        }
-      } else {
-        rejections.push({ rule: 'Wholetail', reason: 'Neither cash (' + _fmt$(wholetailCashProfit) + ') nor financed (' + _fmt$(wtFinProfit) + ') hits 1.5× wholesale (' + _fmt$(1.5 * wholesaleProfit) + ').' });
+        rejections.push({
+          rule: 'Flip',
+          reason: 'Flip\'s best profit (' + _fmt$(_bestFlipProfit) +
+                  ') hits neither 3× wholesale (' + _fmt$(_flipBarWholesale) +
+                  ') nor 1.5× wholetail (' + _fmt$(_flipBarWholetail) +
+                  ') with a 2× wholesale floor (' + _fmt$(_flipFloor) + ').'
+        });
       }
     }
   }
@@ -9475,11 +9656,21 @@ function uwComputeExits(ctx) {
     }
   }
 
-  // Fallback: highest positive profit, rentals excluded if D/F
+  // Fallback: highest positive profit, with hard gates respected.
+  // Same disqualifiers as the regular cascade rules:
+  //   • Rentals (any mode) excluded on D/F crime
+  //   • Wholetail excluded when the $30/sqft cap binds (60% of flip rehab
+  //     exceeds sqft × $30). Previously the fallback ignored this gate
+  //     and silently picked wholetail as Best when its profit was highest,
+  //     even on deals where the cap had already disqualified it at Rule 4.
+  const _fbWtSqftCap  = (sqft > 0) ? (sqft * WT_REHAB_PER_SQFT_CAP) : Infinity;
+  const _fbWt60OfFlip = WT_REHAB_PCT_OF_FLIP * (typeof flipRehabAmt === 'number' ? flipRehabAmt : (fRehab || 0));
+  const _fbWtCapBinds = _fbWt60OfFlip > _fbWtSqftCap;
   if (!best) {
     const candidates = exits.filter(e => {
       if (!e || typeof e.profit !== 'number' || e.profit <= 0) return false;
       if (e.key === 'rental' && _rentalBlockedByCrime) return false;
+      if (e.key === 'wholetail' && _fbWtCapBinds) return false;
       return true;
     }).slice().sort((a, b) => b.profit - a.profit);
     if (candidates.length) {
@@ -9531,16 +9722,25 @@ function uwComputeExits(ctx) {
       const profitLabel = e.type === 'recurring' ? 'Annual cashflow' : 'Net profit';
       const annLabel = e.type === 'recurring' ? 'Annual return' : 'Annualized';
       const chevron = isOpen ? '▲' : '▼';
+      // Monthly profit pill — only meaningful for one-time exits (Wholesale,
+      // Wholetail, Flip) with a positive profit and a real hold time. Rental
+      // cards already display monthly cashflow in their lines, so we skip
+      // this for type=recurring to avoid duplication.
+      let monthlyProfitInline = '';
+      if (e.type !== 'recurring' && e.profit > 0 && typeof e.timeMo === 'number' && e.timeMo > 0) {
+        const _moProfit = Math.round(e.profit / e.timeMo);
+        monthlyProfitInline = ` <span style="font-size:13px;font-weight:600;color:var(--text-dim);margin-left:6px" title="Profit ÷ months held. Shows how much money this deal makes per month of capital deployed.">· $${_moProfit.toLocaleString()}/mo</span>`;
+      }
       // Toggle (if present) renders on its own line below the title — keeps
       // the title row clean and prevents the buttons from squishing the card.
       const toggleRow = e.toggle ? `<div style="margin-bottom:8px">${e.toggle}</div>` : '';
-      return `<div onclick="uwToggleExit('${e.key}')" data-exit-key="${e.key}"${e.bestMode ? ` data-best-mode="${e.bestMode}"` : ''}${typeof e.annualized === 'number' ? ` data-annualized="${Math.round(e.annualized)}"` : ''} style="padding:12px 14px;background:${bg};border:${border};border-radius:10px;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''" title="Click to ${isOpen ? 'collapse' : 'view full breakdown'}">
+      return `<div onclick="uwToggleExit('${e.key}')" data-exit-key="${e.key}"${isBest ? ' data-is-best="true"' : ''}${e.bestMode ? ` data-best-mode="${e.bestMode}"` : ''}${typeof e.annualized === 'number' ? ` data-annualized="${Math.round(e.annualized)}"` : ''} style="padding:12px 14px;background:${bg};border:${border};border-radius:10px;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''" title="Click to ${isOpen ? 'collapse' : 'view full breakdown'}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <span style="font-weight:600;font-size:13px">${e.icon} ${e.name}${e.mode ? ' <span style=\'color:var(--text-dim);font-weight:500\'>(' + e.mode + ')</span>' : ''}${badge}</span>
           <span style="font-size:10px;color:var(--text-dim)">${chevron}</span>
         </div>
         ${toggleRow}
-        <div style="font-size:20px;font-weight:700;color:${profitColor};margin-bottom:2px">${e.profit > 0 ? '$' + Math.round(e.profit).toLocaleString() : (e.profit < 0 ? '−$' + Math.round(Math.abs(e.profit)).toLocaleString() : '$0')}</div>
+        <div style="font-size:20px;font-weight:700;color:${profitColor};margin-bottom:2px"><span class="uw-exit-profit-num">${e.profit > 0 ? '$' + Math.round(e.profit).toLocaleString() : (e.profit < 0 ? '−$' + Math.round(Math.abs(e.profit)).toLocaleString() : '$0')}</span>${monthlyProfitInline}</div>
         <div style="font-size:10px;color:var(--text-dim);margin-bottom:8px">${profitLabel} · ${e.time}${e.type === 'oneTime' && e.profit > 0 ? ' · ' + annLabel + ' $' + Math.round(e.annualized).toLocaleString() : ''}</div>
         <div style="font-size:11px;line-height:1.5;color:var(--text-dim)">
           ${e.lines.map(l => `<div style="display:flex;justify-content:space-between"><span>${l[0]}</span><b style="color:var(--text)">${l[1]}</b></div>`).join('')}
@@ -10004,8 +10204,18 @@ function uwComputeExits(ctx) {
     const _wsProfit  = Math.max(0, wholesaleProfit);
     const _wtProfit  = wholetailProfit;     // mode-aware (cash or financed)
     const _flProfit  = flipProfit;          // mode-aware
-    const _wsTarget2 = _wsProfit * 1.5;     // wholetail must beat this (1.5× wholesale)
-    const _wsTarget3 = _wsProfit * 2.5;     // flip must beat this      (2.5× wholesale)
+    const _wsTarget2 = _wsProfit * 2;       // wholetail must beat this (2× wholesale)
+    const _wsTarget3 = _wsProfit * 3;       // flip Bar A (3× wholesale)
+    const _wsFloor2  = _wsProfit * 2;       // flip Bar B floor (must also clear 2× wholesale)
+    // 60%-of-flip-rehab vs $30/sqft wholetail GATE — matches cascade rule.
+    // Binary disqualifier, same enforcement model as the D/F crime gate.
+    const WT_PSF_CAP = 30;
+    const WT_PCT_OF_FLIP = 0.60;
+    const _wtSqftCap    = (typeof sqft === 'number' && sqft > 0) ? (sqft * WT_PSF_CAP) : Infinity;
+    const _wtFullRehab  = (typeof flipRehabAmt === 'number' ? flipRehabAmt : (typeof fRehab === 'number' ? fRehab : 0));
+    const _wt60OfFlip   = WT_PCT_OF_FLIP * _wtFullRehab;
+    const _wtCapBinds   = _wt60OfFlip > _wtSqftCap;
+    const _wtPsf        = (typeof sqft === 'number' && sqft > 0) ? (_wt60OfFlip / sqft) : 0;
     const _yieldPct  = _cashYieldPct * 100;
     const diag = {
       wholesale: (function () {
@@ -10015,52 +10225,63 @@ function uwComputeExits(ctx) {
         return                              { ok: false, msg: '✗ Buy (' + fmt$(buyPrice) + ') above MAO (' + fmt$(cashBuyerMAO) + ')' };
       })(),
       wholetail: (function () {
+        // CAP gate fires FIRST — disqualifies wholetail regardless of
+        // wholesale profit. Otherwise a $0 wholesale deal silently shows
+        // wholetail as a passing-with-info row even when the property
+        // needs way more rehab than a wholetail can absorb.
+        if (_wtCapBinds) {
+          return { ok: false, msg: '✗ 60% of flip rehab = ' + fmt$(_wt60OfFlip) + ' ($' + _wtPsf.toFixed(2) + '/sqft) — exceeds $' + WT_PSF_CAP + '/sqft cap (' + fmt$(_wtSqftCap) + '). Not a wholetail.' };
+        }
         if (_wsProfit <= 0) {
-          // No wholesale baseline → 2× test can't fire. Show what the wholetail
-          // WOULD net on its own (informational; doesn't affect Max Offer, which
-          // stays wholesale-driven).
-          return { ok: false, info: true, msg: 'ℹ ' + fmt$(_wtProfit) + ' wholetail profit' };
+          return { ok: false, info: true, msg: 'ℹ ' + fmt$(_wtProfit) + ' wholetail profit · no wholesale baseline to compare' };
         }
         if (_wtProfit < _wsTarget2) {
           const gap = _wsTarget2 - _wtProfit;
-          return { ok: false, msg: '✗ ' + fmt$(_wtProfit) + ' profit, needs ' + fmt$(_wsTarget2) + ' (short ' + fmt$(gap) + ')' };
+          return { ok: false, msg: '✗ ' + fmt$(_wtProfit) + ' profit, needs ' + fmt$(_wsTarget2) + ' (2× wholesale, short ' + fmt$(gap) + ')' };
         }
-        // Wholetail clears the 2× bar — now check flip's lead. If flip beats
-        // wholetail by > 25%, flip wins instead.
-        const flipMax = _wtProfit * 1.25;
-        if (_flProfit > flipMax) {
-          return { ok: false, msg: '✗ ' + fmt$(_wtProfit) + ' wholetail vs ' + fmt$(_flProfit) + ' flip — flip beats by > 25% (cap ' + fmt$(flipMax) + ')' };
-        }
-        return { ok: true, msg: '✓ ' + fmt$(_wtProfit) + ' ≥ 1.5× wholesale AND flip (' + fmt$(_flProfit) + ') ≤ 1.25× wholetail' };
+        return { ok: true, msg: '✓ ' + fmt$(_wtProfit) + ' ≥ 2× wholesale and $/sqft cap not binding' };
       })(),
       flip: (function () {
         if (_wsProfit <= 0) {
-          // No wholesale baseline → 2.5× test can't fire. Still show the standalone
-          // flip profit so the user can size up the exit on its own merits.
           return { ok: false, info: true, msg: 'ℹ ' + fmt$(_flProfit) + ' flip profit' };
         }
-        if (_flProfit >= _wsTarget3)     return { ok: true,  msg: '✓ ' + fmt$(_flProfit) + ' ≥ 2.5× wholesale (' + fmt$(_wsTarget3) + ')' };
+        // Bar A: ≥ 3× wholesale
+        if (_flProfit >= _wsTarget3) return { ok: true, msg: '✓ ' + fmt$(_flProfit) + ' ≥ 3× wholesale (' + fmt$(_wsTarget3) + ')' };
+        // Bar B: ≥ 1.5× wholetail AND ≥ 2× wholesale floor
+        const _wtBest = Math.max(_wtProfit, (typeof wtFinProfit === 'number' ? wtFinProfit : 0));
+        const _flipBarB = _wtBest * 1.5;
+        if (_flProfit >= _flipBarB && _flProfit >= _wsFloor2) {
+          return { ok: true, msg: '✓ ' + fmt$(_flProfit) + ' ≥ 1.5× wholetail (' + fmt$(_flipBarB) + ') with 2× wholesale floor' };
+        }
         const gap = _wsTarget3 - _flProfit;
-        return { ok: false, msg: '✗ ' + fmt$(_flProfit) + ' profit, needs ' + fmt$(_wsTarget3) + ' (short ' + fmt$(gap) + ')' };
+        return { ok: false, msg: '✗ ' + fmt$(_flProfit) + ' — needs ' + fmt$(_wsTarget3) + ' (3× wholesale, short ' + fmt$(gap) + ') OR ≥ 1.5× wholetail + 2× wholesale floor' };
       })(),
       wholetailFin: (function () {
         const wp = (typeof wtFinProfit === 'number' ? wtFinProfit : 0);
-        const fp = (typeof flipFinProfit === 'number' ? flipFinProfit : _flProfit);
-        if (_wsProfit <= 0) {
-          return { ok: false, info: true, msg: 'ℹ ' + fmt$(wp) + ' financed wholetail profit' };
+        // CAP gate fires FIRST — same disqualifier as the cash row above.
+        if (_wtCapBinds) {
+          return { ok: false, msg: '✗ 60% of flip rehab = ' + fmt$(_wt60OfFlip) + ' ($' + _wtPsf.toFixed(2) + '/sqft) — exceeds $' + WT_PSF_CAP + '/sqft cap (' + fmt$(_wtSqftCap) + '). Not a wholetail.' };
         }
-        if (wp < _wsTarget2)       return { ok: false, msg: '✗ ' + fmt$(wp) + ' financed profit, needs ' + fmt$(_wsTarget2) + ' (short ' + fmt$(_wsTarget2 - wp) + ')' };
-        const flipMax = wp * 1.25;
-        if (fp > flipMax)          return { ok: false, msg: '✗ ' + fmt$(wp) + ' wholetail vs ' + fmt$(fp) + ' flip — flip beats by > 25% (cap ' + fmt$(flipMax) + ')' };
-        return { ok: true, msg: '✓ ' + fmt$(wp) + ' ≥ 1.5× wholesale AND flip (' + fmt$(fp) + ') ≤ 1.25× wholetail' };
+        if (_wsProfit <= 0) {
+          return { ok: false, info: true, msg: 'ℹ ' + fmt$(wp) + ' financed wholetail profit · no wholesale baseline' };
+        }
+        if (wp < _wsTarget2)  return { ok: false, msg: '✗ ' + fmt$(wp) + ' financed profit, needs ' + fmt$(_wsTarget2) + ' (2× wholesale, short ' + fmt$(_wsTarget2 - wp) + ')' };
+        return { ok: true, msg: '✓ ' + fmt$(wp) + ' ≥ 2× wholesale · financed' };
       })(),
       flipFin: (function () {
         const fp = (typeof flipFinProfit === 'number' ? flipFinProfit : 0);
         if (_wsProfit <= 0) {
           return { ok: false, info: true, msg: 'ℹ ' + fmt$(fp) + ' financed flip profit' };
         }
-        if (fp >= _wsTarget3)      return { ok: true,  msg: '✓ ' + fmt$(fp) + ' financed profit ≥ 2.5× wholesale (' + fmt$(_wsTarget3) + ')' };
-        return { ok: false, msg: '✗ ' + fmt$(fp) + ' financed profit, needs ' + fmt$(_wsTarget3) + ' (short ' + fmt$(_wsTarget3 - fp) + ')' };
+        // Bar A: ≥ 3× wholesale
+        if (fp >= _wsTarget3) return { ok: true, msg: '✓ ' + fmt$(fp) + ' financed ≥ 3× wholesale (' + fmt$(_wsTarget3) + ')' };
+        // Bar B: ≥ 1.5× wholetail AND ≥ 2× wholesale floor
+        const _wtBest = Math.max(_wtProfit, (typeof wtFinProfit === 'number' ? wtFinProfit : 0));
+        const _flipBarB = _wtBest * 1.5;
+        if (fp >= _flipBarB && fp >= _wsFloor2) {
+          return { ok: true, msg: '✓ ' + fmt$(fp) + ' financed ≥ 1.5× wholetail with 2× wholesale floor' };
+        }
+        return { ok: false, msg: '✗ ' + fmt$(fp) + ' financed — needs ' + fmt$(_wsTarget3) + ' (3× wholesale) OR ≥ 1.5× wholetail + 2× wholesale floor' };
       })(),
       dscr: (function () {
         if (_crimeGrade === 'D' || _crimeGrade === 'F')
@@ -10265,10 +10486,10 @@ function uwComputeExits(ctx) {
       <!-- Row 1: One-time exits (Wholesale, Wholetail, Flip) -->
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
         ${card('🤝', 'Wholesale',         wsBuyMax,     wsBuyMax,                   buyPrice,       'Buy ≤ MAO − $10k floor (MAO ' + fmt$(cashBuyerMAO) + ')',                  diag.wholesale,    _highlightCurrentBest('wholesale'))}
-        ${card('🔨', 'Wholetail (cash)',   wtBuyMax,     wtBuyMax + wtCosts,         wtAllInToday,   '≥ 1.5× wholesale AND flip ≤ 1.25× wholetail (after ' + fmt$(_wtIdeal) + ' ideal profit)',          diag.wholetail,    _highlightCurrentBest('wholetail'))}
-        ${card('🔨', 'Wholetail (fin)',    wtFinBuyMax,  wtFinBuyMax + wtCosts,      wtAllInToday,   '≥ 1.5× wholesale AND flip ≤ 1.25× wholetail · financed (after ' + fmt$(_wtIdeal) + ' ideal profit)', diag.wholetailFin, false)}
-        ${card('🏗️', 'Flip (cash)',       flipBuyMax,   flipBuyMax + flipCosts,     flipAllInToday, 'Flip profit ≥ 2.5× wholesale (after ' + fmt$(_flipIdeal) + ' ideal profit)', diag.flip,         _highlightCurrentBest('flip'))}
-        ${card('🏗️', 'Flip (fin)',        flFinBuyMax,  flFinBuyMax + flipCosts,    flipAllInToday, 'Financed flip ≥ 2.5× wholesale (after ' + fmt$(_flipIdeal) + ' ideal profit)', diag.flipFin,      false)}
+        ${card('🔨', 'Wholetail (cash)',   wtBuyMax,     wtBuyMax + wtCosts,         wtAllInToday,   '≥ 2× wholesale and within $30/sqft cap (after ' + fmt$(_wtIdeal) + ' ideal profit)',          diag.wholetail,    _highlightCurrentBest('wholetail'))}
+        ${card('🔨', 'Wholetail (fin)',    wtFinBuyMax,  wtFinBuyMax + wtCosts,      wtAllInToday,   '≥ 2× wholesale and within $30/sqft cap · financed (after ' + fmt$(_wtIdeal) + ' ideal profit)', diag.wholetailFin, false)}
+        ${card('🏗️', 'Flip (cash)',       flipBuyMax,   flipBuyMax + flipCosts,     flipAllInToday, 'Flip ≥ 3× wholesale OR ≥ 1.5× wholetail (with 2× wholesale floor)', diag.flip,         _highlightCurrentBest('flip'))}
+        ${card('🏗️', 'Flip (fin)',        flFinBuyMax,  flFinBuyMax + flipCosts,    flipAllInToday, 'Financed flip ≥ 3× wholesale OR ≥ 1.5× wholetail (with 2× wholesale floor)', diag.flipFin,      false)}
       </div>
       <!-- Row 2: Recurring exits (Cash rental, Financed Rental, Refi/BRRR) -->
       <div style="display:flex;flex-wrap:wrap;gap:8px">
@@ -12815,7 +13036,21 @@ function _uwCollect() {
   // Pull computed best exit + profit. We extract the exit NAME directly from
   // the BEST card's title (rather than parsing the recommendation banner text)
   // so the rationale paragraph never bleeds into the saved best_exit value.
-  const bestCard = document.querySelector('#uw-exit-cards [style*="rgba(16,185,129,0.12)"]');
+  //
+  // BUG FIX: We used to find the BEST card by looking for its green background
+  // color in the inline style. That broke when the user expanded a card to
+  // view its breakdown — the open card's background flipped to BLUE, including
+  // if they opened the BEST card itself, which made the selector find no card
+  // at all. As a result, just clicking around to compare exits was silently
+  // saving wrong (or null) best_exit values to Supabase.
+  //
+  // The renderer now tags the BEST card with data-is-best="true", which sticks
+  // regardless of whether the card is currently expanded. Falls back to the
+  // old green-background selector for any old-render edge case.
+  let bestCard = document.querySelector('#uw-exit-cards [data-is-best="true"]');
+  if (!bestCard) {
+    bestCard = document.querySelector('#uw-exit-cards [style*="rgba(16,185,129,0.12)"]');
+  }
   let bestExit = '';
   if (bestCard) {
     // Card header is the first <span> inside the first child div, formatted as:
@@ -12852,8 +13087,11 @@ function _uwCollect() {
     } else if (_exitStartsWith('Rental')) {
       // Use the rule-based bestRentalMode (set by uwRecalc on the BEST rental
       // card) when available — falls back to the user's toggle if not.
-      const card = document.querySelector('#uw-exit-cards [style*="rgba(16,185,129,0.12)"]');
-      const ruleMode = card && card.getAttribute('data-best-mode');
+      // Reuses the bestCard from above (data-is-best="true") which is stable
+      // regardless of which card is currently expanded. Previously this
+      // re-queried via the green-background selector, which broke when the
+      // user opened the rental card to view its breakdown.
+      const ruleMode = bestCard && bestCard.getAttribute('data-best-mode');
       let m;
       if (ruleMode) {
         m = ruleMode;
@@ -12880,7 +13118,21 @@ function _uwCollect() {
     if (isFinite(annNum) && bestExit && bestExit.startsWith('Rental')) {
       bestProfitText = (annNum < 0 ? '-$' : '$') + Math.abs(Math.round(annNum)).toLocaleString();
     } else {
-      bestProfitText = bestCard.querySelector('div[style*="font-size:20px"]')?.textContent || '';
+      // Target the explicit .uw-exit-profit-num span — NOT the parent <div>.
+      // The parent div now also contains an inline monthly-profit pill
+      // (".../mo") which would otherwise get concatenated into the same
+      // textContent and produce a bogus combined number on save (e.g.,
+      // "$25,000 · $8,333/mo" → "258333"). The dedicated span isolates the
+      // raw total profit string for clean parsing.
+      const numEl = bestCard.querySelector('.uw-exit-profit-num');
+      if (numEl) {
+        bestProfitText = numEl.textContent || '';
+      } else {
+        // Fallback for any unforeseen render path — read the parent div's
+        // first text node only, skipping any nested spans.
+        const parent = bestCard.querySelector('div[style*="font-size:20px"]');
+        bestProfitText = parent && parent.firstChild ? (parent.firstChild.textContent || '') : '';
+      }
     }
   }
   return { data, arv, offer, bestExit, bestProfitText };
@@ -14469,6 +14721,104 @@ async function uwSetHoldingStatus(id, status) {
   }
 }
 window.uwSetHoldingStatus = uwSetHoldingStatus;
+
+// ===========================================================================
+// uwRescanAllProfits — Bulk recompute best_exit / best_profit for every deal
+// ===========================================================================
+// The list view's best_exit / best_profit columns for Flip / Wholetail / Refi
+// are saved snapshots — they don't recompute live (those require the full DOM
+// cascade with rehab calculator state, financing inputs, etc.). When the
+// underlying math changes (new cap rule, new formula, etc.), those saved
+// values go stale until each deal is re-opened.
+//
+// This function loops every cached deal, loads it into the calculator, lets
+// the cascade settle, then calls uwSave to write the corrected values back.
+// A fullscreen overlay (#uw-rescan-overlay) shows progress and blocks input
+// so the user doesn't accidentally interrupt the loop.
+async function uwRescanAllProfits() {
+  if (!cache.underwrites) {
+    if (typeof toast === 'function') toast('No deals loaded yet — open Underwriting first.', 'warn');
+    return;
+  }
+  const ids = Object.keys(cache.underwrites);
+  const total = ids.length;
+  if (total === 0) {
+    if (typeof toast === 'function') toast('No deals to rescan.', 'info');
+    return;
+  }
+  if (!confirm(
+    'Rescan all ' + total.toLocaleString() + ' deals?\n\n' +
+    'Each deal will be loaded into the calculator and its Flip / Wholetail / Refi profits recomputed and saved. ' +
+    'This takes about 1 second per deal, so ~' + Math.ceil(total / 60) + ' minute' + (Math.ceil(total / 60) === 1 ? '' : 's') + ' total.\n\n' +
+    'Keep this tab focused while the rescan runs.'
+  )) {
+    return;
+  }
+  const overlay  = document.getElementById('uw-rescan-overlay');
+  const barEl    = document.getElementById('uw-rescan-bar');
+  const progEl   = document.getElementById('uw-rescan-progress');
+  const currEl   = document.getElementById('uw-rescan-current');
+  const subEl    = document.getElementById('uw-rescan-subtext');
+  if (overlay) overlay.style.display = 'flex';
+  window._uwRescanCancel = false;
+  // Remember where the user was so we can put them back when done.
+  const _resumeView = (typeof _uwLastListView === 'string' && _uwLastListView) ? _uwLastListView : 'analyzing';
+  let saved = 0, failed = 0, cancelled = false;
+  // Per-deal wait: load → cascade settles → save. The autosave debounce
+  // is normally 700ms; we use 900ms here to give it a bit of buffer.
+  const SETTLE_MS = 900;
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  try {
+    for (let i = 0; i < ids.length; i++) {
+      if (window._uwRescanCancel) { cancelled = true; break; }
+      const id = ids[i];
+      const u = cache.underwrites[id];
+      if (!u || !u.id) continue;
+      // Skip rows without an address — uwSave no-ops on those.
+      if (!u.address || !u.address.trim()) continue;
+      // Progress UI
+      const pct = Math.round(((i + 1) / total) * 100);
+      if (barEl)  barEl.style.width = pct + '%';
+      if (progEl) progEl.textContent = (i + 1).toLocaleString() + ' of ' + total.toLocaleString() + ' deals · ' + pct + '%';
+      if (currEl) currEl.textContent = (u.address || '').slice(0, 60);
+      try {
+        // 1. Load into calculator — runs _uwApply + uwRecalc which populates
+        //    every field and triggers the full cascade.
+        if (typeof uwLoadById === 'function') await uwLoadById(id);
+        // 2. Let the cascade settle. The load function sets _uwLoadingDeal=true
+        //    for 2 seconds; we need to wait past that AND past any pending
+        //    auto-refresh cascade (the 1500ms self-heal timer inside uwLoadById).
+        await wait(SETTLE_MS);
+        // 3. Force a save — bypass autosave queue entirely. uwSave(false) is
+        //    the "automatic / quiet" mode (no toast on success/fail).
+        if (typeof uwSave === 'function') await uwSave(false);
+        saved++;
+      } catch (e) {
+        console.warn('Rescan failed for', id, e);
+        failed++;
+      }
+    }
+  } finally {
+    if (overlay) overlay.style.display = 'none';
+    // Snap back to whichever list the user was on before the rescan started.
+    if (typeof goUwView === 'function') {
+      try { goUwView(_resumeView); } catch (_) {}
+    }
+    if (typeof renderUnderwriteList === 'function') {
+      try { renderUnderwriteList(); } catch (_) {}
+    }
+    if (typeof toast === 'function') {
+      if (cancelled) {
+        toast('Rescan cancelled · saved ' + saved.toLocaleString() + ' deal' + (saved === 1 ? '' : 's') + ' before stopping.', 'warn');
+      } else if (failed > 0) {
+        toast('Rescan complete · ' + saved.toLocaleString() + ' saved, ' + failed.toLocaleString() + ' failed (see console).', 'warn');
+      } else {
+        toast('✅ Rescan complete · ' + saved.toLocaleString() + ' deal' + (saved === 1 ? '' : 's') + ' refreshed.', 'ok');
+      }
+    }
+  }
+}
+window.uwRescanAllProfits = uwRescanAllProfits;
 
 // ----- "🔨 Add to Renovation" header button -----
 // Visible only when:
@@ -31076,6 +31426,20 @@ function recalc(){
     if(cost){ total+=cost; mat+=cost*0.30; lab+=cost*0.70; hrs+=(cost*0.70)/65; specialTotal+=cost; }
   });
   document.getElementById('specialCases-total').textContent = specialTotal>0 ? fmt(specialTotal) : '$0';
+  // FACTOR SPECIAL CASES INTO BASIC $/SQFT.
+  // renderBasic() above set basic-total / basic-psf using ONLY the checked
+  // basic items. Now that specialTotal is known, recompute both so the
+  // visible $/SqFt reflects the FULL spend (basics + special cases). The
+  // contingency is still excluded — it's a buffer, not a real line item.
+  const _basicTotalEl = document.getElementById('basic-total');
+  const _basicPsfEl   = document.getElementById('basic-psf');
+  if (_basicTotalEl && _basicPsfEl) {
+    // Parse the basic-only total renderBasic just wrote, add special cases.
+    const _basicOnly = parseFloat((_basicTotalEl.textContent || '').replace(/[^0-9.\-]/g, '')) || 0;
+    const _combined  = _basicOnly + specialTotal;
+    _basicTotalEl.textContent = fmt(_combined);
+    _basicPsfEl.textContent   = sqft > 0 ? '$' + (_combined / sqft).toFixed(2) : '$0.00';
+  }
   const costCont = parseFloat(document.getElementById('costContingency').value)||10;
   const timeCont = parseFloat(document.getElementById('timeContingency').value)||25;
   const crew = parseFloat(document.getElementById('crew').value)||3;

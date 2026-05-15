@@ -2078,7 +2078,28 @@
           <button class="btn btn-ghost text-sm" onclick="uwToggleSectionReorder()" id="uw-reorder-btn" style="white-space:nowrap;flex-shrink:0" title="Reorder the sections (Property Info, Comparables, Condition, etc.) by dragging them up or down. Order saves with this deal.">🔀 Reorder</button>
           <button class="btn btn-ghost text-sm" onclick="uwReset()" style="white-space:nowrap;flex-shrink:0" title="Clear all inputs and start a new deal">↺ Reset</button>
           <button class="btn btn-ghost text-sm" onclick="uwExportCsv()" style="white-space:nowrap;flex-shrink:0" title="Export this deal as a one-row CSV">⬇ Export CSV</button>
-          <button class="btn btn-ghost text-sm" onclick="uwGenerateWholesalePacket()" style="white-space:nowrap;flex-shrink:0;border:1px solid #6366f1;color:#a5b4fc" title="Generate a buyer-ready PDF packet with property info, comps, ARV, rent estimate, and scope of work — no asking price or rehab dollars shown.">📄 Wholesale Packet</button>
+          <!-- Split button: 📄 icon opens a small popover to override the
+               buyer-facing asking price shown on the packet. The "Wholesale
+               Packet" text generates the PDF using whatever price is set
+               (override → auto-computed Cash Buyer MAO × 1.20 fallback).
+               Both buttons use the same .btn .btn-ghost styling as the
+               other action buttons in this row so heights match. Visual
+               grouping comes from matched borders + 0-radius on the joined
+               edges only. -->
+          <div style="position:relative;display:inline-flex;flex-shrink:0;gap:0">
+            <button class="btn btn-ghost text-sm" onclick="uwTogglePacketPricePopover()" style="white-space:nowrap;border:1px solid #6366f1;border-right:none;border-top-right-radius:0;border-bottom-right-radius:0;color:#a5b4fc" title="Click to override the asking price shown on the packet. Leave blank to use the auto-computed price (Cash Buyer MAO × 1.20).">📄</button>
+            <button class="btn btn-ghost text-sm" onclick="uwGenerateWholesalePacket()" style="white-space:nowrap;border:1px solid #6366f1;border-top-left-radius:0;border-bottom-left-radius:0;color:#a5b4fc" title="Generate a buyer-ready PDF packet with property info, comps, ARV, rent estimate, and scope of work.">Wholesale Packet</button>
+            <!-- Inline popover anchored to the button. Shown by uwTogglePacketPricePopover. -->
+            <div id="uw-packet-price-popover" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:50;background:var(--panel);border:1px solid #6366f1;border-radius:8px;padding:12px 14px;min-width:260px;box-shadow:0 8px 24px rgba(0,0,0,0.45)">
+              <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;font-weight:700">📄 Packet Asking Price</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;line-height:1.4">Override the asking price shown to buyers. Leave blank to use Cash Buyer MAO × 1.20. <b style="color:#a5b4fc">Packet-only — your underwriting math is unchanged.</b></div>
+              <input type="text" inputmode="numeric" id="uw-packet-asking-override" oninput="(function(el){var raw=el.value.replace(/[^\d.]/g,'');var num=parseFloat(raw);el.value=isFinite(num)&&raw!==''?num.toLocaleString('en-US',{maximumFractionDigits:0}):raw;})(this);if(typeof _uwQueueAutosave==='function')_uwQueueAutosave();" placeholder="auto" style="width:100%;padding:7px 10px;background:var(--panel-2);border:1px solid #6366f1;color:#a5b4fc;border-radius:6px;font-size:15px;text-align:right;font-weight:700;font-family:monospace">
+              <div style="display:flex;gap:6px;margin-top:10px">
+                <button class="btn btn-ghost text-xs" onclick="document.getElementById('uw-packet-asking-override').value='';if(typeof _uwQueueAutosave==='function')_uwQueueAutosave();" style="flex:1;color:var(--text-dim)" title="Clear the override and fall back to the auto-computed price">↺ Use Auto</button>
+                <button class="btn btn-primary text-xs" onclick="uwTogglePacketPricePopover()" style="flex:1">Done</button>
+              </div>
+            </div>
+          </div>
           <button class="btn btn-primary text-sm" onclick="uwSave(true)" style="white-space:nowrap;flex-shrink:0" title="Save now (auto-save also runs in the background a few seconds after each edit).">💾 Save Now</button>
         </div>
       </div>
@@ -11605,6 +11626,37 @@ function uwExportCsv() {
 //
 // Triggered by the "📄 Wholesale Packet" button in the calculator header.
 // Uses jsPDF (loaded via CDN at the top of the file) + autotable plugin.
+// Toggles the packet-asking-price popover. Anchored under the split button
+// (📄 + Wholesale Packet). When open, a one-time outside-click listener
+// closes it so the user can dismiss by clicking elsewhere.
+function uwTogglePacketPricePopover() {
+  const pop = document.getElementById('uw-packet-price-popover');
+  if (!pop) return;
+  const isOpen = pop.style.display !== 'none';
+  if (isOpen) {
+    pop.style.display = 'none';
+    return;
+  }
+  pop.style.display = 'block';
+  // Focus the input so the user can start typing immediately.
+  setTimeout(() => {
+    const inp = document.getElementById('uw-packet-asking-override');
+    if (inp) inp.focus();
+  }, 0);
+  // Close on outside click. attached on a microtask so the click that opened
+  // the popover doesn't immediately close it.
+  setTimeout(() => {
+    const onDocClick = (ev) => {
+      if (!pop.contains(ev.target) && !ev.target.closest('[onclick="uwTogglePacketPricePopover()"]')) {
+        pop.style.display = 'none';
+        document.removeEventListener('mousedown', onDocClick);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+  }, 0);
+}
+window.uwTogglePacketPricePopover = uwTogglePacketPricePopover;
+
 async function uwGenerateWholesalePacket() {
   if (typeof window.jspdf === 'undefined' || !window.jspdf.jsPDF) {
     alert('PDF library failed to load. Refresh the page and try again.');
@@ -11627,6 +11679,10 @@ async function uwGenerateWholesalePacket() {
   // ASCII-safe formatters — jsPDF's default helvetica font doesn't include
   // U+2212 minus or U+2248 approx, so use plain ASCII throughout.
   const fmt$ = (n) => isFinite(n) && n > 0 ? '$' + Math.round(n).toLocaleString() : '—';
+  // Packet-only formatter: rounds UP to the nearest $1,000 so big numbers
+  // (ARV, max offer, pro forma totals) read cleanly without trailing odd
+  // dollars. Rent (which is a $/mo rate) keeps the precise fmt$.
+  const fmt$1k = (n) => isFinite(n) && n > 0 ? '$' + (Math.ceil(n / 1000) * 1000).toLocaleString() : '—';
   const fmtNeg$ = (n) => isFinite(n) && n > 0 ? '-$' + Math.round(n).toLocaleString() : '$0';
   const dash = (s) => s && s.trim() ? s : '—';
 
@@ -11916,17 +11972,28 @@ async function uwGenerateWholesalePacket() {
   const mao = (typeof window._uwCashBuyerMAO === 'number' && window._uwCashBuyerMAO > 0)
     ? window._uwCashBuyerMAO
     : 0;
-  const askPrice = mao > 0 ? mao * 1.20 : 0;
+  // Packet asking price defaults to Cash Buyer MAO × 1.20, but the user can
+  // override it via the "📄 Packet Price" field in the header (id =
+  // uw-packet-asking-override). When that field has a value, it replaces the
+  // auto-computed price for the cover headline AND the pro forma purchase
+  // price below — packet only, never touches the underwriting math.
+  const _packetOv = getN('uw-packet-asking-override');
+  const askPrice = _packetOv > 0
+    ? _packetOv
+    : (mao > 0 ? mao * 1.20 : 0);
   if (askPrice > 0) {
     // Eyebrow label (small, dim, letterspaced)
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(C_BRAND[0], C_BRAND[1], C_BRAND[2]);
     doc.text('ASKING PRICE', PAGE_W - MARGIN, 40, { align: 'right', charSpace: 1.5 });
+    // (Asking price uses fmt$1k below — rounded UP to the nearest $1,000 so
+    // the headline figure reads cleanly, matching every other big-dollar
+    // value in the packet.)
     // Big number
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(28);
-    doc.text(fmt$(askPrice), PAGE_W - MARGIN, 75, { align: 'right' });
+    doc.text(fmt$1k(askPrice), PAGE_W - MARGIN, 75, { align: 'right' });
     // No caption under the price — clean stack: label + number only.
   }
 
@@ -12391,9 +12458,16 @@ async function uwGenerateWholesalePacket() {
     // reading the packet would actually pay. This is the same askPrice shown
     // in the top-right of the cover (cashBuyerMAO × 1.20). Falls back to the
     // internal accepted/asking values only if the cover price isn't available.
-    const buyPrice     = (typeof askPrice === 'number' && askPrice > 0)
+    const buyPriceRaw  = (typeof askPrice === 'number' && askPrice > 0)
                            ? askPrice
                            : (getN('uw-accepted') || getN('uw-asking') || 0);
+    // For the PACKET, we round the buyer-facing price UP to the nearest
+    // $1,000 so the published price reads cleanly ($13,392 → $14,000). Every
+    // downstream calc on the packet (closing %, tax, total cash in, yield)
+    // is derived from this same rounded value so the displayed math is
+    // internally consistent for the buyer. The user's underwriting system
+    // still uses the precise number internally — this rounding is packet-only.
+    const buyPrice     = buyPriceRaw > 0 ? Math.ceil(buyPriceRaw / 1000) * 1000 : 0;
     const _units       = Math.max(1, getN('uw-units') || getN('uw-units-rental') || 1);
     const perUnitRent  = estRent;                 // already respects override → avg → comps
     const totalRent    = perUnitRent * _units;
@@ -12438,11 +12512,19 @@ async function uwGenerateWholesalePacket() {
     const allIn = buyPrice + rRehab + purchClosing + preRentHolding;
     const annualRent = totalRent * 12;
     const yieldPct   = allIn > 0 ? (annualRent / allIn) * 100 : 0;
-    const monthlyCashflow = totalRent - totalMonthlyExp;
+    // Round monthly cashflow FIRST so the displayed Annual = displayed
+    // Monthly × 12 exactly (avoids the math-doesn't-add-up look where the
+    // buyer reads "$528/mo × 12 = $6,336" but the row says $6,340).
+    const monthlyCashflow = Math.round(totalRent - totalMonthlyExp);
     const annualCashflow  = monthlyCashflow * 12;
 
     const fmt$  = (n) => '$' + Math.round(n).toLocaleString();
     const fmt$0 = (n) => n ? fmt$(n) : '$0';
+    // Big-dollar formatter — rounds UP to the nearest $1,000 for "estimate"
+    // values that don't benefit from precision (purchase price, totals,
+    // annual figures). Monthly rates keep fmt$ precision.
+    const fmt$1k  = (n) => isFinite(n) && n > 0 ? '$' + (Math.ceil(n / 1000) * 1000).toLocaleString() : '$0';
+    const fmt$1k0 = (n) => n ? fmt$1k(n) : '$0';
 
     // Force a fresh page so the pro forma always lands on its own page.
     doc.addPage();
@@ -12480,10 +12562,16 @@ async function uwGenerateWholesalePacket() {
       startY: y,
       head: [['ALL-IN CAPITAL  (one-time, cash out of pocket)', '']],
       body: [
+        // Purchase Price is already rounded UP to the nearest $1,000 at the
+        // top of this function so the headline ASKING PRICE on the cover
+        // matches the All-In Capital row here AND so all downstream rows
+        // (closing 3%, monthly tax 1%, total cash in) are derived from the
+        // same rounded base — keeping the displayed math internally
+        // consistent for the buyer.
         ['Purchase Price',                  fmt$(buyPrice)],
         ['Rental-Grade Rehab',              fmt$0(rRehab)],
-        ['Closing Costs (3% of purchase)',  fmt$(purchClosing)],
-        ['Pre-Rent Holding (' + preRentMo + ' mo · tax + ins)', fmt$(preRentHolding)],
+        ['Closing Costs',                   fmt$(purchClosing)],
+        ['Pre-Rent Holding',                 fmt$(preRentHolding)],
         [{ content: 'TOTAL CASH IN', styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
          { content: fmt$(allIn),   styles: { fontStyle: 'bold', fillColor: [241, 245, 249], halign: 'right' } }],
       ],
@@ -12557,7 +12645,7 @@ async function uwGenerateWholesalePacket() {
   // Groups flow into whichever column is currently shortest (greedy load-
   // balance) so the bottom edges stay roughly even.
   if (scopeColumns.length) {
-    section('SCOPE OF WORK');
+    section('SCOPE OF WORK (FLIP GRADE)');
     doc.setFontSize(9);
     doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
     const scopeIntro = 'Scope identified during the walkthrough. Buyer to verify on inspection.';
@@ -12659,7 +12747,34 @@ async function uwGenerateWholesalePacket() {
     doc.setFontSize(7.5);
     const wrappedLines = doc.splitTextToSize(discText, innerW);
     const boxH         = 18 + wrappedLines.length * lineH + 8;
-    need(boxH);
+    // ===== Always pin the disclosure to the BOTTOM of page 2 =====
+    // The disclosure is a footnote-style legal blurb — it belongs at the end
+    // of page 2 regardless of how short the scope of work is. Earlier logic
+    // ran need(boxH) which forced a new page whenever the box didn't fit in
+    // the remaining space immediately after the scope; that pushed the
+    // disclosure to page 3 even when page 2 had plenty of empty space.
+    //
+    // Algorithm:
+    //  1. If we're still on page 1, force a new page so disclosure can land
+    //     on page 2. (Normal flow: cover/comps fill page 1 and scope spills
+    //     to page 2, but small deals can leave us on page 1.)
+    //  2. Compute the Y position that puts the disclosure flush with the
+    //     bottom margin (above the footer).
+    //  3. If that Y is below the current cursor (i.e. content already runs
+    //     past where the disclosure would start), add another page and pin
+    //     to bottom of that one.
+    //  4. Set y to the pinned position.
+    const footerReserve = 50;  // matches footer drawing area (PAGE_H - 32 baseline + padding)
+    if (doc.getCurrentPageInfo().pageNumber === 1) {
+      doc.addPage();
+      y = MARGIN;
+    }
+    const pinnedY = PAGE_H - footerReserve - boxH;
+    if (pinnedY < y) {
+      doc.addPage();
+      y = MARGIN;
+    }
+    y = PAGE_H - footerReserve - boxH;
 
     // Subtle muted background + amber accent stripe to flag "read this"
     doc.setFillColor(254, 252, 232);   // amber-50
@@ -12727,7 +12842,7 @@ async function uwGenerateWholesalePacket() {
 let _uwCurrentId = null; // null = new deal; UUID = editing existing
 
 const UW_FIELDS = [
-  'uw-packet-status','uw-asking','uw-offer','uw-accepted',
+  'uw-packet-status','uw-asking','uw-offer','uw-accepted','uw-packet-asking-override',
   'uw-address','uw-city','uw-state','uw-zip','uw-legal',
   'uw-built','uw-bed','uw-bath','uw-sqft','uw-floor1','uw-floor2','uw-floor3','uw-bsmt','uw-bsmt-include','uw-attic','uw-attic-include','uw-zsqft','uw-lot-size','uw-lot-size-sqft','uw-prop-parking','uw-prop-material','uw-prop-foundation',
   'uw-condition','uw-rehab-real','uw-rehab-expected','uw-flood','uw-crime','uw-assessor-url',

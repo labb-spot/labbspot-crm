@@ -2629,16 +2629,35 @@
             try { window.uwRecalc(); } catch(e){}
           }
         }
-        window.uwSetCompsMode = function(mode, el){
+        window.uwSetCompsMode = function(mode, el, opts){
+          opts = opts || {};
           // If the user just unchecked the currently-active box, force it back on —
           // we always require exactly one to be selected.
           if (el && !el.checked) { apply(mode); return; }
           apply(mode);
+          // ===== PER-PROPERTY persistence =====
+          // The mode (sold/listed) is also saved on the currently-loaded deal
+          // so each property remembers its own choice. localStorage above is
+          // kept as the GLOBAL default — used for new deals and ones that have
+          // never had a mode set. opts.skipDealSave is passed by uwLoadById
+          // when restoring the saved mode (to avoid an autosave loop).
+          if (!opts.skipDealSave &&
+              typeof _uwCurrentId !== 'undefined' && _uwCurrentId &&
+              typeof cache !== 'undefined' && cache && cache.underwrites &&
+              cache.underwrites[_uwCurrentId]) {
+            var _u = cache.underwrites[_uwCurrentId];
+            if (!_u.data) _u.data = {};
+            if (_u.data._compsMode !== mode) {
+              _u.data._compsMode = mode;
+              if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+            }
+          }
         };
         function init(){
-          var saved = null;
-          try { saved = localStorage.getItem(STORAGE_KEY); } catch(e){}
-          apply(saved === 'listed' ? 'listed' : 'sold', { persist:false, recalc:false });
+          // Always start on 'sold'. Each deal remembers its own mode in
+          // data._compsMode (restored by uwLoadById on load); the previous
+          // session's last-used preference no longer carries across deals.
+          apply('sold', { persist:false, recalc:false });
         }
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', init);
@@ -15702,6 +15721,18 @@ async function uwLoadById(id) {
   goUwView('calculator');
   _uwApply(u.data);
   _uwCurrentId = id;
+  // Per-deal comps mode (Sold vs. Listed). The default for EVERY deal is
+  // 'sold' — only deals where the user explicitly switched to Listed
+  // remember Listed (saved as data._compsMode). This way loading a fresh
+  // deal always resets the toggle to Sold even if the previous deal you
+  // opened was on Listed. skipDealSave avoids triggering an autosave during
+  // the load itself.
+  try {
+    var _dealMode = (u.data && u.data._compsMode === 'listed') ? 'listed' : 'sold';
+    if (typeof window.uwSetCompsMode === 'function') {
+      window.uwSetCompsMode(_dealMode, null, { skipDealSave: true });
+    }
+  } catch (_) { /* non-fatal — fall back to current toggle state */ }
   // Update header title/subtitle with the loaded property's address
   const titleEl = document.getElementById('uw-detail-title');
   if (titleEl) titleEl.textContent = '📂 ' + (u.address || 'Loaded deal');

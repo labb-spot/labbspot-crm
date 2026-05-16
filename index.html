@@ -165,6 +165,56 @@
     color: var(--text-dim); font-size: 12px; font-weight: 600; pointer-events: none; line-height: 1;
   }
   .uw-money input { padding-left: 18px !important; }
+  /* Rental-comp Rent + /sqft split input — visually a single field with two
+     cells. The .uw-money wrapper goes flex; the input loses its right side
+     border + radius; the locked /sqft cell on the right inherits the same
+     bordered/rounded styling so the seam reads as a single field. */
+  .uw-money.rcp-rent-group { display: flex; align-items: stretch; }
+  .uw-money.rcp-rent-group > input {
+    flex: 1; min-width: 0;
+    border-top-right-radius: 0; border-bottom-right-radius: 0;
+    border-right: none;
+  }
+  /* $/sf locked cell — visually mimics the readonly Avg Rent fields above:
+     slate-gray tinted bg, not-allowed cursor, centered content. Sits flush
+     to the right of the rent input with a 1px divider as the seam. */
+  .rcp-rent-psf-cell {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 4px;
+    background: rgba(148, 163, 184, 0.10);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+    padding: 0 10px;
+    min-width: 90px;
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    line-height: 1;
+    cursor: not-allowed;
+  }
+  /* Keep the input's right border as the seam divider so the cell looks
+     attached, like an "ac" or "sqft" suffix on the lot inputs. */
+  .uw-money.rcp-rent-group > input { border-right: 1px solid var(--border) !important; }
+  .rcp-rent-psf-cell > span { color: inherit; }
+  /* Trailing "/sf" unit suffix — tiny + dim so the unit reads clearly
+     without competing with the value. */
+  .rcp-rent-psf-cell::after {
+    content: "/sf";
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-dim);
+    letter-spacing: 0.3px;
+  }
+  /* Empty/placeholder — dim and drop the /sf suffix. */
+  .rcp-rent-psf-cell.is-empty { color: var(--text-dim); }
+  .rcp-rent-psf-cell.is-empty::after { display: none; }
+  /* Filled — normal text color, same as other locked readonly fields. */
+  .rcp-rent-psf-cell.is-filled { color: var(--text); }
+  .rcp-rent-psf-cell.is-filled::after { color: var(--text-dim); }
   /* Lot-size suffix wrappers — show "ac" or "sqft" inside the input, right-aligned.
      Matches the .uw-money pattern but as a suffix instead of a prefix. */
   .uw-suffix-ac, .uw-suffix-sqft { position: relative; display: block; }
@@ -2670,13 +2720,23 @@
     <!-- ===== Rental Comparable Properties (extracted from Rental Analysis so all comps live together) ===== -->
     <div class="panel p-5 mb-4" data-uw-section="rental-comps" data-uw-section-label="🏘️ Rental Comparable Properties">
       <div class="font-semibold text-base mb-3">🏘️ Rental Comparable Properties <span class="text-xs" style="color:var(--text-dim);font-weight:normal">(per-unit comps × units = total rent used by exits)</span></div>
-      <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mb-3">
+      <div class="grid grid-cols-2 md:grid-cols-7 gap-2 mb-3">
         <label class="text-xs" title="Number of rentable units in this property. Multiplies the per-unit rent (Avg or Override) to get the total monthly rent used by every rental exit. Synced with Units in Property Info.">Units
           <input type="number" id="uw-units-rental" min="1" step="1" value="1" oninput="_uwSyncUnits('rental'); uwRecalc()" style="width:100%;margin-top:4px;border-color:#3b82f6">
         </label>
         <label class="text-xs" title="Auto-computed: average monthly rent of the 3 rental comps below. Per-unit value — multiplied by Units to get the total rent used by Cash / Financed / Refi exits.">Avg Rent /mo (per unit)
           <span class="uw-money" style="margin-top:4px">
             <input type="text" id="uw-ravg-rent" readonly tabindex="-1" placeholder="(fills from comps)" style="width:100%;background:rgba(148,163,184,0.10);cursor:not-allowed;color:var(--text);font-weight:600">
+          </span>
+        </label>
+        <!-- Avg Rent /sqft — display-only. Computed from each comp's rent ÷
+             sqft (averaged across comps where both are present), rounded to
+             the nearest cent. Does NOT feed any exit calculations — it's
+             reference info only so the user can sanity-check rent against
+             local /sqft norms. -->
+        <label class="text-xs" title="Auto-computed reference value: (average rent /sqft across rental comps) × subject property's livable sqft. Gives a rent estimate scaled to your subject's actual sqft. Does NOT affect any exit math — display only.">Avg Rent /mo (Per Sqft)
+          <span class="uw-money" style="margin-top:4px">
+            <input type="text" id="uw-ravg-rent-psf" readonly tabindex="-1" placeholder="(from comps)" style="width:100%;background:rgba(148,163,184,0.10);cursor:not-allowed;color:var(--text);font-weight:600">
           </span>
         </label>
         <label class="text-xs" title="Per-unit rent × Units. This is the actual monthly rent number all rental exits (Cash / Financed / Refi) use for their cashflow + DSCR calculations.">Total Rent /mo
@@ -2708,7 +2768,15 @@
             <a id="uw-rcp1-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
             <a id="uw-rcp1-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
           </div>
-          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-rcp1-rent" oninput="uwRecalc()" placeholder="Rent /mo" style="width:100%"></span>
+          <!-- Rent input as a unified bordered field: editable rent on the
+               left, locked rent /sqft on the right. Both share the same
+               outer styling so it reads as one input. Visually divided by a
+               1px rule between them; left and right corners are rounded
+               half-each so the seam looks intentional. -->
+          <span class="uw-money rcp-rent-group" style="margin-top:4px" title="Monthly rent (left) and rent per square foot for THIS comp (right, locked). The /sqft value is reference-only and never feeds exit math.">
+            <input type="number" id="uw-rcp1-rent" oninput="uwRecalc()" placeholder="Rent /mo">
+            <span class="rcp-rent-psf-cell is-empty"><span id="uw-rcp1-rent-psf">—</span></span>
+          </span>
           <input type="text" id="uw-rcp1-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
           <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
             <input type="number" id="uw-rcp1-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
@@ -2730,7 +2798,10 @@
             <a id="uw-rcp2-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
             <a id="uw-rcp2-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
           </div>
-          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-rcp2-rent" oninput="uwRecalc()" placeholder="Rent /mo" style="width:100%"></span>
+          <span class="uw-money rcp-rent-group" style="margin-top:4px" title="Monthly rent (left) and rent per square foot for THIS comp (right, locked). The /sqft value is reference-only and never feeds exit math.">
+            <input type="number" id="uw-rcp2-rent" oninput="uwRecalc()" placeholder="Rent /mo">
+            <span class="rcp-rent-psf-cell is-empty"><span id="uw-rcp2-rent-psf">—</span></span>
+          </span>
           <input type="text" id="uw-rcp2-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
           <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
             <input type="number" id="uw-rcp2-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
@@ -2752,7 +2823,10 @@
             <a id="uw-rcp3-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
             <a id="uw-rcp3-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
           </div>
-          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-rcp3-rent" oninput="uwRecalc()" placeholder="Rent /mo" style="width:100%"></span>
+          <span class="uw-money rcp-rent-group" style="margin-top:4px" title="Monthly rent (left) and rent per square foot for THIS comp (right, locked). The /sqft value is reference-only and never feeds exit math.">
+            <input type="number" id="uw-rcp3-rent" oninput="uwRecalc()" placeholder="Rent /mo">
+            <span class="rcp-rent-psf-cell is-empty"><span id="uw-rcp3-rent-psf">—</span></span>
+          </span>
           <input type="text" id="uw-rcp3-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
           <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
             <input type="number" id="uw-rcp3-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
@@ -2890,8 +2964,13 @@
       </div>
 
       <!-- ===== Distress Presets ===== -->
-      <div class="flex items-center gap-2 mb-3 flex-wrap">
+      <div class="flex items-center gap-2 mb-3 flex-wrap" style="align-items:center">
         <span class="text-xs" style="color:var(--text-dim);align-self:center">Quick presets:</span>
+        <!-- Custom preset — per-deal. Loads whatever the user saved last time
+             for this deal. Save button below appears when Custom is active so
+             the user can update the snapshot after toggling items. Placed first
+             so the user's saved selection is the most prominent option. -->
+        <button class="rc-preset" data-preset="custom" title="Apply the custom rehab selection saved for this deal. Use the 💾 Save Custom button (appears when this is active) to capture your current item + special-case state.">⭐ Custom</button>
         <button class="rc-preset" data-preset="cosmetic">Cosmetic</button>
         <button class="rc-preset" data-preset="light">Light</button>
         <button class="rc-preset active" data-preset="moderate">Moderate</button>
@@ -2899,6 +2978,11 @@
         <button class="rc-preset" data-preset="gut">Gut Rehab</button>
         <button class="rc-preset" data-preset="monster">Monster</button>
         <button class="rc-preset" data-preset="clear">Clear All</button>
+        <!-- Save Custom — only visible while Custom is the active preset.
+             Snapshots the current item toggles + special-case severities
+             onto data._customRehabPreset so the next 'Custom' click restores
+             them. Sits on the right side of the row. -->
+        <button id="rc-save-custom" class="rc-preset" style="display:none;margin-left:auto;background:#10b981;color:white;border-color:#10b981" title="Save the current item + special-case selection as this deal's Custom preset. The next time you click ⭐ Custom on this deal, this exact selection will load back.">💾 Save Custom</button>
       </div>
 
       <!-- ===== Hazmat Alert ===== -->
@@ -6793,6 +6877,18 @@ function goUwView(v) {
 //     deal's data blob under _source* keys for traceability.
 async function _uwSyncMotivatedLeads(opts) {
   const silent = opts && opts.silent;
+  // Single-flight lock — prevents two concurrent calls (e.g. two
+  // back-to-back realtime events for motivated rows) from both reading a
+  // stale cache and both inserting duplicate Priority rows for the same
+  // address. If a sync is already running, mark that another pass is
+  // needed and let the in-flight call schedule it when it finishes.
+  if (_uwSyncMotivatedLeads._inFlight) {
+    _uwSyncMotivatedLeads._queued = true;
+    return 0;
+  }
+  _uwSyncMotivatedLeads._inFlight = true;
+  let _syncResult = 0;
+  try {
   if (typeof sb === 'undefined' || !sb) return 0;
   if (typeof isMotivatedDisposition !== 'function') return 0;
   // Need both caches loaded — if not, attempt loadUnderwrites() once
@@ -6801,7 +6897,32 @@ async function _uwSyncMotivatedLeads(opts) {
   }
   if (!cache.underwrites) cache.underwrites = {};
   if (!cache.results) return 0;
-  const norm = (s) => (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+  // Address normalization for DEDUP ONLY — does NOT change the displayed
+  // or stored address. Lowercases, trims, collapses whitespace, strips
+  // trailing periods on abbreviations, and normalizes common street
+  // suffixes (Ave/Avenue, St/Street, Rd/Road, Dr/Drive, etc.) plus
+  // directional prefixes (N/North, S/South, E/East, W/West) to a single
+  // canonical form. Prevents "410 South Highland Ave" and "410 South
+  // Highland Avenue" from being treated as different addresses.
+  const norm = (s) => {
+    if (!s) return '';
+    let n = String(s).trim().toLowerCase().replace(/\s+/g, ' ');
+    // "ave." → "ave"
+    n = n.replace(/([a-z])\.(\s|$)/g, '$1$2');
+    const map = [
+      [/\bstreet\b/g, 'st'],     [/\bavenue\b/g, 'ave'],
+      [/\bboulevard\b/g, 'blvd'],[/\bdrive\b/g, 'dr'],
+      [/\broad\b/g, 'rd'],       [/\bcourt\b/g, 'ct'],
+      [/\bcircle\b/g, 'cir'],    [/\blane\b/g, 'ln'],
+      [/\bplace\b/g, 'pl'],      [/\bparkway\b/g, 'pkwy'],
+      [/\bhighway\b/g, 'hwy'],   [/\btrail\b/g, 'trl'],
+      [/\bterrace\b/g, 'ter'],   [/\bsquare\b/g, 'sq'],
+      [/\bnorth\b/g, 'n'],       [/\bsouth\b/g, 's'],
+      [/\beast\b/g, 'e'],        [/\bwest\b/g, 'w'],
+    ];
+    for (const [re, rep] of map) n = n.replace(re, rep);
+    return n.replace(/\s+/g, ' ').trim();
+  };
   const existing = new Set();
   Object.values(cache.underwrites).forEach(u => {
     if (u && u.address) existing.add(norm(u.address));
@@ -6866,7 +6987,18 @@ async function _uwSyncMotivatedLeads(opts) {
   if (failed && !silent && typeof toast === 'function') {
     toast(failed + ' motivated lead' + (failed === 1 ? '' : 's') + ' failed to sync (see console).', 'err');
   }
+  _syncResult = created;
   return created;
+  } finally {
+    _uwSyncMotivatedLeads._inFlight = false;
+    // If another sync was requested while this one was running, kick it
+    // off on the next tick so the just-completed inserts are visible to
+    // that pass's cache snapshot.
+    if (_uwSyncMotivatedLeads._queued) {
+      _uwSyncMotivatedLeads._queued = false;
+      setTimeout(() => { try { _uwSyncMotivatedLeads({ silent: true }); } catch (_) {} }, 150);
+    }
+  }
 }
 window._uwSyncMotivatedLeads = _uwSyncMotivatedLeads;
 
@@ -8360,6 +8492,45 @@ function uwRecalc() {
     ravgEl.title = avgRent > 0
       ? 'Average of ' + rentVals.length + ' rental comps: $' + avgRent.toLocaleString() + '/mo'
       : 'Enter monthly rent for at least one rental comp below to populate this average.';
+  }
+  // ===== Avg Rent /mo (Per Sqft) — DISPLAY ONLY =====
+  // For each comp where BOTH rent and sqft > 0, compute that comp's
+  // rent ÷ sqft (= $/sqft). Each comp's $/sqft also displays inline next
+  // to its rent input (the locked sub-field on the right of the rent box).
+  // The SUMMARY column at the top is the average comp $/sqft × the SUBJECT
+  // property's livable sqft — i.e., the rent estimate scaled to your
+  // subject's actual sqft. Pure reference value — never feeds exit math.
+  const _psfRaw = ['rcp1','rcp2','rcp3'].map(p => {
+    const r = _uwGetN('uw-' + p + '-rent');
+    const s = _uwGetN('uw-' + p + '-sqft');
+    return (r > 0 && s > 0) ? (r / s) : 0;
+  });
+  // Update each per-comp inline display
+  ['rcp1','rcp2','rcp3'].forEach((p, i) => {
+    const el = document.getElementById('uw-' + p + '-rent-psf');
+    if (!el) return;
+    const cell = el.parentElement; // .rcp-rent-psf-cell
+    if (_psfRaw[i] > 0) {
+      el.textContent = '$' + _psfRaw[i].toFixed(2);
+      if (cell) { cell.classList.add('is-filled'); cell.classList.remove('is-empty'); }
+    } else {
+      el.textContent = '—';
+      if (cell) { cell.classList.add('is-empty'); cell.classList.remove('is-filled'); }
+    }
+  });
+  const _psfVals = _psfRaw.filter(x => x > 0);
+  const avgRentPsf = _psfVals.length ? (_psfVals.reduce((a, b) => a + b, 0) / _psfVals.length) : 0;
+  const _subjectSqft = _uwGetN('uw-sqft');
+  const subjectRentByPsf = (avgRentPsf > 0 && _subjectSqft > 0)
+    ? Math.round(avgRentPsf * _subjectSqft) : 0;
+  const ravgPsfEl = document.getElementById('uw-ravg-rent-psf');
+  if (ravgPsfEl) {
+    ravgPsfEl.value = subjectRentByPsf > 0 ? subjectRentByPsf.toLocaleString() : '';
+    ravgPsfEl.title = subjectRentByPsf > 0
+      ? 'Avg rent /sqft from ' + _psfVals.length + ' comp' + (_psfVals.length === 1 ? '' : 's') +
+        ' ($' + avgRentPsf.toFixed(2) + '/sqft) × subject ' + _subjectSqft.toLocaleString() +
+        ' sqft = $' + subjectRentByPsf.toLocaleString() + '/mo. Reference value — does not affect exit math.'
+      : 'Fill rent + sqft on at least one rental comp AND the subject Living SqFt to populate this estimate.';
   }
   // If the user hasn't manually entered a Rent /mo (uw-rent), suggest the avg
   // as a placeholder so they can see what the comps imply.
@@ -14136,7 +14307,7 @@ function _uwCollect() {
       if (k.indexOf('_source') === 0 || k === '_priorityHandled' || k === '_holdingStatus' ||
           k === '_budgetActuals' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
           k === '_reno_phase_override' || k === '_compsMode' ||
-          k === '_scopePhaseBudgets') {
+          k === '_scopePhaseBudgets' || k === '_customRehabPreset') {
         data[k] = prev[k];
       }
     });
@@ -34379,16 +34550,72 @@ _rcRoot.addEventListener('click', e=>{
     specialCases[idx].sev = specialCases[idx].sev===sev ? null : sev;
     recalc();
   }
+  // ===== Save Custom button =====
+  // Clicked when the ⭐ Custom preset is active. Snapshots the current item
+  // toggles + special-case severities onto the deal's data._customRehabPreset
+  // so the next ⭐ Custom click on this deal restores them.
+  if(e.target.id === 'rc-save-custom'){
+    if (typeof _uwCurrentId === 'undefined' || !_uwCurrentId ||
+        !window.cache || !cache.underwrites || !cache.underwrites[_uwCurrentId]) {
+      if (typeof toast === 'function') toast('Open a deal first', 'warn');
+      return;
+    }
+    const _u = cache.underwrites[_uwCurrentId];
+    if (!_u.data) _u.data = {};
+    _u.data._customRehabPreset = {
+      items: Object.keys(items).reduce((acc, k) => {
+        acc[k] = items[k].map(i => ({ n: i.n, on: !!i.on }));
+        return acc;
+      }, {}),
+      specialCases: Array.isArray(specialCases)
+        ? specialCases.map(s => ({ n: s.n, sev: s.sev || null }))
+        : []
+    };
+    if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+    if (typeof toast === 'function') toast('⭐ Custom preset saved for this deal', 'ok');
+    return;
+  }
   if(e.target.matches('.rc-preset')){
     _rcRoot.querySelectorAll('.rc-preset').forEach(b=>b.classList.remove('active'));
     e.target.classList.add('active');
     const p = e.target.dataset.preset;
     if(p==='clear'){ Object.keys(items).forEach(k=>items[k].forEach(i=>i.on=false)); specialCases.forEach(s=>s.sev=null); }
+    else if(p==='custom'){
+      // Load this deal's saved Custom preset (items + special cases). Falls
+      // back to "clear all" if the deal has no saved custom yet — the user
+      // can then build their selection and click 💾 Save Custom.
+      const _u = (typeof _uwCurrentId !== 'undefined' && _uwCurrentId &&
+                  window.cache && cache.underwrites) ? cache.underwrites[_uwCurrentId] : null;
+      const saved = _u && _u.data && _u.data._customRehabPreset;
+      if (saved && saved.items) {
+        Object.keys(items).forEach(k => {
+          const savedList = saved.items[k];
+          items[k].forEach(i => {
+            const found = Array.isArray(savedList) ? savedList.find(x => x.n === i.n) : null;
+            i.on = !!(found && found.on);
+          });
+        });
+        if (Array.isArray(saved.specialCases)) {
+          specialCases.forEach(s => {
+            const found = saved.specialCases.find(x => x.n === s.n);
+            s.sev = found ? found.sev : null;
+          });
+        }
+      } else {
+        // No saved Custom yet — start empty so the user can build it
+        Object.keys(items).forEach(k => items[k].forEach(i => i.on = false));
+        specialCases.forEach(s => s.sev = null);
+      }
+    }
     else {
       const list = presets[p];
       Object.keys(items).forEach(k=>items[k].forEach(i=>i.on=list.includes(i.n)));
       list.forEach(name=>applyMutex(name));
     }
+    // Toggle the Save Custom button: visible ONLY when Custom is the active
+    // preset, so it's clear what the button affects.
+    const _saveBtn = document.getElementById('rc-save-custom');
+    if (_saveBtn) _saveBtn.style.display = (p === 'custom') ? '' : 'none';
     recalc();
   }
   // Delete a user-added custom item (button has data-delete-custom-item="<name>")

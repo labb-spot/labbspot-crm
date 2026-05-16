@@ -12840,6 +12840,11 @@ async function uwGenerateWholesalePacket() {
 // ---------- Underwriting: persistence (Supabase `underwrites` table) ----------
 // Runs separately from cache.* loaders since the table may not exist yet.
 let _uwCurrentId = null; // null = new deal; UUID = editing existing
+// Optimistic-locking timestamp. Snapshotted when a deal is loaded; checked
+// against the live DB row right before each save. If the live row's
+// updated_at differs, another user has saved while we were editing and we
+// abort with a clear warning rather than silently overwriting their work.
+let _uwLoadedAt = null;
 
 const UW_FIELDS = [
   'uw-packet-status','uw-asking','uw-offer','uw-accepted','uw-packet-asking-override',
@@ -14674,6 +14679,33 @@ async function uwSave(manual) {
   try {
     let result;
     if (_uwCurrentId) {
+      // ===== Optimistic locking — concurrent-edit protection =====
+      // Before the update, fetch the live updated_at and compare to the
+      // snapshot we took when this deal was loaded. If they differ, ANOTHER
+      // user has saved this deal in the meantime — bail rather than silently
+      // overwriting their work. The user must reload to see the new state,
+      // then re-apply their edits.
+      if (_uwLoadedAt) {
+        const { data: live, error: lockErr } = await sb
+          .from('underwrites')
+          .select('updated_at')
+          .eq('id', _uwCurrentId)
+          .maybeSingle();
+        if (!lockErr && live && live.updated_at && live.updated_at !== _uwLoadedAt) {
+          _uwAutosaveInflight = false;
+          _uwSetSaveStatus('error', 'Conflict');
+          const editTimeFmt = (() => {
+            try { return new Date(live.updated_at).toLocaleString(); }
+            catch (_) { return 'a moment ago'; }
+          })();
+          const msg = '⚠️ Another user edited this deal at ' + editTimeFmt +
+            '. Save was BLOCKED to protect their work. Reload the deal to see ' +
+            'the latest version, then re-apply your changes.';
+          if (manual) alert(msg);
+          else if (typeof toast === 'function') toast(msg, 'warn');
+          return;
+        }
+      }
       result = await sb.from('underwrites').update(payload).eq('id', _uwCurrentId).select().maybeSingle();
     } else {
       payload.id = uid();
@@ -14701,6 +14733,10 @@ async function uwSave(manual) {
       // Update local cache + refresh subtab counts/lists
       if (!cache.underwrites) cache.underwrites = {};
       cache.underwrites[result.data.id] = result.data;
+      // Refresh the optimistic-locking baseline so the next save uses the
+      // fresh updated_at instead of triggering a false conflict against the
+      // version we just wrote.
+      _uwLoadedAt = result.data.updated_at || _uwLoadedAt;
       if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
       // Show the "Added on X · N days ago" badge once we know created_at.
       if (typeof _uwSetDealAge === 'function') _uwSetDealAge(result.data.created_at, result.data.last_submission_at);
@@ -15681,6 +15717,9 @@ async function uwLoadById(id) {
   if (idEl) idEl.textContent = '📂 Loaded · id ' + String(id).slice(0, 8);
   // Loaded deal is already persisted — start in "saved" state.
   _uwLastSavedAt = u.updated_at ? new Date(u.updated_at).getTime() : Date.now();
+  // Snapshot updated_at for optimistic locking — every save will check this
+  // against the live DB row to detect concurrent edits by other users.
+  _uwLoadedAt = u.updated_at || null;
   if (typeof _uwSetSaveStatus === 'function') _uwSetSaveStatus('saved', _uwSavedAgoLabel());
   // (autosave flush already happened above, before _uwApply overwrote state)
   // Show "Added on X · N days ago" badge under the address. Also pass
@@ -15790,8 +15829,31 @@ async function uwSetHoldingStatus(id, status) {
     if (!u.data['uw-reno-start']) u.data['uw-reno-start'] = iso;
   }
   try {
-    const { error } = await sb.from('underwrites').update({ data: u.data }).eq('id', id);
+    // Optimistic locking check — only when this is the currently-loaded
+    // deal (we have a baseline updated_at to compare against). For other
+    // deals being routed from the list, we trust the cache.
+    if (id === _uwCurrentId && _uwLoadedAt) {
+      const { data: live } = await sb.from('underwrites')
+        .select('updated_at').eq('id', id).maybeSingle();
+      if (live && live.updated_at && live.updated_at !== _uwLoadedAt) {
+        const editTimeFmt = (() => {
+          try { return new Date(live.updated_at).toLocaleString(); }
+          catch (_) { return 'a moment ago'; }
+        })();
+        if (typeof toast === 'function') {
+          toast('⚠️ Another user edited this deal at ' + editTimeFmt +
+            '. Reload before routing it.', 'warn');
+        }
+        return;
+      }
+    }
+    const { data: saved, error } = await sb.from('underwrites')
+      .update({ data: u.data }).eq('id', id).select().maybeSingle();
     if (error) throw error;
+    // Keep the locking baseline fresh after a successful write.
+    if (saved && saved.updated_at && id === _uwCurrentId) {
+      _uwLoadedAt = saved.updated_at;
+    }
   } catch (e) {
     // Revert on failure so cache stays truthful.
     console.warn('uwSetHoldingStatus save failed:', e);

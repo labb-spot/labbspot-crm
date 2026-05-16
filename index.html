@@ -1488,6 +1488,13 @@
           <option value="contacted">Contacted</option>
         </select>
       </label>
+      <label class="text-xs flex items-center gap-2 whitespace-nowrap" title="Filter by owner type. Corporate = the property has a company name OR the owner name contains LLC, Inc, Corp, Trust, etc. Individual = a real person's name with no corporate markers.">Owner
+        <select id="sq-filter-owner" style="width:auto;padding:4px 8px;min-width:120px" onchange="_sqFiltersChanged()">
+          <option value="">Any</option>
+          <option value="individual">Individual</option>
+          <option value="corporate">Corporate</option>
+        </select>
+      </label>
       <label class="text-xs flex items-center gap-2 whitespace-nowrap" title="ALL = property must have every selected flag (AND). ANY = property must have at least one (OR).">Flags Match
         <select id="sq-flag-mode" style="width:auto;padding:4px 8px;min-width:110px" onchange="_sqFiltersChanged()">
           <option value="and">ALL (AND)</option>
@@ -29836,7 +29843,7 @@ function populateSqStateOptions() {
   if (current && sorted.indexOf(current) !== -1) sel.value = current;
 }
 function clearSuggestedQueueFilters() {
-  ['sq-filter-state','sq-filter-addr','sq-filter-mail','sq-filter-imported','sq-filter-contacted'].forEach(id => {
+  ['sq-filter-state','sq-filter-addr','sq-filter-mail','sq-filter-imported','sq-filter-contacted','sq-filter-owner'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   const flagMode = document.getElementById('sq-flag-mode'); if (flagMode) flagMode.value = 'and';
@@ -29888,6 +29895,20 @@ function _computeFilteredMarketingProps() {
   const mailF = document.getElementById('sq-filter-mail')?.value || '';
   const importedF = document.getElementById('sq-filter-imported')?.value || '';
   const contactedF = document.getElementById('sq-filter-contacted')?.value || '';
+  const ownerF = document.getElementById('sq-filter-owner')?.value || '';
+  // Corporate-owner detection. Triggers if EITHER (a) the property has a
+  // non-empty company field, OR (b) the combined owner name matches one of
+  // these business-entity / commercial-real-estate keywords. Tuned to
+  // match the kinds of LLC / Inc / Trust / Properties / Holdings names
+  // that show up in tax-assessor data. Word-boundary matched so legitimate
+  // surnames like "Cole" or "Trust" inside a person's name don't false-fire
+  // unless the keyword stands alone.
+  const _corpRegex = /\b(llc|l\.l\.c\.?|inc|incorporated|corp|corporation|co\.?|company|companies|ltd|limited|lp|l\.p\.?|llp|pllc|trust|trustee|trustees|estate|properties|property|holdings|holding|realty|leasing|management|enterprises|enterprise|group|associates|partners|partnership|investments|investment|investors|rental|rentals|real estate|capital|ventures|development|developers|builders|construction|services|solutions|fund|funds|reit|bank|church|ministries|ministry|llcs)\b/i;
+  const _isCorporateOwner = (p) => {
+    if (p.company && String(p.company).trim()) return true;
+    const nm = [p.first_name, p.last_name, p.full_name].filter(Boolean).join(' ').toLowerCase();
+    return !!nm && _corpRegex.test(nm);
+  };
   const flagFilters = Object.keys(window._sqFlagFilters || {}).filter(k => window._sqFlagFilters[k]);
   const flagMode = document.getElementById('sq-flag-mode')?.value || 'and';
   const listFilters = Object.keys(window._sqListFilters || {}).filter(k => window._sqListFilters[k]);
@@ -29898,6 +29919,8 @@ function _computeFilteredMarketingProps() {
   const out = [];
   for (const p of props) {
     if (stateF && String(p.state || '').trim() !== stateF) continue;
+    if (ownerF === 'individual' && _isCorporateOwner(p)) continue;
+    if (ownerF === 'corporate'  && !_isCorporateOwner(p)) continue;
     if (addrF === 'verified' && p.geocode_status !== 'ok') continue;
     if (addrF === 'unverified' && p.geocode_status === 'ok') continue;
     if (mailF === 'verified' && p.mail_geocode_status !== 'ok') continue;

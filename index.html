@@ -9094,8 +9094,15 @@ function uwIfpRecalc() {
   const TIME_BASE = 3;
   const timeBonus = Math.max(0, (months - TIME_BASE) * 0.5);
   const finalPct  = basePct + timeBonus;
-  const arv = parseFloat(String(document.getElementById('uw-arv')?.value || '0').replace(/,/g,'')) ||
-              (parseFloat(document.getElementById('uw-arv-override')?.value) || 0);
+  // Mode-aware ARV: use the override + display from the comp mode the deal
+  // is currently set to. A Sold override on a Listed-mode deal shouldn't
+  // bleed in (and vice-versa).
+  const _ifpMode = window._uwCompsMode === 'listed' ? 'listed' : 'sold';
+  const arv = (_ifpMode === 'listed')
+    ? (parseFloat(String(document.getElementById('uw-lreal-arv')?.value || '0').replace(/,/g,'')) ||
+       (parseFloat(document.getElementById('uw-lreal-override')?.value) || 0))
+    : (parseFloat(String(document.getElementById('uw-arv')?.value || '0').replace(/,/g,'')) ||
+       (parseFloat(document.getElementById('uw-arv-override')?.value) || 0));
   const dollar = arv * (finalPct / 100);
   const fmt = (n) => isFinite(n) && n > 0 ? '$' + Math.round(n).toLocaleString() : '$0';
   const $ = (id) => document.getElementById(id);
@@ -13385,7 +13392,11 @@ function _uwComputeMaxOfferFromData(data) {
     const v = parseFloat(String(raw).replace(/,/g, ''));
     return isFinite(v) && v > 0 ? v : (def || 0);
   };
-  const arv = N('uw-arv-override', 0) || N('uw-arv', 0) || (N('uw-asqft', 0) * N('uw-sqft', 0));
+  // Comp-mode aware ARV: each mode has its own override + auto-computed
+  // display, and the OTHER mode's override is ignored.
+  const arv = (data._compsMode === 'listed')
+    ? (N('uw-lreal-override', 0) || N('uw-lreal-arv', 0) || (N('uw-lavg-psf', 0) * N('uw-sqft', 0) * 0.9))
+    : (N('uw-arv-override',   0) || N('uw-arv',       0) || (N('uw-asqft',    0) * N('uw-sqft', 0)));
   if (arv <= 0) return 0;
   // Flip-grade rehab: override > rehab calculator total > flip field
   let fRehab = N('uw-rehab-override', 0);
@@ -13480,7 +13491,11 @@ function _uwComputeWholesaleProfitFromData(data) {
     const v = parseFloat(String(raw).replace(/,/g, ''));
     return isFinite(v) && v > 0 ? v : (def || 0);
   };
-  const arv = N('uw-arv-override', 0) || N('uw-arv', 0) || (N('uw-asqft', 0) * N('uw-sqft', 0));
+  // Comp-mode aware ARV: each mode has its own override + auto-computed
+  // display, and the OTHER mode's override is ignored.
+  const arv = (data._compsMode === 'listed')
+    ? (N('uw-lreal-override', 0) || N('uw-lreal-arv', 0) || (N('uw-lavg-psf', 0) * N('uw-sqft', 0) * 0.9))
+    : (N('uw-arv-override',   0) || N('uw-arv',       0) || (N('uw-asqft',    0) * N('uw-sqft', 0)));
   if (arv <= 0) return 0;
   // Buy price = accepted ?? asking
   const buyPrice = N('uw-accepted', 0) || N('uw-asking', 0) || 0;
@@ -13551,7 +13566,11 @@ function _uwComputeCashRentalFromData(data) {
     const v = parseFloat(String(raw).replace(/,/g, ''));
     return isFinite(v) && v > 0 ? v : (def || 0);
   };
-  const arv = N('uw-arv-override', 0) || N('uw-arv', 0) || (N('uw-asqft', 0) * N('uw-sqft', 0));
+  // Comp-mode aware ARV: each mode has its own override + auto-computed
+  // display, and the OTHER mode's override is ignored.
+  const arv = (data._compsMode === 'listed')
+    ? (N('uw-lreal-override', 0) || N('uw-lreal-arv', 0) || (N('uw-lavg-psf', 0) * N('uw-sqft', 0) * 0.9))
+    : (N('uw-arv-override',   0) || N('uw-arv',       0) || (N('uw-asqft',    0) * N('uw-sqft', 0)));
   if (arv <= 0) return empty;
   const buyPrice = N('uw-accepted', 0) || N('uw-asking', 0) || 0;
   if (buyPrice <= 0) return empty;
@@ -13630,9 +13649,17 @@ function _uwComputeArvFromData(data) {
     const v = parseFloat(String(raw).replace(/,/g, ''));
     return isFinite(v) && v > 0 ? v : 0;
   };
-  // Priority: explicit override → readonly computed display → raw recompute.
-  // The override always wins so a user-typed value can't be overridden by a
-  // bad sqft × $/sqft auto-calc.
+  // Priority depends on which comp mode this deal uses (data._compsMode):
+  //   - 'listed' : Listed-real override (uw-lreal-override) wins, else the
+  //                90%-of-listed display (uw-lreal-arv), else 0.85 × $/sqft
+  //                listed average.
+  //   - 'sold'   (default): Sold-ARV override (uw-arv-override) wins, else
+  //                the readonly computed display (uw-arv), else sqft × $/sqft.
+  // The override always wins WITHIN its mode — a Sold override doesn't apply
+  // to a Listed-mode deal and vice versa.
+  if (data._compsMode === 'listed') {
+    return N('uw-lreal-override') || N('uw-lreal-arv') || (N('uw-lavg-psf') * N('uw-sqft') * 0.9) || 0;
+  }
   return N('uw-arv-override') || N('uw-arv') || (N('uw-asqft') * N('uw-sqft')) || 0;
 }
 window._uwComputeArvFromData = _uwComputeArvFromData;
@@ -14108,7 +14135,8 @@ function _uwCollect() {
       //                    autosave doesn't strip any unsaved keystrokes.
       if (k.indexOf('_source') === 0 || k === '_priorityHandled' || k === '_holdingStatus' ||
           k === '_budgetActuals' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
-          k === '_reno_phase_override') {
+          k === '_reno_phase_override' || k === '_compsMode' ||
+          k === '_scopePhaseBudgets') {
         data[k] = prev[k];
       }
     });

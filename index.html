@@ -3622,7 +3622,15 @@
     <div class="panel p-5">
       <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
         <div>
-          <div class="font-semibold text-lg">✅ Analyzed</div>
+          <div class="font-semibold text-lg flex items-center gap-2">
+            ✅ Analyzed
+            <!-- Count badge: shows "Offered / Total" — Analyzed deals whose
+                 Offer Status is anything past "Needed" (Sent, Rejected,
+                 Accepted, Pending, Inspection, Contracted, Closed, Dropped)
+                 out of the total Analyzed list. Updated in
+                 renderUnderwriteList alongside the tab count. -->
+            <span id="uw-analyzed-header-count" style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(139,92,246,0.15);color:#a78bfa;letter-spacing:0.3px" title="Analyzed deals that have moved past Needed (Sent / Rejected / Accepted / Pending / Inspection / Contracted / Closed / Dropped) out of total Analyzed.">—</span>
+          </div>
           <div class="text-sm text-[var(--text-dim)]">Status Submitted or Dead.</div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
@@ -21466,6 +21474,19 @@ function renderUnderwriteList() {
   if (dCount) {
     dCount.textContent = analyzed.length.toLocaleString();
     dCount.style.display = analyzed.length ? '' : 'none';
+  }
+  // In-header count for the Analyzed subview: "X / Y Offered" where
+  //   X = Analyzed deals whose Offer Status is anything past "Needed"
+  //       (Sent / Rejected / Accepted / Pending / Inspection /
+  //        Contracted / Closed / Dropped)
+  //   Y = total Analyzed deals
+  // Reads from the same _offerStatusOf used above so the bucket logic
+  // stays consistent with the workflow stage filters.
+  const dHeader = document.getElementById('uw-analyzed-header-count');
+  if (dHeader) {
+    const _offeredOut = new Set(['Sent','Rejected','Accepted','Pending','Inspection','Contracted','Closed','Dropped']);
+    const _offeredCount = analyzed.filter(u => _offeredOut.has(_offerStatusOf(u))).length;
+    dHeader.textContent = _offeredCount.toLocaleString() + ' / ' + analyzed.length.toLocaleString() + ' Offered';
   }
   const hCount = document.getElementById('uw-help-count');
   if (hCount) {

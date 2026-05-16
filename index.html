@@ -14175,10 +14175,20 @@ function _uwCollect() {
   // Normalize: legacy 'brrr' value persists as 'refi' going forward.
   const _rmOut = (_uwRentalMode === 'brrr') ? 'refi' : _uwRentalMode;
   data._rentalMode = (_rmOut === 'financed' || _rmOut === 'refi') ? _rmOut : 'cash';
-  // Also capture key computed values so they're searchable in the list
-  const arv = parseFloat(document.getElementById('uw-arv')?.value || '0') ||
-              (parseFloat(document.getElementById('uw-asqft')?.value || '0') *
-               parseFloat(document.getElementById('uw-sqft')?.value || '0'));
+  // Also capture key computed values so they're searchable in the list.
+  // Mode-aware: in Listed mode the saved ARV comes from the Listed-real
+  // override / display, NOT the Sold-side fields. This way the list/preview
+  // shows the same ARV the calculator is using for the active comp mode.
+  const _collectMode = window._uwCompsMode === 'listed' ? 'listed' : 'sold';
+  const arv = (_collectMode === 'listed')
+    ? (parseFloat(String(document.getElementById('uw-lreal-arv')?.value || '0').replace(/,/g,'')) ||
+       (parseFloat(document.getElementById('uw-lreal-override')?.value) || 0) ||
+       (parseFloat(document.getElementById('uw-lavg-psf')?.value || '0') *
+        parseFloat(document.getElementById('uw-sqft')?.value || '0') * 0.9))
+    : (parseFloat(String(document.getElementById('uw-arv')?.value || '0').replace(/,/g,'')) ||
+       (parseFloat(document.getElementById('uw-arv-override')?.value) || 0) ||
+       (parseFloat(document.getElementById('uw-asqft')?.value || '0') *
+        parseFloat(document.getElementById('uw-sqft')?.value || '0')));
   const offer = parseFloat(document.getElementById('uw-offer')?.value || '0');
   // Pull computed best exit + profit. We extract the exit NAME directly from
   // the BEST card's title (rather than parsing the recommendation banner text)

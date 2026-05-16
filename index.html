@@ -22145,6 +22145,49 @@ function renderVendorDownloadTable() {
 
 // Generate the CSV for a single vendor: one row per matched property, with the
 // vendor's top 4 phones, top 2 emails, and the property's best mailing address.
+// ===== Smart owner-name fallback for CSV exports =====
+// Properties may store the owner in any of four columns depending on how
+// they were imported: first_name, last_name, full_name, or company.
+// CSV exports that only read first_name/last_name will be blank for rows
+// where the name lives in full_name or company. This helper provides a
+// uniform fallback chain so the First Name / Last Name columns are
+// populated whenever ANY owner data exists on the property.
+//
+// Fallback priority:
+//   1. Explicit first_name / last_name (use as-is — already split correctly)
+//   2. full_name parsed:
+//        "Last, First Middle" (assessor format) → first=First Middle, last=Last
+//        "First Middle Last"                    → first=First Middle, last=Last
+//        single token                           → last=token
+//   3. company → put in last_name so dialers/mailers see the entity name
+//
+// Returns { first, last }. Returns empty strings when nothing is available.
+function _ownerForExport(p) {
+  if (!p) return { first: '', last: '' };
+  const fn = String(p.first_name || '').trim();
+  const ln = String(p.last_name || '').trim();
+  if (fn || ln) return { first: fn, last: ln };
+  const full = String(p.full_name || '').trim();
+  if (full) {
+    if (full.indexOf(',') !== -1) {
+      const parts = full.split(',');
+      const last = String(parts[0] || '').trim();
+      const rest = String(parts.slice(1).join(',') || '').trim();
+      return { first: rest, last: last };
+    }
+    const tokens = full.split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return { first: '', last: '' };
+    if (tokens.length === 1) return { first: '', last: tokens[0] };
+    const last = tokens.pop();
+    return { first: tokens.join(' '), last: last };
+  }
+  const co = String(p.company || '').trim();
+  if (co) return { first: '', last: co };
+  return { first: '', last: '' };
+}
+function _ownerFirst(p) { return _ownerForExport(p).first; }
+function _ownerLast(p)  { return _ownerForExport(p).last; }
+
 function downloadVendorCsv(vendorId) {
   const vendor = cache.vendors[vendorId];
   if (!vendor) { toast('Vendor not found', 'err'); return; }
@@ -22188,8 +22231,8 @@ function downloadVendorCsv(vendorId) {
     const phones = phonesByProp[pid] || [];
     const emails = emailsByProp[pid] || [];
     rows.push([
-      p.first_name || '',
-      p.last_name || '',
+      _ownerFirst(p),
+      _ownerLast(p),
       p.street || '',
       p.city || '',
       p.state || '',
@@ -22329,7 +22372,7 @@ function downloadTop3List() {
     if (mailByProp && mailByProp[p.id]) mail = mailByProp[p.id];
     else if (typeof getMailForProp === 'function') mail = getMailForProp(p) || null;
     if (!mail) mail = { mail_street: p.mail_street, mail_city: p.mail_city, mail_state: p.mail_state, mail_zip: p.mail_zip };
-    const row = [p.first_name || '', p.last_name || '', p.street || '', p.city || '', p.state || '', p.zip || ''];
+    const row = [_ownerFirst(p), _ownerLast(p), p.street || '', p.city || '', p.state || '', p.zip || ''];
     for (let i = 0; i < MAX_PHONES; i++) {
       row.push(phones[i]?.num || '');
       row.push(phones[i] && phones[i].vendors ? Array.from(phones[i].vendors).sort().join('; ') : '');
@@ -22420,8 +22463,8 @@ function downloadStackedList() {
       const emails = bucket.emails;
       rows.push([
         vname,
-        p.first_name || '',
-        p.last_name || '',
+        _ownerFirst(p),
+        _ownerLast(p),
         p.street || '',
         p.city || '',
         p.state || '',
@@ -22564,8 +22607,8 @@ function downloadMasterList() {
     if (!mail) mail = { mail_street: p.mail_street, mail_city: p.mail_city, mail_state: p.mail_state, mail_zip: p.mail_zip };
     if (mail && (mail.mail_street || mail.mail_city || mail.mail_zip)) propsWithMail++;
     const row = [
-      p.first_name || '',
-      p.last_name || '',
+      _ownerFirst(p),
+      _ownerLast(p),
       p.street || '',
       p.city || '',
       p.state || '',
@@ -30077,7 +30120,7 @@ function exportSuggestedQueue() {
     const flagsObj = p.flags || {};
     const flagList = Object.keys(flagsObj).filter(k => flagsObj[k]);
     return [
-      p.first_name || '', p.last_name || '', p.company || '',
+      _ownerFirst(p), _ownerLast(p), p.company || '',
       p.street || '', p.city || '', p.state || '', p.zip || '',
       p.geocode_status === 'ok' ? 'yes' : 'no',
       p.mail_street || '', p.mail_city || '', p.mail_state || '', p.mail_zip || '',
@@ -30910,7 +30953,7 @@ function exportUnverified() {
   if (!list.length) { toast('Nothing to export', 'warn'); return; }
   const headers = ['first_name','last_name','street','city','state','zip','status','error_reason'];
   const rows = list.map(p => [
-    p.first_name || '', p.last_name || '', p.street || '', p.city || '', p.state || '', p.zip || '',
+    _ownerFirst(p), _ownerLast(p), p.street || '', p.city || '', p.state || '', p.zip || '',
     p.geocode_status || '', p.error_reason || p.geocode_error_reason || '',
   ]);
   const csv = Papa.unparse([headers, ...rows]);
@@ -32398,7 +32441,7 @@ function exportUnverifiedMailing() {
   if (!list.length) { toast('Nothing to export', 'warn'); return; }
   const headers = ['first_name','last_name','property_street','property_zip','mail_street','mail_city','mail_state','mail_zip','status','error_reason','source'];
   const rows = list.map(r => [
-    r.prop.first_name || '', r.prop.last_name || '',
+    _ownerFirst(r.prop), _ownerLast(r.prop),
     r.prop.street || '', r.prop.zip || '',
     r.mail.mail_street || '', r.mail.mail_city || '', r.mail.mail_state || '', r.mail.mail_zip || '',
     r.status, r.reason || '', r.mail.source || '',

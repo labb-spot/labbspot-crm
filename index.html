@@ -74,36 +74,71 @@
     .panel { padding: 10px !important; }
   }
 
+    
+    .section-content { padding: 6px !important; }
+    .panel { padding: 10px !important; }
+    #section-data .grid { grid-template-columns: 1fr !important; }
+  }
+
     /* ============================================================
    * MOBILE-ONLY STYLES — only apply on screens ≤ 768px wide.
    * Does NOT touch laptop/desktop view. Safe to remove anytime.
    * ============================================================ */
   @media (max-width: 768px) {
-    /* Prevent horizontal page scroll — content must wrap within viewport */
+    /* Prevent horizontal page scroll so the browser doesn't zoom out/in */
     html, body { overflow-x: hidden !important; max-width: 100vw !important; }
 
-    /* Override Tailwind utility paddings that eat tiny-phone width */
-    .px-6 { padding-left: 10px !important; padding-right: 10px !important; }
-    .px-4 { padding-left: 8px !important; padding-right: 8px !important; }
+    /* Override Tailwind utility paddings that eat phone width */
+    .px-6 { padding-left: 8px !important; padding-right: 8px !important; }
+    .px-4 { padding-left: 6px !important; padding-right: 6px !important; }
     .p-6 { padding: 10px !important; }
     .p-5 { padding: 12px !important; }
     .p-4 { padding: 10px !important; }
+    .py-3 { padding-top: 8px !important; padding-bottom: 8px !important; }
+    .gap-3 { gap: 6px !important; }
 
-    /* TOP BAR — wrap so storage / pricing / buttons stack instead of overflow */
-    body > div:first-of-type[class*="border-b"] {
+    /* ============================================================
+     * TOP BAR — make it fit in a phone viewport.
+     * Wrap onto multiple rows, shrink labels, hide non-essentials.
+     * ============================================================ */
+    /* Match the top bar by its actual class combo */
+    body > div.border-b.px-6.py-3,
+    body > div[class*="border-b"][class*="px-6"][class*="py-3"] {
       flex-wrap: wrap !important;
-      gap: 8px !important;
+      row-gap: 6px !important;
     }
-    body > div:first-of-type[class*="border-b"] > div {
+    /* The two child flex rows inside the top bar — let them shrink + wrap */
+    body > div.border-b.px-6.py-3 > div {
       flex-wrap: wrap !important;
+      min-width: 0 !important;
+      flex: 1 1 auto;
+    }
+    /* The "LAB" + "Data Management" block — keep compact */
+    body > div.border-b.px-6.py-3 .w-10.h-8 {
+      width: 28px !important; height: 24px !important; font-size: 10px !important;
+    }
+    body > div.border-b.px-6.py-3 .font-bold.text-lg { font-size: 14px !important; }
+    body > div.border-b.px-6.py-3 .text-xs { font-size: 10px !important; }
+    /* Storage bar — let it shrink fully */
+    #storage-bar-wrapper {
+      min-width: 0 !important;
+      max-width: 100% !important;
+      flex: 1 1 100% !important;
+    }
+    #storage-bar-wrapper * { font-size: 11px !important; }
+    /* Compact the right-side header buttons */
+    body > div.border-b.px-6.py-3 button.btn {
+      font-size: 11px !important;
+      padding: 5px 8px !important;
+      min-height: 0 !important;
     }
 
-    /* SECTION TABS — wrap onto multiple rows on phone, smaller text */
+    /* SECTION TABS — wrap to multiple rows */
     #section-tabs-row {
       flex-wrap: wrap !important;
       gap: 4px !important;
-      padding-left: 8px !important;
-      padding-right: 8px !important;
+      padding-left: 6px !important;
+      padding-right: 6px !important;
     }
     #section-tabs-row .tab {
       font-size: 12.5px !important;
@@ -116,57 +151,45 @@
     .panel { padding: 12px !important; }
     .panel.p-5, .panel.p-4, .panel.p-3 { padding: 12px !important; }
 
-    /* Make every grid container collapse to single column on phone.
-       Tailwind grid-cols-N classes won't apply because we're below md:
-       breakpoint, but author-defined grids and explicit grid styles
-       need help. */
+    /* Collapse author-defined grids to single column on phone */
     .grid:not(.no-mobile-stack) { grid-template-columns: 1fr !important; }
-    /* Inline-style grids: use a generic catcher (won't perfectly override
-       inline styles but helps for class-based grids). */
-
-    /* Force inner flex rows to wrap so they don't push content off-screen */
     .section-content .flex { flex-wrap: wrap !important; }
 
-    /* Tables — wide tables become horizontally scrollable */
+    /* Tables — horizontal scroll instead of squishing columns */
     .overflow-auto { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
     .overflow-auto > table { min-width: 640px; }
 
-    /* Inputs and selects — 16px font prevents iOS auto-zoom */
+    /* Inputs/selects — 16px to prevent iOS auto-zoom on focus */
     input[type="text"], input[type="number"], input[type="tel"],
     input[type="url"], input[type="date"], textarea, select {
       font-size: 16px !important;
       padding: 9px 11px !important;
     }
-    /* Specifically: filter inputs/selects with inline width:auto + min-width
-       become full-width on phone so they don't all line-break weirdly */
     select[style*="min-width"], input[style*="min-width"] {
       min-width: 0 !important;
       max-width: 100%;
     }
 
-    /* Buttons — taller tap targets */
     .btn, button { min-height: 36px; }
-
-    /* Disable sticky-hover state on touch */
     .panel:hover { border-left-color: var(--border-strong); }
 
-    /* Photo Submissions specific */
-    #ps-tbody td { padding: 8px 6px !important; font-size: 12.5px !important; }
-    #ps-drawer { width: 100vw !important; max-width: 100vw !important; }
-
-    /* KPI cards — 2 columns instead of 4 */
+    /* KPI cards in Imports — 2 columns */
     #section-data .grid { grid-template-columns: 1fr 1fr !important; }
 
-    /* Storage bar in header — full width if it shrinks */
-    #storage-bar-wrapper { min-width: 0 !important; flex: 1; }
+    /* Photo Submissions table + drawer */
+    #ps-tbody td { padding: 8px 6px !important; font-size: 12.5px !important; }
+    #ps-drawer { width: 100vw !important; max-width: 100vw !important; }
   }
 
-  /* On TINY phones (<400px) — even more aggressive */
+  /* TINY phones (<400px) — even more aggressive */
   @media (max-width: 400px) {
     #section-tabs-row .tab { font-size: 11.5px !important; padding: 4px 7px !important; }
     .section-content { padding: 6px !important; }
     .panel { padding: 10px !important; }
     #section-data .grid { grid-template-columns: 1fr !important; }
+    /* Hide button text labels in top bar, keep just the emoji */
+    body > div.border-b.px-6.py-3 button.btn { font-size: 0 !important; padding: 5px 7px !important; }
+    body > div.border-b.px-6.py-3 button.btn::first-letter { font-size: 14px !important; }
   }
 
   </style>

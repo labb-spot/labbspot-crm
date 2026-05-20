@@ -514,6 +514,7 @@
     </div>
   </div>
   <div class="flex items-center gap-3">
+    <span id="sop-save-status" class="sop-save-status" style="display:none" title="SOP auto-saves to your browser localStorage. Changes persist across reloads unless you hit Undo.">💾 <span class="sop-save-status-text">Saved</span></span>
     <div id="storage-bar-wrapper" style="min-width:220px" title="Estimated Supabase DB storage used. Click for a breakdown." onclick="showStorageBreakdown()" onmouseover="this.style.cursor='pointer'">
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:3px">
         <span>📦 DB storage</span>
@@ -530,7 +531,6 @@
       🌍 <b>0</b> this mo · <b>$0.00</b>
     </div>
     <button class="btn btn-ghost text-sm" onclick="diagnoseLists()" title="Inspect DB row counts across every table">🔍 Diagnose</button>
-    <span id="sop-save-status" class="sop-save-status" style="display:none" title="SOP auto-saves to your browser localStorage. Changes persist across reloads unless you hit Undo.">💾 <span class="sop-save-status-text">Saved</span></span>
     <button class="btn btn-ghost text-sm" id="header-sop-btn" onclick="toggleSopSection()" title="Open Standard Operating Procedures (click again to return to where you were).">📋 SOP</button>
     <button class="btn btn-ghost text-sm" onclick="openSettings();if(typeof syncGeoProviderRadios==='function')syncGeoProviderRadios()">⚙️ Settings</button>
     <button class="btn btn-ghost text-sm" onclick="logoutApp()" title="Sign out">🚪</button>
@@ -5414,6 +5414,13 @@
     }
     #sop-sync-status.saving .dot { animation: sopSyncPulse 0.9s ease-in-out infinite; }
     @keyframes sopSyncPulse { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+    /* SOP button in the app's top bar turns light green while the SOP
+       section is open so the user can see at a glance which mode they're in. */
+    body.sop-active #header-sop-btn {
+      background: rgba(34, 197, 94, 0.18) !important;
+      color: #86efac !important;
+      border-color: rgba(34, 197, 94, 0.5) !important;
+    }
 
 
     .sop-minimap {

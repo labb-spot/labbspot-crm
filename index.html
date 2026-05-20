@@ -85,6 +85,13 @@
     --bad: #ef4444;
   }
   html, body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  /* Always reserve the vertical scrollbar gutter, even when content fits.
+     Without this, switching between sections that overflow (Data, Renovation,
+     etc.) and sections that don't (SOP, sized exactly to the viewport) makes
+     the scrollbar appear/disappear, which shifts the right-aligned header
+     buttons sideways by ~15px every time. scrollbar-gutter: stable keeps the
+     reserved space whether the scrollbar is drawn or not. */
+  html { scrollbar-gutter: stable; }
   .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
   .panel-2 { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; }
   .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-weight: 500; font-size: 14px; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; user-select: none; }
@@ -514,7 +521,7 @@
     </div>
   </div>
   <div class="flex items-center gap-3">
-    <span id="sop-save-status" class="sop-save-status" style="display:none" title="SOP auto-saves to your browser localStorage. Changes persist across reloads unless you hit Undo.">💾 <span class="sop-save-status-text">Saved</span></span>
+    <span id="sop-save-status" class="sop-save-status" title="SOP auto-saves to your browser localStorage. Changes persist across reloads unless you hit Undo.">💾 <span class="sop-save-status-text">Saved</span></span>
     <div id="storage-bar-wrapper" style="min-width:220px" title="Estimated Supabase DB storage used. Click for a breakdown." onclick="showStorageBreakdown()" onmouseover="this.style.cursor='pointer'">
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:3px">
         <span>📦 DB storage</span>
@@ -5421,6 +5428,18 @@
       color: #86efac !important;
       border-color: rgba(34, 197, 94, 0.5) !important;
     }
+    /* Global save pill: reserve space ALWAYS (display:inline-flex) but
+       hide via visibility when SOP isn't active. This keeps the header
+       layout stable — opening the SOP no longer shifts the DB storage,
+       geo cost, Diagnose, SOP, Settings, and logout buttons sideways. */
+    #sop-save-status.sop-save-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 130px;
+      visibility: hidden;
+    }
+    body.sop-active #sop-save-status.sop-save-status { visibility: visible; }
 
 
     .sop-minimap {
@@ -17025,10 +17044,10 @@ function _sopFlashSaveStatus() {
   const pill = document.getElementById('sop-save-status');
   if (!pill) return;
   // Only show on the SOP section so it doesn't clutter the top bar elsewhere.
-  if (!document.body.classList.contains('sop-active')) { pill.style.display = 'none'; return; }
+  if (!document.body.classList.contains('sop-active')) { pill.style.visibility = 'hidden'; return; }
   const txt = pill.querySelector('.sop-save-status-text');
   if (!txt) return;
-  pill.style.display = '';
+  pill.style.visibility = 'visible';
   pill.classList.remove('saved');
   pill.classList.add('saving');
   txt.textContent = 'Saving…';
@@ -17060,7 +17079,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mo = new MutationObserver(() => {
       const pill = document.getElementById('sop-save-status');
       if (!pill) return;
-      pill.style.display = document.body.classList.contains('sop-active') ? '' : 'none';
+      pill.style.visibility = document.body.classList.contains('sop-active') ? 'visible' : 'hidden';
     });
     mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
   }
@@ -36453,3 +36472,4 @@ if (document.readyState === 'loading') {
 </script>
 </body>
 </html>
+ 

@@ -5144,6 +5144,35 @@
       line-height: 1.1 !important;
       white-space: nowrap;
       flex-shrink: 0;
+      text-align: center;
+    }
+    /* Icon-only toggle buttons swap their icon when toggled (\u{1F4DD} -> \u2713,
+       \u{1F512} -> \u{1F513}, etc.). Emoji glyphs render wider than text glyphs,
+       so the button shrinks/grows on toggle and shifts every button to its
+       right. Pin a fixed width so the icon swap never changes layout. */
+    #section-sop .sop-tb-btn#sop-mode-btn,
+    #section-sop .sop-tb-btn#sop-sub-lock-btn,
+    #section-sop .sop-tb-btn#sop-edit-btn,
+    #section-sop .sop-tb-btn#sop-snap-btn {
+      min-width: 38px !important;
+      width: 38px !important;
+      height: 30px;
+      box-sizing: border-box;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px !important;
+      line-height: 1 !important;
+    }
+    /* Same treatment for the icon-only utility buttons so every toolbar
+       glyph is visually centered in a same-size square. */
+    #section-sop .sop-toolbar-row .sop-tb-btn {
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1 !important;
     }
     .sop-tb-div {
       display: inline-block;
@@ -5440,6 +5469,19 @@
       visibility: hidden;
     }
     body.sop-active #sop-save-status.sop-save-status { visibility: visible; }
+    /* Edit-only toolbar buttons (+ Box, ↗ Arrow, ⤴ Curve) stay in the
+       toolbar at all times so toggling Edit Mode doesn't shift layout.
+       When .sop-tb-inactive is on (Edit Mode is OFF), they show in a
+       greyed/dim state and become un-clickable. */
+    #section-sop .sop-tb-btn.sop-tb-inactive {
+      background: var(--panel-2) !important;
+      color: var(--text-dim) !important;
+      border: 1px solid var(--border) !important;
+      opacity: 0.5;
+      pointer-events: none;
+      cursor: default;
+      filter: grayscale(0.6);
+    }
 
 
     .sop-minimap {
@@ -5718,10 +5760,11 @@
     #section-sop.sop-editing .sop-add-inside,
     #section-sop.sop-editing .sop-dup-box,
     #section-sop.sop-editing .sop-color-btn-title { display: inline-flex; align-items: center; justify-content: center; }
-    /* Per-box lock is independent of toolbar mode now — it controls drag/
-       resize of the sub-sections WITHIN this box, regardless of whether
-       the toolbar is in Lock Grid or Free Mode. Always visible. */
-    #section-sop .sop-lock-box { display: inline-flex; align-items: center; justify-content: center; }
+    /* Per-box lock REMOVED — replaced by the single toolbar 🧩 button that
+       unlocks every sub-section at once. The button is kept in the DOM so
+       existing Supabase snapshots don't break, but it's hidden + click-
+       through so the user never sees or interacts with it. */
+    #section-sop .sop-lock-box { display: none !important; }
     /* RTL fixed spacing: each button is 26px right of the previous one
        (22px button + 4px gap). */
     #section-sop .sop-del-box         { right: 6px; }
@@ -5792,10 +5835,10 @@
     #section-sop.sop-editing .sop-row-tools { display: flex; flex-direction: column; justify-content: center; align-items: center; }
     /* Banner shown when in edit mode */
     #section-sop .sop-edit-banner { display: none; margin-bottom: 14px; padding: 10px 14px; border-radius: 8px; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.35); color: #c7d2fe; font-size: 13px; }
-    #section-sop.sop-editing .sop-edit-banner { display: block; }
+    #section-sop.sop-editing .sop-edit-banner { display: none; }  /* banner removed per user request */
     /* Free Mode info banner — same look, different color */
     #section-sop .sop-free-banner { display: none; margin-bottom: 14px; padding: 10px 14px; border-radius: 8px; background: rgba(16,185,129,0.10); border: 1px solid rgba(16,185,129,0.35); color: #6ee7b7; font-size: 13px; }
-    #section-sop.sop-free:not(.sop-editing) .sop-free-banner { display: block; }
+    #section-sop.sop-free:not(.sop-editing) .sop-free-banner { display: none; }  /* banner removed per user request */
     /* Arrow editing — click on an arrow in edit mode to cycle direction */
     #section-sop.sop-editing .sop-arrow { cursor: pointer; }
     #section-sop.sop-editing .sop-arrow:hover { background: rgba(99,102,241,0.18); border-radius: 6px; }
@@ -6012,7 +6055,6 @@
        horizontally so nothing wraps onto a second line. -->
   <div class="sop-toolbar-row flex items-center gap-2 mb-3" style="flex-wrap:nowrap;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch">
     <div class="font-semibold" style="margin-right:8px;white-space:nowrap;font-size:15px">📋 SOP</div>
-    <span id="sop-sync-status" class="idle" title="Live status of your last save to the cloud."><span class="dot"></span><span class="label">Idle</span></span>
     <div class="flex items-center gap-1" style="flex-wrap:nowrap">
       <!-- Undo / Redo -->
       <button class="btn btn-ghost sop-tb-btn" id="sop-undo-btn" onclick="sopUndo()" title="Undo the last change (Ctrl+Z). Tracks moves, resizes, text edits, additions, deletions, and arrow changes.">↶</button>
@@ -6026,11 +6068,20 @@
       <span class="sop-tb-div"></span>
       <!-- Mode toggles -->
       <button class="btn btn-ghost sop-tb-btn" id="sop-mode-btn" onclick="sopToggleMode()" title="Switch between Lock Grid (boxes snap to a clean grid layout) and Free Mode (drag any box anywhere on the canvas).">🔒</button>
+      <!-- Global sub-section unlock. One button replaces the per-box locks —
+           when toggled on, EVERY sub-section in every primary box becomes
+           draggable, resizable, and font-size-adjustable. Session-scoped:
+           resets to locked on every page reload. -->
+      <button class="btn btn-ghost sop-tb-btn" id="sop-sub-lock-btn" onclick="sopToggleAllSubs()" title="Sub-sections are LOCKED — click to unlock every sub-section in every box (drag, resize, A+/A-).">🧩</button>
       <button class="btn btn-ghost sop-tb-btn" id="sop-edit-btn" onclick="sopToggleEdit()" style="border:1px solid rgba(99,102,241,0.4);color:#a5b4fc" title="Toggle edit mode. In edit mode you can change any text, delete boxes, drag in free mode, and resize boxes via their corner handle.">📝</button>
-      <button class="btn btn-ghost sop-tb-btn" id="sop-add-box-btn" onclick="sopAddBox()" style="display:none;background:#10b981;color:white;border:1px solid #10b981;font-weight:600" title="Add a new empty box to the canvas. Drag it where you want.">+ Box</button>
-      <!-- Arrow tools — visible only in edit mode -->
-      <button class="btn btn-ghost sop-tb-btn sop-arrow-tool-btn" id="sop-add-arrow-btn" onclick="sopStartAddArrow('line')" style="display:none;background:#3b82f6;color:white;border:1px solid #3b82f6;font-weight:600" title="Add a straight arrow. Click the source box, then the destination box. Esc cancels.">↗</button>
-      <button class="btn btn-ghost sop-tb-btn sop-arrow-tool-btn" id="sop-add-curve-btn" onclick="sopStartAddArrow('curve')" style="display:none;background:#8b5cf6;color:white;border:1px solid #8b5cf6;font-weight:600" title="Add a curved arrow. Click the source box, then the destination box. Drag the midpoint handle to bend the curve. Esc cancels.">⤴</button>
+      <!-- Edit-only buttons stay in the toolbar AT ALL TIMES so the layout
+           never shifts when toggling Edit Mode. JS adds .sop-tb-inactive
+           when Edit Mode is off (greys them out + makes them un-clickable
+           via pointer-events:none); removes the class to bring them back. -->
+      <button class="btn btn-ghost sop-tb-btn sop-tb-inactive" id="sop-add-box-btn" onclick="sopAddBox()" style="background:#10b981;color:white;border:1px solid #10b981;font-weight:600" title="Add a new empty box to the canvas. Drag it where you want.">+ Box</button>
+      <!-- Arrow tools — only clickable in Edit Mode (greyed out otherwise). -->
+      <button class="btn btn-ghost sop-tb-btn sop-arrow-tool-btn sop-tb-inactive" id="sop-add-arrow-btn" onclick="sopStartAddArrow('line')" style="background:#3b82f6;color:white;border:1px solid #3b82f6;font-weight:600" title="Add a straight arrow. Click the source box, then the destination box. Esc cancels.">↗</button>
+      <button class="btn btn-ghost sop-tb-btn sop-arrow-tool-btn sop-tb-inactive" id="sop-add-curve-btn" onclick="sopStartAddArrow('curve')" style="background:#8b5cf6;color:white;border:1px solid #8b5cf6;font-weight:600" title="Add a curved arrow. Click the source box, then the destination box. Drag the midpoint handle to bend the curve. Esc cancels.">⤴</button>
       <span class="sop-tb-div"></span>
       <!-- Search (compact). Placeholder shows the icon; full label in title=. -->
       <input id="sop-search-input" type="search" placeholder="🔍 Search…" oninput="sopSearch(this.value)" onkeydown="sopSearchKey(event)" class="sop-tb-search" title="Search across every title, sub-pill, and list item. Press Enter to jump to next match, Shift+Enter for previous, Esc to clear." />
@@ -6044,6 +6095,12 @@
       <input type="file" id="sop-import-file" accept=".json,application/json" style="display:none" onchange="sopImportJson(event)" />
       <span class="sop-tb-div"></span>
       <button class="btn btn-ghost sop-tb-btn" onclick="sopResetDefault()" style="color:#f87171;border:1px solid rgba(239,68,68,0.3)" title="Discard all edits and restore the original SOP chart. Warning: this can't be undone.">↺</button>
+      <span class="sop-tb-div"></span>
+      <!-- Sync status pinned at the END of the toolbar. Its label width changes
+           constantly ("Saving…" → "Synced 3s ago" → "Synced 12s ago"…) and
+           putting it at the start would push every toolbar button sideways
+           every few seconds. At the end nothing is to its right. -->
+      <span id="sop-sync-status" class="idle" title="Live status of your last save to the cloud."><span class="dot"></span><span class="label">Idle</span></span>
     </div>
   </div>
 
@@ -17295,31 +17352,14 @@ function _sopAssignIdsAndRestore() {
       });
       box.appendChild(dupBtn);
     }
-    // 🔒 Lock button — toggle whether sub-sections in this box can be moved.
-    // Always re-attach with a fresh click handler. Older saved snapshots may
-    // have left a stale .sop-lock-box element in the DOM that doesn't have
-    // a click listener (or has an old one bound to the wrong box reference).
+    // Per-box 🔒 lock has been REPLACED by the single toolbar 🧩 button
+    // which globally unlocks every sub-section at once. Strip any stale
+    // per-box lock buttons that may still be in older Supabase snapshots
+    // so they don't sit invisibly in the DOM with dead click handlers.
     Array.from(box.children).filter(c => c.classList && c.classList.contains('sop-lock-box')).forEach(b => b.remove());
-    {
-      const lockBtn = document.createElement('button');
-      lockBtn.type = 'button';
-      lockBtn.className = 'sop-lock-box';
-      const isLocked = _sopIsLocked(box);
-      lockBtn.textContent = isLocked ? '🔒' : '🔓';
-      lockBtn.title = isLocked
-        ? 'Sub-sections in this box are LOCKED — click to unlock them so you can drag and resize them within this box.'
-        : 'Sub-sections in this box are UNLOCKED — click to lock them so they stay put.';
-      // mousedown listener stops the event from bubbling up to any global
-      // drag/pan handler before the click registers.
-      lockBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); });
-      lockBtn.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        ev.preventDefault();
-        sopToggleBoxLock(box);
-      });
-      box.appendChild(lockBtn);
-    }
-    // Apply saved locked state visually + on contenteditable children.
+    // Apply locked state visually + on contenteditable children. With the
+    // global toggle, _sopIsLocked() returns false for every box when the
+    // toolbar 🧩 is on; otherwise everything starts locked.
     if (_sopIsLocked(box)) {
       box.classList.add('sop-locked');
       box.querySelectorAll('[contenteditable="true"]').forEach(el => el.setAttribute('contenteditable', 'false'));
@@ -17403,8 +17443,11 @@ function _sopApplyModeClass() {
       ? 'Free Mode is ON — drag/resize/font-size enabled. Click to switch back to Lock Grid.'
       : 'Lock Grid is ON — boxes snap to the original grid layout. Click to switch to Free Mode (drag/resize/font-size).';
   }
+  // Edit-only buttons stay in the toolbar at all times — toggle the
+  // .sop-tb-inactive class so they grey out and stop accepting clicks
+  // when Edit Mode is off, without changing layout width.
   const addBtn = document.getElementById('sop-add-box-btn');
-  if (addBtn) addBtn.style.display = _sopEditing ? '' : 'none';
+  if (addBtn) addBtn.classList.toggle('sop-tb-inactive', !_sopEditing);
   const editBtn = document.getElementById('sop-edit-btn');
   if (editBtn) {
     editBtn.textContent = _sopEditing ? '✓' : '📝';
@@ -17412,9 +17455,9 @@ function _sopApplyModeClass() {
       ? 'Edit Mode is ON. Click to finish editing and return to view mode.'
       : 'Toggle edit mode. In edit mode you can change any text, delete boxes, add boxes, and resize boxes via their corner handle.';
   }
-  // Arrow-tool buttons live next to + Add Box — visible whenever editing.
+  // Arrow-tool buttons live next to + Add Box — same grey-out treatment.
   document.querySelectorAll('#section-sop .sop-arrow-tool-btn').forEach(b => {
-    b.style.display = _sopEditing ? '' : 'none';
+    b.classList.toggle('sop-tb-inactive', !_sopEditing);
   });
   // Re-draw arrows so they line up with current box layout/zoom.
   if (typeof _sopRenderArrows === 'function') _sopRenderArrows();
@@ -18900,12 +18943,55 @@ window.sopToggleSnap = sopToggleSnap;
 // 🔒 to unlock. Persisting unlock state across refreshes was confusing
 // because yesterday's unlock would allow accidental drag on today's load.
 const _sopSessionUnlocked = new Set();
+// Global "unlock every sub-section" toggle. When true, every primary box's
+// sub-sections become draggable/resizable/A+/A- regardless of the per-box
+// session set above. Session-scoped: resets to false on every page reload.
+let _sopAllSubsUnlocked = false;
 
 function _sopIsLocked(box) {
   if (!box || !box.dataset || !box.dataset.sopId) return false;
+  // Global override: if the toolbar's "unlock all sub-sections" is on,
+  // nothing is locked.
+  if (_sopAllSubsUnlocked) return false;
   // Default: locked. Unlocked only if explicitly toggled this session.
   return !_sopSessionUnlocked.has(box.dataset.sopId);
 }
+
+// Toolbar handler — flip the global flag and update every box's visual
+// state + the toolbar button so the user sees the change immediately.
+function sopToggleAllSubs() {
+  _sopAllSubsUnlocked = !_sopAllSubsUnlocked;
+  // Sync every primary box's sop-locked class to the new global state.
+  document.querySelectorAll('#section-sop .sop-box').forEach(box => {
+    box.classList.toggle('sop-locked', _sopIsLocked(box));
+    // Sync contenteditable on text children if we're in edit mode.
+    if (_sopEditing) {
+      const editableNow = !_sopIsLocked(box);
+      box.querySelectorAll('[contenteditable]').forEach(el => {
+        if (el.classList && (el.classList.contains('sop-color-btn') || el.classList.contains('sop-dup-box') || el.classList.contains('sop-lock-box'))) return;
+        el.setAttribute('contenteditable', editableNow ? 'true' : 'false');
+      });
+    }
+  });
+  const btn = document.getElementById('sop-sub-lock-btn');
+  if (btn) {
+    btn.textContent = _sopAllSubsUnlocked ? '🧩' : '🧩';
+    btn.title = _sopAllSubsUnlocked
+      ? 'Sub-sections are UNLOCKED — every box\'s sub-sections can drag, resize, and change font size. Click to lock them all again.'
+      : 'Sub-sections are LOCKED — click to unlock every sub-section in every box (drag, resize, A+/A-).';
+    // Visual state: green border + faint green tint when active.
+    if (_sopAllSubsUnlocked) {
+      btn.style.background = 'rgba(34,197,94,0.18)';
+      btn.style.color = '#86efac';
+      btn.style.border = '1px solid rgba(34,197,94,0.5)';
+    } else {
+      btn.style.background = '';
+      btn.style.color = '';
+      btn.style.border = '';
+    }
+  }
+}
+window.sopToggleAllSubs = sopToggleAllSubs;
 function sopToggleBoxLock(box) {
   if (!box || !box.dataset.sopId) return;
   const id = box.dataset.sopId;
@@ -36382,94 +36468,62 @@ function _sopSyncFormatAgo(ms) {
 function _sopSyncRender() {
   const el = document.getElementById('sop-sync-status');
   if (!el) return;
-  el.classList.remove('idle','saving','synced','offline','error');
+  // Remove any previous state class so the new one wins cleanly.
+  el.classList.remove('synced', 'saving', 'offline', 'error', 'idle');
   el.classList.add(_sopSyncState);
-  const lbl = el.querySelector('.label');
-  let text = '';
-  let title = '';
-  switch (_sopSyncState) {
-    case 'saving':
-      text = 'Saving…';
-      title = 'Save in progress.';
-      break;
-    case 'synced':
-      text = 'Synced ' + _sopSyncFormatAgo(_sopSyncLastSyncedAt);
-      title = 'Last successful cloud save: ' + new Date(_sopSyncLastSyncedAt).toLocaleString();
-      break;
-    case 'offline':
-      text = 'Offline · changes queued';
-      title = 'Could not reach Supabase. Your edits are saved locally and will sync on the next attempt.';
-      break;
-    case 'error':
-      text = 'Save error';
-      title = _sopSyncErrorMsg || 'Supabase write failed. Click to retry.';
-      break;
-    default:
-      text = 'Idle';
-      title = 'No recent activity.';
+  const label = el.querySelector('.label');
+  let txt = 'Idle';
+  let tip = 'No recent save activity.';
+  if (_sopSyncState === 'saving') {
+    txt = 'Saving\u2026';
+    tip = 'Pushing your changes to Supabase...';
+  } else if (_sopSyncState === 'synced') {
+    const ago = _sopSyncFormatAgo(_sopSyncLastSyncedAt);
+    txt = ago ? ('Synced ' + ago) : 'Synced';
+    tip = 'Last successful save to Supabase: ' + new Date(_sopSyncLastSyncedAt).toLocaleString();
+  } else if (_sopSyncState === 'offline') {
+    txt = 'Offline';
+    tip = 'Could not reach Supabase. Will retry on the next change. Local cache is intact.';
+  } else if (_sopSyncState === 'error') {
+    txt = 'Error';
+    tip = 'Save failed: ' + (_sopSyncErrorMsg || 'unknown error');
   }
-  if (lbl) lbl.textContent = text;
-  el.title = title;
+  if (label) label.textContent = txt;
+  el.title = tip;
 }
 
-function _sopSyncSet(state, errMsg) {
-  _sopSyncState = state;
-  if (errMsg) _sopSyncErrorMsg = errMsg;
-  if (state === 'synced') _sopSyncLastSyncedAt = Date.now();
-  _sopSyncRender();
-}
+// Wrap _sopSaveToSupabase so we get saving/synced/offline transitions for free.
+(function _sopWireSyncStatus() {
+  if (typeof _sopSaveToSupabase !== 'function') return;
+  const orig = _sopSaveToSupabase;
+  window._sopSaveToSupabase = async function () {
+    _sopSyncState = 'saving';
+    _sopSyncRender();
+    try {
+      await orig.apply(this, arguments);
+      _sopSyncState = 'synced';
+      _sopSyncLastSyncedAt = Date.now();
+      _sopSyncErrorMsg = '';
+    } catch (e) {
+      _sopSyncState = navigator.onLine ? 'error' : 'offline';
+      _sopSyncErrorMsg = (e && e.message) || String(e);
+    }
+    _sopSyncRender();
+  };
+})();
 
-// Keep the "Xs ago" text fresh while idle/synced.
+// Re-render every 5s so "Xs ago" stays current.
 setInterval(() => {
   if (_sopSyncState === 'synced') _sopSyncRender();
 }, 5000);
 
-// Wrap _sopSaveToSupabase to update the indicator.
-(function _sopWireSyncIndicator() {
-  if (typeof _sopSaveToSupabase !== 'function') return;
-  const origSave = _sopSaveToSupabase;
-  window._sopSaveToSupabase = async function () {
-    _sopSyncSet('saving');
-    try {
-      if (typeof sb === 'undefined' || !sb || !sb.auth || !sb.from) {
-        _sopSyncSet('offline');
-        return;
-      }
-      const r = await sb.auth.getUser();
-      const user = r && r.data && r.data.user;
-      if (!user || !user.id) {
-        _sopSyncSet('error', 'Not signed in.');
-        return;
-      }
-      const stateJson = {};
-      Object.keys(_sopState || {}).forEach(k => {
-        if (k === 'canvasHtml') return;
-        stateJson[k] = _sopState[k];
-      });
-      const canvasHtml = _sopState.canvasHtml || '';
-      const { error } = await sb.from('sop_state').upsert({
-        user_id: user.id,
-        canvas_html: canvasHtml,
-        state_json: stateJson
-      }, { onConflict: 'user_id' });
-      if (error) {
-        _sopSyncSet('error', error.message || 'Upsert failed.');
-        return;
-      }
-      _sopSyncSet('synced');
-    } catch (e) {
-      _sopSyncSet('offline');
-    }
-  };
-})();
-
-// Initial paint when DOM is ready.
+// Initial paint after DOM is ready.
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _sopSyncRender);
 } else {
-  _sopSyncRender();
+  setTimeout(_sopSyncRender, 0);
 }
+
 </script>
 </body>
 </html>
- 

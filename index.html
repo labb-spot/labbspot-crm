@@ -37340,6 +37340,120 @@ loadLabRates();
 renderCategoryRows();
 recalc();
 
+
+
+// === BRIDGES to the underwriting cascade ===
+// These expose the IIFE's internals to the main script so opening/saving
+// a deal, the rehab cascade, and helper buttons all keep working. None of
+// these existed in the standalone preview the IIFE was spliced from; they
+// recreate the integration layer that was lost when the file got truncated.
+
+// Re-run all renders + recalc. Called when a deal opens, when the cascade
+// needs to refresh, or after _rcLoadState applies a saved snapshot.
+function _rcFullRender() {
+  try { if (typeof renderCategoryRows === 'function') renderCategoryRows(); } catch (_) {}
+  try { if (typeof renderBasic === 'function') renderBasic(); } catch (_) {}
+  try { if (typeof renderSpecial === 'function') renderSpecial(); } catch (_) {}
+  try { if (typeof renderHire === 'function') renderHire(); } catch (_) {}
+  try { if (typeof renderRecs === 'function') renderRecs(); } catch (_) {}
+  try { if (typeof recalc === 'function') recalc(); } catch (_) {}
+}
+window._rcRecalc = _rcFullRender;
+
+// Return a serializable snapshot of all per-deal calculator state.
+// Used by the deal-save flow to write rehab state into Supabase as
+// data._rehabV2.
+window._rcGetState = function () {
+  const itemsSnap = {};
+  try {
+    Object.keys(items).forEach(cat => {
+      itemsSnap[cat] = items[cat].map(i => ({ n: i.n, on: !!i.on }));
+    });
+  } catch (_) {}
+  const scSnap = (typeof specialCases !== 'undefined' && Array.isArray(specialCases))
+    ? specialCases.map(s => ({ n: s.n, sev: s.sev || null }))
+    : [];
+  const grab = (id) => { const el = document.getElementById(id); return el ? el.value : null; };
+  return {
+    items: itemsSnap,
+    specialCases: scSnap,
+    finishLevel: grab('finishLevel'),
+    costContingency: grab('costContingency'),
+    timeContingency: grab('timeContingency'),
+    crew: grab('crew'),
+  };
+};
+
+// Apply a previously-saved snapshot (the inverse of _rcGetState).
+window._rcLoadState = function (snap) {
+  if (!snap || typeof snap !== 'object') return;
+  try {
+    if (snap.items && typeof snap.items === 'object') {
+      Object.keys(snap.items).forEach(cat => {
+        if (!items[cat]) return;
+        const savedList = snap.items[cat] || [];
+        savedList.forEach(saved => {
+          const live = items[cat].find(x => x.n === saved.n);
+          if (live) live.on = !!saved.on;
+        });
+      });
+    }
+    if (Array.isArray(snap.specialCases) && typeof specialCases !== 'undefined') {
+      snap.specialCases.forEach(saved => {
+        const live = specialCases.find(x => x.n === saved.n);
+        if (live) live.sev = saved.sev || null;
+      });
+    }
+    ['finishLevel','costContingency','timeContingency','crew'].forEach(id => {
+      if (snap[id] != null) {
+        const el = document.getElementById(id);
+        if (el) el.value = snap[id];
+      }
+    });
+  } catch (_) {}
+  _rcFullRender();
+};
+
+// Reset the calculator: clear every item, every special case, default
+// finish level / contingency. Called when a deal has no saved rehab state.
+window._rcResetToDefaults = function () {
+  try {
+    Object.keys(items).forEach(k => items[k].forEach(i => { i.on = false; }));
+  } catch (_) {}
+  try {
+    if (typeof specialCases !== 'undefined') specialCases.forEach(s => { s.sev = null; });
+  } catch (_) {}
+  _rcFullRender();
+};
+
+// Return current scope grouped by category — used by wholesale packets,
+// exit-math panels, and anything else that needs to know "which work
+// items are turned on, grouped by trade."
+window._rcGetScopeByGroup = function () {
+  try {
+    return Object.keys(items).map(cat => ({
+      group: cat,
+      items: items[cat].filter(i => i.on).map(i => i.n)
+    }));
+  } catch (_) { return []; }
+};
+
+// Wire the LAB rate edit toggle button (in the rates panel header).
+window._rcToggleLabEditMode = function () {
+  try { if (typeof toggleLabEditMode === 'function') toggleLabEditMode(); } catch (_) {}
+};
+
+// Toggle the Recommendations panel open/closed.
+window._rcToggleRecs = function () {
+  const el = document.getElementById('recsContent');
+  if (!el) return;
+  el.style.display = (el.style.display === 'none') ? '' : 'none';
+};
+
+// Cascade re-entry guard — main script sets/clears this; we just declare
+// it to avoid undefined-write warnings in strict mode.
+if (typeof window._rcInUwCascade === 'undefined') window._rcInUwCascade = false;
+
 })();
 </script>
 

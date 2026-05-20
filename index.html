@@ -36532,6 +36532,44 @@ if (document.readyState === 'loading') {
   const _rcRoot = document.querySelector('[data-uw-section="rehab-calc"]');
   if (!_rcRoot) return; // bail if not present
 
+  // === Missing-input shim ===
+  // The IIFE was spliced from a standalone preview that had <input id="sqft">,
+  // <input id="baths">, <input id="beds">, <input id="yearBuilt"> hardcoded in
+  // its HTML. The integrated version in this app uses underwriting fields
+  // (uw-sqft, uw-beds-real, etc.) instead — so those preview IDs don't exist.
+  // Without them, renderBasic() crashes on document.getElementById('sqft').value.
+  // Create them as hidden inputs scoped to the calc's root container so the
+  // IIFE can read default values and the calc renders. We'll sync these to
+  // the live UW fields whenever the calc recalcs, so the math stays accurate.
+  (function _rcEnsureInputs() {
+    const fields = [
+      {id:'sqft',       def:'1077', src:'uw-sqft'},
+      {id:'baths',      def:'1',    src:'uw-baths-real'},
+      {id:'beds',       def:'2',    src:'uw-beds-real'},
+      {id:'yearBuilt',  def:'1990', src:'uw-year-built'},
+    ];
+    fields.forEach(f => {
+      if (!document.getElementById(f.id)) {
+        const inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.id = f.id;
+        inp.value = f.def;
+        _rcRoot.appendChild(inp);
+      }
+    });
+    // Sync from UW fields if they exist (deal is open). Re-run on every recalc.
+    window._rcSyncFromUw = function () {
+      fields.forEach(f => {
+        const src = document.getElementById(f.src);
+        const dst = document.getElementById(f.id);
+        if (!src || !dst) return;
+        const v = String(src.value || '').replace(/,/g, '').trim();
+        if (v) dst.value = v;
+      });
+    };
+  })();
+
+
   const _rcGetN = (id, fallback) => {
     const el = document.getElementById(id);
     if (!el) return fallback;
@@ -37351,6 +37389,7 @@ recalc();
 // Re-run all renders + recalc. Called when a deal opens, when the cascade
 // needs to refresh, or after _rcLoadState applies a saved snapshot.
 function _rcFullRender() {
+  try { if (typeof window._rcSyncFromUw === 'function') window._rcSyncFromUw(); } catch (_) {}
   try { if (typeof renderCategoryRows === 'function') renderCategoryRows(); } catch (_) {}
   try { if (typeof renderBasic === 'function') renderBasic(); } catch (_) {}
   try { if (typeof renderSpecial === 'function') renderSpecial(); } catch (_) {}

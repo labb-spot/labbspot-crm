@@ -25829,6 +25829,50 @@ async function deletePhotoSubmission(id, label) {
   }
 }
 
+// Reviewer-side checkbox state for each photo submission. Stored in
+// localStorage keyed by submission id, so the user can tick items as they
+// verify the photographer's claims and have those ticks persist across
+// reloads. Per-submission keying means each property's review is isolated.
+function _psReviewKey(rowId) { return 'ps-review-' + rowId; }
+function _psLoadReview(rowId) {
+  try {
+    const raw = localStorage.getItem(_psReviewKey(rowId));
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) { return {}; }
+}
+function _psSaveReview(rowId, state) {
+  try { localStorage.setItem(_psReviewKey(rowId), JSON.stringify(state)); }
+  catch (_) {}
+}
+function _psItemId(rowId, fieldKey, idx) {
+  return 'ps-rc-' + rowId + '-' + fieldKey + '-' + idx;
+}
+function _psToggleReview(rowId, fieldKey, idx, el) {
+  const state = _psLoadReview(rowId);
+  const itemKey = fieldKey + ':' + idx;
+  if (el.checked) state[itemKey] = true; else delete state[itemKey];
+  _psSaveReview(rowId, state);
+  _psUpdateProgress(rowId);
+}
+function _psUpdateProgress(rowId) {
+  const el = document.getElementById('ps-review-progress');
+  if (!el) return;
+  const state = _psLoadReview(rowId);
+  const checked = Object.keys(state).filter(k => state[k]).length;
+  const total = parseInt(el.dataset.totalItems || '0') || 0;
+  el.textContent = total > 0
+    ? (checked + ' of ' + total + ' items verified')
+    : '';
+  el.style.color = (total > 0 && checked === total) ? 'var(--ok)' : 'var(--text-dim)';
+}
+function _psResetReview(rowId) {
+  if (!confirm('Clear every reviewer checkbox for this submission?')) return;
+  try { localStorage.removeItem(_psReviewKey(rowId)); } catch (_) {}
+  // Uncheck every visible reviewer checkbox in the drawer
+  document.querySelectorAll('.ps-review-cb').forEach(cb => { cb.checked = false; });
+  _psUpdateProgress(rowId);
+}
+
 function openPhotoDrawer(id) {
   const row = (window._photoSubmissionsCache || []).find(r => r.id === id);
   if (!row) return;
@@ -25856,14 +25900,26 @@ function openPhotoDrawer(id) {
     const all = PS_OPTIONS[fieldKey];
     if (!all) return list(selectedArr); // unknown field → fall back to plain list
     const sel = new Set(Array.isArray(selectedArr) ? selectedArr.map(String) : []);
+    const reviewState = _psLoadReview(row.id);
     return '<ul style="list-style:none;margin:6px 0 0;padding:0;font-size:13px;line-height:1.75">'
-      + all.map(item => {
+      + all.map((item, idx) => {
           const hit = sel.has(item);
+          // Photographer's claim (\u2713 / \u2715) — unchanged from before.
           const mark = hit
             ? '<span style="display:inline-block;width:18px;color:var(--ok);font-weight:700">\u2713</span>'
             : '<span style="display:inline-block;width:18px;color:var(--err);font-weight:700">\u2715</span>';
           const txtStyle = hit ? 'color:var(--text)' : 'color:var(--text-dim);text-decoration:line-through';
-          return '<li style="' + txtStyle + '">' + mark + esc(item) + '</li>';
+          // Reviewer's checkbox — independent of the photographer's claim,
+          // lets you tick off each item as you verify it during review.
+          const itemKey = fieldKey + ':' + idx;
+          const verified = !!reviewState[itemKey];
+          const cb = '<input type="checkbox" class="ps-review-cb" id="' + _psItemId(row.id, fieldKey, idx) + '" '
+            + (verified ? 'checked ' : '')
+            + 'onchange="_psToggleReview(\''+row.id+'\',\''+fieldKey+'\','+idx+',this)" '
+            + 'title="Tick when you have verified this item in the submitted photos/video" '
+            + 'style="width:14px;height:14px;margin-right:8px;cursor:pointer;accent-color:#10b981;vertical-align:middle">';
+          return '<li style="' + txtStyle + ';display:flex;align-items:center;gap:0">'
+            + cb + mark + '<span>' + esc(item) + '</span></li>';
         }).join('')
       + '</ul>';
   };
@@ -25882,7 +25938,19 @@ function openPhotoDrawer(id) {
   const extPic = !ext && row.exterior_pictures_checklist && row.exterior_pictures_checklist.length ? row.exterior_pictures_checklist : null;
   const intVid = !intr && row.interior_video_checklist && row.interior_video_checklist.length ? row.interior_video_checklist : null;
   const intPic = !intr && row.interior_pictures_checklist && row.interior_pictures_checklist.length ? row.interior_pictures_checklist : null;
-  body.innerHTML =
+  // Count every item that could be reviewer-checked, so we can show progress.
+  const _psCountItems = () => {
+    let n = 0;
+    const counts = ['exterior_checklist','interior_checklist','kitchen_checklist','bathroom_checklist','mechanicals_checklist','odors'];
+    counts.forEach(k => { if (PS_OPTIONS[k]) n += PS_OPTIONS[k].length; });
+    return n;
+  };
+  const _psTotalItems = _psCountItems();
+  const _psHeader = '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;margin-bottom:14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">'
+    + '<div id="ps-review-progress" data-total-items="' + _psTotalItems + '" style="font-size:12.5px;font-weight:600;color:var(--text-dim)">0 of ' + _psTotalItems + ' items verified</div>'
+    + '<button class="btn btn-ghost text-xs" onclick="_psResetReview(\''+row.id+'\')" title="Clear every reviewer checkbox for this submission" style="padding:4px 10px">\u21bb Reset</button>'
+    + '</div>';
+  body.innerHTML = _psHeader +
       block('Address', '<div style="font-size:15px;font-weight:600">' + esc(row.address) + '</div>')
     + block('Submitter', '<div style="font-size:14px">' + esc(row.submitter_name || '—') + '</div><div style="font-size:12.5px;color:var(--text-dim);margin-top:2px">' + esc(row.submitter_phone || '') + (row.submitter_paypal ? ' · ' + esc(row.submitter_paypal) : '') + '</div>')
     + block('Dropbox folder', row.dropbox_url ? '<a href="' + esc(row.dropbox_url) + '" target="_blank" rel="noopener" class="btn btn-primary text-sm" style="display:inline-block">📷 Open folder</a>' : '<div style="color:var(--text-dim);font-size:13px">— no link —</div>')
@@ -25903,6 +25971,8 @@ function openPhotoDrawer(id) {
     + block('Submitted', '<div style="font-size:13px;color:var(--text-dim)">' + esc(new Date(row.created_at || row.submitted_at).toLocaleString()) + '</div>');
   document.getElementById('ps-drawer-backdrop').style.display = '';
   document.getElementById('ps-drawer').style.display = '';
+  // Render the initial review progress (X of Y items verified) once the drawer is on screen.
+  _psUpdateProgress(row.id);
 }
 function closePhotoDrawer() {
   document.getElementById('ps-drawer-backdrop').style.display = 'none';

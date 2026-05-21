@@ -25829,20 +25829,72 @@ async function deletePhotoSubmission(id, label) {
   }
 }
 
-// Reviewer-side checkbox state for each photo submission. Stored in
-// localStorage keyed by submission id, so the user can tick items as they
-// verify the photographer's claims and have those ticks persist across
-// reloads. Per-submission keying means each property's review is isolated.
+// Reviewer-side checkbox state for each photo submission. Stored
+// server-side in photo_submissions.review_checks (JSONB) so Logan + the
+// employee see the same verification state across devices. localStorage
+// is kept as a write-through cache so the UI feels instant and works
+// offline. The drawer pulls the latest state from Supabase on open and
+// re-syncs the visible checkboxes in case another reviewer ticked things.
 function _psReviewKey(rowId) { return 'ps-review-' + rowId; }
+// In-memory cache populated on drawer open. Mirrors the Supabase value
+// + survives localStorage being slow/blocked.
+window._psReviewCache = window._psReviewCache || {};
 function _psLoadReview(rowId) {
+  if (window._psReviewCache[rowId]) return window._psReviewCache[rowId];
   try {
     const raw = localStorage.getItem(_psReviewKey(rowId));
-    return raw ? JSON.parse(raw) : {};
+    const state = raw ? JSON.parse(raw) : {};
+    window._psReviewCache[rowId] = state;
+    return state;
   } catch (_) { return {}; }
 }
 function _psSaveReview(rowId, state) {
-  try { localStorage.setItem(_psReviewKey(rowId), JSON.stringify(state)); }
-  catch (_) {}
+  window._psReviewCache[rowId] = state;
+  // Local cache for instant offline reload
+  try { localStorage.setItem(_psReviewKey(rowId), JSON.stringify(state)); } catch (_) {}
+  // Debounced push to Supabase so a burst of clicks = 1 network call
+  if (window._psSaveTimer) clearTimeout(window._psSaveTimer);
+  window._psSaveTimer = setTimeout(() => _psPushToSupabase(rowId, state), 500);
+}
+async function _psPushToSupabase(rowId, state) {
+  try {
+    if (typeof sb === 'undefined' || !sb || !sb.from) return;
+    const { error } = await sb.from('photo_submissions')
+      .update({ review_checks: state })
+      .eq('id', rowId);
+    if (error) console.warn('[photo review] save failed:', error.message);
+  } catch (e) { console.warn('[photo review] save threw:', e); }
+}
+// Called when the drawer opens — pulls the freshest review state from
+// Supabase + updates the visible checkboxes if remote differs from local.
+async function _psPullFromSupabase(rowId) {
+  try {
+    if (typeof sb === 'undefined' || !sb || !sb.from) return;
+    const { data, error } = await sb.from('photo_submissions')
+      .select('review_checks')
+      .eq('id', rowId)
+      .maybeSingle();
+    if (error || !data) return;
+    const remote = (data.review_checks && typeof data.review_checks === 'object')
+      ? data.review_checks : {};
+    window._psReviewCache[rowId] = remote;
+    try { localStorage.setItem(_psReviewKey(rowId), JSON.stringify(remote)); } catch (_) {}
+    // Update every visible reviewer checkbox to reflect remote state
+    document.querySelectorAll('.ps-review-cb').forEach(cb => {
+      // cb.id is 'ps-rc-<rowId>-<fieldKey>-<idx>'. Parse the key from there.
+      const parts = cb.id.split('-');
+      // ['ps','rc',rowId,fieldKey,idx] but rowId may contain dashes — use known prefix.
+      const prefix = 'ps-rc-' + rowId + '-';
+      if (!cb.id.startsWith(prefix)) return;
+      const rest = cb.id.slice(prefix.length); // '<fieldKey>-<idx>'
+      const lastDash = rest.lastIndexOf('-');
+      const fieldKey = rest.slice(0, lastDash);
+      const idx = rest.slice(lastDash + 1);
+      const itemKey = fieldKey + ':' + idx;
+      cb.checked = !!remote[itemKey];
+    });
+    _psUpdateProgress(rowId);
+  } catch (e) { console.warn('[photo review] pull threw:', e); }
 }
 function _psItemId(rowId, fieldKey, idx) {
   return 'ps-rc-' + rowId + '-' + fieldKey + '-' + idx;
@@ -25866,9 +25918,10 @@ function _psUpdateProgress(rowId) {
   el.style.color = (total > 0 && checked === total) ? 'var(--ok)' : 'var(--text-dim)';
 }
 function _psResetReview(rowId) {
-  if (!confirm('Clear every reviewer checkbox for this submission?')) return;
+  if (!confirm('Clear every reviewer checkbox for this submission? This affects every device.')) return;
+  window._psReviewCache[rowId] = {};
   try { localStorage.removeItem(_psReviewKey(rowId)); } catch (_) {}
-  // Uncheck every visible reviewer checkbox in the drawer
+  _psPushToSupabase(rowId, {}); // clear remote too
   document.querySelectorAll('.ps-review-cb').forEach(cb => { cb.checked = false; });
   _psUpdateProgress(rowId);
 }
@@ -25973,6 +26026,10 @@ function openPhotoDrawer(id) {
   document.getElementById('ps-drawer').style.display = '';
   // Render the initial review progress (X of Y items verified) once the drawer is on screen.
   _psUpdateProgress(row.id);
+  // Pull latest reviewer state from Supabase in the background. Updates
+  // checkbox UI if another reviewer (Logan/employee on another device)
+  // ticked or unticked items since this row was cached locally.
+  _psPullFromSupabase(row.id);
 }
 function closePhotoDrawer() {
   document.getElementById('ps-drawer-backdrop').style.display = 'none';

@@ -3213,7 +3213,7 @@
            months you carry the property without any rental income (tax +
            insurance + mortgage P&I if financed all keep accruing). -->
       <div data-uw-slot="rt-reno-mo"><label class="text-xs" title="Months spent renovating before the property is ready to list for rent. Set to 0 if no rehab needed.">Renovation Time (mo)<input type="number" id="uw-rt-reno-mo" value="1" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-rent-mo"><label class="text-xs" title="Months between rehab completion and first tenant moving in (lease-up time).">Rent-up Time (mo)<input type="number" id="uw-rt-rent-mo" value="1" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="rt-rent-mo"><label class="text-xs" title="Months between rehab completion and first tenant moving in. Defaults to match flip Listed Time so timelines stay parallel.">Time to Rent (mo)<input type="number" id="uw-rt-rent-mo" value="2.5" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <!-- Refinance closing cost — only used in Refi mode -->
       <div data-uw-slot="rt-rf-close-pct"><label class="text-xs" title="Closing cost on the cash-out refinance, as % of the refi loan. Typical investor refis are 2-3% of loan.">Refi Closing %<input type="number" id="uw-rt-rf-close-pct" value="2" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="rt-vac-pct"><label class="text-xs" title="Vacancy reserve as % of monthly rent.">Vacancy %<input type="number" id="uw-rt-vac-pct" value="10" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
@@ -8327,7 +8327,7 @@ function uwNewDeal() {
     'uw-rt-br-ltv': '70', 'uw-rt-br-rate': '6.5', 'uw-rt-br-yrs': '30',
     'uw-rt-rf-close-pct': '2',
     // Pre-rent timeline (applies to all rental modes)
-    'uw-rt-reno-mo': '1', 'uw-rt-rent-mo': '1',
+    'uw-rt-reno-mo': '1', 'uw-rt-rent-mo': '2.5',
   };
   Object.entries(defaults).forEach(([k, v]) => { const el = document.getElementById(k); if (el) el.value = v; });
   _uwCurrentId = null;
@@ -9091,7 +9091,7 @@ function uwReset() {
     'uw-rt-br-ltv': '70', 'uw-rt-br-rate': '6.5', 'uw-rt-br-yrs': '30',
     'uw-rt-rf-close-pct': '2',
     // Pre-rent timeline (applies to all rental modes)
-    'uw-rt-reno-mo': '1', 'uw-rt-rent-mo': '1',
+    'uw-rt-reno-mo': '1', 'uw-rt-rent-mo': '2.5',
   };
   Object.entries(defaults).forEach(([k, v]) => { const el = document.getElementById(k); if (el) el.value = v; });
   // Reset autosave state — this is a brand-new blank deal
@@ -9494,7 +9494,7 @@ function uwRecalc() {
     ? maxLoan * (monthlyRate * Math.pow(1 + monthlyRate, numPayments)) / (Math.pow(1 + monthlyRate, numPayments) - 1)
     : 0;
   const rentalTaxMo = (arv * 0.01) / 12;
-  const rentalInsMo = (arv * 0.009) / 12;
+  const rentalInsMo = (arv * 0.01) / 12;
   const hoaMo = (arv * 0.0035) / 12;
   const capexMo = rent * 0.10;
   const vacancyMo = rent * 0.10;
@@ -9911,6 +9911,14 @@ function _uwApplyAutoRehabMonths(sqft) {
       el.value = auto;
     }
   });
+  // Mirror fl-listed-mo → rt-rent-mo so the rental timeline (Time to Rent)
+  // stays in lockstep with the flip timeline (Listed Time).
+  const _flListedEl = document.getElementById('uw-fl-listed-mo');
+  const _rtRentEl   = document.getElementById('uw-rt-rent-mo');
+  if (_flListedEl && _rtRentEl) {
+    const _vL = parseFloat(_flListedEl.value);
+    if (!isNaN(_vL)) { _rtRentEl.value = _vL.toString(); _rtRentEl.dataset.uwAuto = '1'; }
+  }
 }
 window._uwApplyAutoRehabMonths = _uwApplyAutoRehabMonths;
 
@@ -10346,7 +10354,7 @@ function uwComputeExits(ctx) {
   // Vacant home insurance stays as a flat-dollar field for now ($150 default)
   const wtIns   = _wtVal('uw-wt-ins', 150);
   // Property tax — 1% of purchase price per year (different basis from utilities)
-  const _wtT = _wtAutoFromBasis('uw-wt-tax', wtTaxBasis);
+  const _wtT = _wtAutoFromBasis('uw-wt-tax', arv); // 1% ARV/yr
   const wtTax = _wtT.value;
   const wtMonthly = wtElec + wtWater + wtSewer + wtUtil + wtIns + wtTax;
   const wholetailHolding = wtMonthly * wholetailMonths;
@@ -10466,21 +10474,28 @@ function uwComputeExits(ctx) {
     ];
   })();
   const _rtAppSrc = _crimeGrade in _crimeApprMap ? ' · Crime ' + _crimeGrade : '';
-  const _rtAppSection = { title: '📈 Appreciation (Property ' + RT_PROP_APPR_PCT + '%/yr · Rent ' + RT_RENT_APPR_PCT + '%/yr' + _rtAppSrc + ')', rows: _rtAppRows };
+  const _rtAppSection = { title: '📈 Appreciation<br>(Property ' + RT_PROP_APPR_PCT + '%/yr · Rent ' + RT_RENT_APPR_PCT + '%/yr' + _rtAppSrc + ')', rows: _rtAppRows };
   const rtVac      = rent * (rtVacPct   / 100);
   const rtMaint    = rent * (rtMaintPct / 100);
   const rtCapex    = rent * (rtCapexPct / 100);
   const rtPm       = rent * (rtPmPct    / 100);
-  const rtIns      = (arv * 0.009) / 12; // 0.9% ARV/yr — landlord insurance
+  const rtIns      = (arv * 0.01) / 12; // 1% ARV/yr — landlord insurance
   // Tax basis: Cash rental uses purchase price (NOT refinanced); Financed
   // rental uses ARV (refinanced after rehab). Per the user's rule.
-  const rtTaxCash = (wtTaxBasis * 0.01) / 12; // 1% purchase/yr
-  const rtTaxFin  = (arv        * 0.01) / 12; // 1% ARV/yr
+  const rtTaxCash = (arv * 0.01) / 12; // 1% ARV/yr (same as financed/refi)
+  const rtTaxFin  = (arv * 0.01) / 12; // 1% ARV/yr
 
   // ====== 3. CASH RENTAL ======
   // Buy with cash + RENTAL-grade rehab; no mortgage. Operating costs itemized.
-  // Pre-rent carrying = tax + insurance × pre-rent months (no mortgage in cash mode)
-  const cashPreRentHolding = (rtTaxCash + rtIns) * rtPreRentMo;
+  // Pre-rent holding MIRRORS the flip holding model — during reno + rent-up
+  // the property is vacant and the landlord pays the same costs a flipper
+  // would (utilities + builder's risk + tax). Reads from the flip input
+  // fields so editing one updates both.
+  const _preElec  = _wtAutoFromBasis('uw-fl-elec',  wtUtilBasis).value;
+  const _preWater = _wtAutoFromBasis('uw-fl-water', wtUtilBasis).value;
+  const _preIns   = _wtVal('uw-fl-ins', 200);
+  const _preTax   = _wtAutoFromBasis('uw-fl-tax',   arv).value; // 1% ARV/yr
+  const cashPreRentHolding = (_preElec + _preWater + _preIns + _preTax) * rtPreRentMo;
   const cashInvestment     = buyPrice + rRehab + rtPurchClosingTotal + cashPreRentHolding;
   const cashRentMonthlyExp = rtTaxCash + rtIns + rtVac + rtMaint + rtCapex + rtPm;
   const cashRentalCashflow = rent > 0 ? rent - cashRentMonthlyExp : 0;
@@ -10494,38 +10509,55 @@ function uwComputeExits(ctx) {
   // doesn't need to bring those costs to the table — only the down payment +
   // any pre-rent P&I service. P&I itself can't be in the basis (circular), so
   // it's still cash out of pocket during pre-rent.
+  // DELAYED FINANCING MODEL: you bought + rehabbed in CASH (no HM loan), then
+  // got a long-term DSCR cash-out refi after stabilization. The loan size is
+  // sized to recover all the cash you put up + origination, capped at the
+  // lender's max LTV (70% of ARV, same cap as the Refi tab).
+  const FIN_LTV_CAP_PCT = 70;
   const finDownPct = _wtVal('uw-rt-down-pct', 0);
   const finRatePct = _wtVal('uw-loan-rate',   6.5);
   const finYrs     = _wtVal('uw-loan-yrs',    30);
-  const finPreRentTax = rtTaxFin * rtPreRentMo; // pre-rent property tax
-  const finPreRentIns = rtIns    * rtPreRentMo; // pre-rent landlord insurance
-  const finPreRentTaxIns = finPreRentTax + finPreRentIns; // (kept for back-compat)
-  const finBaseCost = buyPrice + rRehab + rtPurchClosingTotal + finPreRentTaxIns;
-  const finDown = finBaseCost * (finDownPct / 100);
-  const finLoan = finBaseCost * (1 - finDownPct / 100);
+  const finOrigPct = 2; // DSCR loan origination, typical 2%
+  // Pre-rent holding mirrors the FLIP holding model (elec + water + builder's
+  // risk + tax) — same vacant-property cost a flipper would pay during reno +
+  // lease-up. Matches what Cash Rental and Cash Flip already use.
+  const finPreRentHolding = cashPreRentHolding; // = (_preElec + _preWater + _preIns + _preTax) * rtPreRentMo
+  // Break-out for breakdown display lines
+  const finPreRentElec   = _preElec  * rtPreRentMo;
+  const finPreRentWater  = _preWater * rtPreRentMo;
+  const finPreRentIns    = _preIns   * rtPreRentMo; // builder's risk during vacant
+  const finPreRentTax    = _preTax   * rtPreRentMo;
+  const finPreRentTaxIns = finPreRentHolding; // back-compat alias
+  // Cash you actually put up to acquire + rehab in cash (no HM in this mode).
+  const finCashPutUp = buyPrice + rRehab + rtPurchClosingTotal + finPreRentHolding;
+  const finBaseCost  = finCashPutUp; // back-compat alias
+  // Smart-size: loan × (1 − orig%) = cash put up  →  loan = cashPutUp / (1 − orig%)
+  // Then cap at lender LTV. Down% input voluntarily borrows LESS than smart-sized.
+  const _finNetOrigFactor = 1 - (finOrigPct / 100);
+  const _finLoanNeeded    = _finNetOrigFactor > 0 ? finCashPutUp / _finNetOrigFactor : 0;
+  const _finLtvCapLoan    = arv * (FIN_LTV_CAP_PCT / 100);
+  const _finLoanSmart     = Math.min(_finLoanNeeded, _finLtvCapLoan);
+  const finLoan           = Math.max(0, _finLoanSmart * (1 - finDownPct / 100));
   const finRate = finRatePct / 100 / 12;
   const finN    = finYrs * 12;
   const finPi   = finRate > 0 ? finLoan * (finRate * Math.pow(1 + finRate, finN)) / (Math.pow(1 + finRate, finN) - 1) : 0;
-  // First-month interest portion of P&I (informational — shows how the
-  // mortgage payment splits between interest and principal at month 1).
   const finInterest  = finLoan * finRate;
   const finPrincipal = Math.max(0, finPi - finInterest);
   const finMonthlyExp     = finPi + rtTaxFin + rtIns + rtVac + rtMaint + rtCapex + rtPm;
   const finCashflow       = rent - finMonthlyExp;
   const finAnnualCashflow = finCashflow * 12;
-  // No pre-rent P&I — the DSCR loan doesn't fund until AFTER the tenant is
-  // in place, so there's no mortgage payment accruing during pre-rent.
-  const finPreRentHolding = 0;
-  // DSCR loan origination — the only true out-of-pocket cost on this exit.
-  // The loan reimburses every other cash you put up (buy, rehab, closing,
-  // pre-rent tax/ins are all rolled into the loan basis above), but you
-  // still owe the origination fee on top.
-  const finOrigPct = 2; // DSCR loan origination, typical 2%
-  const finOrig    = finLoan * (finOrigPct / 100);
-  // Total cash you put up before rent (down payment + DSCR origination).
-  // With 0% down + 1% origination, this is essentially just the origination.
-  const finTotalCashOut   = finDown + finOrig;
-  const finCoC = finTotalCashOut > 0 ? (finAnnualCashflow / finTotalCashOut) * 100 : 0;
+  const finOrig            = finLoan * (finOrigPct / 100);
+  const finNetCashFromLoan = finLoan - finOrig;
+  // Bonus cash you pull out beyond what you put up (if loan capped above need).
+  const finCashOut         = Math.max(0, finNetCashFromLoan - finCashPutUp);
+  // Capital LEFT IN the deal (if loan capped below need, or voluntary down%).
+  const finLeftIn          = Math.max(0, finCashPutUp - finNetCashFromLoan);
+  // Back-compat aliases for the rest of the file (top-card display, cascade, etc.)
+  const finDown          = finLeftIn;
+  const finTotalCashOut  = finLeftIn;
+  const finCoC = finLeftIn > 0
+                   ? (finAnnualCashflow / finLeftIn) * 100
+                   : (finAnnualCashflow > 0 ? Infinity : 0);
 
   // ====== 4b. REFI (refinance out of HM/PM into long-term mortgage) ======
   // Two phases: (1) initial HM/PM hold during rehab + lease-up — pay HM
@@ -10546,9 +10578,16 @@ function uwComputeExits(ctx) {
   // closing so they're not cash out of pocket. Only HM origination + HM
   // interest during stabilization remain as actual cash drain on the
   // borrower (since you still service the HM during that period).
-  const rfPreRentTax     = rtTaxFin * rfStabMo;
-  const rfPreRentIns     = rtIns    * rfStabMo;
-  const rfPreRentHolding = rfPreRentTax + rfPreRentIns; // (back-compat alias)
+  // HM stabilization holding uses the flip holding model (elec + water +
+  // builder's risk + tax) — same as Cash Rental and Cash Flip. rfStabMo
+  // equals rtPreRentMo in standard rental workflow.
+  const _rfPerMo = _preElec + _preWater + _preIns + _preTax;
+  const rfPreRentHolding = _rfPerMo * rfStabMo;
+  // Break-out for display
+  const rfPreRentElec  = _preElec  * rfStabMo;
+  const rfPreRentWater = _preWater * rfStabMo;
+  const rfPreRentIns   = _preIns   * rfStabMo;
+  const rfPreRentTax   = _preTax   * rfStabMo;
   // Initial loan basis now includes everything the lender will fund up-front.
   const rfBaseCost     = buyPrice + rRehab + rtPurchClosingTotal + rfPreRentHolding;
   const rfHmDown       = rfBaseCost * (1 - rfHmLtvPct / 100);
@@ -10715,7 +10754,7 @@ function uwComputeExits(ctx) {
   const _flElec = _wtAutoFromBasis('uw-fl-elec',  wtUtilBasis);  const flElec  = _flElec.value;
   const _flWS   = _wtAutoFromBasis('uw-fl-water', wtUtilBasis);  const flWater = _flWS.value;
   const flIns   = _flVal('uw-fl-ins', 200); // builder's risk ins (higher than vacant)
-  const _flT    = _wtAutoFromBasis('uw-fl-tax',   wtTaxBasis);   const flTax   = _flT.value;
+  const _flT    = _wtAutoFromBasis('uw-fl-tax',   arv);          const flTax   = _flT.value; // 1% ARV/yr
   const flMonthly  = flElec + flWater + flIns + flTax;
   const flipHolding = flMonthly * flipMonths;
   // Selling costs against the FULL ARV sale price
@@ -10956,9 +10995,10 @@ function uwComputeExits(ctx) {
           ['Buying costs', fmt(wtPurchClosingTotal)],
           ['Selling costs', fmt((wtSaleClosingTotal || 0) + (wtAgentTotal || 0))],
         ];
-        if (wholetailMode === 'financed') {
-          _rows.push(['Financing costs', fmt((wtFinOrig || 0) + (wtFinTotalInt || 0))]);
-        }
+        // Always render Financing costs row so the card height doesn't jump
+        // when toggling between Cash and Financed modes. Cash shows "—".
+        _rows.push(['Financing costs',
+          wholetailMode === 'financed' ? fmt((wtFinOrig || 0) + (wtFinTotalInt || 0)) : '—']);
         _rows.push(['Capital tied up', fmt(wholetailMode === 'financed' ? wtFinCapital : wholetailCashCapital)]);
         return _rows;
       })(),
@@ -10972,9 +11012,11 @@ function uwComputeExits(ctx) {
           ['Resale closing (3%)', '−' + fmt(wtSaleClosingTotal)],
           ['Agent commissions (' + (sellAgentPct + buyAgentPct) + '%)', '−' + fmt(wtAgentTotal)],
           ['Financing cost', '−' + fmt(wtFinOrig + wtFinTotalInt)],
+          ['Capital tied up (cash you put up)', fmt(wtFinCapital), 'warn'],
+          ['Total Project Cost', fmt(wholetailSale - wtFinProfit), 'cost'],
           ['Net profit', fmt(wtFinProfit), 'profit'],
         ]},
-        { title: '🏦 Financing (100% basis · ' + wtFinRatePct + '%/yr · ' + wtFinOrigPct + 'pt · ' + WT_FIN_ARV_CAP_PCT + '% ARV cap)', rows: [
+        { title: '🏦 Financing <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· 100% basis · ' + wtFinRatePct + '%/yr · ' + wtFinOrigPct + 'pt · ' + WT_FIN_ARV_CAP_PCT + '% ARV cap</span>', rows: [
           ['Buy price', fmt(buyPrice)],
           ['Capital invested (60% of flip rehab)', fmt(wholetailRehab)],
           ['Holding (' + wholetailMonths + ' mo)', fmt(wholetailHolding)],
@@ -10993,11 +11035,11 @@ function uwComputeExits(ctx) {
           // shape as the Flip Financing panel.
           ['💰 Total Capital Put Up', fmt(wtFinCapital), 'profit'],
         ]},
-        { title: '🏠 Holding (' + wholetailMonths + ' mo · ' + wtRenoMo + ' reno + ' + wtListedMo + ' listed)', rows: [
+        { title: '🏠 Holding<br>(' + wholetailMonths + ' mo · ' + wtRenoMo + ' reno + ' + wtListedMo + ' listed)', rows: [
           ['Electric · $' + Math.round(wtElec).toLocaleString() + '/mo' + (_wtElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(wtElec * wholetailMonths).toLocaleString()],
           ['Water / Sewer · $' + Math.round(wtWater).toLocaleString() + '/mo' + (_wtWS.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(wtWater * wholetailMonths).toLocaleString()],
           ['Vacant insurance · $' + wtIns + '/mo', '$' + (wtIns * wholetailMonths).toLocaleString()],
-          ['Property tax · $' + Math.round(wtTax).toLocaleString() + '/mo' + (_wtT.isAuto ? ' (1% ' + (accepted > 0 ? 'acc' : 'ask') + '/yr)' : ''), '$' + Math.round(wtTax * wholetailMonths).toLocaleString()],
+          ['Property tax · $' + Math.round(wtTax).toLocaleString() + '/mo' + (_wtT.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(wtTax * wholetailMonths).toLocaleString()],
           ['Total holding', '$' + Math.round(wholetailHolding).toLocaleString(), 'profit'],
         ]},
         { title: '🏷️ Buying and Selling Costs', rows: [
@@ -11018,13 +11060,15 @@ function uwComputeExits(ctx) {
           ['Purchase closing (3%)', '−' + fmt(wtPurchClosingTotal)],
           ['Resale closing (3%)', '−' + fmt(wtSaleClosingTotal)],
           ['Agent commissions (' + (sellAgentPct + buyAgentPct) + '%)', '−' + fmt(wtAgentTotal)],
+          ['Capital tied up (cash you put up)', fmt(buyPrice + wholetailRehab + wholetailHolding + wtPurchClosingTotal), 'warn'],
+          ['Total Project Cost', fmt(wholetailSale - wholetailCashProfit), 'cost'],
           ['Net profit', fmt(wholetailCashProfit), 'profit'],
         ]},
-        { title: '🏠 Holding (' + wholetailMonths + ' mo · ' + wtRenoMo + ' reno + ' + wtListedMo + ' listed)', rows: [
+        { title: '🏠 Holding<br>(' + wholetailMonths + ' mo · ' + wtRenoMo + ' reno + ' + wtListedMo + ' listed)', rows: [
           ['Electric · $' + Math.round(wtElec).toLocaleString() + '/mo' + (_wtElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(wtElec * wholetailMonths).toLocaleString()],
           ['Water / Sewer · $' + Math.round(wtWater).toLocaleString() + '/mo' + (_wtWS.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(wtWater * wholetailMonths).toLocaleString()],
           ['Vacant insurance · $' + wtIns + '/mo', '$' + (wtIns * wholetailMonths).toLocaleString()],
-          ['Property tax · $' + Math.round(wtTax).toLocaleString() + '/mo' + (_wtT.isAuto ? ' (1% ' + (accepted > 0 ? 'acc' : 'ask') + '/yr)' : ''), '$' + Math.round(wtTax * wholetailMonths).toLocaleString()],
+          ['Property tax · $' + Math.round(wtTax).toLocaleString() + '/mo' + (_wtT.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(wtTax * wholetailMonths).toLocaleString()],
           ['Total holding', '$' + Math.round(wholetailHolding).toLocaleString(), 'profit'],
         ]},
         { title: '🏷️ Buying and Selling Costs', rows: [
@@ -11061,9 +11105,10 @@ function uwComputeExits(ctx) {
           ['Buying costs', fmt(flPurchClosingTotal)],
           ['Selling costs', fmt((flipSellClose || 0) + (flipSellAgent || 0) + (flipBuyerAgent || 0))],
         ];
-        if (flipMode === 'financed') {
-          _rows.push(['Financing costs', fmt((flHmOrig || 0) + (flHmTotalInt || 0))]);
-        }
+        // Always render Financing costs row so the card height doesn't jump
+        // when toggling between Cash and Financed modes. Cash shows "—".
+        _rows.push(['Financing costs',
+          flipMode === 'financed' ? fmt((flHmOrig || 0) + (flHmTotalInt || 0)) : '—']);
         _rows.push(['Capital tied up', fmt(flipMode === 'financed' ? flipFinCapital : flipCashCapital)]);
         return _rows;
       })(),
@@ -11077,9 +11122,11 @@ function uwComputeExits(ctx) {
           ['Resale Closing (3% of resale)', '−' + fmt(flipSellClose)],
           ['Agent Commissions (' + (sellAgentPct + buyAgentPct) + '% of resale)', '−' + fmt(flipSellAgent + flipBuyerAgent)],
           ['Financing cost', '−' + fmt(flHmOrig + flHmTotalInt)],
+          ['Capital tied up (cash you put up)', fmt(flipFinCapital), 'warn'],
+          ['Total Project Cost', fmt(flipSale - flipFinProfit), 'cost'],
           ['Net profit', fmt(flipFinProfit), 'profit'],
         ]},
-        { title: '🏦 Financing (100% basis · ' + flHmRatePct + '%/yr · ' + flHmOrigPct + 'pt · ' + FL_HM_ARV_CAP_PCT + '% ARV cap)', rows: [
+        { title: '🏦 Financing <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· 100% basis · ' + flHmRatePct + '%/yr · ' + flHmOrigPct + 'pt · ' + FL_HM_ARV_CAP_PCT + '% ARV cap</span>', rows: [
           ['Buy price', fmt(buyPrice)],
           ['Rehab budget', fmt(flipRehabAmt)],
           ['Purchase seller closing (1.5%)', fmt(flPurchSellClose)],
@@ -11102,11 +11149,11 @@ function uwComputeExits(ctx) {
           // they're equal.
           ['💰 Total Capital Put Up', fmt(flipFinCapital), 'profit'],
         ]},
-        { title: '🏠 Holding (' + flipMonths.toFixed(1) + ' mo · ' + flipHoldBreakdown + ')', rows: [
+        { title: '🏠 Holding<br>(' + flipMonths.toFixed(1) + ' mo · ' + flipHoldBreakdown + ')', rows: [
           ['Electric · $' + Math.round(flElec).toLocaleString() + '/mo' + (_flElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flElec * flipMonths).toLocaleString()],
           ['Water / Sewer · $' + Math.round(flWater).toLocaleString() + '/mo' + (_flWS.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flWater * flipMonths).toLocaleString()],
           ['Builder\'s risk · $' + flIns + '/mo', '$' + (flIns * flipMonths).toLocaleString()],
-          ['Property tax · $' + Math.round(flTax).toLocaleString() + '/mo' + (_flT.isAuto ? ' (1% ' + (accepted > 0 ? 'acc' : 'ask') + '/yr)' : ''), '$' + Math.round(flTax * flipMonths).toLocaleString()],
+          ['Property tax · $' + Math.round(flTax).toLocaleString() + '/mo' + (_flT.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flTax * flipMonths).toLocaleString()],
           ['Total holding', '$' + Math.round(flipHolding).toLocaleString(), 'profit'],
         ]},
         { title: '🏷️ Buying and Selling Costs', rows: [
@@ -11127,13 +11174,15 @@ function uwComputeExits(ctx) {
           ['Purchase Closing (3% of purchase)', '−' + fmt(flPurchClosingTotal)],
           ['Resale Closing (3% of resale)', '−' + fmt(flipSellClose)],
           ['Agent Commissions (' + (sellAgentPct + buyAgentPct) + '% of resale)', '−' + fmt(flipSellAgent + flipBuyerAgent)],
+          ['Capital tied up (cash you put up)', fmt(buyPrice + flipRehabAmt + flipHolding + flPurchClosingTotal), 'warn'],
+          ['Total Project Cost', fmt(flipSale - flipCashProfit), 'cost'],
           ['Net profit', fmt(flipCashProfit), 'profit'],
         ]},
-        { title: '🏠 Holding (' + flipMonths.toFixed(1) + ' mo · ' + flipHoldBreakdown + ')', rows: [
+        { title: '🏠 Holding<br>(' + flipMonths.toFixed(1) + ' mo · ' + flipHoldBreakdown + ')', rows: [
           ['Electric · $' + Math.round(flElec).toLocaleString() + '/mo' + (_flElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flElec * flipMonths).toLocaleString()],
           ['Water / Sewer · $' + Math.round(flWater).toLocaleString() + '/mo' + (_flWS.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flWater * flipMonths).toLocaleString()],
           ['Builder\'s risk · $' + flIns + '/mo', '$' + (flIns * flipMonths).toLocaleString()],
-          ['Property tax · $' + Math.round(flTax).toLocaleString() + '/mo' + (_flT.isAuto ? ' (1% ' + (accepted > 0 ? 'acc' : 'ask') + '/yr)' : ''), '$' + Math.round(flTax * flipMonths).toLocaleString()],
+          ['Property tax · $' + Math.round(flTax).toLocaleString() + '/mo' + (_flT.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flTax * flipMonths).toLocaleString()],
           ['Total holding', '$' + Math.round(flipHolding).toLocaleString(), 'profit'],
         ]},
         { title: '🏷️ Buying and Selling Costs', rows: [
@@ -11183,25 +11232,26 @@ function uwComputeExits(ctx) {
         //   • Refi:       rfPrincipalMax/mo (post-refi) + appreciation/mo.
         const _apprMo = (rtAnnualAppreciation || 0) / 12;
         const _finEquityMo  = (finPrincipal || 0)    + _apprMo;
-        const _refiEquityMo = (rfPrincipalMax || 0)  + _apprMo;
+        const _refiEquityMo = (rfPrincipal || 0) + _apprMo;
         const _cashEquityMo = _apprMo;
         const _cashImmediateEq = arv;
-        const _finImmediateEq  = Math.max(0, (arv || 0) - (finLoan    || 0));
-        const _refiImmediateEq = Math.max(0, (arv || 0) - (rfLoanMax  || rfLoan || 0));
+        const _finImmediateEq  = Math.max(0, (arv || 0) - (finLoan || 0));
+        const _refiImmediateEq = Math.max(0, (arv || 0) - (rfLoan || 0));
         return rentalMode === 'refi' ? [
-          ['Monthly cashflow (max-LTV)', fmt(rfCashflowMax)],
+          ['Monthly cashflow', fmt(rfCashflow)],
           ['Immediate equity (day 1)', fmt(_refiImmediateEq)],
           ['Equity gain /mo', fmt(_refiEquityMo)],
-          ['Cash-on-cash (max-LTV)', rfLeftInMax < 1 ? '∞ (all capital out)' : rfCoCMax.toFixed(1) + '%'],
-          ['Max cash you could pull', fmt(rfCashFromRefiMax)],
-          ['Bonus over what you put in', fmt(rfCashOutMax)],
+          ['Cash-on-cash', rfLeftIn < 1 ? '∞ (all capital out)' : rfCoC.toFixed(1) + '%'],
+          ['Max cash if max-LTV (bonus)', fmt(rfCashOutMax)],
         ] : rentalMode === 'financed' ? [
           ['Monthly cashflow', fmt(finCashflow)],
           ['Immediate equity (day 1)', fmt(_finImmediateEq)],
           ['Equity gain /mo', fmt(_finEquityMo)],
-          ['Cash-on-cash', finCoC.toFixed(1) + '%'],
-          ['Rehab budget', fmt(rRehab)],
-          ['Down payment', fmt(finDown)],
+          ['Cash-on-cash', finLeftIn < 1 ? '∞ (all capital out)' : finCoC.toFixed(1) + '%'],
+          ['Capital LEFT IN deal', fmt(finLeftIn)],
+          finCashOut > 0
+            ? ['Bonus cash pulled out', fmt(finCashOut)]
+            : ['Cash you put up (Phase 1)', fmt(finCashPutUp)],
         ] : [
           ['Monthly cashflow', fmt(cashRentalCashflow)],
           ['Immediate equity (day 1)', fmt(_cashImmediateEq)],
@@ -11212,51 +11262,54 @@ function uwComputeExits(ctx) {
         ];
       })(),
       details: rentalMode === 'refi' ? [
-        { title: '🏦 Initial Financing (' + rfHmLtvPct + '% · ' + rfHmRatePct + '%/yr · ' + rfHmOrigPct + '% · ' + rfStabMo + ' mo)', rows: [
-          ['Buy + rehab', fmt(buyPrice + rRehab)],
-          ['Purchase Closing (rolled in)', fmt(rtPurchClosingTotal)],
-          ['Pre-Rent Tax (rolled in)', fmt(rfPreRentTax)],
-          ['Pre-Rent Insurance (rolled in)', fmt(rfPreRentIns)],
-          ['Loan basis', fmt(rfBaseCost)],
-          ['Initial loan (' + rfHmLtvPct + '% of basis)', fmt(rfHmLoan)],
-          ['Down payment (' + (100 - rfHmLtvPct) + '%)', fmt(rfHmDown)],
-          ['Origination (' + rfHmOrigPct + '%)', fmt(rfHmOrig)],
-          ['Monthly Financing Interest', fmt(rfHmMonthlyInt)],
-          ['Total Financing Interest (' + rfStabMo + ' mo)', fmt(rfHmTotalInt)],
+        { title: '🏦 Financed Purchase + Rehab <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· ' + rfHmLtvPct + '% · ' + rfHmRatePct + '%/yr · ' + rfHmOrigPct + '% · ' + rfStabMo + ' mo</span>', rows: [
+          ['Buy price', fmt(buyPrice)],
+          ['Rehab budget', fmt(rRehab)],
+          ['Purchase Closing', fmt(rtPurchClosingTotal)],
+          ['Pre-Rent Electric (' + rfStabMo + ' mo)', fmt(rfPreRentElec)],
+          ['Pre-Rent Water/Sewer (' + rfStabMo + ' mo)', fmt(rfPreRentWater)],
+          ['Pre-Rent Builder\'s Risk Ins (' + rfStabMo + ' mo)', fmt(rfPreRentIns)],
+          ['Pre-Rent Property Tax (' + rfStabMo + ' mo)', fmt(rfPreRentTax)],
+          ['Loan basis (HM funds the project)', fmt(rfBaseCost)],
+          ['HM loan (' + rfHmLtvPct + '% of basis)', fmt(rfHmLoan)],
+          ['HM down payment (' + (100 - rfHmLtvPct) + '%)', fmt(rfHmDown)],
+          ['HM origination (' + rfHmOrigPct + '%)', fmt(rfHmOrig)],
+          ['HM monthly interest', fmt(rfHmMonthlyInt)],
+          ['HM total interest (' + rfStabMo + ' mo)', fmt(rfHmTotalInt)],
+          ['Total cash put up (before refi)', fmt(rfInitialOut), 'warn'],
         ]},
-        { title: '💵 Cash Out-of-Pocket (before refinance)', rows: [
-          ['Down payment', fmt(rfHmDown)],
-          ['Financing origination', fmt(rfHmOrig)],
-          ['Financing interest (' + rfStabMo + ' mo)', fmt(rfHmTotalInt)],
-          ['Total cash put up', fmt(rfInitialOut), 'profit'],
-        ]},
-        { title: '🔁 Cash-Out Refinance (' + rfLtvPct + '% · ' + rfRatePct + '%/yr · ' + rfYrs + ' yr)', rows: [
+        { title: '🔁 Long-Term DSCR Refinance <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· ' + rfLtvPct + '% · ' + rfRatePct + '%/yr · ' + rfYrs + ' yr · ' + RF_LTV_CAP_PCT + '% LTV cap</span>', rows: [
           ['ARV (after rehab + rented)', fmt(arv)],
-          ['Refinance loan (' + rfLtvPct + '% ARV — max LTV)', fmt(rfLoanMax)],
-          ['Pays off initial financing', '−' + fmt(rfHmLoan)],
-          ['Refinance closing (' + rfClosePct + '% of loan)', '−' + fmt(rfCloseCostMax)],
-          ['Net cash from refinance', fmt(rfCashFromRefiMax)],
-          ['Capital pulled out (bonus)', fmt(rfCashOutMax), 'profit'],
-          ['Capital LEFT IN deal', fmt(rfLeftInMax)],
-          ['Monthly Refinanced Interest', fmt(rfInterestMax)],
-          ['Monthly Refinanced Principal', fmt(rfPrincipalMax)],
+          ['Smart loan needed (full payoff)', fmt(_rfLoanNeededForOut)],
+          ['LTV cap (' + RF_LTV_CAP_PCT + '% of ARV)', fmt(_rfLtvCapLoan)],
+          ['Long-term refi loan (smart-sized, capped at LTV)', fmt(rfLoan)],
+          ['− Pays off HM loan', '−' + fmt(rfHmLoan)],
+          ['− Refi closing (' + rfClosePct + '% of loan)', '−' + fmt(rfCloseCost)],
+          ['Net cash to your pocket from refi', fmt(rfCashFromRefi), 'profit'],
+          ['  ↳ Recovers HM down payment you put up', fmt(rfHmDown)],
+          ['  ↳ Recovers HM origination you put up', fmt(rfHmOrig)],
+          ['  ↳ Recovers HM interest you put up', fmt(rfHmTotalInt)],
+          rfCashOut > 0
+            ? ['💵 Bonus cash pulled out (above what you put up)', fmt(rfCashOut), 'profit']
+            : ['💰 Capital LEFT IN deal', fmt(rfLeftIn), rfLeftIn === 0 ? 'profit' : ''],
+          ['Monthly Refinanced Interest', fmt(rfInterest)],
+          ['Monthly Refinanced Principal', fmt(rfPrincipal)],
+          ['Total Project Cost (no sale/agent costs)', fmt(buyPrice + rtPurchClosingTotal + rRehab + rfPreRentHolding + rfHmOrig + rfHmTotalInt + rfCloseCost), 'cost'],
+          ['DSCR (NOI ÷ debt service) — must be ≥ 1.00', dscr > 0 ? dscr.toFixed(2) : '—', dscr >= 1.0 ? 'profit' : 'cost'],
         ]},
-        { title: '🏠 Monthly Cashflow (post-refinance, at max LTV)', rows: [
+        { title: '🏠 Monthly Cashflow & Returns', rows: [
           ['Rent', fmt(rent)],
-          ['Monthly Refinanced Interest', '−' + fmt(rfInterestMax)],
-          ['Monthly Refinanced Principal', '−' + fmt(rfPrincipalMax)],
+          ['Monthly Refinanced Interest', '−' + fmt(rfInterest)],
+          ['Monthly Refinanced Principal', '−' + fmt(rfPrincipal)],
           ['Property tax (1% ARV/yr)', '−' + fmt(rtTaxFin)],
-          ['Insurance (0.9% ARV/yr)', '−' + fmt(rtIns)],
+          ['Insurance (1% ARV/yr)', '−' + fmt(rtIns)],
           ['Vacancy (' + rtVacPct + '%)', '−' + fmt(rtVac)],
           ['Maintenance (' + rtMaintPct + '%)', '−' + fmt(rtMaint)],
           ['CapEx (' + rtCapexPct + '%)', '−' + fmt(rtCapex)],
           ['Management fee (' + rtPmPct + '%)', '−' + fmt(rtPm)],
-          ['Monthly cashflow', fmt(rfCashflowMax), 'profit'],
-        ]},
-        { title: '📊 Returns (at max LTV)', rows: [
-          ['Annual cashflow', fmt(rfAnnualCashflowMax)],
-          ['Cash-on-Cash', rfLeftInMax < 1 ? '∞ (all capital out)' : rfCoCMax.toFixed(1) + '%'],
-          ['Capital recycled to next deal', fmt(rfInitialOut - rfLeftInMax)],
+          ['Monthly cashflow', fmt(rfCashflow), 'profit'],
+          ['Annual cashflow', fmt(rfAnnualCashflow), 'profit'],
+          ['Cash-on-cash', rfLeftIn < 1 ? '∞ (all capital out)' : rfCoC.toFixed(1) + '%', 'profit'],
         ]},
         { title: '🎯 Hit $200/mo Cashflow — what loan size?', rows: rfTargetPi <= 0 ? [
           ['Status', 'Not possible — rent ($' + Math.round(rent).toLocaleString() + ') minus opex doesn\'t cover $200 cashflow', 'profit'],
@@ -11287,13 +11340,14 @@ function uwComputeExits(ctx) {
           // Immediate equity if you accept the TARGET loan (the one that
           // hits $200/mo cashflow). Tells the user what they'll own day-1
           // of the smaller refi loan: ARV minus that target loan amount.
-          ['🏛 Immediate equity if you leave that in (ARV − target loan)', fmt(Math.max(0, (arv || 0) - (rfTargetLoanLtvLimited || 0))), 'profit'],
+          ['🏛 Immediate Equity with Cash in', fmt(Math.max(0, (arv || 0) - (rfTargetLoanLtvLimited || 0))), 'profit'],
         ]},
         { title: '📈 Equity Gain', rows: [
           ['Day-1 forced equity (ARV − buy − rehab)', fmt(rtForcedEquity)],
-          ['Year-1 loan paydown (refi principal × 12)', fmt(rfPrincipalMax * 12)],
+          ['Day-1 leveraged equity (ARV − refi loan)', fmt(Math.max(0, arv - rfLoan))],
+          ['Year-1 loan paydown (refi principal × 12)', fmt(rfPrincipal * 12)],
           ['Year-1 appreciation (' + rtApprPct + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
-          ['Year-1 total equity gain', fmt(rtForcedEquity + (rfPrincipalMax * 12) + rtAnnualAppreciation), 'profit'],
+          ['Year-1 total equity gain', fmt(rtForcedEquity + (rfPrincipal * 12) + rtAnnualAppreciation), 'profit'],
         ]},
         _rtAppSection,
         { title: '🧾 Tenant-Paid Expenses', rows: [
@@ -11306,38 +11360,44 @@ function uwComputeExits(ctx) {
           ['Total (info only)', fmt(tenantTotal)],
         ]},
       ] : rentalMode === 'financed' ? [
-        { title: '🏦 Financing (' + finDownPct + '% · ' + finRatePct + '%/yr · ' + finYrs + ' yr)', rows: [
-          ['Buy + rehab', fmt(buyPrice + rRehab)],
-          ['Purchase Closing (rolled in)', fmt(rtPurchClosingTotal)],
-          ['Pre-Rent Tax (rolled in)', fmt(finPreRentTax)],
-          ['Pre-Rent Insurance (rolled in)', fmt(finPreRentIns)],
-          ['Loan basis', fmt(finBaseCost)],
-          ['Loan (' + (100 - finDownPct) + '% of basis)', fmt(finLoan)],
-          ['Down payment (' + finDownPct + '%)', fmt(finDown)],
+        { title: '🏦 Financed Purchase + Rehab', rows: [
+          ['Buy price', fmt(buyPrice)],
+          ['Rehab budget', fmt(rRehab)],
+          ['Purchase Closing', fmt(rtPurchClosingTotal)],
+          ['Pre-Rent Electric (' + rtPreRentMo + ' mo)', fmt(finPreRentElec)],
+          ['Pre-Rent Water/Sewer (' + rtPreRentMo + ' mo)', fmt(finPreRentWater)],
+          ['Pre-Rent Builder\'s Risk Ins (' + rtPreRentMo + ' mo)', fmt(finPreRentIns)],
+          ['Pre-Rent Property Tax (' + rtPreRentMo + ' mo)', fmt(finPreRentTax)],
+          ['Total cash put up', fmt(finCashPutUp), 'profit'],
+        ]},
+        { title: '🔁 Long-Term DSCR Refinance <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· ' + finRatePct + '%/yr · ' + finYrs + ' yr · ' + FIN_LTV_CAP_PCT + '% LTV cap</span>', rows: [
+          ['ARV (after rehab + rented)', fmt(arv)],
+          ['Smart loan needed (cash put up ÷ (1 − orig%))', fmt(_finLoanNeeded)],
+          ['LTV cap (' + FIN_LTV_CAP_PCT + '% of ARV)', fmt(_finLtvCapLoan)],
+          ['Long-term loan (smart-sized, capped at LTV)', fmt(finLoan)],
+          ['DSCR loan origination (' + finOrigPct + '%) — paid from loan', '−' + fmt(finOrig)],
+          ['Net cash from loan (= loan − origination)', fmt(finNetCashFromLoan), 'profit'],
+          finCashOut > 0
+            ? ['💵 Bonus cash pulled out (above what you put in)', fmt(finCashOut), 'profit']
+            : ['💰 Capital LEFT IN deal', fmt(finLeftIn), finLeftIn === 0 ? 'profit' : ''],
           ['Monthly Financing Interest', fmt(finInterest)],
           ['Monthly Financing Principal', fmt(finPrincipal)],
+          ['DSCR (NOI ÷ debt service) — must be ≥ 1.00', dscr > 0 ? dscr.toFixed(2) : '—',
+            dscr >= 1.0 ? 'profit' : 'cost'],
         ]},
-        { title: '💵 Cash Out-of-Pocket', rows: [
-          ['Down payment', fmt(finDown)],
-          ['DSCR loan origination (' + finOrigPct + '%)', fmt(finOrig)],
-          ['Total cash put up', fmt(finTotalCashOut), 'profit'],
-        ]},
-        { title: '🏠 Monthly Cashflow', rows: [
+        { title: '🏠 Monthly Cashflow & Returns', rows: [
           ['Rent', fmt(rent)],
           ['Monthly Financing Interest', '−' + fmt(finInterest)],
           ['Monthly Financing Principal', '−' + fmt(finPrincipal)],
           ['Property tax (1% ARV/yr)', '−' + fmt(rtTaxFin)],
-          ['Insurance (0.9% ARV/yr)', '−' + fmt(rtIns)],
+          ['Insurance (1% ARV/yr)', '−' + fmt(rtIns)],
           ['Vacancy (' + rtVacPct + '%)', '−' + fmt(rtVac)],
           ['Maintenance (' + rtMaintPct + '%)', '−' + fmt(rtMaint)],
           ['CapEx (' + rtCapexPct + '%)', '−' + fmt(rtCapex)],
           ['Management fee (' + rtPmPct + '%)', '−' + fmt(rtPm)],
           ['Monthly cashflow', fmt(finCashflow), 'profit'],
-        ]},
-        { title: '📊 Returns', rows: [
-          ['Annual cashflow', fmt(finAnnualCashflow)],
-          ['Cash-on-cash', finCoC.toFixed(1) + '%'],
-          ['DSCR (NOI ÷ debt service)', dscr > 0 ? dscr.toFixed(2) : '—'],
+          ['Annual cashflow', fmt(finAnnualCashflow), 'profit'],
+          ['Cash-on-cash', finLeftIn < 1 ? '∞ (all capital out)' : finCoC.toFixed(1) + '%', 'profit'],
         ]},
         { title: '🎯 Hit $200/mo Cashflow — what loan size?', rows: finTargetPi <= 0 ? [
           ['Status', 'Not possible — rent ($' + Math.round(rent).toLocaleString() + ') minus opex doesn\'t cover $200 cashflow', 'profit'],
@@ -11356,11 +11416,12 @@ function uwComputeExits(ctx) {
           // hit $200/mo — i.e., they accept the smaller loan. Equity = ARV
           // minus the target loan. Tells the user: "if I commit that extra
           // down payment, here's how much of the property I own from day 1."
-          ['🏛 Immediate equity if you leave that in (ARV − target loan)', fmt(Math.max(0, (arv || 0) - (finTargetLoan || 0))), 'profit'],
+          ['🏛 Immediate Equity with Cash in', fmt(Math.max(0, (arv || 0) - (finTargetLoan || 0))), 'profit'],
           ['(Adjust Down Payment % above to size the loan)', ''],
         ]},
         { title: '📈 Equity Gain', rows: [
           ['Day-1 forced equity (ARV − buy − rehab)', fmt(rtForcedEquity)],
+          ['Day-1 leveraged equity (ARV − loan)', fmt(Math.max(0, arv - finLoan))],
           ['Year-1 loan paydown (principal × 12)', fmt(finPrincipal * 12)],
           ['Year-1 appreciation (' + rtApprPct + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(rtForcedEquity + (finPrincipal * 12) + rtAnnualAppreciation), 'profit'],
@@ -11385,8 +11446,8 @@ function uwComputeExits(ctx) {
         ]},
         { title: '🏠 Monthly Cashflow (no financing)', rows: [
           ['Rent', fmt(rent)],
-          ['Property tax (1% ' + (accepted > 0 ? 'acc' : 'ask') + '/yr)', '−' + fmt(rtTaxCash)],
-          ['Insurance (0.9% ARV/yr)', '−' + fmt(rtIns)],
+          ['Property tax (1% ARV/yr)', '−' + fmt(rtTaxCash)],
+          ['Insurance (1% ARV/yr)', '−' + fmt(rtIns)],
           ['Vacancy (' + rtVacPct + '%)', '−' + fmt(rtVac)],
           ['Maintenance (' + rtMaintPct + '%)', '−' + fmt(rtMaint)],
           ['CapEx (' + rtCapexPct + '%)', '−' + fmt(rtCapex)],
@@ -11797,9 +11858,15 @@ function uwComputeExits(ctx) {
           <div style="font-size:12px;line-height:1.7">
             ${sec.rows.map(r => {
               const isProfit = r[2] === 'profit';
-              const valueStyle = isProfit
-                ? 'font-weight:700;color:' + ((parseFloat(String(r[1]).replace(/[^\d.\-−]/g,'').replace('−','-')) >= 0) ? '#10b981' : '#ef4444')
-                : 'color:var(--text);font-weight:500';
+              const isCost   = r[2] === 'cost';
+              const isWarn   = r[2] === 'warn';
+              const valueStyle = isCost
+                ? 'font-weight:700;color:#ef4444'
+                : isWarn
+                  ? 'font-weight:700;color:#f59e0b'
+                  : isProfit
+                    ? 'font-weight:700;color:' + ((parseFloat(String(r[1]).replace(/[^\d.\-−]/g,'').replace('−','-')) >= 0) ? '#10b981' : '#ef4444')
+                    : 'color:var(--text);font-weight:500';
               return `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dotted var(--border)"><span style="color:var(--text-dim)">${r[0]}</span><span style="${valueStyle}">${r[1]}</span></div>`;
             }).join('')}
           </div>
@@ -11807,8 +11874,12 @@ function uwComputeExits(ctx) {
       const slotsForActive = exitInputs[active.key] || [];
       const inputsBlock = slotsForActive.length === 0 ? '' : `
         <div style="margin-top:14px;padding-top:14px;border-top:1px dashed #3b82f6">
-          <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--text)">⚙️ Adjust this exit's assumptions</div>
-          <div id="uw-detail-inputs" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <button type="button" id="uw-detail-inputs-toggle" onclick="uwToggleDetailInputs()" title="Show/hide adjustable assumptions" style="background:transparent;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:13px;line-height:1">⚙️</button>
+            <div style="font-weight:600;font-size:13px;color:var(--text)">Adjust this exit's assumptions</div>
+            <div style="font-size:11px;color:var(--text-dim)">(click ⚙️ to show)</div>
+          </div>
+          <div id="uw-detail-inputs" style="display:none;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end"></div>
         </div>`;
       detailEl.innerHTML = `
         <div style="padding:18px;background:rgba(59,130,246,0.06);border:2px solid #3b82f6;border-radius:12px;margin-top:12px">
@@ -11827,6 +11898,18 @@ function uwComputeExits(ctx) {
       _uwMountInputsForExit(slotsForActive);
     }
   }
+
+  // Toggle the Adjust Exit Assumptions inputs panel. Hidden by default;
+  // user clicks the ⚙️ button to show the editable inputs.
+  window.uwToggleDetailInputs = function() {
+    const grid = document.getElementById('uw-detail-inputs');
+    if (!grid) return;
+    const isHidden = grid.style.display === 'none' || !grid.style.display;
+    grid.style.display = isHidden ? 'grid' : 'none';
+    // Update the helper hint next to the gear button.
+    const hint = grid.parentElement && grid.parentElement.querySelector('div[style*="text-dim"]');
+    if (hint) hint.textContent = isHidden ? '(click ⚙️ to hide)' : '(click ⚙️ to show)';
+  };
 
   // Restore focus + caret to whichever field was being typed in. Has to run
   // AFTER _uwMountInputsForExit so the input is back in the (visible) DOM.
@@ -13482,7 +13565,7 @@ async function uwGenerateWholesalePacket() {
     const pmPct    = getN('uw-rt-pm-pct')    || 10;
 
     const taxMo  = (buyPrice * 0.01) / 12;        // 1%/yr of purchase
-    const insMo  = (arvLocal * 0.009) / 12;       // 0.9%/yr of ARV
+    const insMo  = (arvLocal * 0.01) / 12;        // 1%/yr of ARV
     const vacMo  = totalRent * (vacPct   / 100);
     const mntMo  = totalRent * (maintPct / 100);
     const cpxMo  = totalRent * (capexPct / 100);
@@ -14574,9 +14657,9 @@ function _uwComputeCashRentalFromData(data) {
   const rtMaint = rent * (N('uw-rt-maint-pct', 5) / 100);
   const rtCapex = rent * (N('uw-rt-capex-pct', 5) / 100);
   const rtPm    = rent * (N('uw-rt-pm-pct',   10) / 100);
-  const rtIns   = (arv * 0.009) / 12; // 0.9% ARV/yr
+  const rtIns   = (arv * 0.01) / 12; // 1% ARV/yr
   const wtTaxBasis = N('uw-accepted', 0) || N('uw-asking', 0) || 0;
-  const rtTaxCash  = (wtTaxBasis * 0.01) / 12; // 1% purchase/yr
+  const rtTaxCash  = (arv * 0.01) / 12; // 1% ARV/yr
   // Pre-rent holding (no mortgage in cash mode)
   const rtPreRentMo = N('uw-rt-reno-mo', 1) + N('uw-rt-rent-mo', 1);
   const cashPreRentHolding = (rtTaxCash + rtIns) * rtPreRentMo;

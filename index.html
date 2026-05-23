@@ -339,32 +339,34 @@
   table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(7),
   table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(7)  { width: 6%; }  /* Accepted */
   table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(8),
-  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(8)  { width: 8%; }  /* Best Exit */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(8)  { width: 6%; }  /* Budget (renovation budget — shows when Accepted/Closed) */
   table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(9),
-  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(9)  { width: 7%; }  /* Best Profit */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(9)  { width: 9%; }  /* Best Exit */
   table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(10),
-  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(10) { width: 9%; }  /* Imported (extra room for ↑/↓ arrow) */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(10) { width: 7%; }  /* Best Profit */
   table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(11),
-  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(11) { width: 7%; }  /* Last Edit */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(11) { width: 9%; }  /* Top Plays (3 vertical pills) */
   table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(12),
-  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(12) { width: 16%; } /* Actions (badge + Open + Trash, compact buttons) */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(12) { width: 7%; }  /* Imported (extra room for ↑/↓ arrow) */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) th:nth-child(13),
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(13) { width: 12%; } /* Actions (icon-badge + Open + Trash) */
   /* Long content (addresses, exit names) gets ellipsized inside its locked-width cell */
   table:has(> tbody[id^="uw-"][id$="-tbody"]) td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* Actions column — simple right-aligned content. The badge sits to the left
      of Open, both stay inside the cell. */
-  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(12) {
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(13) {
     text-align: right;
     overflow: hidden;
     white-space: nowrap;
   }
   /* Compact action buttons — override the default .btn padding so 3 elements
      (badge + Open + Trash) fit inside a narrow column width. */
-  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(12) .btn {
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(13) .btn {
     padding: 3px 8px !important;
     font-size: 11px !important;
     margin-right: 4px !important;
   }
-  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(12) .badge {
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(13) .badge {
     padding: 3px 6px !important;
     font-size: 10px !important;
     margin-right: 4px !important;
@@ -3560,10 +3562,11 @@
               <th style="padding:8px 10px;text-align:right">Asking</th>
               <th style="padding:8px 10px;text-align:right">Max Offer</th>
               <th style="padding:8px 10px;text-align:right">Accepted</th>
+              <th style="padding:8px 10px;text-align:right">Budget</th>
               <th style="padding:8px 10px;text-align:left">Best Exit</th>
               <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th style="padding:8px 10px;text-align:center">Top Plays</th>
               <th id="uw-th-analyzing-imp" style="padding:8px 10px;text-align:left;cursor:pointer;user-select:none" onclick="_uwToggleImpSort('analyzing')" title="Click to sort by import date">Imported</th>
-              <th style="padding:8px 10px;text-align:left">Last Edit</th>
               <th style="padding:8px 10px;text-align:right">Actions</th>
             </tr>
           </thead>
@@ -3621,10 +3624,11 @@
               <th style="padding:8px 10px;text-align:right">Asking</th>
               <th style="padding:8px 10px;text-align:right">Max Offer</th>
               <th style="padding:8px 10px;text-align:right">Accepted</th>
+              <th style="padding:8px 10px;text-align:right">Budget</th>
               <th style="padding:8px 10px;text-align:left">Best Exit</th>
               <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th style="padding:8px 10px;text-align:center">Top Plays</th>
               <th id="uw-th-priority-imp" style="padding:8px 10px;text-align:left;cursor:pointer;user-select:none" onclick="_uwToggleImpSort('priority')" title="Click to sort by import date">Imported</th>
-              <th style="padding:8px 10px;text-align:left">Last Edit</th>
               <th style="padding:8px 10px;text-align:right">Actions</th>
             </tr>
           </thead>
@@ -3690,10 +3694,11 @@
               <th style="padding:8px 10px;text-align:right">Asking</th>
               <th style="padding:8px 10px;text-align:right">Max Offer</th>
               <th style="padding:8px 10px;text-align:right">Accepted</th>
+              <th style="padding:8px 10px;text-align:right">Budget</th>
               <th style="padding:8px 10px;text-align:left">Best Exit</th>
               <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th style="padding:8px 10px;text-align:center">Top Plays</th>
               <th id="uw-th-analyzed-imp" style="padding:8px 10px;text-align:left;cursor:pointer;user-select:none" onclick="_uwToggleImpSort('analyzed')" title="Click to sort by import date">Imported</th>
-              <th style="padding:8px 10px;text-align:left">Last Edit</th>
               <th style="padding:8px 10px;text-align:right">Actions</th>
             </tr>
           </thead>
@@ -3749,10 +3754,11 @@
               <th style="padding:8px 10px;text-align:right">Asking</th>
               <th style="padding:8px 10px;text-align:right">Max Offer</th>
               <th style="padding:8px 10px;text-align:right">Accepted</th>
+              <th style="padding:8px 10px;text-align:right">Budget</th>
               <th style="padding:8px 10px;text-align:left">Best Exit</th>
               <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th style="padding:8px 10px;text-align:center">Top Plays</th>
               <th id="uw-th-hot-imp" style="padding:8px 10px;text-align:left;cursor:pointer;user-select:none" onclick="_uwToggleImpSort('hot')" title="Click to sort by import date">Imported</th>
-              <th style="padding:8px 10px;text-align:left">Last Edit</th>
               <th style="padding:8px 10px;text-align:right">Actions</th>
             </tr>
           </thead>
@@ -3805,10 +3811,11 @@
               <th style="padding:8px 10px;text-align:right">Asking</th>
               <th style="padding:8px 10px;text-align:right">Max Offer</th>
               <th style="padding:8px 10px;text-align:right">Accepted</th>
+              <th style="padding:8px 10px;text-align:right">Budget</th>
               <th style="padding:8px 10px;text-align:left">Best Exit</th>
               <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th style="padding:8px 10px;text-align:center">Top Plays</th>
               <th id="uw-th-offered-imp" style="padding:8px 10px;text-align:left;cursor:pointer;user-select:none" onclick="_uwToggleImpSort('offered')" title="Click to sort by import date">Imported</th>
-              <th style="padding:8px 10px;text-align:left">Last Edit</th>
               <th style="padding:8px 10px;text-align:right">Actions</th>
             </tr>
           </thead>
@@ -3863,10 +3870,11 @@
               <th style="padding:8px 10px;text-align:right">Asking</th>
               <th style="padding:8px 10px;text-align:right">Max Offer</th>
               <th style="padding:8px 10px;text-align:right">Accepted</th>
+              <th style="padding:8px 10px;text-align:right">Budget</th>
               <th style="padding:8px 10px;text-align:left">Best Exit</th>
               <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th style="padding:8px 10px;text-align:center">Top Plays</th>
               <th id="uw-th-inspection-imp" style="padding:8px 10px;text-align:left;cursor:pointer;user-select:none" onclick="_uwToggleImpSort('inspection')" title="Click to sort by import date">Imported</th>
-              <th style="padding:8px 10px;text-align:left">Last Edit</th>
               <th style="padding:8px 10px;text-align:right">Actions</th>
             </tr>
           </thead>
@@ -3919,10 +3927,11 @@
               <th style="padding:8px 10px;text-align:right">Asking</th>
               <th style="padding:8px 10px;text-align:right">Max Offer</th>
               <th style="padding:8px 10px;text-align:right">Accepted</th>
+              <th style="padding:8px 10px;text-align:right">Budget</th>
               <th style="padding:8px 10px;text-align:left">Best Exit</th>
               <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th style="padding:8px 10px;text-align:center">Top Plays</th>
               <th id="uw-th-contracted-imp" style="padding:8px 10px;text-align:left;cursor:pointer;user-select:none" onclick="_uwToggleImpSort('contracted')" title="Click to sort by import date">Imported</th>
-              <th style="padding:8px 10px;text-align:left">Last Edit</th>
               <th style="padding:8px 10px;text-align:right">Actions</th>
             </tr>
           </thead>
@@ -3987,10 +3996,11 @@
               <th style="padding:8px 10px;text-align:right">Asking</th>
               <th style="padding:8px 10px;text-align:right">Max Offer</th>
               <th style="padding:8px 10px;text-align:right">Accepted</th>
+              <th style="padding:8px 10px;text-align:right">Budget</th>
               <th style="padding:8px 10px;text-align:left">Best Exit</th>
               <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th style="padding:8px 10px;text-align:center">Top Plays</th>
               <th id="uw-th-closed-imp" style="padding:8px 10px;text-align:left;cursor:pointer;user-select:none" onclick="_uwToggleImpSort('closed')" title="Click to sort by import date">Imported</th>
-              <th style="padding:8px 10px;text-align:left">Last Edit</th>
               <th style="padding:8px 10px;text-align:right">Actions</th>
             </tr>
           </thead>
@@ -4046,10 +4056,11 @@
               <th style="padding:8px 10px;text-align:right">Asking</th>
               <th style="padding:8px 10px;text-align:right">Max Offer</th>
               <th style="padding:8px 10px;text-align:right">Accepted</th>
+              <th style="padding:8px 10px;text-align:right">Budget</th>
               <th style="padding:8px 10px;text-align:left">Best Exit</th>
               <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th style="padding:8px 10px;text-align:center">Top Plays</th>
               <th id="uw-th-checking-imp" style="padding:8px 10px;text-align:left;cursor:pointer;user-select:none" onclick="_uwToggleImpSort('checking')" title="Click to sort by import date">Imported</th>
-              <th style="padding:8px 10px;text-align:left">Last Edit</th>
               <th style="padding:8px 10px;text-align:right">Actions</th>
             </tr>
           </thead>
@@ -4110,10 +4121,11 @@
               <th style="padding:8px 10px;text-align:right">Asking</th>
               <th style="padding:8px 10px;text-align:right">Max Offer</th>
               <th style="padding:8px 10px;text-align:right">Accepted</th>
+              <th style="padding:8px 10px;text-align:right">Budget</th>
               <th style="padding:8px 10px;text-align:left">Best Exit</th>
               <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th style="padding:8px 10px;text-align:center">Top Plays</th>
               <th id="uw-th-all-imp" style="padding:8px 10px;text-align:left;cursor:pointer;user-select:none" onclick="_uwToggleImpSort('all')" title="Click to sort by import date">Imported</th>
-              <th style="padding:8px 10px;text-align:left">Last Edit</th>
               <th style="padding:8px 10px;text-align:right">Actions</th>
             </tr>
           </thead>
@@ -4169,10 +4181,11 @@
               <th style="padding:8px 10px;text-align:right">Asking</th>
               <th style="padding:8px 10px;text-align:right">Max Offer</th>
               <th style="padding:8px 10px;text-align:right">Accepted</th>
+              <th style="padding:8px 10px;text-align:right">Budget</th>
               <th style="padding:8px 10px;text-align:left">Best Exit</th>
               <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th style="padding:8px 10px;text-align:center">Top Plays</th>
               <th id="uw-th-help-imp" style="padding:8px 10px;text-align:left;cursor:pointer;user-select:none" onclick="_uwToggleImpSort('help')" title="Click to sort by import date">Imported</th>
-              <th style="padding:8px 10px;text-align:left">Last Edit</th>
               <th style="padding:8px 10px;text-align:right">Actions</th>
             </tr>
           </thead>
@@ -4427,6 +4440,7 @@
             <th style="padding:8px 10px;text-align:right">ARV</th>
             <th style="padding:8px 10px;text-align:left">Best Exit</th>
             <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th style="padding:8px 10px;text-align:center">Top Plays</th>
             <th style="padding:8px 10px;text-align:left">Closed On</th>
             <th style="padding:8px 10px;text-align:center">Timeline</th>
             <th style="padding:8px 10px;text-align:center">Budget</th>
@@ -4952,9 +4966,11 @@
           <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
             <th style="padding:8px 10px;text-align:left">Address</th>
             <th style="padding:8px 10px;text-align:right">Accepted</th>
+              <th style="padding:8px 10px;text-align:right">Budget</th>
             <th style="padding:8px 10px;text-align:right">ARV</th>
             <th style="padding:8px 10px;text-align:left">Best Exit</th>
             <th style="padding:8px 10px;text-align:right">Best Profit</th>
+              <th style="padding:8px 10px;text-align:center">Top Plays</th>
             <th style="padding:8px 10px;text-align:left">Closed On</th>
             <th style="padding:8px 10px;text-align:center">Timeline</th>
             <th style="padding:8px 10px;text-align:center">Budget</th>
@@ -9356,6 +9372,10 @@ function uwRecalc() {
   const rehabSubtotal = rehabActual + rehabContingencyAmt;
   const rehabOverride = _uwGetN('uw-rehab-override');
   const rehabFinal = rehabOverride > 0 ? rehabOverride : rehabSubtotal;
+  // Expose for the deals-list Budget column. Same source the cascade uses
+  // for flip/rental rehab, so the Budget cell matches what the flip would
+  // see even when the user hasn't visited the Rehab Calc tab.
+  window._3p_rehabBudget = rehabFinal;
   // Same number used everywhere — Wholesale, Wholetail, Flip, Cash Rental, Financed Rental.
   // (Wholetail still applies its own 1/3-of-flip-rehab cap for light cosmetic.)
   const flipRehab = rehabFinal;
@@ -10275,6 +10295,7 @@ function uwComputeExits(ctx) {
   window._uwCashBuyerMAO = cashBuyerMAO;
   const wholesalePurchClose = cashBuyerMAO * (wholesaleClosingPct / 100);
   const wholesaleProfit = Math.max(0, cashBuyerMAO - buyPrice);
+  window._3p_wholesale = wholesaleProfit;
   const wholesaleDays = 30; // typical assignment timeline
   const wholesaleAnnualized = wholesaleProfit > 0 ? wholesaleProfit * (365 / wholesaleDays) : 0;
 
@@ -10638,6 +10659,7 @@ function uwComputeExits(ctx) {
   const rfMonthlyExp     = rfPi + rtTaxFin + rtIns + rtVac + rtMaint + rtCapex + rtPm;
   const rfCashflow       = rent - rfMonthlyExp;
   const rfAnnualCashflow = rfCashflow * 12;
+  window._3p_refiAnnual = rfAnnualCashflow;
   // ===== MAX-LTV variants (informational — what you COULD pull out) =====
   // The smart-sized loan above is "what you'd actually take" — only enough
   // to recover your initial cash. The MAX variants below show what the
@@ -10807,6 +10829,7 @@ function uwComputeExits(ctx) {
   const flHmTotalInt   = flHmMonthlyInt * flipMonths;
   // Cash vs financed differ ONLY by the financing-cost adjustments (origination + interest)
   const flipFinProfit     = flipCashProfit - flHmOrig - flHmTotalInt;
+  window._3p_flipFin = flipFinProfit;
   // Capital you actually put up = down + origination (loan covers buy + rehab + closing + holding)
   // Capital tied up (Flip Financed) = real cash out of pocket only:
   //   • Down payment   (typically $0 — loan is 100% of basis; only bumps
@@ -11360,7 +11383,7 @@ function uwComputeExits(ctx) {
           ['Total (info only)', fmt(tenantTotal)],
         ]},
       ] : rentalMode === 'financed' ? [
-        { title: '🏦 Financed Purchase + Rehab', rows: [
+        { title: '💵 Cash Purchase + Rehab', rows: [
           ['Buy price', fmt(buyPrice)],
           ['Rehab budget', fmt(rRehab)],
           ['Purchase Closing', fmt(rtPurchClosingTotal)],
@@ -11370,7 +11393,7 @@ function uwComputeExits(ctx) {
           ['Pre-Rent Property Tax (' + rtPreRentMo + ' mo)', fmt(finPreRentTax)],
           ['Total cash put up', fmt(finCashPutUp), 'profit'],
         ]},
-        { title: '🔁 Long-Term DSCR Refinance <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· ' + finRatePct + '%/yr · ' + finYrs + ' yr · ' + FIN_LTV_CAP_PCT + '% LTV cap</span>', rows: [
+        { title: '🔁 Long-Term DSCR Financing <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· ' + finRatePct + '%/yr · ' + finYrs + ' yr · ' + FIN_LTV_CAP_PCT + '% LTV cap</span>', rows: [
           ['ARV (after rehab + rented)', fmt(arv)],
           ['Smart loan needed (cash put up ÷ (1 − orig%))', fmt(_finLoanNeeded)],
           ['LTV cap (' + FIN_LTV_CAP_PCT + '% of ARV)', fmt(_finLtvCapLoan)],
@@ -15141,6 +15164,48 @@ function uwShortExitName(raw) {
 //   Rental (Refinanced)    → Rental (Refi)
 // The saved best_exit string is unchanged — this only affects table-cell
 // rendering. The full name is exposed via the cell's title= tooltip on hover.
+// uwRenoBudgetCell — renders the renovation budget cell in the deal list.
+// Only shows a dollar value when offer status is Accepted or Closed —
+// before that, the budget is still being refined so we don't surface it.
+// Returns '—' when the budget isn't ready to display.
+function uwRenoBudgetCell(u) {
+  if (!u) return '—';
+  const v = parseFloat(u.renovation_budget);
+  if (!isFinite(v) || v <= 0) return '—';
+  return '<span style="color:#f59e0b;font-weight:600">$' + Math.round(v).toLocaleString() + '</span>';
+}
+
+// uwThreePlaysHtml — renders compact pills for Wholesale / Financed Flip /
+// Refi Rental annualized cashflow. Inputs are the saved per-deal numbers
+// (or null if never computed). Returns '' if all three are missing/zero so
+// old deals just show nothing — opening them once will populate the pills.
+function uwThreePlaysHtml(u) {
+  if (!u) return '';
+  const w = parseFloat(u.wholesale_profit);
+  const f = parseFloat(u.flip_financed_profit);
+  const r = parseFloat(u.refi_rental_annualized);
+  const hasAny = isFinite(w) || isFinite(f) || isFinite(r);
+  if (!hasAny) return '';
+  const fmtK = (n) => {
+    if (!isFinite(n)) return '—';
+    const abs = Math.abs(n);
+    if (abs >= 1000) return '$' + Math.round(n / 1000).toLocaleString() + 'k';
+    return '$' + Math.round(n).toLocaleString();
+  };
+  const cells = (icon, val, suffix) => {
+    const color = isFinite(val) && val > 0 ? '#10b981' : 'var(--text-dim)';
+    const txt   = isFinite(val) ? fmtK(val) + (suffix || '') : '—';
+    return `<span style="text-align:left">${icon}</span><span style="color:${color};font-weight:600;text-align:left">${txt}</span>`;
+  };
+  // Inline-grid: 2 columns (icon | value). Each icon aligns at the same left edge.
+  // Outer text-align:center on the cell keeps the whole grid block centered.
+  return `<div style="font-size:10px;color:var(--text-dim);margin-top:3px;display:inline-grid;grid-template-columns:16px 60px;gap:1px 4px;line-height:1.25">
+    ${cells('🤝', w, '')}
+    ${cells('🏗️', f, '')}
+    ${cells('🔁', isFinite(r) ? r / 12 : r, '/m')}
+  </div>`;
+}
+
 function uwTinyExitName(raw) {
   const full = uwShortExitName(raw);
   if (!full) return '';
@@ -15770,6 +15835,17 @@ async function uwSave(manual) {
     offer: offer || null,
     best_exit: bestExit || null,
     best_profit: bestProfit || null,
+    // 3 Go-To Plays — saved alongside best_exit/profit for the deal-row pills.
+    wholesale_profit:       isFinite(window._3p_wholesale)  ? window._3p_wholesale  : null,
+    flip_financed_profit:   isFinite(window._3p_flipFin)    ? window._3p_flipFin    : null,
+    refi_rental_annualized: isFinite(window._3p_refiAnnual) ? window._3p_refiAnnual : null,
+    // Renovation budget — uses the same rehabFinal the cascade uses (override
+    // > 0 OR auto from sqft + checklist). Window global is set on every
+    // recalc so it's always current, even if the user hasn't visited the
+    // Rehab Calc tab.
+    renovation_budget: isFinite(window._3p_rehabBudget) && window._3p_rehabBudget > 0
+                         ? window._3p_rehabBudget
+                         : null,
     data: data,
     updated_at: new Date().toISOString(),
   };
@@ -15838,7 +15914,7 @@ async function uwSave(manual) {
       _uwLoadedAt = result.data.updated_at || _uwLoadedAt;
       if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
       // Show the "Added on X · N days ago" badge once we know created_at.
-      if (typeof _uwSetDealAge === 'function') _uwSetDealAge(result.data.created_at, result.data.last_submission_at);
+      if (typeof _uwSetDealAge === 'function') _uwSetDealAge(result.data.created_at, result.data.last_submission_at, result.data.updated_at);
     }
     _uwLastSavedAt = Date.now();
     _uwSetSaveStatus('saved', 'Saved just now');
@@ -16712,7 +16788,7 @@ function uwSetStage(stage) {
 // original import date stays put (preserved forever, per the lockdown trigger)
 // and the last-submission date is appended next to it so the user can see
 // at a glance whether new activity has come in for this deal.
-function _uwSetDealAge(createdAt, lastSubmissionAt) {
+function _uwSetDealAge(createdAt, lastSubmissionAt, updatedAt) {
   const el = document.getElementById('uw-deal-age');
   if (!el) return;
   if (!createdAt) { el.innerHTML = ''; return; }
@@ -16763,9 +16839,23 @@ function _uwSetDealAge(createdAt, lastSubmissionAt) {
       '<span>📥 ' + newestLabel + ' <b style="color:var(--text)">' + fmtDate(newest) + '</b></span>' +
       '<span style="color:' + ageColor(newest) + ';font-weight:600">' + fmtAgo(newest) + '</span>' +
     '</div>';
-  el.innerHTML = addedRow + newestRow;
+  // Last Edit row — when the deal was last saved. Renders below the submission
+  // row. Falls back to created date if updatedAt isn't provided.
+  let editedRow = '';
+  if (updatedAt) {
+    const edited = new Date(updatedAt);
+    if (!isNaN(edited.getTime())) {
+      editedRow =
+        '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;margin-top:2px">' +
+          '<span>✏️ Last Edit <b style="color:var(--text)">' + fmtDate(edited) + '</b></span>' +
+          '<span style="color:' + ageColor(edited) + ';font-weight:600">' + fmtAgo(edited) + '</span>' +
+        '</div>';
+    }
+  }
+  el.innerHTML = addedRow + newestRow + editedRow;
   el.title = 'Property entered the system on ' + fmtDate(created) + ' (' + fmtAgo(created) + ').' +
-    ' Last Submission ' + fmtDate(newest) + ' (' + fmtAgo(newest) + ').';
+    ' Last Submission ' + fmtDate(newest) + ' (' + fmtAgo(newest) + ').' +
+    (updatedAt ? ' Last Edit ' + fmtDate(new Date(updatedAt)) + ' (' + fmtAgo(new Date(updatedAt)) + ').' : '');
 }
 
 async function uwLoadById(id) {
@@ -16837,7 +16927,7 @@ async function uwLoadById(id) {
   // last_submission_at so the badge can include "📥 Last submission: ..." if
   // a CallTools result or GHL submission has hit this deal since the
   // lockdown trigger was deployed. NULL for deals that have never had one.
-  if (typeof _uwSetDealAge === 'function') _uwSetDealAge(u.created_at, u.last_submission_at);
+  if (typeof _uwSetDealAge === 'function') _uwSetDealAge(u.created_at, u.last_submission_at, u.updated_at);
   // Show/hide the "Remove from Renovation/Holdings" button based on routing
   if (typeof _uwUpdateRemoveRoutingButton === 'function') _uwUpdateRemoveRoutingButton();
   // Show/hide the "🔨 Add to Renovation" header button. Only appears when
@@ -16862,37 +16952,93 @@ async function uwLoadById(id) {
   // downgraded to Wholesale on every load. 1500ms gives the cascade time
   // to run; the guard below also refuses to write null in any case.
   setTimeout(() => {
-    if (_uwCurrentId !== id) return; // user navigated away — abort
+    // Don't abort if user navigated away. The captured `id` closure means
+    // the save still goes to the correct deal. Aborting here was the cause
+    // of "open + back" leaving renovation_budget / top plays unsaved.
     try {
+      // Only proceed if the calc DOM still belongs to this deal — otherwise
+      // we'd be reading another deal's values. If a different deal is loaded,
+      // the values pulled from DOM/globals won't correspond to `id`, so skip.
+      if (_uwCurrentId !== null && _uwCurrentId !== id) return;
       const collected = (typeof _uwCollect === 'function') ? _uwCollect() : null;
       if (!collected) return;
       const newBestExit = collected.bestExit || null;
-      // SAFETY GUARD: if the cascade hasn't picked a BEST card yet (DOM
-      // not ready, calculator still settling, or this deal somehow lacks
-      // a winner), DO NOT write null — that would wipe a valid saved
-      // pick. Leave the existing value alone; the next save trigger
-      // (any field edit) will refresh it via the normal autosave path.
-      if (!newBestExit) return;
+      // We may have no BEST card (e.g. all exits are $0/negative). In that
+      // case, DON'T overwrite the saved best_exit (could wipe a valid
+      // pick) — but DO still proceed so the 3 Top Plays values can save.
       const cleanProfit = (collected.bestProfitText || '').replace(/[^\d.\-−]/g, '').replace('−', '-');
       const newBestProfit = parseFloat(cleanProfit) || 0;
       const prevExit   = u.best_exit   || null;
       const prevProfit = parseFloat(u.best_profit) || 0;
-      const exitDiffers   = newBestExit !== (prevExit || '');
-      const profitDiffers = Math.abs(newBestProfit - prevProfit) > 1;
-      if (!exitDiffers && !profitDiffers) return;
+      // Only mark exit/profit as "differs" when we ACTUALLY computed a new exit.
+      const exitDiffers   = !!newBestExit && newBestExit !== (prevExit || '');
+      const profitDiffers = !!newBestExit && Math.abs(newBestProfit - prevProfit) > 1;
+      // ALSO grab the 3-play values that were exposed by the compute path.
+      // They may be missing on old deals (saved before the 3 fields existed)
+      // or stale if rules changed. Updating them here keeps the Top Plays
+      // column populated without waiting for the user to edit something.
+      const newWholesale = isFinite(window._3p_wholesale)  ? window._3p_wholesale  : null;
+      const newFlipFin   = isFinite(window._3p_flipFin)    ? window._3p_flipFin    : null;
+      const newRefiAnn   = isFinite(window._3p_refiAnnual) ? window._3p_refiAnnual : null;
+      const prevWholesale = u.wholesale_profit       == null ? null : parseFloat(u.wholesale_profit);
+      const prevFlipFin   = u.flip_financed_profit   == null ? null : parseFloat(u.flip_financed_profit);
+      const prevRefiAnn   = u.refi_rental_annualized == null ? null : parseFloat(u.refi_rental_annualized);
+      const playsDiffer =
+        (newWholesale !== prevWholesale && !(prevWholesale != null && Math.abs(newWholesale - prevWholesale) < 1)) ||
+        (newFlipFin   !== prevFlipFin   && !(prevFlipFin   != null && Math.abs(newFlipFin   - prevFlipFin)   < 1)) ||
+        (newRefiAnn   !== prevRefiAnn   && !(prevRefiAnn   != null && Math.abs(newRefiAnn   - prevRefiAnn)   < 1));
+      // Renovation budget — same source the cascade uses (window._3p_rehabBudget
+      // = rehabFinal from the underwriter compute). Avoids depending on the
+      // Rehab Calc tab being visited.
+      const newRenoBudget = isFinite(window._3p_rehabBudget) && window._3p_rehabBudget > 0
+                              ? window._3p_rehabBudget
+                              : null;
+      const prevRenoBudget = u.renovation_budget == null ? null : parseFloat(u.renovation_budget);
+      const budgetDiffers = newRenoBudget !== prevRenoBudget && !(prevRenoBudget != null && newRenoBudget != null && Math.abs(newRenoBudget - prevRenoBudget) < 1);
+      if (!exitDiffers && !profitDiffers && !playsDiffer && !budgetDiffers) return;
+      const _patch = {};
+      // Only patch best_exit/profit if we ACTUALLY computed a new value.
+      if (newBestExit) {
+        _patch.best_exit   = newBestExit;
+        _patch.best_profit = newBestProfit || null;
+      }
+      if (playsDiffer) {
+        _patch.wholesale_profit       = newWholesale;
+        _patch.flip_financed_profit   = newFlipFin;
+        _patch.refi_rental_annualized = newRefiAnn;
+      }
+      if (budgetDiffers) {
+        _patch.renovation_budget = newRenoBudget;
+      }
       sb.from('underwrites')
-        .update({ best_exit: newBestExit, best_profit: newBestProfit || null })
+        .update(_patch)
         .eq('id', id)
         .then(({ error }) => {
           if (error) { console.warn('best_exit refresh failed:', error); return; }
           // Update local cache so the list re-renders correctly next time.
-          u.best_exit   = newBestExit;
-          u.best_profit = newBestProfit;
+          if (newBestExit) {
+            u.best_exit   = newBestExit;
+            u.best_profit = newBestProfit;
+          }
+          if (playsDiffer) {
+            u.wholesale_profit       = newWholesale;
+            u.flip_financed_profit   = newFlipFin;
+            u.refi_rental_annualized = newRefiAnn;
+          }
+          if (budgetDiffers) {
+            u.renovation_budget = newRenoBudget;
+          }
           // Re-render any open deal tables so the preview row updates
           // immediately instead of waiting for a navigation event. Cheap
           // because it just reads from the now-updated cache.
-          if (typeof renderUnderwrites === 'function') {
-            try { renderUnderwrites(); } catch (_) {}
+          if (typeof renderUnderwriteList === 'function') {
+            try { renderUnderwriteList(); } catch (_) {}
+          }
+          if (typeof renderHoldingsList === 'function') {
+            try { renderHoldingsList(); } catch (_) {}
+          }
+          if (typeof renderRenovationList === 'function') {
+            try { renderRenovationList(); } catch (_) {}
           }
           if (typeof _hrRenderDealsList === 'function') {
             try { _hrRenderDealsList(); } catch (_) {}
@@ -20114,7 +20260,10 @@ function _uwRefreshAddToRenoButton() {
     holdingStatus = (u.data && u.data._holdingStatus) || '';
   }
   const offer = liveOffer || cachedOffer;
-  const show  = offer === 'Closed' && holdingStatus !== 'renovation';
+  // Hide if the deal is already routed to either Renovation or Holdings —
+  // otherwise the Add button stacks on top of the Remove button at the same
+  // absolute position.
+  const show  = offer === 'Closed' && holdingStatus !== 'renovation' && holdingStatus !== 'holding';
   btn.style.display = show ? '' : 'none';
 }
 window._uwRefreshAddToRenoButton = _uwRefreshAddToRenoButton;
@@ -21605,6 +21754,7 @@ function _hrRenderRow(u, view) {
     <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt$(arv)}</td>
     <td style="padding:8px 10px" title="${escapeHtml(u.best_exit || '')}">${escapeHtml((typeof uwTinyExitName === 'function' ? uwTinyExitName(u.best_exit) : (u.best_exit || '')) || '—')}</td>
     <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;color:${profitColor};font-weight:600">${profitTxt}</td>
+    <td style="padding:8px 4px;vertical-align:middle;text-align:center">${uwThreePlaysHtml(u)}</td>
     <td style="padding:8px 10px;font-size:12px;color:var(--text-dim)">${closedOn}</td>
     <td style="padding:8px 10px;min-width:160px;text-align:center">${timelineCell}</td>
     <td style="padding:8px 10px;min-width:160px;text-align:center">${budgetCell}</td>
@@ -24144,6 +24294,7 @@ function renderUnderwriteList() {
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt$(parseFloat((u.data && u.data['uw-asking']) || u.asking || 0) || 0)}</td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt$(parseFloat(u.max_offer || (u.data && u.data._maxOffer) || 0) || _uwComputeMaxOfferFromData(u.data))}</td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;color:${parseFloat((u.data && u.data['uw-accepted']) || 0) > 0 ? '#10b981' : 'var(--text-dim)'};font-weight:${parseFloat((u.data && u.data['uw-accepted']) || 0) > 0 ? '600' : 'normal'}">${fmt$(parseFloat((u.data && u.data['uw-accepted']) || u.accepted || 0) || 0)}</td>
+      <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text-dim)">${uwRenoBudgetCell(u)}</td>
       <td style="padding:8px 10px" title="${escapeHtml(u.best_exit || '')}">${escapeHtml(uwTinyExitName(u.best_exit) || '—')}</td>
       <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;color:${profitColor};font-weight:600">${(function(){
         const isRental = /rental/i.test(u.best_exit || '');
@@ -24154,21 +24305,30 @@ function renderUnderwriteList() {
         if (isRental) return fmt$(u.best_profit / 12) + '/m';
         return fmt$(u.best_profit);
       })()}</td>
+      <td style="padding:8px 4px;vertical-align:middle;text-align:center">${uwThreePlaysHtml(u)}</td>
       <td style="padding:8px 10px;text-align:left">${fmtImported(u.created_at)}</td>
-      <td style="padding:8px 10px;text-align:left;font-size:12px;color:var(--text-dim)">${date}</td>
       <td style="padding:8px 10px;white-space:nowrap" onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%">
           <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:right">${(function(){
             // Closed-only routing UI. Flow: Closed → Renovation → Holdings.
-            if ((u.packet_status || '').trim() !== 'Closed') return '';
+            // Accept Closed status from EITHER source — packet_status (workflow
+            // stage) or uw-offer-status (live offer state). These can fall out
+            // of sync if a deal is updated on one device but not the other, or
+            // if the user manually toggled offer status without committing the
+            // workflow stage. Showing the badge in either case avoids the
+            // "why isn't my hammer/key showing" confusion.
+            const _offerSt = (u.data && u.data['uw-offer-status']) || '';
+            const _packetSt = (u.packet_status || '').trim();
+            if (_packetSt !== 'Closed' && _offerSt !== 'Closed') return '';
             const hs = (u.data && u.data._holdingStatus) || null;
             if (hs === 'holding') {
-              return `<span class="badge ok" style="padding:3px 6px;font-size:10px" title="In Holdings — to remove, open the Holdings tab and click ✕ Remove on this row.">✓ Holdings</span>`;
+              return `<span class="badge ok" style="display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;font-size:13px;line-height:1;height:22px;box-sizing:border-box" title="In Holdings — to remove, open the Holdings tab and click ✕ Remove on this row.">🔑</span>`;
             }
             if (hs === 'renovation') {
-              return `<span class="badge warn" style="padding:3px 6px;font-size:10px" title="In Renovation — to remove, open the Renovation tab and click ✕ Remove on this row.">✓ Renovation</span>`;
+              return `<span class="badge warn" style="display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;font-size:13px;line-height:1;height:22px;box-sizing:border-box" title="In Renovation — to remove, open the Renovation tab and click ✕ Remove on this row.">🔨</span>`;
             }
-            return `<button class="btn text-xs" style="background:#f97316;color:white;border:1px solid #f97316;padding:3px 8px;font-size:11px" onclick="uwSetHoldingStatus('${u.id}', 'renovation')" title="Send this property to the Renovation tab.">+ Reno</button>`;
+            // Only show the hammer/key badge for routed deals. Otherwise nothing.
+            return '';
           })()}</span>
           <button class="btn btn-ghost text-xs" style="flex-shrink:0;padding:3px 8px;font-size:11px" onclick="_hrOpenDeal('${u.id}')" title="Open this deal in the Deal Calculator">📂 Open</button>
           <button class="btn btn-ghost text-xs" style="flex-shrink:0;padding:3px 8px;font-size:11px;color:#f87171" onclick="uwDelete('${u.id}')" title="Delete">🗑</button>

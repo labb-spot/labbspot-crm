@@ -11755,9 +11755,13 @@ function uwComputeExits(ctx) {
       } else if (best.key === 'flip') {
         best.bestMode = _flipRecMode === 'financed' ? 'Financed' : 'Cash';
         bestModeAuto = _flipRecMode;
+        // Pin profit to the cascade-pick mode so it stays in sync with best_exit
+        // — otherwise the saved best_profit reflects the user's current toggle.
+        best.bestModeProfit = _flipRecMode === 'financed' ? flipFinProfit : flipCashProfit;
       } else if (best.key === 'wholetail') {
         best.bestMode = _wholetailRecMode === 'financed' ? 'Financed' : 'Cash';
         bestModeAuto = _wholetailRecMode;
+        best.bestModeProfit = _wholetailRecMode === 'financed' ? wtFinProfit : wholetailCashProfit;
       }
     }
     // If every exit is ≤ 0, best stays null — recommendation banner shows the
@@ -11804,7 +11808,7 @@ function uwComputeExits(ctx) {
       // Toggle (if present) renders on its own line below the title — keeps
       // the title row clean and prevents the buttons from squishing the card.
       const toggleRow = e.toggle ? `<div style="margin-bottom:8px">${e.toggle}</div>` : '';
-      return `<div onclick="uwToggleExit('${e.key}')" data-exit-key="${e.key}"${isBest ? ' data-is-best="true"' : ''}${e.bestMode ? ` data-best-mode="${e.bestMode}"` : ''}${typeof e.annualized === 'number' ? ` data-annualized="${Math.round(e.annualized)}"` : ''} style="padding:12px 14px;background:${bg};border:${border};border-radius:10px;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''" title="Click to ${isOpen ? 'collapse' : 'view full breakdown'}">
+      return `<div onclick="uwToggleExit('${e.key}')" data-exit-key="${e.key}"${isBest ? ' data-is-best="true"' : ''}${e.bestMode ? ` data-best-mode="${e.bestMode}"` : ''}${typeof e.annualized === 'number' ? ` data-annualized="${Math.round(e.annualized)}"` : ''}${typeof e.bestModeProfit === 'number' ? ` data-best-profit="${Math.round(e.bestModeProfit)}"` : ''} style="padding:12px 14px;background:${bg};border:${border};border-radius:10px;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''" title="Click to ${isOpen ? 'collapse' : 'view full breakdown'}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <span style="font-weight:600;font-size:13px">${e.icon} ${e.name}${e.mode ? ' <span style=\'color:var(--text-dim);font-weight:500\'>(' + e.mode + ')</span>' : ''}${badge}</span>
           <span style="font-size:10px;color:var(--text-dim)">${chevron}</span>
@@ -15379,7 +15383,15 @@ function _uwCollect() {
   if (bestCard) {
     const annAttr = bestCard.getAttribute('data-annualized');
     const annNum  = annAttr != null ? parseFloat(annAttr) : NaN;
-    if (isFinite(annNum) && bestExit && bestExit.startsWith('Rental')) {
+    // Priority 1: data-best-profit (cascade-pick-mode profit for Flip/Wholetail).
+    // Without this, the saved best_profit would reflect the user's toggle instead
+    // of the cascade's actual pick — e.g., Financed Flip in best_exit but Cash
+    // Flip profit in best_profit.
+    const bpAttr = bestCard.getAttribute('data-best-profit');
+    const bpNum  = bpAttr != null ? parseFloat(bpAttr) : NaN;
+    if (isFinite(bpNum) && bestExit && !bestExit.startsWith('Rental')) {
+      bestProfitText = (bpNum < 0 ? '-$' : '$') + Math.abs(Math.round(bpNum)).toLocaleString();
+    } else if (isFinite(annNum) && bestExit && bestExit.startsWith('Rental')) {
       bestProfitText = (annNum < 0 ? '-$' : '$') + Math.abs(Math.round(annNum)).toLocaleString();
     } else {
       // Target the explicit .uw-exit-profit-num span — NOT the parent <div>.

@@ -3670,6 +3670,7 @@
           <input id="uw-analyzed-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="From (imported on or after)">
           <input id="uw-analyzed-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="To (imported on or before)">
           <input id="uw-analyzed-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <button class="btn btn-ghost text-sm" onclick="uwRescanAnalyzedProfits()" title="Open each Analyzed deal in the calculator, let the cascade settle, and save back to Supabase. Refreshes Exit Margins, Budget, and all preview-table values to match current math." style="white-space:nowrap;border:1px solid rgba(139,92,246,0.4);color:#a78bfa">🔄 Rescan Analyzed</button>
         </div>
       </div>
       <div id="uw-analyzed-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -17318,6 +17319,98 @@ async function uwRescanAllProfits() {
   }
 }
 window.uwRescanAllProfits = uwRescanAllProfits;
+
+// ============================================================================
+// uwRescanAnalyzedProfits — same flow as uwRescanAllProfits, scoped to deals
+// in the Analyzed packet stage. Useful after math changes to refresh just the
+// short-list of properties you're actively reviewing without touching the
+// hundreds of older deals.
+// ============================================================================
+async function uwRescanAnalyzedProfits() {
+  if (!cache.underwrites) {
+    if (typeof toast === 'function') toast('No deals loaded yet — open Underwriting first.', 'warn');
+    return;
+  }
+  // Match the Analyzed tab's actual filter — packet_status is set + past
+  // 'Evaluating', not 'Closed', and NOT flagged as help/priority/checking
+  // (those have their own tabs).
+  const _isFlag = (u, key) => !!(u && u.data && u.data[key] === true);
+  const ids = Object.keys(cache.underwrites).filter(id => {
+    const u = cache.underwrites[id];
+    if (!u) return false;
+    const ps = (u.packet_status || '').trim();
+    if (!ps || ps === 'Evaluating') return false;       // still in Analyzing
+    if (ps === 'Closed') return false;                  // already finalized
+    if (_isFlag(u, '_needsHelp'))  return false;        // in Help tab
+    if (_isFlag(u, '_isPriority')) return false;        // in Priority tab
+    if (_isFlag(u, '_inChecking')) return false;        // in Double-Check tab
+    return true;
+  });
+  const total = ids.length;
+  if (total === 0) {
+    if (typeof toast === 'function') toast('No Analyzed deals to rescan.', 'info');
+    return;
+  }
+  if (!confirm(
+    'Rescan all ' + total.toLocaleString() + ' Analyzed deal' + (total === 1 ? '' : 's') + '?\n\n' +
+    'Each deal will be loaded into the calculator and re-saved with current math — Exit Margins, Budget, and all preview fields refresh. ' +
+    'Takes about 1 second per deal, so ~' + Math.ceil(total / 60) + ' minute' + (Math.ceil(total / 60) === 1 ? '' : 's') + ' total.\n\n' +
+    'Keep this tab focused while the rescan runs.'
+  )) {
+    return;
+  }
+  const overlay  = document.getElementById('uw-rescan-overlay');
+  const barEl    = document.getElementById('uw-rescan-bar');
+  const progEl   = document.getElementById('uw-rescan-progress');
+  const currEl   = document.getElementById('uw-rescan-current');
+  if (overlay) overlay.style.display = 'flex';
+  window._uwRescanCancel = false;
+  const _resumeView = (typeof _uwLastListView === 'string' && _uwLastListView) ? _uwLastListView : 'analyzed';
+  let saved = 0, failed = 0, cancelled = false;
+  const SETTLE_MS = 900;
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  try {
+    for (let i = 0; i < ids.length; i++) {
+      if (window._uwRescanCancel) { cancelled = true; break; }
+      const id = ids[i];
+      const u = cache.underwrites[id];
+      if (!u || !u.id) continue;
+      if (!u.address || !u.address.trim()) continue;
+      const pct = Math.round(((i + 1) / total) * 100);
+      if (barEl)  barEl.style.width = pct + '%';
+      if (progEl) progEl.textContent = (i + 1).toLocaleString() + ' of ' + total.toLocaleString() + ' deals · ' + pct + '%';
+      if (currEl) currEl.textContent = (u.address || '').slice(0, 60);
+      try {
+        if (typeof uwLoadById === 'function') await uwLoadById(id);
+        await wait(SETTLE_MS);
+        if (typeof uwSave === 'function') await uwSave(false);
+        saved++;
+      } catch (e) {
+        console.warn('Rescan Analyzed failed for', id, e);
+        failed++;
+      }
+    }
+  } finally {
+    if (overlay) overlay.style.display = 'none';
+    if (typeof goUwView === 'function') {
+      try { goUwView(_resumeView); } catch (_) {}
+    }
+    if (typeof renderUnderwriteList === 'function') {
+      try { renderUnderwriteList(); } catch (_) {}
+    }
+    if (typeof toast === 'function') {
+      if (cancelled) {
+        toast('Rescan cancelled · saved ' + saved.toLocaleString() + ' deal' + (saved === 1 ? '' : 's') + ' before stopping.', 'warn');
+      } else if (failed > 0) {
+        toast('Rescan complete · ' + saved.toLocaleString() + ' saved, ' + failed.toLocaleString() + ' failed (see console).', 'warn');
+      } else {
+        toast('✅ Analyzed rescan complete · ' + saved.toLocaleString() + ' deal' + (saved === 1 ? '' : 's') + ' refreshed.', 'ok');
+      }
+    }
+  }
+}
+window.uwRescanAnalyzedProfits = uwRescanAnalyzedProfits;
+
 
 // ===========================================================================
 // SOP EDITOR — drag/resize/edit boxes on the Standard Operating Procedure tab

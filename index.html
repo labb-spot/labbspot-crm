@@ -2001,6 +2001,13 @@
         <button class="btn btn-primary text-sm" onclick="refreshResultsView()" id="results-refresh-btn" style="height:32px;padding:0 12px" title="Re-fetch all call results from Supabase. Use after new results have been uploaded or come in from another browser tab.">🔄 Refresh</button>
       </div>
       <div class="flex items-center gap-2" style="flex-wrap:nowrap">
+        <select id="r-channel-filter" onchange="renderResults()" style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:0 0 auto;box-sizing:border-box;width:150px" title="Filter by channel">
+          <option value="">All channels</option>
+          <option value="calling">📞 Call</option>
+          <option value="mail">📬 Mail</option>
+          <option value="sms">💬 SMS</option>
+          <option value="unknown">? Unknown</option>
+        </select>
         <select id="r-disp-filter" onchange="renderResults()" style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:0 0 auto;box-sizing:border-box;width:190px" title="Filter by disposition">
           <option value="">All dispositions</option>
         </select>
@@ -33031,6 +33038,8 @@ function renderResults() {
   }
   let visible = filtered;
   if (dispFilter) visible = visible.filter(r => canonicalizeDisp(r.disposition) === dispFilter);
+  const channelFilter = (document.getElementById('r-channel-filter')?.value || '').trim().toLowerCase();
+  if (channelFilter) visible = visible.filter(r => (r.channel || 'unknown').toLowerCase() === channelFilter);
   const matchFilter = (document.getElementById('r-match-filter')?.value || '').trim();
   if (matchFilter === 'property') {
     visible = visible.filter(r => !!r.property_id);

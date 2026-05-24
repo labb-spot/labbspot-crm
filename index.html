@@ -1748,6 +1748,7 @@
   <div id="results-upload-strip" class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
     <div class="panel lg:col-span-1">
       <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+        <button class="btn text-sm" onclick="openAddResultModal()" style="background:#10b981;color:white;border:1px solid #10b981;margin-bottom:8px" title="Manually add a result (e.g. when someone calls in from a mail campaign)">➕ Add Result</button>
         <div class="font-semibold text-sm">📥 Upload Call Results</div>
         <div class="flex gap-1">
           <button class="btn btn-ghost text-xs" onclick="copyResultsMigrationSql()" title="DB migration SQL">📋</button>
@@ -1861,13 +1862,47 @@
         <div class="font-semibold text-lg">📊 Call Volume By Hour</div>
         <div class="text-xs text-[var(--text-dim)]">Local hour (from Last Contact). Hover a bar for exact count.</div>
       </div>
-      <div class="flex gap-2 items-center text-xs">
-        <label class="flex items-center gap-1"><input type="checkbox" id="r-filter-contact" onchange="renderResults()" style="width:auto"> Only meaningful dispositions</label>
+      <div class="flex gap-2 items-center text-xs" style="flex-wrap:nowrap;white-space:nowrap">
+        <select id="r-date-range" onchange="(function(el){var c=document.getElementById('r-date-custom-row');c.style.display=el.value==='custom'?'flex':'none';renderResults();})(this)" class="btn btn-ghost text-xs" style="padding:4px 10px;border:1px solid var(--border);background:var(--panel-2);width:auto;min-width:120px" title="Date range filter (applies to both charts)">
+          <option value="all">All time</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="7" selected>Last 7 days</option>
+          <option value="14">Last 14 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="120">Last 120 days</option>
+          <option value="year">This year</option>
+          <option value="custom">Custom range…</option>
+        </select>
+        <div id="r-date-custom-row" style="display:none;align-items:center;gap:4px">
+          <input id="r-date-from" type="date" oninput="renderResults()" style="font-size:11px;padding:3px 6px" title="From">
+          <span style="color:var(--text-dim)">→</span>
+          <input id="r-date-to"   type="date" oninput="renderResults()" style="font-size:11px;padding:3px 6px" title="To">
+        </div>
+        <div style="position:relative">
+          <button id="r-hour-list-toggle" onclick="(function(){var d=document.getElementById('r-hour-list-dropdown');d.style.display=d.style.display==='none'?'block':'none';})()" class="btn btn-ghost text-xs" style="padding:4px 10px;border:1px solid var(--border)">📋 Lists ▼</button>
+          <div id="r-hour-list-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px;min-width:200px;max-height:240px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4)"></div>
+        </div>
       </div>
     </div>
     <div id="r-histogram" style="display:grid;grid-template-columns:repeat(24,1fr);gap:3px;align-items:end;height:140px;margin-top:12px"></div>
     <div style="display:grid;grid-template-columns:repeat(24,1fr);gap:3px;font-size:10px;color:var(--text-dim);margin-top:4px;text-align:center">
       <div>12a</div><div>1a</div><div>2a</div><div>3a</div><div>4a</div><div>5a</div><div>6a</div><div>7a</div><div>8a</div><div>9a</div><div>10a</div><div>11a</div><div>12p</div><div>1p</div><div>2p</div><div>3p</div><div>4p</div><div>5p</div><div>6p</div><div>7p</div><div>8p</div><div>9p</div><div>10p</div><div>11p</div>
+    </div>
+    <!-- ===== Call Volume By Day of Week ===== -->
+    <div style="border-top:1px dashed var(--border);margin-top:18px;padding-top:14px">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <div class="font-semibold text-lg">📅 Call Volume By Day of Week</div>
+          <div class="text-xs text-[var(--text-dim)]">Sunday–Saturday. Uses the same Lists filter + meaningful-disposition toggle above.</div>
+        </div>
+        <div class="text-xs text-[var(--text-dim)]" id="r-day-peak-label">Peak day: <span id="r-day-peak" style="color:var(--text);font-weight:600">—</span></div>
+      </div>
+      <div id="r-day-histogram" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:140px;margin-top:12px"></div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;font-size:11px;color:var(--text-dim);margin-top:6px;text-align:center;font-weight:600">
+        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+      </div>
     </div>
   </div>
 
@@ -1879,9 +1914,7 @@
         <div class="font-semibold text-lg">Contact Coverage By List</div>
         <div class="text-xs text-[var(--text-dim)]">How many properties in each list you have reached at least once (any result counts). The red Unmatched bar shows results whose address did not link to a property in any of your lists.</div>
       </div>
-      <div class="flex items-center gap-2">
-        <label class="text-xs flex items-center gap-1" title="Only count results with a meaningful disposition (actual conversations)."><input type="checkbox" id="cov-meaningful-only" style="width:auto" onchange="renderListCoverage()"> Meaningful only</label>
-      </div>
+
     </div>
     <div id="list-coverage-body"></div>
   </div>
@@ -1967,6 +2000,7 @@
           <col style="width:140px" />
           <col style="width:170px" />
           <col />
+          <col style="width:90px" />
           <col style="width:140px" />
           <col style="width:110px" />
           <col style="width:150px" />
@@ -1975,6 +2009,7 @@
           <col style="width:110px" />
         </colgroup>
         <thead><tr>
+          <th onclick="setResultsSort('channel')" style="cursor:pointer" title="Click to sort by channel">Channel <span class="rsort-ind" data-rsort-key="channel"></span></th>
           <th onclick="setResultsSort('disposition')" style="cursor:pointer" title="Click to sort">Disposition <span class="rsort-ind" data-rsort-key="disposition"></span></th>
           <th onclick="setResultsSort('name')" style="cursor:pointer" title="Click to sort">Name <span class="rsort-ind" data-rsort-key="name"></span></th>
           <th onclick="setResultsSort('address')" style="cursor:pointer" title="Click to sort">Address <span class="rsort-ind" data-rsort-key="address"></span></th>
@@ -31504,7 +31539,7 @@ async function handleResultsFile(file) {
         conversation_file: m.conversation_file,
         address: m.address, city: m.city, state: m.state, zip: normalizeZip(m.zip),
         phone: phoneNorm,
-        channel: m.channel,
+        channel: (m.channel && m.channel.trim()) ? m.channel.trim().toLowerCase() : 'calling',
         last_contact: lastContactIso,
         raw_row: row, uploaded_at: nowIso(),
       });
@@ -32626,12 +32661,161 @@ function setResultsSort(key) {
   if (typeof renderResults === 'function') renderResults();
 }
 
+// ---- Channel + manual Add Result helpers ----
+async function cycleResultChannel(id, btn) {
+  if (!id) return;
+  const order = ['calling', 'mail', 'sms', 'unknown'];
+  const cur = (btn && btn.dataset.currentChannel) || 'unknown';
+  const next = order[(order.indexOf(cur) + 1) % order.length];
+  return setResultChannel(id, next);
+}
+window.cycleResultChannel = cycleResultChannel;
+
+function setResultChannel(id, newChannel) {
+  if (!id || !newChannel) return;
+  const allowed = ['calling', 'mail', 'sms', 'unknown'];
+  if (!allowed.includes(newChannel)) return;
+  // Optimistic update — update cache + the dropdown's color in place. No full
+  // re-render (which was causing 200ms+ lag with hundreds of rows).
+  if (cache.results && cache.results[id]) cache.results[id].channel = newChannel;
+  // Find the dropdown and recolor it
+  const chColors = { calling: '#3b82f6', mail: '#10b981', sms: '#a78bfa', unknown: '#6b7280' };
+  const bg = chColors[newChannel] || chColors.unknown;
+  document.querySelectorAll(`select[onchange*="${id}"]`).forEach(el => {
+    el.style.background = bg + '22';
+    el.style.color = bg;
+    el.style.borderColor = bg + '66';
+  });
+  // Fire the Supabase save in the background — don't block UI
+  sb.from('results').update({ channel: newChannel }).eq('id', id).then(({ error }) => {
+    if (error) {
+      toast('Channel save failed: ' + error.message, 'err');
+      console.warn(error);
+    }
+  });
+}
+window.setResultChannel = setResultChannel;
+
+function openAddResultModal() {
+  // Build the modal HTML if it doesn't exist yet
+  let m = document.getElementById('addResultModal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'addResultModal';
+    m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;padding:20px';
+    m.innerHTML = `
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+          <h2 style="font-size:18px;font-weight:600;margin:0">➕ Add Result</h2>
+          <button class="btn btn-ghost text-sm" onclick="document.getElementById('addResultModal').style.display='none'">✕</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label class="text-xs">Phone<input type="tel" id="ar-phone" placeholder="555-555-5555" style="width:100%;margin-top:3px"></label>
+          <label class="text-xs">First Name<input type="text" id="ar-first" style="width:100%;margin-top:3px"></label>
+          <label class="text-xs">Last Name<input type="text" id="ar-last" style="width:100%;margin-top:3px"></label>
+          <label class="text-xs">Address<input type="text" id="ar-addr" style="width:100%;margin-top:3px"></label>
+          <label class="text-xs">City<input type="text" id="ar-city" style="width:100%;margin-top:3px"></label>
+          <label class="text-xs">State<input type="text" id="ar-state" maxlength="2" style="width:100%;margin-top:3px"></label>
+          <label class="text-xs">Zip<input type="text" id="ar-zip" style="width:100%;margin-top:3px"></label>
+          <label class="text-xs">List / Source
+            <select id="ar-list" style="width:100%;margin-top:3px"></select>
+          </label>
+          <label class="text-xs">Channel
+            <select id="ar-channel" style="width:100%;margin-top:3px">
+              <option value="calling">📞 Calling</option>
+              <option value="mail" selected>📬 Mail</option>
+              <option value="sms">💬 SMS</option>
+              <option value="unknown">? Unknown</option>
+            </select>
+          </label>
+          <label class="text-xs">Disposition
+            <select id="ar-disp" style="width:100%;margin-top:3px">
+              <option value="motivated">Motivated</option>
+              <option value="future follow up">Future Follow Up</option>
+              <option value="potential buyer">Potential Buyer</option>
+              <option value="not interested">Not Interested</option>
+              <option value="recently sold">Recently Sold</option>
+              <option value="listed/listing">Listed/Listing</option>
+              <option value="land/tore down">Land/Tore Down</option>
+              <option value="different language">Different Language</option>
+              <option value="dnc all numbers">DNC All Numbers</option>
+              <option value="dnc this number">DNC This Number</option>
+              <option value="wrong number/hostile">Wrong Number/Hostile</option>
+              <option value="answering machine">Answering Machine</option>
+              <option value="hung up/disconnected">Hung Up/Disconnected</option>
+              <option value="abandoned">Abandoned</option>
+            </select>
+          </label>
+          <label class="text-xs" style="grid-column:1/-1">Time<input type="datetime-local" id="ar-time" style="width:100%;margin-top:3px"></label>
+          <label class="text-xs" style="grid-column:1/-1">Notes<textarea id="ar-notes" rows="3" style="width:100%;margin-top:3px"></textarea></label>
+        </div>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
+          <button class="btn btn-ghost text-sm" onclick="document.getElementById('addResultModal').style.display='none'">Cancel</button>
+          <button class="btn text-sm" style="background:#10b981;color:white;border:1px solid #10b981" onclick="submitAddResult()">Save Result</button>
+        </div>
+      </div>`;
+    document.body.appendChild(m);
+  }
+  // Populate List dropdown with current lists
+  const listSel = document.getElementById('ar-list');
+  if (listSel) {
+    const lists = Object.values(cache.lists || {});
+    listSel.innerHTML = '<option value="">— No list (manual) —</option>' +
+      lists.map(l => `<option value="${escapeHtml(l.id)}">${escapeHtml(l.name || 'Unnamed')}</option>`).join('');
+  }
+  // Default time = now (local timezone, formatted for datetime-local input)
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const tEl = document.getElementById('ar-time');
+  if (tEl) tEl.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  m.style.display = 'flex';
+}
+window.openAddResultModal = openAddResultModal;
+
+async function submitAddResult() {
+  const get = (id) => (document.getElementById(id)?.value || '').trim();
+  const phone = normalizePhone(get('ar-phone'));
+  const addr  = get('ar-addr');
+  if (!phone && !addr) { toast('Need at least a phone or address.', 'warn'); return; }
+  const timeRaw = get('ar-time');
+  let lastContactIso = null;
+  if (timeRaw) {
+    const d = new Date(timeRaw);
+    if (!isNaN(d.getTime())) lastContactIso = d.toISOString();
+  }
+  if (!lastContactIso) lastContactIso = new Date().toISOString();
+  const listId = get('ar-list') || null;
+  const row = {
+    id: uid(),
+    phone, first_name: get('ar-first'), last_name: get('ar-last'),
+    address: addr, city: get('ar-city'), state: get('ar-state'), zip: normalizeZip(get('ar-zip')),
+    channel: get('ar-channel') || 'unknown',
+    disposition: get('ar-disp') || 'motivated',
+    last_contact: lastContactIso,
+    uploaded_at: new Date().toISOString(),
+    raw_row: { _manual: true, notes: get('ar-notes'), list_id: listId },
+  };
+  try {
+    const { error } = await sb.from('results').insert([row]);
+    if (error) { toast('Save failed: ' + error.message, 'err'); return; }
+    if (!cache.results) cache.results = {};
+    cache.results[row.id] = row;
+    document.getElementById('addResultModal').style.display = 'none';
+    toast('Result added.', 'ok');
+    if (typeof renderResults === 'function') renderResults();
+  } catch (e) {
+    toast('Save failed', 'err'); console.warn(e);
+  }
+}
+window.submitAddResult = submitAddResult;
+
 function renderResults() {
   const results = Object.values(cache.results || {});
   // State-driven sort (see setResultsSort / window.resultsSort).
   const sortState = window.resultsSort || { key: 'last_contact', dir: 'desc' };
   const keyFn = {
     disposition:  (r) => String(r.disposition || '').toLowerCase(),
+    channel:      (r) => String(r.channel || 'unknown').toLowerCase(),
     name:         (r) => (String(r.first_name || '') + ' ' + String(r.last_name || '')).trim().toLowerCase(),
     address:      (r) => String(r.address || '').toLowerCase(),
     phone:        (r) => String(r.phone || ''),
@@ -32703,11 +32887,78 @@ function renderResults() {
   }
   if (q) visible = visible.filter(r => [r.first_name, r.last_name, r.address, r.phone, r.disposition].some(x => String(x || '').toLowerCase().includes(q)));
 
+  // ---- Multi-list filter for the hour chart ----
+  // Populate the dropdown with all lists (default = all checked).
+  const _hourListDrop = document.getElementById('r-hour-list-dropdown');
+  if (_hourListDrop && !_hourListDrop.dataset.built) {
+    const lists = Object.values(cache.lists || {});
+    if (lists.length) {
+      _hourListDrop.innerHTML =
+        '<div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;gap:4px"><button class="btn btn-ghost text-xs" style="flex:1" onclick="(function(){document.querySelectorAll(\'#r-hour-list-dropdown input[type=checkbox]\').forEach(c=>c.checked=true);renderResults();})()">All</button><button class="btn btn-ghost text-xs" style="flex:1" onclick="(function(){document.querySelectorAll(\'#r-hour-list-dropdown input[type=checkbox]\').forEach(c=>c.checked=false);renderResults();})()">None</button></div>' +
+        lists.map(l => `<label style="display:flex;align-items:center;gap:6px;padding:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="r-hour-list-cb" data-list-id="${escapeHtml(l.id)}" checked onchange="renderResults()" style="width:auto">${escapeHtml(l.name || 'Unnamed')}</label>`).join('');
+      _hourListDrop.dataset.built = '1';
+    }
+  }
+  // Read which lists are checked. If no checkboxes exist (no lists), don't filter.
+  const _hourListCbs = document.querySelectorAll('#r-hour-list-dropdown .r-hour-list-cb');
+  let _hourListAllowed = null;
+  if (_hourListCbs.length) {
+    _hourListAllowed = new Set();
+    _hourListCbs.forEach(cb => { if (cb.checked) _hourListAllowed.add(cb.dataset.listId); });
+  }
+  // Update the toggle button label to reflect selection count.
+  const _hourListBtn = document.getElementById('r-hour-list-toggle');
+  if (_hourListBtn && _hourListAllowed) {
+    const total = _hourListCbs.length;
+    const sel = _hourListAllowed.size;
+    _hourListBtn.textContent = sel === total ? '📋 Lists (All) ▼' : `📋 Lists (${sel}/${total}) ▼`;
+  }
+
+  // ---- Date range filter (applies to BOTH the hour + day charts) ----
+  // Returns { start, end } in millis, or null for unbounded.
+  let _dateRangeStart = null;
+  let _dateRangeEnd = null;
+  (function(){
+    const sel = document.getElementById('r-date-range');
+    const v = sel ? sel.value : '7';
+    const now = new Date();
+    const today = new Date(now); today.setHours(0,0,0,0);
+    const endOfToday = today.getTime() + 86400000 - 1;
+    if (v === 'today') {
+      _dateRangeStart = today.getTime();
+      _dateRangeEnd   = endOfToday;
+    } else if (v === 'yesterday') {
+      _dateRangeStart = today.getTime() - 86400000;
+      _dateRangeEnd   = today.getTime() - 1;
+    } else if (v === '7' || v === '14' || v === '30' || v === '90' || v === '120') {
+      _dateRangeStart = today.getTime() - (parseInt(v, 10) - 1) * 86400000;
+      _dateRangeEnd   = endOfToday;
+    } else if (v === 'year') {
+      _dateRangeStart = new Date(now.getFullYear(), 0, 1).getTime();
+      _dateRangeEnd   = endOfToday;
+    } else if (v === 'custom') {
+      const f = document.getElementById('r-date-from');
+      const t = document.getElementById('r-date-to');
+      if (f && f.value) _dateRangeStart = new Date(f.value + 'T00:00:00').getTime();
+      if (t && t.value) _dateRangeEnd   = new Date(t.value + 'T23:59:59.999').getTime();
+    } // else 'all' → both null
+  })();
+
   const hourCounts = new Array(24).fill(0);
   filtered.forEach(r => {
     if (!r.last_contact) return;
     const d = new Date(r.last_contact);
     if (isNaN(d.getTime())) return;
+    // Apply date range
+    if (_dateRangeStart != null && d.getTime() < _dateRangeStart) return;
+    if (_dateRangeEnd   != null && d.getTime() > _dateRangeEnd)   return;
+    // Apply list filter
+    if (_hourListAllowed && _hourListAllowed.size < _hourListCbs.length) {
+      const p = r.property_id ? cache.properties[r.property_id] : null;
+      const rowLists = p ? (p._lists || []) : [];
+      const inSelected = rowLists.some(lid => _hourListAllowed.has(lid));
+      if (!inSelected) return;
+    }
     hourCounts[d.getHours()]++;
   });
   const maxH = Math.max(1, ...hourCounts);
@@ -32716,13 +32967,57 @@ function renderResults() {
   document.getElementById('r-peak').textContent = peakCount > 0
     ? (peakHour === 0 ? '12a' : peakHour < 12 ? peakHour + 'a' : peakHour === 12 ? '12p' : (peakHour - 12) + 'p')
     : '—';
+
+  // ---- Call Volume By Day of Week (Sun=0..Sat=6, same list + date filters) ----
+  const dowCounts = new Array(7).fill(0);
+  filtered.forEach(r => {
+    if (!r.last_contact) return;
+    const d = new Date(r.last_contact);
+    if (isNaN(d.getTime())) return;
+    // Apply date range filter (set above hour chart)
+    if (_dateRangeStart != null && d.getTime() < _dateRangeStart) return;
+    if (_dateRangeEnd   != null && d.getTime() > _dateRangeEnd)   return;
+    // Apply list filter (same as hour)
+    if (_hourListAllowed && _hourListAllowed.size < _hourListCbs.length) {
+      const p = r.property_id ? cache.properties[r.property_id] : null;
+      const rowLists = p ? (p._lists || []) : [];
+      const inSelected = rowLists.some(lid => _hourListAllowed.has(lid));
+      if (!inSelected) return;
+    }
+    dowCounts[d.getDay()]++;
+  });
+  const maxDow = Math.max(1, ...dowCounts);
+  const peakDowCount = Math.max(...dowCounts);
+  const peakDowIdx = dowCounts.indexOf(peakDowCount);
+  const dowNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const peakDowLabelEl = document.getElementById('r-day-peak');
+  if (peakDowLabelEl) {
+    peakDowLabelEl.textContent = peakDowCount > 0
+      ? dowNames[peakDowIdx] + ' (' + peakDowCount + ')'
+      : '—';
+  }
+  const dowHisto = document.getElementById('r-day-histogram');
+  if (dowHisto) {
+    dowHisto.innerHTML = dowCounts.map((c, i) => {
+      const pct = (c / maxDow) * 100;
+      const isPeak = (c === peakDowCount && peakDowCount > 0);
+      const color = isPeak ? '#ef4444' : 'var(--brand)';
+      const label = c > 0 ? `<span style="position:absolute;top:4px;left:0;right:0;text-align:center;color:#fff;font-size:12px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,0.4);pointer-events:none">${c}</span>` : '';
+      return `<div title="${dowNames[i]}: ${c} call${c === 1 ? '' : 's'}" style="position:relative;background:${color};opacity:${c > 0 ? '0.85' : '0.15'};height:${Math.max(8, pct)}%;border-radius:4px 4px 0 0;cursor:default">${label}</div>`;
+    }).join('');
+  }
   const histo = document.getElementById('r-histogram');
   if (histo) {
     histo.innerHTML = hourCounts.map((c, h) => {
       const pct = (c / maxH) * 100;
       const isPeak = (c === peakCount && peakCount > 0);
       const color = isPeak ? '#ef4444' : 'var(--brand)';
-      return `<div title="${h}:00 — ${c} calls" style="background:${color};height:${Math.max(2, pct)}%;border-radius:3px 3px 0 0;opacity:${c===0?0.15:0.85}"></div>`;
+      // Inline count — only show when bar is tall enough (≥ 20% of max) to fit
+      // the number without crowding. Smaller bars rely on the hover tooltip.
+      const label = (c > 0 && pct >= 20)
+        ? `<span style="position:absolute;top:1px;left:0;right:0;text-align:center;color:#fff;font-size:9px;font-weight:700;text-shadow:0 1px 1px rgba(0,0,0,0.5);pointer-events:none">${c}</span>`
+        : '';
+      return `<div title="${h}:00 — ${c} call${c===1?'':'s'}" style="position:relative;background:${color};height:${Math.max(2, pct)}%;border-radius:3px 3px 0 0;opacity:${c===0?0.15:0.85}">${label}</div>`;
     }).join('');
   }
 
@@ -33017,7 +33312,21 @@ function renderResults() {
         ? `<a href="${escapeHtml(r.conversation_file)}" target="_blank" rel="noopener" class="btn btn-ghost text-xs" title="Play recording" style="padding:3px 6px">🔊</a>`
         : '';
       const disp = canonicalizeDisp(r.disposition) || '—';
+      const channel = (r.channel || 'unknown').toLowerCase();
+      const chColors = { calling: '#3b82f6', mail: '#10b981', sms: '#a78bfa', unknown: '#6b7280' };
+      const chBg     = chColors[channel] || chColors.unknown;
+      // Native <select> styled to match the row — cleaner than a raw form control.
+      // Browser-native dropdown menu does overlap when open (unavoidable), but the
+      // closed chip itself reads cleanly.
       return `<tr>
+        <td style="vertical-align:middle">
+          <select onchange="setResultChannel('${r.id}', this.value)" style="background:${chBg}22;color:${chBg};border:1px solid ${chBg}66;border-radius:8px;padding:5px 8px;font-size:11px;font-weight:600;cursor:pointer;width:100%;text-align-last:center;appearance:none;-webkit-appearance:none;outline:none;line-height:1.3" title="Change channel">
+            <option value="calling" ${channel==='calling'?'selected':''}>📞 Calling</option>
+            <option value="mail"    ${channel==='mail'?'selected':''}>📬 Mail</option>
+            <option value="sms"     ${channel==='sms'?'selected':''}>💬 SMS</option>
+            <option value="unknown" ${channel==='unknown'?'selected':''}>? Unknown</option>
+          </select>
+        </td>
         <td><span class="disp-pill ${dispClass(disp)}">${escapeHtml(disp)}</span></td>
         <td class="col-name">${escapeHtml([r.first_name, r.last_name].filter(Boolean).join(' ') || '—')}</td>
         <td>

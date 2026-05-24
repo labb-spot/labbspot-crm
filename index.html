@@ -3763,7 +3763,10 @@
     <div class="panel p-5">
       <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
         <div>
-          <div class="font-semibold text-lg">🔥 Hot</div>
+          <div class="font-semibold text-lg flex items-center gap-2">
+            🔥 Hot
+            <span id="uw-hot-header-count" style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(239,68,68,0.15);color:#fca5a5;letter-spacing:0.3px" title="Hot deals that have moved past Needed (Sent / Rejected / Accepted / Pending / Inspection / Contracted / Closed / Dropped) out of total Hot.">—</span>
+          </div>
           <div class="text-sm text-[var(--text-dim)]">Max Offer within $15k or 25% of Asking.</div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
@@ -7679,7 +7682,7 @@ function goUwView(v) {
   // view — eligible for active-tab styling and Back-button restoration.
   if (v === 'all' || v === 'analyzing' || v === 'analyzed' || v === 'help' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps') {
     document.querySelectorAll('#section-underwriting .subtab').forEach(t => t.classList.toggle('active', t.dataset.uwview === v));
-    if (v === 'all' || v === 'analyzing' || v === 'analyzed' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps') _uwLastListView = v;
+    if (v === 'all' || v === 'analyzing' || v === 'analyzed' || v === 'priority' || v === 'checking' || v === 'help' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps') _uwLastListView = v;
   }
   document.querySelectorAll('#section-underwriting .uwview').forEach(el => el.style.display = 'none');
   const target = document.getElementById('uwview-' + v);
@@ -24530,6 +24533,13 @@ function renderUnderwriteList() {
     const _offeredCount = analyzed.filter(u => _offeredOut.has(_offerStatusOf(u))).length;
     dHeader.textContent = _offeredCount.toLocaleString() + ' / ' + analyzed.length.toLocaleString() + ' Offered';
   }
+  // Same shape for Hot — uses the `hot` array computed above (line 24502).
+  const hHeader = document.getElementById('uw-hot-header-count');
+  if (hHeader && typeof hot !== 'undefined') {
+    const _offeredOutHot = new Set(['Sent','Rejected','Accepted','Pending','Inspection','Contracted','Closed','Dropped']);
+    const _offeredCountHot = hot.filter(u => _offeredOutHot.has(_offerStatusOf(u))).length;
+    hHeader.textContent = _offeredCountHot.toLocaleString() + ' / ' + hot.length.toLocaleString() + ' Offered';
+  }
   const hCount = document.getElementById('uw-help-count');
   if (hCount) {
     hCount.textContent = needsHelp.length.toLocaleString();
@@ -32700,12 +32710,31 @@ async function logMailContactForProperty(propId) {
 
   // 1) Insert a Result row tied to this property (channel=mail, dispo=motivated, no phone).
   const nowIso = new Date().toISOString();
+  // Pull a sensible name from whichever field the property has.
+  // Properties can store name as:
+  //   • first_name + last_name (preferred)
+  //   • full_name "First Last" (parse it)
+  //   • company "Acme LLC" (use as first_name when no person name exists)
+  let _firstName = p.first_name || null;
+  let _lastName  = p.last_name  || null;
+  if (!_firstName && !_lastName && p.full_name) {
+    const parts = String(p.full_name).trim().split(/\s+/);
+    if (parts.length === 1) {
+      _firstName = parts[0];
+    } else if (parts.length > 1) {
+      _firstName = parts[0];
+      _lastName  = parts.slice(1).join(' ');
+    }
+  }
+  if (!_firstName && !_lastName && p.company) {
+    _firstName = p.company;  // fall back to company name in first_name slot
+  }
   const resultRow = {
     id: uid(),
     property_id: propId,
     phone: null,
-    first_name: p.first_name || null,
-    last_name:  p.last_name  || null,
+    first_name: _firstName,
+    last_name:  _lastName,
     address: p.street || null,
     city:    p.city   || null,
     state:   p.state  || null,
@@ -33137,7 +33166,7 @@ function renderResults() {
       const color = isPeak ? '#ef4444' : 'var(--brand)';
       const mot = dowMotivated[i] || 0;
       const motPct = c > 0 ? (mot / c) * 100 : 0;
-      const motInner = mot > 0 ? `<div title="${mot} motivated of ${c}" style="position:absolute;left:0;right:0;bottom:0;background:#10b981;height:${motPct}%;border-radius:0 0 4px 4px;pointer-events:none"></div>` : '';
+      const motInner = mot > 0 ? `<div title="${mot} motivated of ${c}" style="position:absolute;left:0;right:0;bottom:0;background:#10b981;height:${motPct}%;border-radius:4px 4px 0 0;pointer-events:none"></div>` : '';
       const label = c > 0 ? `<span style="position:absolute;top:4px;left:0;right:0;text-align:center;color:#fff;font-size:12px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,0.4);pointer-events:none">${c}${mot > 0 ? ' <span style=\"color:#86efac;font-size:10px\">(' + mot + ')</span>' : ''}</span>` : '';
       return `<div title="${dowNames[i]}: ${c} call${c === 1 ? '' : 's'} (${mot} motivated)" style="position:relative;background:${color};opacity:${c > 0 ? '0.85' : '0.15'};height:${Math.max(8, pct)}%;border-radius:4px 4px 0 0;cursor:default">${motInner}${label}</div>`;
     }).join('');
@@ -33199,7 +33228,7 @@ function renderResults() {
       const color = isPeak ? '#ef4444' : 'var(--brand)';
       const mot = monthMotivated[i] || 0;
       const motPct = c > 0 ? (mot / c) * 100 : 0;
-      const motInner = mot > 0 ? `<div title="${mot} motivated of ${c}" style="position:absolute;left:0;right:0;bottom:0;background:#10b981;height:${motPct}%;border-radius:0 0 4px 4px;pointer-events:none"></div>` : '';
+      const motInner = mot > 0 ? `<div title="${mot} motivated of ${c}" style="position:absolute;left:0;right:0;bottom:0;background:#10b981;height:${motPct}%;border-radius:4px 4px 0 0;pointer-events:none"></div>` : '';
       const label = c > 0 ? `<span style="position:absolute;top:4px;left:0;right:0;text-align:center;color:#fff;font-size:11px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,0.4);pointer-events:none">${c}${mot > 0 ? ' <span style=\"color:#86efac;font-size:9px\">(' + mot + ')</span>' : ''}</span>` : '';
       return `<div title="${monthNames[i]}: ${c} call${c === 1 ? '' : 's'} (${mot} motivated)" style="position:relative;background:${color};opacity:${c > 0 ? '0.85' : '0.15'};height:${Math.max(8, pct)}%;border-radius:4px 4px 0 0;cursor:default">${motInner}${label}</div>`;
     }).join('');
@@ -33214,7 +33243,7 @@ function renderResults() {
       // Motivated inner bar — green chunk at the BOTTOM of the bar showing
       // motivated count as a fraction of total in that bucket.
       const motPct = c > 0 ? (mot / c) * 100 : 0;
-      const motInner = mot > 0 ? `<div title="${mot} motivated of ${c}" style="position:absolute;left:0;right:0;bottom:0;background:#10b981;height:${motPct}%;border-radius:0 0 3px 3px;pointer-events:none"></div>` : '';
+      const motInner = mot > 0 ? `<div title="${mot} motivated of ${c}" style="position:absolute;left:0;right:0;bottom:0;background:#10b981;height:${motPct}%;border-radius:3px 3px 0 0;pointer-events:none"></div>` : '';
       const label = (c > 0 && pct >= 20)
         ? `<span style="position:absolute;top:1px;left:0;right:0;text-align:center;color:#fff;font-size:9px;font-weight:700;text-shadow:0 1px 1px rgba(0,0,0,0.5);pointer-events:none;line-height:1.1">${c}${mot > 0 ? '<br><span style=\"color:#86efac;font-size:8px\">' + mot + '</span>' : ''}</span>`
         : '';
@@ -33618,9 +33647,87 @@ async function deleteResult(id) {
   }
 }
 function editResult(id) {
-  // Edit modal wasn't restored; for now just show a toast
-  if (typeof toast === 'function') toast('Result editing rebuilds in a future update', 'warn');
+  const r = (cache.results || {})[id];
+  if (!r) { if (typeof toast === 'function') toast('Result not found', 'err'); return; }
+  // Open the same modal used for Add Result, then re-skin it for Edit + pre-fill.
+  if (typeof openAddResultModal === 'function') openAddResultModal();
+  // Re-skin: title + save button + bind edit-specific submit
+  const m = document.getElementById('addResultModal');
+  if (!m) return;
+  const titleEl = m.querySelector('h2');
+  if (titleEl) titleEl.textContent = '✏️ Edit Result';
+  const saveBtn = m.querySelector('button[onclick*="submitAddResult"]');
+  if (saveBtn) {
+    saveBtn.setAttribute('onclick', `submitEditResult('${id}')`);
+    saveBtn.textContent = 'Save Changes';
+  }
+  // Pre-fill fields
+  const set = (eid, val) => { const el = document.getElementById(eid); if (el) el.value = val == null ? '' : val; };
+  set('ar-phone', r.phone || '');
+  set('ar-first', r.first_name || '');
+  set('ar-last',  r.last_name  || '');
+  set('ar-addr',  r.address    || '');
+  set('ar-city',  r.city       || '');
+  set('ar-state', r.state      || '');
+  set('ar-zip',   r.zip        || '');
+  set('ar-channel', (r.channel || 'unknown').toLowerCase());
+  set('ar-disp',  (r.disposition || 'motivated').toLowerCase());
+  // Time → datetime-local format
+  if (r.last_contact) {
+    const d = new Date(r.last_contact);
+    if (!isNaN(d.getTime())) {
+      const pad = (n) => String(n).padStart(2, '0');
+      const localStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      set('ar-time', localStr);
+    }
+  }
+  // Notes — pull from raw_row.notes if it was set via manual add
+  set('ar-notes', (r.raw_row && r.raw_row.notes) || '');
+  // List/source — best guess from property's lists (first one if present)
+  const p = r.property_id ? (cache.properties || {})[r.property_id] : null;
+  const listSel = document.getElementById('ar-list');
+  if (listSel && p && Array.isArray(p._lists) && p._lists.length) {
+    listSel.value = p._lists[0];
+  }
 }
+window.editResult = editResult;
+
+async function submitEditResult(id) {
+  const r = (cache.results || {})[id];
+  if (!r) { toast('Result missing', 'err'); return; }
+  const get = (eid) => (document.getElementById(eid)?.value || '').trim();
+  const phone = get('ar-phone') ? (typeof normalizePhone === 'function' ? normalizePhone(get('ar-phone')) : get('ar-phone')) : null;
+  const timeRaw = get('ar-time');
+  let lastContactIso = r.last_contact;
+  if (timeRaw) {
+    const d = new Date(timeRaw);
+    if (!isNaN(d.getTime())) lastContactIso = d.toISOString();
+  }
+  const patch = {
+    phone, first_name: get('ar-first'), last_name: get('ar-last'),
+    address: get('ar-addr'), city: get('ar-city'), state: get('ar-state'),
+    zip: (typeof normalizeZip === 'function' ? normalizeZip(get('ar-zip')) : get('ar-zip')),
+    channel: get('ar-channel') || 'unknown',
+    disposition: get('ar-disp') || 'motivated',
+    last_contact: lastContactIso,
+  };
+  // Preserve + update notes in raw_row
+  const newNotes = get('ar-notes');
+  if (newNotes || (r.raw_row && r.raw_row.notes != null)) {
+    const baseRaw = (r.raw_row && typeof r.raw_row === 'object') ? r.raw_row : {};
+    patch.raw_row = Object.assign({}, baseRaw, { notes: newNotes, _edited_at: new Date().toISOString() });
+  }
+  try {
+    const { error } = await sb.from('results').update(patch).eq('id', id);
+    if (error) { toast('Save failed: ' + error.message, 'err'); return; }
+    // Update cache + re-render
+    Object.assign(cache.results[id], patch);
+    document.getElementById('addResultModal').style.display = 'none';
+    toast('Result updated.', 'ok');
+    if (typeof renderResults === 'function') renderResults();
+  } catch (e) { toast('Save failed', 'err'); console.warn(e); }
+}
+window.submitEditResult = submitEditResult;
 
 
 

@@ -29092,6 +29092,7 @@ function renderProperties() {
       <td onclick="openPropertyDetail('${p.id}')">${p._phones?.length||0}</td>
       <td onclick="openPropertyDetail('${p.id}')">${listNames}</td>
       <td><div style="display:inline-flex;gap:4px;align-items:center;white-space:nowrap">
+        <button onclick="event.stopPropagation(); logMailContactForProperty('${p.id}')" title="📬 Log a mail contact (motivated, channel = mail). Also sends this property to ⭐ Priority underwriting. Phone can be added later." style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;border:1px solid #10b981;cursor:pointer;background:rgba(16,185,129,0.10);color:#10b981;font-size:14px">📬</button>
         <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([p.street,p.city,p.state,p.zip].filter(Boolean).join(', '))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;border:1px solid var(--border);cursor:pointer"><span style="font-weight:700;font-size:14px;background:linear-gradient(135deg,#4285F4,#EA4335,#FBBC05,#34A853);-webkit-background-clip:text;-webkit-text-fill-color:transparent">G</span></a>
         <a href="https://www.zillow.com/homes/${encodeURIComponent([p.street,p.city,p.state,p.zip].filter(Boolean).join(', ').replace(/\s+/g,'-'))}_rb/" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;border:1px solid var(--border);cursor:pointer;font-weight:700;font-size:14px;color:#006AFF">Z</a>
         <button onclick="event.stopPropagation(); deleteProperty('${p.id}')" title="Delete" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;border:1px solid var(--border);cursor:pointer;color:#f87171;background:none;font-size:14px">✕</button>
@@ -32691,6 +32692,97 @@ async function cycleResultChannel(id, btn) {
   return setResultChannel(id, next);
 }
 window.cycleResultChannel = cycleResultChannel;
+
+async function logMailContactForProperty(propId) {
+  if (!propId) return;
+  const p = cache.properties && cache.properties[propId];
+  if (!p) { toast('Property not found.', 'err'); return; }
+
+  // 1) Insert a Result row tied to this property (channel=mail, dispo=motivated, no phone).
+  const nowIso = new Date().toISOString();
+  const resultRow = {
+    id: uid(),
+    property_id: propId,
+    phone: null,
+    first_name: p.first_name || null,
+    last_name:  p.last_name  || null,
+    address: p.street || null,
+    city:    p.city   || null,
+    state:   p.state  || null,
+    zip:     p.zip    || null,
+    channel: 'mail',
+    disposition: 'motivated',
+    last_contact: nowIso,
+    uploaded_at: nowIso,
+    raw_row: { _manual: true, source: 'property_mail_button' },
+  };
+  try {
+    const { error: rErr } = await sb.from('results').insert([resultRow]);
+    if (rErr) { toast('Result save failed: ' + rErr.message, 'err'); return; }
+    if (!cache.results) cache.results = {};
+    cache.results[resultRow.id] = resultRow;
+  } catch (e) { toast('Result save failed', 'err'); console.warn(e); return; }
+
+  // 2) Find / create an underwrite row for this address and mark it Priority.
+  const _normForMatch = (typeof normalizeAddress === 'function')
+    ? (raw) => (normalizeAddress(raw) || '').toLowerCase().trim()
+    : (raw) => String(raw || '').toLowerCase().trim();
+  const targetKey = _normForMatch(p.street || '');
+  let existingUw = null;
+  if (cache.underwrites && targetKey) {
+    for (const uw of Object.values(cache.underwrites)) {
+      if (_normForMatch(uw.address || '') === targetKey) { existingUw = uw; break; }
+    }
+  }
+  if (existingUw) {
+    // Flip on Priority flag (preserve other data fields)
+    existingUw.data = existingUw.data || {};
+    existingUw.data._isPriority = true;
+    existingUw.data._priorityHandled = true;
+    try {
+      const { error: uErr } = await sb.from('underwrites')
+        .update({ data: existingUw.data, updated_at: new Date().toISOString() })
+        .eq('id', existingUw.id);
+      if (uErr) { toast('Priority flag save failed: ' + uErr.message, 'err'); return; }
+    } catch (e) { toast('UW update failed', 'err'); console.warn(e); }
+  } else {
+    // Create a new underwrite row in Priority + Evaluating
+    const newId = uid();
+    const newRow = {
+      id: newId,
+      address: p.street || '',
+      city: p.city || null,
+      state: p.state || null,
+      zip: p.zip || null,
+      packet_status: 'Evaluating',
+      // Address fields must ALSO live in `data` (the JSONB blob) because the
+      // calculator reads from data['uw-address'] etc., not from the top-level
+      // columns. Without these, opening the deal shows blank inputs.
+      data: {
+        _isPriority: true,
+        _priorityHandled: true,
+        _sourceProperty: propId,
+        'uw-address': p.street || '',
+        'uw-city':    p.city   || '',
+        'uw-state':   p.state  || '',
+        'uw-zip':     p.zip    || '',
+      },
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+    try {
+      const { data: inserted, error: uErr } = await sb.from('underwrites').insert(newRow).select().maybeSingle();
+      if (uErr) { toast('Priority UW create failed: ' + uErr.message, 'err'); return; }
+      if (!cache.underwrites) cache.underwrites = {};
+      cache.underwrites[(inserted && inserted.id) || newId] = inserted || newRow;
+    } catch (e) { toast('UW insert failed', 'err'); console.warn(e); return; }
+  }
+
+  toast('📬 Mail logged + ⭐ Priority deal' + (existingUw ? ' updated' : ' created'), 'ok');
+  if (typeof renderResults === 'function') { try { renderResults(); } catch (_) {} }
+  if (typeof renderUnderwriteList === 'function') { try { renderUnderwriteList(); } catch (_) {} }
+}
+window.logMailContactForProperty = logMailContactForProperty;
 
 function setResultVerified(id, isVerified) {
   if (!id) return;

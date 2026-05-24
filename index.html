@@ -2016,17 +2016,17 @@
     <div class="overflow-auto" style="max-height:140vh">
       <table id="records-table">
         <colgroup>
-          <col style="width:140px" />
-          <col style="width:170px" />
-          <col />
-          <col style="width:70px" />
-          <col style="width:90px" />
-          <col style="width:140px" />
-          <col style="width:110px" />
-          <col style="width:150px" />
-          <col style="width:170px" />
-          <col style="width:280px" />
-          <col style="width:110px" />
+          <col style="width:60px" />   <!-- Verified -->
+          <col style="width:90px" />   <!-- Channel -->
+          <col style="width:115px" />  <!-- Disposition -->
+          <col style="width:115px" />  <!-- Name -->
+          <col />                       <!-- Address (auto-flex, takes the extra room) -->
+          <col style="width:105px" />  <!-- Phone -->
+          <col style="width:125px" />  <!-- Time -->
+          <col style="width:140px" />  <!-- Lists -->
+          <col style="width:115px" />  <!-- Flags -->
+          <col style="width:140px" />  <!-- Providers -->
+          <col style="width:80px" />   <!-- Actions (2-col vertical grid) -->
         </colgroup>
         <thead><tr>
           <th onclick="setResultsSort('verified')" style="cursor:pointer;text-align:center" title="Click to sort by verified status">✓ Verified <span class="rsort-ind" data-rsort-key="verified"></span></th>
@@ -33418,7 +33418,7 @@ function renderResults() {
           }).join('')
         : '<span class="text-xs text-[var(--text-dim)]">—</span>';
       const audio = r.conversation_file
-        ? `<a href="${escapeHtml(r.conversation_file)}" target="_blank" rel="noopener" class="btn btn-ghost text-xs" title="Play recording" style="padding:3px 6px">🔊</a>`
+        ? `<a href="${escapeHtml(r.conversation_file)}" target="_blank" rel="noopener" class="btn btn-ghost text-xs" title="Play recording" style="padding:0;width:30px;height:28px;display:inline-flex;align-items:center;justify-content:center">🔊</a>`
         : '';
       const disp = canonicalizeDisp(r.disposition) || '—';
       const channel = (r.channel || 'unknown').toLowerCase();
@@ -33448,23 +33448,31 @@ function renderResults() {
             <span>${escapeHtml(r.address || '—')}</span>
           </div>
           ${r.city ? `<div class="text-xs" style="color:var(--text-dim);margin-top:2px">${escapeHtml(r.city)}, ${escapeHtml(r.state||'')} ${escapeHtml(r.zip||'')}</div>` : ''}
-          <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
-            <button class="btn btn-ghost text-xs" onclick="matchOneRecordLocally('${r.id}')" title="Match this address to an existing property — no API call, free + fast" style="padding:2px 6px;line-height:1">🔗</button>
-            <button class="btn btn-ghost text-xs" onclick="geocodeOneRecord('${r.id}','census')" title="Geocode via US Census, then match" style="padding:2px 6px;line-height:1">🆓</button>
-            <button class="btn btn-ghost text-xs" onclick="geocodeOneRecord('${r.id}','google')" title="Geocode via Google (paid), then match" style="padding:2px 6px;line-height:1">🟢</button>
-            ${r.address ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([r.address,r.city,r.state,r.zip].filter(Boolean).join(', '))}" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:22px;border-radius:5px;border:1px solid var(--border);text-decoration:none"><span style="font-weight:700;font-size:12px;background:linear-gradient(135deg,#4285F4,#EA4335,#FBBC05,#34A853);-webkit-background-clip:text;-webkit-text-fill-color:transparent">G</span></a>` : ''}
-            ${r.address ? `<a href="https://www.zillow.com/homes/${encodeURIComponent([r.address,r.city,r.state,r.zip].filter(Boolean).join(', ').replace(/\s+/g,'-'))}_rb/" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:22px;border-radius:5px;border:1px solid var(--border);text-decoration:none;font-weight:700;font-size:12px;color:#006AFF">Z</a>` : ''}
-          </div>
         </td>
         <td class="col-phone">${r.phone ? formatPhone(r.phone) : '—'}</td>
         <td class="col-time" title="${escapeHtml(fullWhen)}">${escapeHtml(when)}</td>
         <td>${listChips}</td>
         <td>${flagChips}</td>
         <td>${vendorChips}</td>
-        <td class="col-actions">
-          ${audio}
-          <button class="btn btn-ghost text-xs" title="Edit" onclick="editResult('${r.id}')" style="padding:3px 6px">✏️</button>
-          <button class="btn btn-ghost text-xs" style="color:#f87171;padding:3px 6px" title="Delete" onclick="deleteResult('${r.id}')">🗑</button>
+        <td class="col-actions" style="vertical-align:middle;padding:4px 6px">
+          <div style="display:grid;grid-template-columns:30px 30px;grid-auto-rows:28px;gap:3px;justify-content:center;align-items:center;justify-items:center">
+            <!-- Row 1: Link match + Voice/Audio -->
+            <button class="btn btn-ghost text-xs" onclick="matchOneRecordLocally('${r.id}')" title="Match address to existing property (free, local)" style="padding:0;width:30px;height:28px;display:inline-flex;align-items:center;justify-content:center">🔗</button>
+            ${audio || '<span style="width:30px;height:28px;display:inline-block"></span>'}
+            <!-- Row 2: Zillow + Google Maps -->
+            ${r.address
+              ? `<a href="https://www.zillow.com/homes/${encodeURIComponent([r.address,r.city,r.state,r.zip].filter(Boolean).join(', ').replace(/\s+/g,'-'))}_rb/" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;border-radius:5px;border:1px solid var(--border);text-decoration:none;font-weight:700;font-size:12px;color:#006AFF">Z</a>`
+              : '<span style="width:30px;height:28px;display:inline-block"></span>'}
+            ${r.address
+              ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([r.address,r.city,r.state,r.zip].filter(Boolean).join(', '))}" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;border-radius:5px;border:1px solid var(--border);text-decoration:none"><span style="font-weight:700;font-size:12px;background:linear-gradient(135deg,#4285F4,#EA4335,#FBBC05,#34A853);-webkit-background-clip:text;-webkit-text-fill-color:transparent">G</span></a>`
+              : '<span style="width:30px;height:28px;display:inline-block"></span>'}
+            <!-- Row 3: Census geocode + Google Maps API geocode -->
+            <button class="btn btn-ghost text-xs" onclick="geocodeOneRecord('${r.id}','census')" title="Geocode via US Census (free)" style="padding:0;width:30px;height:28px;display:inline-flex;align-items:center;justify-content:center">🆓</button>
+            <button class="btn btn-ghost text-xs" onclick="geocodeOneRecord('${r.id}','google')" title="Geocode via Google API (paid)" style="padding:0;width:30px;height:28px;display:inline-flex;align-items:center;justify-content:center">🟢</button>
+            <!-- Row 4: Edit + Trash -->
+            <button class="btn btn-ghost text-xs" onclick="editResult('${r.id}')" title="Edit" style="padding:0;width:30px;height:28px;display:inline-flex;align-items:center;justify-content:center">✏️</button>
+            <button class="btn btn-ghost text-xs" onclick="deleteResult('${r.id}')" title="Delete" style="padding:0;width:30px;height:28px;display:inline-flex;align-items:center;justify-content:center;color:#f87171">🗑</button>
+          </div>
         </td>
       </tr>`;
     }).join('');

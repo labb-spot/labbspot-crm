@@ -1904,6 +1904,25 @@
         <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
       </div>
     </div>
+    <!-- ===== Call Volume By Month ===== -->
+    <div style="border-top:1px dashed var(--border);margin-top:18px;padding-top:14px">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <div class="font-semibold text-lg">🗓️ Call Volume By Month</div>
+          <div class="text-xs text-[var(--text-dim)]">Jan–Dec. Uses the Lists filter above. Use the year picker to scope a specific year, or pick All Years to combine.</div>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <select id="r-month-year" onchange="renderResults()" class="btn btn-ghost text-xs" style="padding:4px 10px;border:1px solid var(--border);background:var(--panel-2)" title="Filter by year">
+            <option value="">All years</option>
+          </select>
+          <span style="color:var(--text-dim)">Peak: <span id="r-month-peak" style="color:var(--text);font-weight:600">—</span></span>
+        </div>
+      </div>
+      <div id="r-month-histogram" style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end;height:140px;margin-top:12px"></div>
+      <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px;font-size:11px;color:var(--text-dim);margin-top:6px;text-align:center;font-weight:600">
+        <div>Jan</div><div>Feb</div><div>Mar</div><div>Apr</div><div>May</div><div>Jun</div><div>Jul</div><div>Aug</div><div>Sep</div><div>Oct</div><div>Nov</div><div>Dec</div>
+      </div>
+    </div>
   </div>
 
 
@@ -2000,6 +2019,7 @@
           <col style="width:140px" />
           <col style="width:170px" />
           <col />
+          <col style="width:70px" />
           <col style="width:90px" />
           <col style="width:140px" />
           <col style="width:110px" />
@@ -2009,6 +2029,7 @@
           <col style="width:110px" />
         </colgroup>
         <thead><tr>
+          <th onclick="setResultsSort('verified')" style="cursor:pointer;text-align:center" title="Click to sort by verified status">✓ Verified <span class="rsort-ind" data-rsort-key="verified"></span></th>
           <th onclick="setResultsSort('channel')" style="cursor:pointer" title="Click to sort by channel">Channel <span class="rsort-ind" data-rsort-key="channel"></span></th>
           <th onclick="setResultsSort('disposition')" style="cursor:pointer" title="Click to sort">Disposition <span class="rsort-ind" data-rsort-key="disposition"></span></th>
           <th onclick="setResultsSort('name')" style="cursor:pointer" title="Click to sort">Name <span class="rsort-ind" data-rsort-key="name"></span></th>
@@ -32671,6 +32692,20 @@ async function cycleResultChannel(id, btn) {
 }
 window.cycleResultChannel = cycleResultChannel;
 
+function setResultVerified(id, isVerified) {
+  if (!id) return;
+  // Optimistic update — flip in cache; no full re-render (same pattern as channel).
+  if (cache.results && cache.results[id]) cache.results[id].verified = isVerified;
+  // Fire Supabase save in background
+  sb.from('results').update({ verified: isVerified }).eq('id', id).then(({ error }) => {
+    if (error) {
+      toast('Verified save failed: ' + error.message, 'err');
+      console.warn(error);
+    }
+  });
+}
+window.setResultVerified = setResultVerified;
+
 function setResultChannel(id, newChannel) {
   if (!id || !newChannel) return;
   const allowed = ['calling', 'mail', 'sms', 'unknown'];
@@ -32816,6 +32851,7 @@ function renderResults() {
   const keyFn = {
     disposition:  (r) => String(r.disposition || '').toLowerCase(),
     channel:      (r) => String(r.channel || 'unknown').toLowerCase(),
+    verified:     (r) => r.verified === true ? 1 : 0,
     name:         (r) => (String(r.first_name || '') + ' ' + String(r.last_name || '')).trim().toLowerCase(),
     address:      (r) => String(r.address || '').toLowerCase(),
     phone:        (r) => String(r.phone || ''),
@@ -32945,6 +32981,8 @@ function renderResults() {
   })();
 
   const hourCounts = new Array(24).fill(0);
+  const hourMotivated = new Array(24).fill(0);
+  const _isMot = (d) => typeof isMotivatedDisposition === 'function' && isMotivatedDisposition(d);
   filtered.forEach(r => {
     if (!r.last_contact) return;
     const d = new Date(r.last_contact);
@@ -32959,7 +32997,9 @@ function renderResults() {
       const inSelected = rowLists.some(lid => _hourListAllowed.has(lid));
       if (!inSelected) return;
     }
-    hourCounts[d.getHours()]++;
+    const hh = d.getHours();
+    hourCounts[hh]++;
+    if (_isMot(r.disposition)) hourMotivated[hh]++;
   });
   const maxH = Math.max(1, ...hourCounts);
   const peakCount = Math.max(...hourCounts);
@@ -32970,21 +33010,22 @@ function renderResults() {
 
   // ---- Call Volume By Day of Week (Sun=0..Sat=6, same list + date filters) ----
   const dowCounts = new Array(7).fill(0);
+  const dowMotivated = new Array(7).fill(0);
   filtered.forEach(r => {
     if (!r.last_contact) return;
     const d = new Date(r.last_contact);
     if (isNaN(d.getTime())) return;
-    // Apply date range filter (set above hour chart)
     if (_dateRangeStart != null && d.getTime() < _dateRangeStart) return;
     if (_dateRangeEnd   != null && d.getTime() > _dateRangeEnd)   return;
-    // Apply list filter (same as hour)
     if (_hourListAllowed && _hourListAllowed.size < _hourListCbs.length) {
       const p = r.property_id ? cache.properties[r.property_id] : null;
       const rowLists = p ? (p._lists || []) : [];
       const inSelected = rowLists.some(lid => _hourListAllowed.has(lid));
       if (!inSelected) return;
     }
-    dowCounts[d.getDay()]++;
+    const dw = d.getDay();
+    dowCounts[dw]++;
+    if (_isMot(r.disposition)) dowMotivated[dw]++;
   });
   const maxDow = Math.max(1, ...dowCounts);
   const peakDowCount = Math.max(...dowCounts);
@@ -33002,8 +33043,73 @@ function renderResults() {
       const pct = (c / maxDow) * 100;
       const isPeak = (c === peakDowCount && peakDowCount > 0);
       const color = isPeak ? '#ef4444' : 'var(--brand)';
-      const label = c > 0 ? `<span style="position:absolute;top:4px;left:0;right:0;text-align:center;color:#fff;font-size:12px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,0.4);pointer-events:none">${c}</span>` : '';
-      return `<div title="${dowNames[i]}: ${c} call${c === 1 ? '' : 's'}" style="position:relative;background:${color};opacity:${c > 0 ? '0.85' : '0.15'};height:${Math.max(8, pct)}%;border-radius:4px 4px 0 0;cursor:default">${label}</div>`;
+      const mot = dowMotivated[i] || 0;
+      const motPct = c > 0 ? (mot / c) * 100 : 0;
+      const motInner = mot > 0 ? `<div title="${mot} motivated of ${c}" style="position:absolute;left:0;right:0;bottom:0;background:#10b981;height:${motPct}%;border-radius:0 0 4px 4px;pointer-events:none"></div>` : '';
+      const label = c > 0 ? `<span style="position:absolute;top:4px;left:0;right:0;text-align:center;color:#fff;font-size:12px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,0.4);pointer-events:none">${c}${mot > 0 ? ' <span style=\"color:#86efac;font-size:10px\">(' + mot + ')</span>' : ''}</span>` : '';
+      return `<div title="${dowNames[i]}: ${c} call${c === 1 ? '' : 's'} (${mot} motivated)" style="position:relative;background:${color};opacity:${c > 0 ? '0.85' : '0.15'};height:${Math.max(8, pct)}%;border-radius:4px 4px 0 0;cursor:default">${motInner}${label}</div>`;
+    }).join('');
+  }
+
+  // ---- Call Volume By Month (Jan-Dec, honors Lists + year selector) ----
+  // Build the year dropdown options from years present in `filtered`.
+  const _monthYearSel = document.getElementById('r-month-year');
+  if (_monthYearSel) {
+    const years = new Set();
+    filtered.forEach(r => {
+      if (!r.last_contact) return;
+      const d = new Date(r.last_contact);
+      if (!isNaN(d.getTime())) years.add(d.getFullYear());
+    });
+    const sortedYears = Array.from(years).sort((a, b) => b - a);
+    const cur = _monthYearSel.value;
+    const sig = sortedYears.join(',');
+    if (_monthYearSel.dataset.opts !== sig) {
+      _monthYearSel.innerHTML = '<option value="">All years</option>' +
+        sortedYears.map(y => `<option value="${y}">${y}</option>`).join('');
+      _monthYearSel.dataset.opts = sig;
+      if (sortedYears.map(String).includes(cur)) _monthYearSel.value = cur;
+    }
+  }
+  const _selectedYear = _monthYearSel ? (_monthYearSel.value ? parseInt(_monthYearSel.value, 10) : null) : null;
+  const monthCounts = new Array(12).fill(0);
+  const monthMotivated = new Array(12).fill(0);
+  filtered.forEach(r => {
+    if (!r.last_contact) return;
+    const d = new Date(r.last_contact);
+    if (isNaN(d.getTime())) return;
+    if (_selectedYear != null && d.getFullYear() !== _selectedYear) return;
+    if (_hourListAllowed && _hourListAllowed.size < _hourListCbs.length) {
+      const p = r.property_id ? cache.properties[r.property_id] : null;
+      const rowLists = p ? (p._lists || []) : [];
+      const inSelected = rowLists.some(lid => _hourListAllowed.has(lid));
+      if (!inSelected) return;
+    }
+    const mo = d.getMonth();
+    monthCounts[mo]++;
+    if (_isMot(r.disposition)) monthMotivated[mo]++;
+  });
+  const maxMo = Math.max(1, ...monthCounts);
+  const peakMoCount = Math.max(...monthCounts);
+  const peakMoIdx = monthCounts.indexOf(peakMoCount);
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const _monthPeakEl = document.getElementById('r-month-peak');
+  if (_monthPeakEl) {
+    _monthPeakEl.textContent = peakMoCount > 0
+      ? monthNames[peakMoIdx] + ' (' + peakMoCount + ')'
+      : '—';
+  }
+  const moHisto = document.getElementById('r-month-histogram');
+  if (moHisto) {
+    moHisto.innerHTML = monthCounts.map((c, i) => {
+      const pct = (c / maxMo) * 100;
+      const isPeak = (c === peakMoCount && peakMoCount > 0);
+      const color = isPeak ? '#ef4444' : 'var(--brand)';
+      const mot = monthMotivated[i] || 0;
+      const motPct = c > 0 ? (mot / c) * 100 : 0;
+      const motInner = mot > 0 ? `<div title="${mot} motivated of ${c}" style="position:absolute;left:0;right:0;bottom:0;background:#10b981;height:${motPct}%;border-radius:0 0 4px 4px;pointer-events:none"></div>` : '';
+      const label = c > 0 ? `<span style="position:absolute;top:4px;left:0;right:0;text-align:center;color:#fff;font-size:11px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,0.4);pointer-events:none">${c}${mot > 0 ? ' <span style=\"color:#86efac;font-size:9px\">(' + mot + ')</span>' : ''}</span>` : '';
+      return `<div title="${monthNames[i]}: ${c} call${c === 1 ? '' : 's'} (${mot} motivated)" style="position:relative;background:${color};opacity:${c > 0 ? '0.85' : '0.15'};height:${Math.max(8, pct)}%;border-radius:4px 4px 0 0;cursor:default">${motInner}${label}</div>`;
     }).join('');
   }
   const histo = document.getElementById('r-histogram');
@@ -33012,12 +33118,15 @@ function renderResults() {
       const pct = (c / maxH) * 100;
       const isPeak = (c === peakCount && peakCount > 0);
       const color = isPeak ? '#ef4444' : 'var(--brand)';
-      // Inline count — only show when bar is tall enough (≥ 20% of max) to fit
-      // the number without crowding. Smaller bars rely on the hover tooltip.
+      const mot = hourMotivated[h] || 0;
+      // Motivated inner bar — green chunk at the BOTTOM of the bar showing
+      // motivated count as a fraction of total in that bucket.
+      const motPct = c > 0 ? (mot / c) * 100 : 0;
+      const motInner = mot > 0 ? `<div title="${mot} motivated of ${c}" style="position:absolute;left:0;right:0;bottom:0;background:#10b981;height:${motPct}%;border-radius:0 0 3px 3px;pointer-events:none"></div>` : '';
       const label = (c > 0 && pct >= 20)
-        ? `<span style="position:absolute;top:1px;left:0;right:0;text-align:center;color:#fff;font-size:9px;font-weight:700;text-shadow:0 1px 1px rgba(0,0,0,0.5);pointer-events:none">${c}</span>`
+        ? `<span style="position:absolute;top:1px;left:0;right:0;text-align:center;color:#fff;font-size:9px;font-weight:700;text-shadow:0 1px 1px rgba(0,0,0,0.5);pointer-events:none;line-height:1.1">${c}${mot > 0 ? '<br><span style=\"color:#86efac;font-size:8px\">' + mot + '</span>' : ''}</span>`
         : '';
-      return `<div title="${h}:00 — ${c} call${c===1?'':'s'}" style="position:relative;background:${color};height:${Math.max(2, pct)}%;border-radius:3px 3px 0 0;opacity:${c===0?0.15:0.85}">${label}</div>`;
+      return `<div title="${h}:00 — ${c} call${c===1?'':'s'} (${mot} motivated)" style="position:relative;background:${color};height:${Math.max(2, pct)}%;border-radius:3px 3px 0 0;opacity:${c===0?0.15:0.85}">${motInner}${label}</div>`;
     }).join('');
   }
 
@@ -33318,7 +33427,11 @@ function renderResults() {
       // Native <select> styled to match the row — cleaner than a raw form control.
       // Browser-native dropdown menu does overlap when open (unavoidable), but the
       // closed chip itself reads cleanly.
+      const verified = r.verified === true;
       return `<tr>
+        <td style="text-align:center;vertical-align:middle">
+          <input type="checkbox" ${verified ? 'checked' : ''} onchange="setResultVerified('${r.id}', this.checked)" title="Check when you've listened to the conversation / verified the result" style="width:18px;height:18px;cursor:pointer;accent-color:#10b981">
+        </td>
         <td style="vertical-align:middle">
           <select onchange="setResultChannel('${r.id}', this.value)" style="background:${chBg}22;color:${chBg};border:1px solid ${chBg}66;border-radius:8px;padding:5px 8px;font-size:11px;font-weight:600;cursor:pointer;width:100%;text-align-last:center;appearance:none;-webkit-appearance:none;outline:none;line-height:1.3" title="Change channel">
             <option value="calling" ${channel==='calling'?'selected':''}>📞 Calling</option>

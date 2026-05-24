@@ -32778,16 +32778,11 @@ async function logMailContactForProperty(propId) {
     }
   }
   if (existingUw) {
-    // Flip on Priority flag (preserve other data fields)
-    existingUw.data = existingUw.data || {};
-    existingUw.data._isPriority = true;
-    existingUw.data._priorityHandled = true;
-    try {
-      const { error: uErr } = await sb.from('underwrites')
-        .update({ data: existingUw.data, updated_at: new Date().toISOString() })
-        .eq('id', existingUw.id);
-      if (uErr) { toast('Priority flag save failed: ' + uErr.message, 'err'); return; }
-    } catch (e) { toast('UW update failed', 'err'); console.warn(e); }
+    // Match the calling rule: if an underwrite already exists at this address,
+    // LEAVE IT WHERE IT IS in the pipeline (Analyzing / Hot / Holdings / etc).
+    // Do NOT force the ⭐ Priority flag back on — that would bump deals the
+    // user has already triaged forward back to the top of the queue.
+    // No-op on the underwrite; we just logged the mail Result above.
   } else {
     // Create a new underwrite row in Priority + Evaluating
     const newId = uid();
@@ -32821,7 +32816,9 @@ async function logMailContactForProperty(propId) {
     } catch (e) { toast('UW insert failed', 'err'); console.warn(e); return; }
   }
 
-  toast('📬 Mail logged + ⭐ Priority deal' + (existingUw ? ' updated' : ' created'), 'ok');
+  toast(existingUw
+    ? '📬 Mail logged — deal kept in current stage'
+    : '📬 Mail logged + ⭐ Priority deal created', 'ok');
   if (typeof renderResults === 'function') { try { renderResults(); } catch (_) {} }
   if (typeof renderUnderwriteList === 'function') { try { renderUnderwriteList(); } catch (_) {} }
 }

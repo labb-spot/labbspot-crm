@@ -22210,11 +22210,11 @@ function _uwRenderPageNav(prefix, paged) {
 // Click the column header to cycle: desc → asc → off → desc.
 // Default is 'desc' (newest imported first) on every list — that's the
 // most useful starting view, especially right after a bulk import.
-const _uwImpSort = { all: 'off', analyzing: 'off', priority: 'off', checking: 'off', analyzed: 'off', help: 'off', hot: 'off', offered: 'off', inspection: 'off', contracted: 'off', closed: 'off' };
+const _uwImpSort = { all: 'desc', analyzing: 'desc', priority: 'desc', checking: 'desc', analyzed: 'desc', help: 'desc', hot: 'desc', offered: 'desc', inspection: 'desc', contracted: 'desc', closed: 'desc' };
 // Per-tab activation order. First-clicked sort is the PRIMARY (outermost),
 // subsequent clicks become tie-breakers in click order. Removed when toggled
 // back to 'off'. Example: ['imp','ask'] → primary = Imported, secondary = Asking.
-const _uwSortOrder = { all: [], analyzing: [], priority: [], checking: [], analyzed: [], help: [], hot: [], offered: [], inspection: [], contracted: [], closed: [] };
+const _uwSortOrder = { all: ['imp'], analyzing: ['imp'], priority: ['imp'], checking: ['imp'], analyzed: ['imp'], help: ['imp'], hot: ['imp'], offered: ['imp'], inspection: ['imp'], contracted: ['imp'], closed: ['imp'] };
 function _uwBumpSortOrder(prefix, key, isOn) {
   const arr = _uwSortOrder[prefix] || (_uwSortOrder[prefix] = []);
   const i = arr.indexOf(key);

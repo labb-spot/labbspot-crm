@@ -31494,10 +31494,17 @@ CREATE TABLE IF NOT EXISTS results (
   zip text DEFAULT '',
   phone text DEFAULT '',
   channel text DEFAULT '',
+  verified boolean DEFAULT false,
   last_contact timestamptz,
   raw_row jsonb,
   uploaded_at timestamptz DEFAULT now()
 );
+-- Ensure these columns exist on pre-existing tables created before they were added.
+-- Without these ALTERs, inserts that include 'channel' or 'verified' will fail with
+-- "Could not find the column 'X' of 'results' in the schema cache" — which silently
+-- drops manually-added Mail/Add Result rows on reload.
+ALTER TABLE results ADD COLUMN IF NOT EXISTS channel text DEFAULT '';
+ALTER TABLE results ADD COLUMN IF NOT EXISTS verified boolean DEFAULT false;
 ALTER TABLE results ENABLE ROW LEVEL SECURITY;
 -- Drop any pre-existing policy so re-running this is idempotent
 DROP POLICY IF EXISTS "anon_all_results" ON results;
@@ -32914,7 +32921,7 @@ function openAddResultModal() {
         </div>
         <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
           <button class="btn btn-ghost text-sm" onclick="document.getElementById('addResultModal').style.display='none'">Cancel</button>
-          <button class="btn text-sm" style="background:#10b981;color:white;border:1px solid #10b981" onclick="submitAddResult()">Save Result</button>
+          <button id="ar-save-btn" class="btn text-sm" style="background:#10b981;color:white;border:1px solid #10b981" data-mode="add" onclick="submitAddResult()">Save Result</button>
         </div>
       </div>`;
     document.body.appendChild(m);
@@ -32931,6 +32938,24 @@ function openAddResultModal() {
   const pad = (n) => String(n).padStart(2, '0');
   const tEl = document.getElementById('ar-time');
   if (tEl) tEl.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  // Reset modal back to ADD mode (in case a prior Edit re-skinned the title / save button).
+  // Without this, opening the modal after an edit would still call submitEditResult on the
+  // old id, which creates the appearance of dropped or overwritten rows.
+  const titleResetEl = m.querySelector('h2');
+  if (titleResetEl) titleResetEl.textContent = '➕ Add Result';
+  const saveResetBtn = document.getElementById('ar-save-btn');
+  if (saveResetBtn) {
+    saveResetBtn.setAttribute('onclick', 'submitAddResult()');
+    saveResetBtn.textContent = 'Save Result';
+    saveResetBtn.dataset.mode = 'add';
+    delete saveResetBtn.dataset.editId;
+  }
+  // Clear inputs (otherwise the modal opens with last-edited values pre-filled)
+  ['ar-phone','ar-first','ar-last','ar-addr','ar-city','ar-state','ar-zip','ar-notes'].forEach(eid => {
+    const el = document.getElementById(eid); if (el) el.value = '';
+  });
+  const chSel = document.getElementById('ar-channel'); if (chSel) chSel.value = 'mail';
+  const dpSel = document.getElementById('ar-disp');    if (dpSel) dpSel.value = 'motivated';
   m.style.display = 'flex';
 }
 window.openAddResultModal = openAddResultModal;
@@ -33659,16 +33684,21 @@ function editResult(id) {
   const r = (cache.results || {})[id];
   if (!r) { if (typeof toast === 'function') toast('Result not found', 'err'); return; }
   // Open the same modal used for Add Result, then re-skin it for Edit + pre-fill.
+  // openAddResultModal resets the save button back to "Add" mode first — so we then
+  // always re-skin it to Edit mode by stable id (NOT by querySelector on the prior
+  // onclick value, which silently fails for second+ edits and causes the next save
+  // to either dupe the row or overwrite the wrong record).
   if (typeof openAddResultModal === 'function') openAddResultModal();
-  // Re-skin: title + save button + bind edit-specific submit
   const m = document.getElementById('addResultModal');
   if (!m) return;
   const titleEl = m.querySelector('h2');
   if (titleEl) titleEl.textContent = '✏️ Edit Result';
-  const saveBtn = m.querySelector('button[onclick*="submitAddResult"]');
+  const saveBtn = document.getElementById('ar-save-btn');
   if (saveBtn) {
     saveBtn.setAttribute('onclick', `submitEditResult('${id}')`);
     saveBtn.textContent = 'Save Changes';
+    saveBtn.dataset.mode = 'edit';
+    saveBtn.dataset.editId = id;
   }
   // Pre-fill fields
   const set = (eid, val) => { const el = document.getElementById(eid); if (el) el.value = val == null ? '' : val; };

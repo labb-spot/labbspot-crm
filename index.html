@@ -622,7 +622,8 @@
   <div class="tab" data-section="marketing" onclick="goSection('marketing')">📣 Marketing</div>
   <div class="tab" data-section="reports" onclick="goSection('reports')">📝 Logs</div>
   <div class="tab" data-section="results" onclick="goSection('results')">📈 Results</div>
-  <div class="tab" data-section="underwriting" onclick="goSection('underwriting')">📐 Underwriting</div>
+  <div class="tab" data-section="underwriting" onclick="window._dispoReturnTo=null; if(typeof uwToggleDispoStageBar==='function') uwToggleDispoStageBar(); if(typeof uwBackToList==='function') uwBackToList(); goSection('underwriting')">📐 Underwriting</div>
+  <div class="tab" data-section="dispositions" onclick="goSection('dispositions')">🤝 Dispositions</div>
   <div class="tab" data-section="renovation" onclick="goSection('renovation')">🔨 Renovation</div>
   <div class="tab" data-section="holdings" onclick="goSection('holdings')">🏘️ Holdings</div>
   <div class="tab" data-section="photos" onclick="goSection('photos')" style="display:inline-flex;align-items:center;gap:6px"><span style="font-size:1em;line-height:1;transform:translateY(-1px)">📷</span><span>Photos</span></div>
@@ -2063,6 +2064,29 @@
 <!-- SECTION: Underwriting -->
 <div id="section-underwriting" class="section-content p-6" style="display:none">
 
+  <!-- Dispositions subtab bar — only visible when this deal was opened from
+       the Dispositions contracts grid. Clicking any subtab here CLEARS dispo
+       mode (this deal is being closed) and routes to Dispositions section. -->
+  <div id="uw-dispo-subtabs-row" class="flex items-center gap-2 mb-4" style="display:none;flex-wrap:wrap;min-width:0">
+    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('new-contract')"      title="Go to New Contract list.">📜 New Contract</div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('assigning-contract')" title="Go to Assigning Contract list.">🔁 Assigning Contract</div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('hot-contract')"       title="Go to Hot Contract list.">🔥 Hot Contract</div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('assigned-contract')"  title="Go to Assigned Contract list.">✅ Assigned Contract</div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('dead-contract')"      title="Go to Dead Contract list.">💀 Dead Contract</div>
+    </div>
+    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('recent')"      title="Go to New Buyers list.">🌱 New Buyers</div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('vetting')"     title="Go to Vetting Buyers list.">🔎 Vetting Buyers</div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('unknown')"     title="Go to Unknown Buyers list.">? Unknown Buyers</div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('qualified')"   title="Go to Qualified Buyers list."><span style="color:#10b981">✓</span> Qualified Buyers</div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('unqualified')" title="Go to Unqualified Buyers list."><span style="color:#f87171">✗</span> Unqualified Buyers</div>
+    </div>
+    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('per-deal')" title="Go to Per Deal view.">🎯 Per Deal</div>
+    </div>
+  </div>
+
   <!-- Top nav row — TWO disconnected panels on the same horizontal line:
        1) GIS Maps panel  — opens the GIS Maps subview (separate workflow,
           not part of the Help → Analyzing → ... pipeline)
@@ -2071,7 +2095,7 @@
        Both panels stay in ONE row that fits the viewport. The workflow
        strip uses tighter padding + a font-size tweak so all 10 tabs +
        GIS Maps fit on standard widescreens without scrolling. -->
-  <div class="flex items-center gap-2 mb-4" style="flex-wrap:nowrap;min-width:0">
+  <div id="uw-subtabs-row" class="flex items-center gap-2 mb-4" style="flex-wrap:nowrap;min-width:0">
     <!-- GIS Maps panel — its own pill, visually disconnected from the workflow tabs -->
     <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
       <div class="subtab subtab-compact" data-uwview="gis-maps" onclick="goUwView('gis-maps'); renderUnderwriteList();" title="GIS Maps — county assessor / GIS portal links you've collected, organized in one place.">🗺 GIS Maps</div>
@@ -2188,6 +2212,8 @@
            • Remove → shown when the deal IS routed to Renovation/Holdings -->
       <button class="btn text-sm" id="uw-add-to-reno-btn" onclick="uwAddToRenovation()" style="display:none;position:absolute;bottom:14px;right:14px;z-index:2;white-space:nowrap;background:#f97316;color:white;border:1px solid #f97316;font-weight:600" title="Send this property to the 🔨 Renovation tab. Only available when the Offer Status is Closed.">🔨 Add</button>
       <button class="btn btn-ghost text-sm" id="uw-remove-routing-btn" style="display:none;position:absolute;bottom:14px;right:14px;z-index:2;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromRouting()" title="Remove this deal from Renovation/Holdings (the deal stays in the 🏁 Finalized tab).">✕ Remove</button>
+      <!-- Dispositions Remove button — only visible when this deal was opened from the Dispositions contracts grid. Clears dispo_contract + routes back. -->
+      <button class="btn btn-ghost text-sm" id="uw-remove-dispo-btn" style="display:none;position:absolute;bottom:14px;right:14px;z-index:3;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromDispositions()" title="Remove this deal from Dispositions (clears the contract stage and returns you to the Dispositions section).">✕ Remove from Dispositions</button>
       <div class="flex items-start justify-between gap-3" style="flex-wrap:nowrap">
         <div class="flex items-start gap-3" style="min-width:0;flex-shrink:1">
           <button class="btn btn-ghost text-sm" onclick="uwBackToList()" title="Back to the list" style="flex-shrink:0">← Back</button>
@@ -2216,11 +2242,11 @@
                edges only. -->
           <div style="position:relative;display:inline-flex;flex-shrink:0;gap:0">
             <button class="btn btn-ghost text-sm" onclick="uwTogglePacketPricePopover()" style="white-space:nowrap;border:1px solid #6366f1;border-right:none;border-top-right-radius:0;border-bottom-right-radius:0;color:#a5b4fc" title="Click to override the asking price shown on the packet. Leave blank to use the auto-computed price (Cash Buyer MAO × 1.20).">📄</button>
-            <button class="btn btn-ghost text-sm" onclick="uwGenerateWholesalePacket()" style="white-space:nowrap;border:1px solid #6366f1;border-top-left-radius:0;border-bottom-left-radius:0;color:#a5b4fc" title="Generate a buyer-ready PDF packet with property info, comps, ARV, rent estimate, and scope of work.">Wholesale Packet</button>
-            <!-- Inline popover anchored to the button. Shown by uwTogglePacketPricePopover. -->
+            <button class="btn btn-ghost text-sm" onclick="uwGenerateWholesalePacket()" style="white-space:nowrap;border:1px solid #6366f1;border-top-left-radius:0;border-bottom-left-radius:0;color:#a5b4fc" title="Generate a buyer-ready PDF packet with property info, comps, ARV, rent estimate, and scope of work.">Packet</button>
+            <!-- Inline popover anchored to the split-button group. Toggled by uwTogglePacketPricePopover. -->
             <div id="uw-packet-price-popover" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:50;background:var(--panel);border:1px solid #6366f1;border-radius:8px;padding:12px 14px;min-width:260px;box-shadow:0 8px 24px rgba(0,0,0,0.45)">
               <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;font-weight:700">📄 Packet Asking Price</div>
-              <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;line-height:1.4">Override the asking price shown to buyers. Leave blank to use Cash Buyer MAO × 1.20. <b style="color:#a5b4fc">Packet-only — your underwriting math is unchanged.</b></div>
+              <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;line-height:1.4">Override the asking price shown to buyers. Leave blank to use Cash Flip Max × 1.20 (rounded to nearest $1,000). <b style="color:#a5b4fc">Packet-only — your underwriting math is unchanged.</b></div>
               <input type="text" inputmode="numeric" id="uw-packet-asking-override" oninput="(function(el){var raw=el.value.replace(/[^\d.]/g,'');var num=parseFloat(raw);el.value=isFinite(num)&&raw!==''?num.toLocaleString('en-US',{maximumFractionDigits:0}):raw;})(this);if(typeof _uwQueueAutosave==='function')_uwQueueAutosave();" placeholder="auto" style="width:100%;padding:7px 10px;background:var(--panel-2);border:1px solid #6366f1;color:#a5b4fc;border-radius:6px;font-size:15px;text-align:right;font-weight:700;font-family:monospace">
               <div style="display:flex;gap:6px;margin-top:10px">
                 <button class="btn btn-ghost text-xs" onclick="document.getElementById('uw-packet-asking-override').value='';if(typeof _uwQueueAutosave==='function')_uwQueueAutosave();" style="flex:1;color:var(--text-dim)" title="Clear the override and fall back to the auto-computed price">↺ Use Auto</button>
@@ -2228,6 +2254,13 @@
               </div>
             </div>
           </div>
+          <!-- Assign button — pushes this deal into Dispositions → New Contract
+               so the contract appears in the dispo workflow alongside any
+               others you've assigned. -->
+          <div style="position:relative;display:inline-flex;flex-shrink:0">
+            <button class="btn btn-ghost text-sm" onclick="uwAssignToDispositions()" style="white-space:nowrap;border:1px solid #10b981;color:#10b981" title="Mark this deal as a contract heading to dispositions. It'll show up under Dispositions → New Contract until you move it forward.">📤 Assign</button>
+          </div>
+
           <button class="btn btn-primary text-sm" onclick="uwSave(true)" style="white-space:nowrap;flex-shrink:0" title="Save now (auto-save also runs in the background a few seconds after each edit).">💾 Save Now</button>
         </div>
       </div>
@@ -2260,6 +2293,16 @@
           <button type="button" data-reno-phase-btn="mechanicals"  onclick="uwSetRenoPhase('mechanicals')"  style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">⚙️ Mechanicals &amp; Exterior</button>
           <button type="button" data-reno-phase-btn="cosmetics"    onclick="uwSetRenoPhase('cosmetics')"    style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🎨 Cosmetics</button>
           <button type="button" data-reno-phase-btn="punch-list"   onclick="uwSetRenoPhase('punch-list')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;white-space:nowrap;flex-shrink:0">✅ Punch List</button>
+        </div>
+        <!-- Dispositions stage selector — visible when this deal was opened
+             from the Dispositions contracts grid. Same visual pattern as the
+             Renovation phase mover above. -->
+        <div id="uw-dispo-stage-selector" style="display:none;align-items:center;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:11px;flex-shrink:0" title="Dispositions contract stage — click to move this deal between contract states.">
+          <button type="button" data-dispo-stage-btn="new"        onclick="uwSetDispoStage('new')"        style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">📜 New Contract</button>
+          <button type="button" data-dispo-stage-btn="assigning"  onclick="uwSetDispoStage('assigning')"  style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🔁 Assigning</button>
+          <button type="button" data-dispo-stage-btn="hot"        onclick="uwSetDispoStage('hot')"        style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🔥 Hot</button>
+          <button type="button" data-dispo-stage-btn="assigned"   onclick="uwSetDispoStage('assigned')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">✅ Assigned</button>
+          <button type="button" data-dispo-stage-btn="dead"       onclick="uwSetDispoStage('dead')"       style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;white-space:nowrap;flex-shrink:0">💀 Dead</button>
         </div>
         <!-- The "🔨 Add to Renovation" and "✕ Remove from Renovation" buttons
              both live OUTSIDE this row — absolutely positioned in the panel's
@@ -4453,7 +4496,6 @@
       <div class="subtab subtab-compact" data-renoview="lenders"     onclick="setRenoView('lenders')"     title="Lenders — your rolodex of banks, hard money sources, and private lenders with ratings, rates, and contact info.">🏦 Lenders</div>
       <div class="subtab subtab-compact" data-renoview="realtors"    onclick="setRenoView('realtors')"    title="Agents — your rolodex of real estate agents with ratings, brokerages, specialties, commission terms, and contact info.">🤝 Agents</div>
       <div class="subtab subtab-compact" data-renoview="attorneys"   onclick="setRenoView('attorneys')"   title="Attorneys — your rolodex of closing / eviction / contract attorneys with ratings, practice areas, fees, and contact info.">⚖️ Attorneys</div>
-      <div class="subtab subtab-compact" data-renoview="buyers"      onclick="setRenoView('buyers')"      title="Buyers — your rolodex of cash buyers and end-investors with ratings, buy criteria, funding type, and contact info.">💰 Buyers</div>
     </div>
   </div>
 
@@ -4883,6 +4925,59 @@
           <button class="btn btn-primary" onclick="attorneySaveNew()" id="attorney-add-save-btn" style="padding:11px 26px;font-size:15px;font-weight:600">💾 Save Attorney</button>
         </div>
       </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- SECTION: Dispositions -->
+<div id="section-dispositions" class="section-content p-6" style="display:none">
+  <!-- Top nav row — TWO disconnected panels on the same line. Mirrors the
+       Underwriting GIS-Maps / workflow split pattern.
+       Panel 1: status filters (Recently Added / Vetting / Unknown / Qualified / Unqualified)
+       Panel 2: Per Deal (separated — uses a different lookup model, namely zip-match) -->
+  <div class="flex items-center gap-2 mb-4" style="flex-wrap:wrap;min-width:0" id="dispo-subtabs">
+    <!-- Panel 0: Contracts. Separated pill on the left for contract-state views
+         that DON'T live in the buyer list — they list contracts/deals instead. -->
+    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
+      <div class="subtab subtab-compact" data-dispoview="new-contract"      onclick="setDispoView('new-contract')"      title="Brand-new contracts that just got signed.">📜 New Contract</div>
+      <div class="subtab subtab-compact" data-dispoview="assigning-contract" onclick="setDispoView('assigning-contract')" title="Contracts in the middle of being assigned to an end-buyer.">🔁 Assigning Contract</div>
+      <div class="subtab subtab-compact" data-dispoview="hot-contract"      onclick="setDispoView('hot-contract')"      title="Contracts getting heavy buyer interest right now — top priority to push.">🔥 Hot Contract</div>
+      <div class="subtab subtab-compact" data-dispoview="assigned-contract"  onclick="setDispoView('assigned-contract')"  title="Contracts already assigned to an end-buyer — waiting on the final closing.">✅ Assigned Contract</div>
+      <div class="subtab subtab-compact" data-dispoview="dead-contract"     onclick="setDispoView('dead-contract')"     title="Contracts that fell through.">💀 Dead Contract</div>
+    </div>
+    <!-- Panel 1: status filters. Click any one to scope the buyer list. -->
+    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
+      <div class="subtab subtab-compact active" data-dispoview="recent"      onclick="setDispoView('recent')"      title="Buyers added in the last 30 days, newest first.">🌱 New Buyers</div>
+      <div class="subtab subtab-compact"        data-dispoview="vetting"     onclick="setDispoView('vetting')"     title="Buyers you've started vetting but haven't finalized as Qualified or Unqualified yet.">🔎 Vetting Buyers</div>
+      <div class="subtab subtab-compact"        data-dispoview="unknown"     onclick="setDispoView('unknown')"     title="Buyers with no qualification status set yet.">? Unknown Buyers</div>
+      <div class="subtab subtab-compact"        data-dispoview="qualified"   onclick="setDispoView('qualified')"   title="Buyers you've vetted and approved as real / reliable."><span style="color:#10b981">✓</span> Qualified Buyers</div>
+      <div class="subtab subtab-compact"        data-dispoview="unqualified" onclick="setDispoView('unqualified')" title="Buyers you've ruled out."><span style="color:#f87171">✗</span> Unqualified Buyers</div>
+    </div>
+    <!-- Panel 2: Per Deal — separated pill like GIS Maps. Looks up buyers by
+         zip / city / county match against an open deal (or a typed zip). -->
+    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
+      <div class="subtab subtab-compact" data-dispoview="per-deal" onclick="setDispoView('per-deal')" title="Show buyers whose Cities / Counties / Zips list overlaps with a deal's zip code.">🎯 Per Deal</div>
+    </div>
+  </div>
+  <!-- Per Deal panel — shown only when the 'per-deal' subview is active.
+       Top: the currently-open deal's address.  Bottom: the single best-match
+       buyer for that deal (ranked by zip → city → county → state match, then
+       by acquisitions count). buyerRenderPerDealPanel() populates this. -->
+  <div id="dispo-perdeal-panel" class="panel p-5 mb-3" style="display:none">
+    <div id="dispo-perdeal-deal" style="font-size:14px;color:var(--text-dim)">No deal selected — open a deal in Underwriting first, then come back.</div>
+    <div id="dispo-perdeal-best" style="margin-top:14px"></div>
+  </div>
+  <!-- Contracts panel — shown when a contracts subview is active. Stays a
+       placeholder until you wire it to the underwrites/contracts table; the
+       title + helper text are swapped per active subtab. -->
+  <div id="dispo-contracts-panel" class="panel p-5 mb-3" style="display:none">
+    <div id="dispo-contracts-title" style="font-size:18px;font-weight:700">📜 New Contract</div>
+    <div id="dispo-contracts-help"  style="font-size:13px;color:var(--text-dim);margin-top:6px">Contracts that have just been signed but haven\'t moved to assignment yet.</div>
+    <div id="dispo-contracts-body"  style="margin-top:16px;padding:24px;text-align:center;color:var(--text-dim);background:var(--panel-2);border:1px dashed var(--border);border-radius:8px">
+      <div style="font-size:36px;margin-bottom:8px">📜</div>
+      <div style="font-size:14px">No contracts in this list yet.</div>
+      <div style="font-size:11px;margin-top:6px">This view will populate once contracts are wired up. Tell me what data you want to show here and I\'ll connect it.</div>
     </div>
   </div>
 
@@ -8539,10 +8634,17 @@ function uwNewDeal() {
 // DOM was moved into that section. Move it back and restore the H/R table
 // panel without leaving the section.
 function uwBackToList() {
+  // If the user came in from the Dispositions contracts grid, send them back
+  // there instead of the underwriting list.
+  if (window._dispoReturnTo === 'dispositions') {
+    window._dispoReturnTo = null;
+    if (typeof uwToggleDispoStageBar === 'function') uwToggleDispoStageBar();
+    if (typeof goSection === 'function') goSection('dispositions');
+    return;
+  }
   if (_hrLastSection === 'holdings' || _hrLastSection === 'renovation') {
     _hrUnmountCalculator();
     _hrLastSection = null;
-    // Re-render the list so any data changes the user made are reflected.
     if (typeof renderHoldingsList   === 'function') renderHoldingsList();
     if (typeof renderRenovationList === 'function') renderRenovationList();
     return;
@@ -10447,10 +10549,10 @@ function uwComputeExits(ctx) {
   // would pay = the wholesaler's ask).
   window._uwCashBuyerMAO = cashBuyerMAO;
   const wholesalePurchClose = cashBuyerMAO * (wholesaleClosingPct / 100);
-  const wholesaleProfit = Math.max(0, cashBuyerMAO - buyPrice);
+  let   wholesaleProfit = Math.max(0, cashBuyerMAO - buyPrice);
   window._3p_wholesale = wholesaleProfit;
   const wholesaleDays = 30; // typical assignment timeline
-  const wholesaleAnnualized = wholesaleProfit > 0 ? wholesaleProfit * (365 / wholesaleDays) : 0;
+  let   wholesaleAnnualized = wholesaleProfit > 0 ? wholesaleProfit * (365 / wholesaleDays) : 0;
 
   // ====== 2. WHOLETAIL ======
   // All assumptions are user-editable (see uw-input-bank → wt-* slots). The
@@ -10987,6 +11089,16 @@ function uwComputeExits(ctx) {
   const flHmOrig      = flHmLoan * (flHmOrigPct / 100);
   const flHmMonthlyInt = flHmLoan * (flHmRatePct / 100) / 12;
   const flHmTotalInt   = flHmMonthlyInt * flipMonths;
+  // ===== Financed Flip Max basis — hoisted so it can override wholesaleProfit
+  // BEFORE the cascade math runs. All inputs above are now defined. =====
+  const flFinBuyMaxBasis = flipSale - (flipRehabAmt + flPurchClosingTotal + flipHolding + flipSelling) - (flHmOrig + flHmTotalInt) - (typeof wsIdealProfit === 'number' ? wsIdealProfit : 0);
+  // Override the wholesale fee / profit so it's anchored to the Financed Flip
+  // Max baseline (matches wsBuyMax + headline Max Offer cascade). The original
+  // cashBuyerMAO-based number set above is replaced; downstream cascade gates
+  // (wholetail ≥ 2× wholesale, flip ≥ 3× wholesale, etc.) inherit the new value.
+  wholesaleProfit     = Math.max(0, flFinBuyMaxBasis - buyPrice);
+  window._3p_wholesale = wholesaleProfit;
+  wholesaleAnnualized = wholesaleProfit > 0 ? wholesaleProfit * (365 / wholesaleDays) : 0;
   // Cash vs financed differ ONLY by the financing-cost adjustments (origination + interest)
   const flipFinProfit     = flipCashProfit - flHmOrig - flHmTotalInt;
   window._3p_flipFin = flipFinProfit;
@@ -12225,7 +12337,10 @@ function uwComputeExits(ctx) {
     // razor-thin spread isn't worth doing. Require a $10k minimum
     // assignment-fee floor — that's the real "max all-in" for wholesale.
     const WS_MIN_FEE     = 10000;
-    const wsBuyMax       = cashBuyerMAO - WS_MIN_FEE;
+    // flFinBuyMaxBasis is hoisted earlier (right after flHmTotalInt) so it's
+    // available here AND can also override wholesaleProfit for the cascade.
+    // Wholesale Max = Financed Flip Max − $10K floor.
+    const wsBuyMax       = flFinBuyMaxBasis - WS_MIN_FEE;
     // ---- Wholetail: wholetailProfit ≥ 2 × wholesaleProfit
     //   wholetailSale - buy - wtRehab - wtHolding - wtPurchClose - wtSaleClose - wtAgents
     //     ≥ 2 × max(0, MAO - buy)
@@ -12307,8 +12422,9 @@ function uwComputeExits(ctx) {
         _commEl.style.color = 'var(--text-dim)';
         _commEl.title = 'Fills once Max Offer and Accepted (or Asking) Price are computed.';
       }
-    } else if (isFinite(cashBuyerMAO)) {
-      const newMaxOffer = cashBuyerMAO - 15000;
+    } else if (isFinite(flFinBuyMaxBasis)) {
+      // Headline = Financed Flip Max − $15K = Wholesale Max − $5K.
+      const newMaxOffer = flFinBuyMaxBasis - 15000;
       window._uwLastMaxOffer = newMaxOffer;
       const _maxEl = document.getElementById('uw-max');
       if (_maxEl) {
@@ -12316,7 +12432,7 @@ function uwComputeExits(ctx) {
           ? '$' + Math.round(newMaxOffer).toLocaleString()
           : '−$' + Math.round(Math.abs(newMaxOffer)).toLocaleString();
         _maxEl.style.color = newMaxOffer >= 0 ? '#10b981' : '#ef4444';
-        _maxEl.title = 'Cash Buyer Max Offer ' + fmt$(cashBuyerMAO) + ' − $15,000 wholesale fee = ' + fmt$(newMaxOffer);
+        _maxEl.title = 'Financed Flip Max ' + fmt$(flFinBuyMaxBasis) + ' − $15,000 (= Wholesale Max − $5,000) = ' + fmt$(newMaxOffer);
       }
       // ===== Suggested Offer = lower of (75% of Max Offer, 75% of Asking) =====
       // Conservative opener — never offers more than 75% of asking (so we
@@ -12749,7 +12865,7 @@ function uwComputeExits(ctx) {
       <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">📐 <b>Max all-in price for each exit to win</b> — assumes today's rehab + closing + holding stay fixed; only the buy price moves. The bottom line of each card explains why that exit does (✓) or doesn't (✗) qualify at today's numbers.</div>
       <!-- Row 1: One-time exits (Wholesale, Wholetail, Flip) -->
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
-        ${card('🤝', 'Wholesale',         wsBuyMax,     wsBuyMax,                   buyPrice,       'Buy ≤ MAO − $10k floor (MAO ' + fmt$(cashBuyerMAO) + ')',                  diag.wholesale,    _highlightCurrentBest('wholesale'))}
+        ${card('🤝', 'Wholesale',         wsBuyMax,     wsBuyMax,                   buyPrice,       'Buy ≤ Financed Flip Max − $10k floor (' + fmt$(flFinBuyMaxBasis) + ')',                  diag.wholesale,    _highlightCurrentBest('wholesale'))}
         ${card('🔨', 'Wholetail (cash)',   wtBuyMax,     wtBuyMax + wtCosts,         wtAllInToday,   '≥ 2× wholesale and within $30/sqft cap (after ' + fmt$(_wtIdeal) + ' ideal profit)',          diag.wholetail,    _highlightCurrentBest('wholetail'))}
         ${card('🔨', 'Wholetail (fin)',    wtFinBuyMax,  wtFinBuyMax + wtCosts,      wtAllInToday,   '≥ 2× wholesale and within $30/sqft cap · financed (after ' + fmt$(_wtIdeal) + ' ideal profit)', diag.wholetailFin, false)}
         ${card('🏗️', 'Flip (cash)',       flipBuyMax,   flipBuyMax + flipCosts,     flipAllInToday, 'Flip ≥ 3× wholesale OR ≥ 1.5× wholetail (with 2× wholesale floor)', diag.flip,         _highlightCurrentBest('flip'))}
@@ -21708,6 +21824,9 @@ window.uwSetRenoPhase = uwSetRenoPhase;
 function _uwUpdateRenoPhaseSelector() {
   const sel = document.getElementById('uw-reno-phase-selector');
   if (!sel) return;
+  // Dispo mode owns the calculator header bars — force the reno phase mover
+  // hidden so the two bars don't stack / overlap.
+  if (window._dispoReturnTo === 'dispositions') { sel.style.display = 'none'; return; }
   const u = _uwCurrentId ? ((cache.underwrites || {})[_uwCurrentId]) : null;
   const inReno = u && u.data && u.data._holdingStatus === 'renovation';
   if (!inReno) { sel.style.display = 'none'; return; }
@@ -21750,6 +21869,9 @@ window._uwUpdateRenoPhaseSelector = _uwUpdateRenoPhaseSelector;
 function _uwUpdateRemoveRoutingButton() {
   const btn = document.getElementById('uw-remove-routing-btn');
   if (!btn) return;
+  // Dispo mode owns the Remove button — force the routing one hidden so
+  // both Remove buttons don't overlap in the bottom-right corner.
+  if (window._dispoReturnTo === 'dispositions') { btn.style.display = 'none'; return; }
   const u = _uwCurrentId ? ((cache.underwrites || {})[_uwCurrentId]) : null;
   const hs = u && u.data && u.data._holdingStatus;
   if (hs === 'renovation') {
@@ -22903,8 +23025,7 @@ const _RENO_VIEW_CONFIG = {
   contractors: { wrap: 'reno-contractors-wrap', pill: 'contractors', load: 'loadContractors', render: 'renderContractorsList' },
   lenders:     { wrap: 'reno-lenders-wrap',     pill: 'lenders',     load: 'loadLenders',     render: 'renderLendersList' },
   realtors:    { wrap: 'reno-realtors-wrap',    pill: 'realtors',    load: 'loadRealtors',    render: 'renderRealtorsList' },
-  attorneys:   { wrap: 'reno-attorneys-wrap',   pill: 'attorneys',   load: 'loadAttorneys',   render: 'renderAttorneysList' },
-  buyers:      { wrap: 'reno-buyers-wrap',      pill: 'buyers',      load: 'loadBuyers',      render: 'renderBuyersList' }
+  attorneys:   { wrap: 'reno-attorneys-wrap',   pill: 'attorneys',   load: 'loadAttorneys',   render: 'renderAttorneysList' }
 };
 
 // Toggle the Renovation section's main content between the phase table and
@@ -22946,6 +23067,783 @@ function setRenoView(view) {
   }
 }
 window.setRenoView = setRenoView;
+
+// Active Dispositions subview. Each subview is a SCOPE for the buyer list:
+// recent / vetting / unknown / qualified / unqualified / per-deal.
+// All views render the SAME Buyers panel but with different filtering applied
+// inside renderBuyersList (see _dispoFilter usage there).
+let _dispoActiveView = 'new-contract';
+const _DISPO_VIEWS = ['recent','vetting','unknown','qualified','unqualified','per-deal','new-contract','assigning-contract','hot-contract','assigned-contract','dead-contract'];
+
+function setDispoView(view) {
+  _dispoActiveView = _DISPO_VIEWS.indexOf(view) >= 0 ? view : 'recent';
+  // Update visual active state across all pills.
+  document.querySelectorAll('#section-dispositions [data-dispoview]').forEach(p => {
+    p.classList.toggle('active', p.getAttribute('data-dispoview') === _dispoActiveView);
+  });
+  const isPerDeal   = (_dispoActiveView === 'per-deal');
+  const isContract  = (_dispoActiveView === 'new-contract' || _dispoActiveView === 'hot-contract' || _dispoActiveView === 'assigning-contract' || _dispoActiveView === 'assigned-contract' || _dispoActiveView === 'dead-contract');
+  // Show/hide three mutually-exclusive surfaces: buyer table / per-deal panel
+  // / contracts panel.
+  const wrap     = document.getElementById('reno-buyers-wrap');
+  const perPanel = document.getElementById('dispo-perdeal-panel');
+  const conPanel = document.getElementById('dispo-contracts-panel');
+  if (wrap)     wrap.style.display     = (isPerDeal || isContract) ? 'none' : '';
+  if (perPanel) perPanel.style.display = isPerDeal  ? '' : 'none';
+  if (conPanel) conPanel.style.display = isContract ? '' : 'none';
+  if (isContract) {
+    // Reskin the contracts panel header to match the active subtab.
+    const titleEl = document.getElementById('dispo-contracts-title');
+    const helpEl  = document.getElementById('dispo-contracts-help');
+    if (_dispoActiveView === 'new-contract') {
+      if (titleEl) titleEl.textContent = '📜 New Contract';
+      if (helpEl)  helpEl.textContent  = "Contracts that have just been signed but haven't moved to assignment yet.";
+    } else if (_dispoActiveView === 'hot-contract') {
+      if (titleEl) titleEl.textContent = '🔥 Hot Contract';
+      if (helpEl)  helpEl.textContent  = 'Contracts getting heavy buyer interest right now — top priority to push.';
+    } else if (_dispoActiveView === 'assigning-contract') {
+      if (titleEl) titleEl.textContent = '🔁 Assigning Contract';
+      if (helpEl)  helpEl.textContent  = 'Contracts in the middle of being assigned to an end-buyer.';
+    } else if (_dispoActiveView === 'assigned-contract') {
+      if (titleEl) titleEl.textContent = '✅ Assigned Contract';
+      if (helpEl)  helpEl.textContent  = "Contracts already assigned to an end-buyer — waiting on the final closing.";
+    } else {
+      if (titleEl) titleEl.textContent = '💀 Dead Contract';
+      if (helpEl)  helpEl.textContent  = 'Contracts that fell through.';
+    }
+    // Render the underwrites for whichever contract subview is active.
+    if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
+    return;
+  }
+  // Lazy-load buyers + render the relevant view.
+  if (typeof loadBuyers === 'function') {
+    loadBuyers().then(() => {
+      if (isPerDeal) {
+        if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+      } else if (typeof renderBuyersList === 'function') {
+        renderBuyersList();
+      }
+    });
+  }
+}
+window.setDispoView = setDispoView;
+window._dispoActiveView = _dispoActiveView;
+// Re-export the var so renderBuyersList can read the latest value (closures).
+function _getDispoActiveView() { return _dispoActiveView; }
+window._getDispoActiveView = _getDispoActiveView;
+
+// ------------------------------------------------------------
+// Per Deal panel — picks the best buyer for the currently-open deal.
+// ------------------------------------------------------------
+
+function _dispoCurrentDealInfo() {
+  // Pull deal info from whichever deal is loaded in Underwriting.
+  // Falls back to nothing if no deal is open.
+  const id = (typeof _uwCurrentId !== 'undefined') ? _uwCurrentId : null;
+  if (!id || !cache.underwrites || !cache.underwrites[id]) return null;
+  const u = cache.underwrites[id] || {};
+  const d = u.data || {};
+  // The address lives in u.address (top-level) most reliably. Zip + city +
+  // state + county can be parsed out of the address string or read from
+  // dedicated saved fields if present.
+  const address = String(u.address || d.address || d._address || '').trim();
+  const zip = (function () {
+    if (d.zip) return String(d.zip).trim();
+    const m = address.match(/\b(\d{5})(?:-\d{4})?\b/);
+    return m ? m[1] : '';
+  })();
+  const city = String(d.city || u.city || '').trim();
+  const state = String(d.state || u.state || '').trim();
+  const county = String(d.county || u.county || '').trim();
+  return { id, address, zip, city, state, county };
+}
+
+function _dispoScoreBuyer(buyer, deal) {
+  // Higher is better. Sum of weighted matches across zip / city / county / state.
+  if (!buyer || !deal) return 0;
+  let score = 0;
+  const includesCI = (arr, val) => {
+    if (!val) return false;
+    const lv = String(val).toLowerCase().trim();
+    if (!lv) return false;
+    return (Array.isArray(arr) ? arr : []).some(x => String(x).toLowerCase().trim() === lv);
+  };
+  if (deal.zip    && includesCI(buyer.zips,     deal.zip))    score += 1000;
+  if (deal.city   && includesCI(buyer.cities,   deal.city))   score += 200;
+  if (deal.county && includesCI(buyer.counties, deal.county)) score += 100;
+  if (deal.state  && includesCI(buyer.states,   deal.state))  score += 20;
+  // Acquisitions count as a small tiebreaker so within an equal-match group the
+  // higher-volume buyer floats to the top.
+  const acq = Number(buyer.acquisitions_count);
+  if (Number.isFinite(acq)) score += Math.min(50, acq / 10);
+  return score;
+}
+
+function buyerRenderPerDealPanel() {
+  const dealEl = document.getElementById('dispo-perdeal-deal');
+  const bestEl = document.getElementById('dispo-perdeal-best');
+  if (!dealEl || !bestEl) return;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const deal = _dispoCurrentDealInfo();
+  if (!deal) {
+    dealEl.innerHTML = '<div style="font-size:14px;color:var(--text-dim)">No deal selected — open a deal in <b>Underwriting</b> first, then come back here to see the best buyer match.</div>';
+    bestEl.innerHTML = '';
+    return;
+  }
+  // Deal header.
+  const parts = [];
+  if (deal.address) parts.push(esc(deal.address));
+  const locBits = [deal.city, deal.state, deal.zip].filter(Boolean).map(esc).join(' · ');
+  dealEl.innerHTML =
+    '<div style="font-size:11px;color:var(--text-dim);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px">🎯 Current Deal</div>' +
+    '<div style="font-size:18px;font-weight:700;color:var(--text)">' + (parts.join(' ') || '<span style="color:var(--text-dim)">No address</span>') + '</div>' +
+    (locBits ? '<div style="font-size:13px;color:var(--text-dim);margin-top:4px">' + locBits + '</div>' : '');
+
+  // Best buyer (top of ranked list). Buyers are scored against the deal; we
+  // surface only the #1 match unless there's a tie.
+  const buyers = Object.values(cache.buyers || {}).filter(b => b && (b.company || b.name));
+  if (buyers.length === 0) {
+    bestEl.innerHTML = '<div style="font-size:13px;color:var(--text-dim);padding:14px;text-align:center;background:var(--panel-2);border:1px dashed var(--border);border-radius:8px">No buyers in your rolodex yet — go to Dispositions → Recently Added to import or add some.</div>';
+    return;
+  }
+  const ranked = buyers.map(b => ({ b, s: _dispoScoreBuyer(b, deal) })).sort((a, b) => b.s - a.s);
+  const top = ranked[0];
+  if (!top || top.s <= 0) {
+    bestEl.innerHTML = '<div style="font-size:13px;color:var(--text-dim);padding:14px;text-align:center;background:var(--panel-2);border:1px dashed var(--border);border-radius:8px">No buyer matches the deal\'s zip, city, county, or state yet. Open a buyer to add this location to their list.</div>';
+    return;
+  }
+  const b = top.b;
+  const lenderChips = (Array.isArray(b.lenders) && b.lenders.length)
+    ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">' + b.lenders.map(L => {
+        const raw = String(L == null ? '' : L);
+        const pipe = raw.indexOf('|');
+        const nm = pipe >= 0 ? raw.slice(0, pipe).trim() : raw.trim();
+        const types = pipe >= 0 ? raw.slice(pipe + 1).trim().split(',').map(s => s.trim()).filter(Boolean) : [];
+        const badges = types.map(t => '<span style="margin-left:4px;padding:0 5px;border-radius:3px;font-size:9px;font-weight:700;background:rgba(99,102,241,0.25);color:#c7d2fe">' + esc(t) + '</span>').join('');
+        return '<span style="padding:2px 8px;background:rgba(165,180,252,0.15);border:1px solid rgba(165,180,252,0.4);border-radius:6px;font-size:11px;color:#a5b4fc">🏦 ' + esc(nm) + badges + '</span>';
+      }).join('') + '</div>'
+    : '';
+  const strategyChips = (Array.isArray(b.strategy) && b.strategy.length)
+    ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">' + b.strategy.map(s => '<span style="padding:2px 8px;background:rgba(165,180,252,0.15);border:1px solid rgba(165,180,252,0.4);border-radius:6px;font-size:11px;color:#a5b4fc">' + esc(s) + '</span>').join('') + '</div>'
+    : '';
+  const acq = Number(b.acquisitions_count);
+  const acqLine = Number.isFinite(acq) ? '<div style="margin-top:4px;font-size:12px;color:var(--text-dim)">🏠 ' + acq.toLocaleString() + ' acquisitions</div>' : '';
+  const matchReasons = [];
+  if (deal.zip    && (b.zips     || []).some(x => String(x).toLowerCase() === deal.zip.toLowerCase()))    matchReasons.push('zip ' + esc(deal.zip));
+  if (deal.city   && (b.cities   || []).some(x => String(x).toLowerCase() === deal.city.toLowerCase()))   matchReasons.push('city ' + esc(deal.city));
+  if (deal.county && (b.counties || []).some(x => String(x).toLowerCase() === deal.county.toLowerCase())) matchReasons.push('county ' + esc(deal.county));
+  if (deal.state  && (b.states   || []).some(x => String(x).toLowerCase() === deal.state.toLowerCase()))  matchReasons.push('state ' + esc(deal.state));
+  const matchLine = matchReasons.length
+    ? '<div style="margin-top:6px;font-size:11px;color:#10b981;font-weight:600">✓ Matches: ' + matchReasons.join(' · ') + '</div>'
+    : '';
+  const contactBits = [];
+  if (b.phone) contactBits.push('<a href="tel:' + esc(String(b.phone).replace(/[^0-9+]/g, '')) + '" style="color:var(--text);text-decoration:none">📞 ' + esc(b.phone) + '</a>');
+  if (b.email) contactBits.push('<a href="mailto:' + esc(b.email) + '" style="color:var(--text);text-decoration:none">✉️ ' + esc(b.email) + '</a>');
+  const contact = contactBits.length
+    ? '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px">' + contactBits.join('') + '</div>'
+    : '';
+  bestEl.innerHTML =
+    '<div style="font-size:11px;color:var(--text-dim);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px">🏆 Best Buyer Match</div>' +
+    '<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer" onclick="buyerOpenAddModal(\'' + esc(b.id) + '\')" title="Click to edit this buyer">' +
+      '<div style="font-size:16px;font-weight:700">' + esc(b.company || b.name || '(no name)') + '</div>' +
+      (b.company && b.name ? '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">' + esc(b.name) + '</div>' : '') +
+      acqLine +
+      matchLine +
+      strategyChips +
+      lenderChips +
+      contact +
+    '</div>';
+}
+window.buyerRenderPerDealPanel = buyerRenderPerDealPanel;
+
+// ------------------------------------------------------------
+// Contracts (Dispositions section)
+// ------------------------------------------------------------
+// The 5 contract subtabs (New / Assigning / Hot / Assigned / Dead) all read
+// from underwrites cache + filter by data._dispoContract. uwAssignToDispositions
+// is the "send this deal to Dispositions" entry point — bound to the Assign
+// button in the underwriting calculator.
+
+// Move the currently-open underwrite into the New Contract bucket.
+// Saves directly to the dedicated `dispo_contract` text column on the
+// underwrites table — bypasses the form-driven autosave so it persists even
+// when the calculator isn't fully loaded.
+async function uwAssignToDispositions() {
+  const id = (typeof _uwCurrentId !== 'undefined') ? _uwCurrentId : null;
+  if (!id) {
+    if (typeof toast === 'function') toast('Open a deal first to assign it.', 'warn');
+    return;
+  }
+  if (!cache.underwrites) cache.underwrites = {};
+  if (!cache.underwrites[id]) cache.underwrites[id] = { id };
+  if (cache.underwrites[id].dispo_contract === 'new') {
+    if (typeof toast === 'function') toast('Already in New Contract.', 'ok');
+    if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
+    return;
+  }
+  // Optimistic cache update + Supabase write.
+  cache.underwrites[id].dispo_contract = 'new';
+  try {
+    if (typeof sb !== 'undefined' && sb) {
+      const { error } = await sb.from('underwrites').update({ dispo_contract: 'new' }).eq('id', id);
+      if (error) throw error;
+    }
+    if (typeof toast === 'function') toast('📤 Assigned — see Dispositions → New Contract', 'ok');
+  } catch (e) {
+    console.warn('uwAssignToDispositions:', e);
+    if (typeof toast === 'function') {
+      const msg = (e && e.message) ? e.message : 'unknown';
+      if (/schema cache|column .+ does not exist/i.test(msg)) {
+        toast('Run SQL: ALTER TABLE underwrites ADD COLUMN IF NOT EXISTS dispo_contract text;', 'err');
+      } else {
+        toast('Assign failed: ' + msg, 'err');
+      }
+    }
+  }
+  if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
+}
+window.uwAssignToDispositions = uwAssignToDispositions;
+
+function uwToggleDispoStageBar() {
+  const isDispo = (window._dispoReturnTo === 'dispositions');
+  const dispoBar = document.getElementById('uw-dispo-stage-selector');
+  const stageBar = document.getElementById('uw-stage-selector');
+  const renoBar  = document.getElementById('uw-reno-phase-selector');
+  const dispoRm  = document.getElementById('uw-remove-dispo-btn');
+  const routeRm  = document.getElementById('uw-remove-routing-btn');
+  if (dispoBar) dispoBar.style.display = isDispo ? 'inline-flex' : 'none';
+  if (stageBar) stageBar.style.display = isDispo ? 'none' : '';
+  if (isDispo && renoBar) renoBar.style.display = 'none';
+  // Hide the Underwriting subtab row (GIS Maps / All / Help / Analyzing / etc.)
+  // while in dispo mode — the user is conceptually in Dispositions, not Underwriting.
+  const uwSubtabs = document.getElementById('uw-subtabs-row');
+  if (uwSubtabs) uwSubtabs.style.display = isDispo ? 'none' : 'flex';
+  // Show the Dispositions subtab bar in its place while in dispo mode.
+  const dispoSubs = document.getElementById('uw-dispo-subtabs-row');
+  if (dispoSubs) dispoSubs.style.display = isDispo ? 'flex' : 'none';
+  // Show the Dispositions Remove button; hide the Renovation/Holdings one
+  // while we're in dispo mode so they don't stack.
+  if (dispoRm) dispoRm.style.display = isDispo ? '' : 'none';
+  if (isDispo && routeRm) routeRm.style.display = 'none';
+  // Top nav: highlight Dispositions tab while in dispo mode; restore Underwriting otherwise.
+  document.querySelectorAll('#section-tabs-row .tab').forEach(t => {
+    const sec = t.getAttribute('data-section');
+    if (isDispo) {
+      t.classList.toggle('active', sec === 'dispositions');
+    } else if (sec === 'dispositions') {
+      // Leaving dispo mode — clear the Dispositions highlight so goSection can set the right one.
+      t.classList.remove('active');
+    }
+  });
+  if (!isDispo) return;
+  const id = (typeof _uwCurrentId !== 'undefined') ? _uwCurrentId : null;
+  const cur = (id && cache.underwrites && cache.underwrites[id])
+              ? (cache.underwrites[id].dispo_contract || (cache.underwrites[id].data && cache.underwrites[id].data._dispoContract) || '')
+              : '';
+  if (dispoBar) {
+    dispoBar.querySelectorAll('[data-dispo-stage-btn]').forEach(btn => {
+      const s = btn.getAttribute('data-dispo-stage-btn');
+      const on = (s === cur);
+      btn.style.background = on ? 'rgba(99,102,241,0.18)' : 'transparent';
+      btn.style.color      = on ? '#a5b4fc' : 'var(--text-dim)';
+      btn.style.fontWeight = on ? '700' : '500';
+    });
+  }
+}
+window.uwToggleDispoStageBar = uwToggleDispoStageBar;
+
+async function uwSetDispoStage(stage) {
+  const id = (typeof _uwCurrentId !== 'undefined') ? _uwCurrentId : null;
+  if (!id) return;
+  if (!cache.underwrites) cache.underwrites = {};
+  if (!cache.underwrites[id]) cache.underwrites[id] = { id };
+  const prev = cache.underwrites[id].dispo_contract || '';
+  if (prev === stage) return;
+  cache.underwrites[id].dispo_contract = stage;
+  uwToggleDispoStageBar();
+  try {
+    if (typeof sb !== 'undefined' && sb) {
+      const { error } = await sb.from('underwrites').update({ dispo_contract: stage }).eq('id', id);
+      if (error) throw error;
+    }
+    if (typeof toast === 'function') toast('Moved to ' + String(stage).toUpperCase(), 'ok');
+  } catch (e) {
+    console.warn('uwSetDispoStage:', e);
+    cache.underwrites[id].dispo_contract = prev;
+    uwToggleDispoStageBar();
+    if (typeof toast === 'function') toast('Stage change failed: ' + (e.message || 'unknown'), 'err');
+  }
+  if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
+}
+window.uwSetDispoStage = uwSetDispoStage;
+
+async function uwRemoveFromDispositions() {
+  const id = (typeof _uwCurrentId !== 'undefined') ? _uwCurrentId : null;
+  if (!id) return;
+  if (!confirm('Remove this deal from Dispositions? The contract stage will be cleared.')) return;
+  if (!cache.underwrites) cache.underwrites = {};
+  if (!cache.underwrites[id]) cache.underwrites[id] = { id };
+  cache.underwrites[id].dispo_contract = null;
+  if (cache.underwrites[id].data) delete cache.underwrites[id].data._dispoContract;
+  try {
+    if (typeof sb !== 'undefined' && sb) {
+      const { error } = await sb.from('underwrites').update({ dispo_contract: null }).eq('id', id);
+      if (error) throw error;
+    }
+    if (typeof toast === 'function') toast('Removed from Dispositions', 'ok');
+  } catch (e) {
+    console.warn('uwRemoveFromDispositions:', e);
+    if (typeof toast === 'function') toast('Remove failed: ' + (e.message || 'unknown'), 'err');
+  }
+  // Route back to Dispositions + clear the dispo-mode flag.
+  window._dispoReturnTo = null;
+  if (typeof uwToggleDispoStageBar === 'function') uwToggleDispoStageBar();
+  if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
+  if (typeof goSection === 'function') goSection('dispositions');
+}
+window.uwRemoveFromDispositions = uwRemoveFromDispositions;
+
+// Click handler for any of the Dispositions subtabs that appear inside the
+// underwriting section while a deal is open in dispo mode. Picking a different
+// dispo subview is implicitly "leaving this deal" — clear the dispo flag, set
+// the requested view, and route to Dispositions.
+function _leaveDispoToView(view) {
+  window._dispoReturnTo = null;
+  if (typeof uwToggleDispoStageBar === 'function') uwToggleDispoStageBar();
+  if (typeof setDispoView === 'function') setDispoView(view);
+  if (typeof goSection === 'function') goSection('dispositions');
+}
+window._leaveDispoToView = _leaveDispoToView;
+
+// Render the list of underwrites in a given contract status as a grid table
+// matching the underwriting list style. Columns: Address / Packet Price /
+// Rehab / ARV / Cash Rental Cashflow (annual) / Beds / Baths / SqFt / Status.
+function buyerRenderContractsPanel() {
+  const bodyEl = document.getElementById('dispo-contracts-body');
+  if (!bodyEl) return;
+  const view = (typeof _getDispoActiveView === 'function') ? _getDispoActiveView() : '';
+  const statusKey = view === 'new-contract'       ? 'new'
+                  : view === 'assigning-contract' ? 'assigning'
+                  : view === 'hot-contract'       ? 'hot'
+                  : view === 'assigned-contract'  ? 'assigned'
+                  : view === 'dead-contract'      ? 'dead'
+                  : null;
+  if (!statusKey) { bodyEl.innerHTML = ''; return; }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmt$ = (typeof window.fmt$ === 'function') ? window.fmt$ : function (v) {
+    const n = Number(v); if (!isFinite(n) || n === 0) return '—';
+    return '$' + Math.round(n).toLocaleString();
+  };
+  // Filter by the top-level dispo_contract column. Fallback to the legacy
+  // u.data._dispoContract so any rows that were assigned BEFORE the column
+  // existed still surface in the right bucket.
+  const all = Object.values(cache.underwrites || {}).filter(u => {
+    if (!u) return false;
+    const top = u.dispo_contract;
+    const legacy = u.data && u.data._dispoContract;
+    return (top || legacy) === statusKey;
+  });
+  if (all.length === 0) {
+    bodyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-dim);background:var(--panel-2);border:1px dashed var(--border);border-radius:8px">' +
+      '<div style="font-size:36px;margin-bottom:8px">📜</div>' +
+      '<div style="font-size:14px">No contracts in this list yet.</div>' +
+      '<div style="font-size:11px;margin-top:6px">Hit the green <b>📤 Assign</b> button on a deal in Underwriting to add it here.</div>' +
+    '</div>';
+    return;
+  }
+
+  // Helpers to pull data points from a deal. The underwrite form stores most
+  // editable values in u.data['uw-<id>']; some have cached top-level fields
+  // (u.arv) that we fall back to.
+  // Data-side compute of the Cash Flip Max for a deal — mirrors the live
+  // cashBuyerMAO cascade at line ~14811 EXACTLY (same ARV, same rehab fallback,
+  // same sell costs %s, same holding formula, same IFP slider, same /1.03 for
+  // purchase closing). Used as the basis for the auto Packet Price.
+  function _cashFlipMaxFromData(d) {
+    if (!d || typeof d !== 'object') return 0;
+    const N = (id, def) => {
+      const raw = d[id];
+      if (raw == null || raw === '') return (def || 0);
+      const v = parseFloat(String(raw).replace(/,/g, ''));
+      return isFinite(v) && v > 0 ? v : (def || 0);
+    };
+    // Comp-mode aware ARV (same as _uwComputeMaxOfferFromData)
+    const arv = (d._compsMode === 'listed')
+      ? (N('uw-lreal-override', 0) || N('uw-lreal-arv', 0) || (N('uw-lavg-psf', 0) * N('uw-sqft', 0) * 0.9))
+      : (N('uw-arv-override',   0) || N('uw-arv',       0) || (N('uw-asqft',    0) * N('uw-sqft', 0)));
+    if (arv <= 0) return 0;
+    // Flip-grade rehab: override > rehab calc state > flat field
+    let fRehab = N('uw-rehab-override', 0);
+    if (fRehab <= 0) {
+      const state = d._rehab;
+      const _sqftForRehab = N('uw-sqft', 0) || 1077;
+      if (Array.isArray(state) && state.length) {
+        const isPhantomV2 = state.length === 1 && state[0] && state[0].id === 'rc-bridge';
+        if (isPhantomV2) {
+          const item = state[0].items && state[0].items[0];
+          if (item) fRehab = (parseFloat(item.price) || 0) * _sqftForRehab;
+        } else {
+          let sum = 0;
+          state.forEach(col => {
+            (col.items || []).forEach(item => {
+              if (item && (item.needed || item.checked)) sum += parseFloat(item.price || 0) || 0;
+            });
+          });
+          const cont = N('uw-rehab-contingency-pct', 10);
+          fRehab = sum * _sqftForRehab * (1 + cont / 100);
+        }
+      }
+      if (fRehab <= 0) fRehab = N('uw-rehab-flip', 0) || N('uw-rehab-cost', 0);
+    }
+    // Holding (3% ARV/yr split + $150/mo ins) × wsFlMonths
+    const wsSellClose  = arv * 0.03;
+    const wsSellAgents = arv * 0.05;
+    const wsFlMonths   = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
+    const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 150;
+    const wsHolding    = wsHoldingMonthly * wsFlMonths;
+    // IFP slider → finalPct (same piecewise stops as live)
+    const ifpVal = N('uw-ifp-slider', 60);
+    const stops = [{x:0,pct:8},{x:20,pct:10},{x:40,pct:15},{x:60,pct:20},{x:80,pct:25},{x:120,pct:35}];
+    let basePct = 8;
+    for (let i = 0; i < stops.length - 1; i++) {
+      const a = stops[i], b = stops[i + 1];
+      if (ifpVal >= a.x && ifpVal <= b.x) {
+        const t = (b.x - a.x) > 0 ? (ifpVal - a.x) / (b.x - a.x) : 0;
+        basePct = a.pct + t * (b.pct - a.pct);
+        break;
+      }
+    }
+    const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 0.5);
+    const wsIdealProfit = arv * (finalPct / 100);
+    // cashBuyerMAO — solved algebraically so 3% purchase closing is in the price
+    const cashBuyerMAO = (arv - fRehab - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit) / 1.03;
+    return Math.max(0, cashBuyerMAO);
+  }
+  function packetPrice(u) {
+    // Manual override takes precedence (set via the calculator's 📄 popover).
+    const raw = (u.data && (u.data['uw-packet-asking-override'] || u.data['uw-packet-asking'])) || '';
+    const ov  = parseFloat(String(raw).replace(/[^0-9.]/g, ''));
+    if (isFinite(ov) && ov > 0) return ov;
+    // Otherwise: Cash Flip Max × 1.20, rounded UP to the next $1,000.
+    // Matches fmt$1k in the PDF packet (line ~13064) so the dispo grid's
+    // "max $X" preview reads identically to the actual cover-page asking price.
+    const cashFlipMax = _cashFlipMaxFromData(u.data || {});
+    if (cashFlipMax <= 0) return 0;
+    return Math.ceil(cashFlipMax * 1.20 / 1000) * 1000;
+  }
+  function rehabBudget(u) {
+    const flip   = parseFloat((u.data && u.data['uw-rehab-flip'])   || 0) || 0;
+    const rental = parseFloat((u.data && u.data['uw-rehab-rental']) || 0) || 0;
+    return flip || rental || 0;
+  }
+  function arvFor(u) {
+    return (typeof _uwComputeArvFromData === 'function' ? _uwComputeArvFromData(u.data) : 0) || u.arv || 0;
+  }
+  function cashRentalAnnual(u) {
+    if (typeof _uwComputeCashRentalFromData === 'function') {
+      const cr = _uwComputeCashRentalFromData(u.data || {}) || {};
+      return Math.round(cr.annualCashflow || 0);
+    }
+    return 0;
+  }
+  function num(u, k) {
+    const v = parseFloat((u.data && u.data[k]) || 0);
+    return isFinite(v) && v > 0 ? v : null;
+  }
+  // Title-case for the city only (street stays as-typed, state stays uppercase).
+  // 'PRINCETON' → 'Princeton', 'south bend' → 'South Bend'.
+  function _titleCaseCity(s) {
+    return String(s == null ? '' : s).toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
+  function fullAddrHTML(u) {
+    // Two-line render to match the underwriting list — street on top, dim
+    // City/ST/Zip line beneath. Same escape helper as the surrounding map.
+    const escLocal = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const street = String(u.address || (u.data && u.data['uw-address']) || '').trim();
+    const city   = _titleCaseCity(u.city || '');
+    const state  = String(u.state || '').toUpperCase();
+    const zip    = String(u.zip || '');
+    const tail   = [city, state, zip].filter(Boolean).join(', ');
+    return '<div style="font-weight:600;white-space:nowrap">' + escLocal(street || '(no address)') + '</div>' +
+           (tail ? '<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;margin-top:2px">' + escLocal(tail) + '</div>' : '');
+  }
+  // Per-row status changer. Stamps a new _dispoContract value + autosaves.
+  // Available so the user can move a contract through the workflow without
+  // having to open the deal in Underwriting.
+  const statusOpts = ['new','assigning','hot','assigned','dead'];
+  function statusSelect(id, current) {
+    const opts = statusOpts.map(s =>
+      '<option value="' + s + '"' + (s === current ? ' selected' : '') + '>' + s + '</option>'
+    ).join('');
+    return '<select onchange="event.stopPropagation(); buyerSetContractStatus(\'' + esc(id) + '\', this.value)" onclick="event.stopPropagation()" style="height:28px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;text-transform:uppercase;letter-spacing:0.4px">' + opts + '</select>';
+  }
+
+  // Status pill color (matches the dispo subtab look-and-feel).
+  const STATUS_COLOR = {
+    'new':       { bg: 'rgba(99,102,241,0.18)',  fg: '#a5b4fc' },
+    'hot':       { bg: 'rgba(239,68,68,0.18)',   fg: '#f87171' },
+    'assigning': { bg: 'rgba(251,146,60,0.18)',  fg: '#fb923c' },
+    'assigned':  { bg: 'rgba(16,185,129,0.18)',  fg: '#10b981' },
+    'dead':      { bg: 'rgba(156,163,175,0.18)', fg: '#9ca3af' }
+  };
+
+  // Sort by most-recently-updated first so the freshest contracts surface up top.
+  all.sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
+
+  const rows = all.map(u => {
+    const id = u.id;
+    const addrHtml = fullAddrHTML(u);
+    const sc = STATUS_COLOR[statusKey] || STATUS_COLOR.new;
+    const beds  = num(u, 'uw-bed');
+    const baths = num(u, 'uw-bath');
+    const sqftRaw = parseFloat(String((u.data && u.data['uw-sqft']) || '').replace(/,/g, '')) || null;
+    return '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="window._dispoReturnTo=\'dispositions\'; if(typeof uwToggleDispoStageBar===\'function\') uwToggleDispoStageBar(); if(typeof uwLoadById===\'function\') uwLoadById(\'' + esc(id) + '\'); if(typeof goSection===\'function\') goSection(\'underwriting\'); setTimeout(function(){ if(typeof uwToggleDispoStageBar===\'function\') uwToggleDispoStageBar(); }, 250);" onmouseover="this.style.background=\'rgba(99,102,241,0.05)\'" onmouseout="this.style.background=\'\'" title="Open this deal in Underwriting">' +
+      '<td style="padding:10px 12px;font-size:13px;color:var(--text);text-align:left;vertical-align:middle">' + addrHtml + '</td>' +
+      (function () {
+        // ---- LOCAL-ONLY recompute (never touches u.data or anything downstream) ----
+        var accepted    = parseFloat((u.data && u.data['uw-accepted']) || u.accepted || 0) || 0;
+        var defaultPkt  = packetPrice(u);
+        // Always-auto Packet Price (ignores both the saved popover override
+        // and the per-row local override). Used ONLY for the dim "max $X" line
+        // under Contract Price so the user can see what the auto-computed
+        // ceiling would be even after they've set a manual price.
+        var _cfmAuto    = _cashFlipMaxFromData(u.data || {});
+        var autoMaxPkt  = _cfmAuto > 0 ? Math.ceil(_cfmAuto * 1.20 / 1000) * 1000 : 0;
+        var overrides   = window._dispoPacketPrices || {};
+        var ov          = overrides[u.id];
+        var hasOv       = (ov != null && isFinite(ov) && Number(ov) > 0);
+        // Effective price the buyer pays = override if set, else our auto-computed
+        // Packet Price (MAO × 1.20).
+        var effective   = hasOv ? Number(ov) : (defaultPkt || 0);
+        // Shallow copy of the data with uw-accepted swapped for the effective price
+        // so the cash-rental compute uses it. Real u.data stays untouched.
+        // Override BOTH the purchase price (so rent math sees the buyer's actual cost)
+        // AND the rental rehab budget (so expenses are scoped to a cheap rental scope, not
+        // an aesthetic flip scope). Real u.data is untouched.
+        var _rentRehabForMod = Math.round(rehabBudget(u) * 0.60);
+        var modData     = Object.assign({}, u.data || {}, {
+          'uw-accepted'   : String(effective || ''),
+          'uw-rehab-rental': String(_rentRehabForMod || '')
+        });
+        var cr          = (typeof _uwComputeCashRentalFromData === 'function')
+                            ? (_uwComputeCashRentalFromData(modData) || {})
+                            : {};
+        var annualCF    = Math.round(cr.annualCashflow || 0);
+        // Gross annual rent income (rent × 12) — used by BOTH the Cashflow and
+        // Yield cells (top line each). Pulled from the deal's saved rent value.
+        var _monthlyRent  = (typeof _uwComputeRentFromData === 'function') ? Number(_uwComputeRentFromData(u.data) || 0) : 0;
+        var _annualIncome = Math.round(_monthlyRent * 12);
+        // Yield = Annual Income / Total Cash Invested.
+        //   Annual Income  = monthly rent × 12 (GROSS — top-line rent, not net cashflow).
+        //   Cash Invested  = Packet Price + Rental Rehab + Closing Costs.
+        var _rentRehab   = Math.round(rehabBudget(u) * 0.60);
+        var _buyClose    = Math.round(effective * 0.03);   // matches Closing Costs cell
+        var _cashIn      = effective + _rentRehab + _buyClose;
+        // Gross yield (top line) uses rent × 12. Net yield (small under) uses
+        // the same cashInvested but the actual net annual cashflow.
+        var cocPct       = (_cashIn > 0 && _annualIncome > 0) ? (_annualIncome / _cashIn) * 100 : 0;
+        var netYieldPct  = (_cashIn > 0 && annualCF > 0)      ? (annualCF      / _cashIn) * 100 : 0;
+        var built       = String((u.data && u.data['uw-built']) || '').trim();
+        var arv         = arvFor(u);
+        // ---- Buyer-side cash flip cost estimates (industry-standard rules of thumb). ----
+        //   Buying  Cost: ~1.5% of Packet Price (cash-buyer closing fees)
+        //   Holding Cost: ~1.5% of ARV (taxes + insurance + utilities for ~6 months hold)
+        //   Selling Cost: ~8% of ARV (6% agent + ~2% closing)
+        //   Est Profit  : ARV − Packet Price − Rehab − Buying − Holding − Selling
+        // Buying Cost = 3% of Packet Price (the buyer's purchase-time closing
+        // fee estimate — both sides of closing rolled together). Pegged to the
+        // price they pay, not ARV.
+        // Match the underwriting flip breakdown so the buyer pitch reads the
+        // same numbers as the deal calculator's Total Project Cost section.
+        var buyingCost  = Math.round(effective * 0.03);                    // 3% of Packet (purchase closing)
+        var holdingCost = Math.round(arv * 0.025);                          // ~2.5% ARV (taxes + ins + utilities × ~6 mo hold)
+        var agentCost   = Math.round(arv * 0.05);                           // 5% agent commission on resale
+        var resaleClose = Math.round(arv * 0.03);                           // 3% resale closing
+        var sellingCost = agentCost + resaleClose;                          // selling-side only (holding added below in display)
+        var estProfit   = Math.round(arv - effective - rehabBudget(u) - buyingCost - holdingCost - sellingCost);
+        var cocColor    = cocPct >= 8 ? '#10b981' : cocPct >= 5 ? '#fbbf24' : cocPct > 0 ? '#f87171' : 'var(--text-dim)';
+        var profitColor = estProfit >= 20000 ? '#10b981' : estProfit >= 5000 ? '#fbbf24' : estProfit > 0 ? '#fb923c' : '#f87171';
+        var pktColor    = hasOv ? '#fbbf24' : 'var(--text)';
+        var pktBg       = hasOv ? 'rgba(251,191,36,0.10)' : 'var(--panel)';
+        var pktBd       = hasOv ? 'rgba(251,191,36,0.55)' : 'var(--border)';
+        return ''
+          // Packet Price — EDITABLE. Default to the auto-computed MAO×1.20; override sticks per row.
+          + '<td style="padding:6px 8px;text-align:center" onclick="event.stopPropagation()">'
+            + '<span style="display:inline-flex;align-items:center;height:28px;background:' + pktBg + ';border:1px solid ' + pktBd + ';border-radius:6px;overflow:hidden">'
+              + '<span style="padding:0 4px 0 8px;color:' + pktColor + ';font-size:13px;font-weight:600">$</span>'
+              + '<input type="number" min="0" step="500" value="' + (hasOv ? ov : (defaultPkt ? Math.round(defaultPkt) : '')) + '" '
+                + 'placeholder="' + (defaultPkt ? Math.round(defaultPkt) : '0') + '" '
+                + 'oninput="event.stopPropagation()" '
+                + 'onchange="event.stopPropagation();buyerSetPacketPrice(\'' + esc(u.id) + '\', this.value)" '
+                + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" '
+                + 'title="What you\'re pitching the deal at. Drives buyer-side cost + profit estimates in this grid. Local-only — never touches your underwriting data, best exits, or rehab calc. Clear the input to reset to the auto-computed Packet Price (MAO × 1.20)." '
+                + 'style="width:92px;height:26px;padding:0 8px 0 0;background:transparent;border:none;outline:none;color:' + pktColor + ';font-size:13px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums">'
+            + '</span>'
+          + '</td>'
+          // Contract Price — READ-ONLY (your accepted price).
+          + '<td style="padding:8px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px;color:#10b981;font-weight:600">'
+            + (accepted > 0 ? fmt$(accepted) : '<span style="color:var(--text-dim);font-weight:normal">—</span>')
+            + (autoMaxPkt > 0 ? '<div style="font-size:10px;color:var(--text-dim);margin-top:2px;font-weight:500" title="Auto-computed max packet price (Cash Flip Max × 1.20). Always shown — does not change when you set a manual Packet Price.">max ' + fmt$(autoMaxPkt) + '</div>' : '')
+          + '</td>'
+          + (function () {
+            // Flip Rehab + Rental Rehab cells. Rental is 60% of flip (cheaper
+            // finishes, no aesthetic upgrades — rule of thumb). $/sf is shown
+            // small + dim under each number. White-space:nowrap to avoid wraps.
+            var flipReh = rehabBudget(u);
+            var rentReh = Math.round(flipReh * 0.60);
+            var flipPsf = (sqftRaw && flipReh > 0) ? ('$' + Math.round(flipReh / sqftRaw).toLocaleString() + '/sf') : '';
+            var rentPsf = (sqftRaw && rentReh > 0) ? ('$' + Math.round(rentReh / sqftRaw).toLocaleString() + '/sf') : '';
+            var twoLine = (big, small) => {
+              if (big === '—' && !small) return big;
+              return '<div style="font-weight:500;white-space:nowrap">' + big + '</div>' +
+                     (small ? '<div style="font-size:10px;color:var(--text-dim);margin-top:2px;white-space:nowrap">' + small + '</div>' : '');
+            };
+            return ''
+              + '<td style="padding:8px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px">' + twoLine(flipReh > 0 ? fmt$(flipReh) : '<span style="color:var(--text-dim)">—</span>', flipPsf) + '</td>'
+              + '<td style="padding:8px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px">' + twoLine(rentReh > 0 ? fmt$(rentReh) : '<span style="color:var(--text-dim)">—</span>', rentPsf) + '</td>';
+          })()
+          + '<td style="padding:8px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px">'
+            + (arv > 0
+                ? ('<div style="font-weight:500;white-space:nowrap">' + fmt$(arv) + '</div>' + (sqftRaw ? '<div style="font-size:10px;color:var(--text-dim);margin-top:2px;font-weight:500">$' + Math.round(arv / sqftRaw).toLocaleString() + '/sf</div>' : ''))
+                : '<span style="color:var(--text-dim)">—</span>')
+          + '</td>'
+          + '<td style="padding:8px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px;color:#f87171;white-space:nowrap">'
+            + (buyingCost > 0
+                ? ('<div>−' + fmt$(buyingCost) + '</div><div style="font-size:10px;color:var(--text-dim);margin-top:2px;font-weight:500">' + (effective > 0 ? (buyingCost / effective * 100).toFixed(1) + '%' : '') + '</div>')
+                : '—')
+          + '</td>'
+          + (function(){var t = sellingCost + holdingCost; return '<td style="padding:8px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px;color:#f87171;white-space:nowrap">'
+            + (t > 0
+                ? ('<div>−' + fmt$(t) + '</div><div style="font-size:10px;color:var(--text-dim);margin-top:2px;font-weight:500">' + (arv > 0 ? (t / arv * 100).toFixed(1) + '%' : '') + '</div>')
+                : '—')
+          + '</td>';})()
+          + '<td style="padding:8px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap;color:' + profitColor + '">'
+            + (arv > 0
+                ? ('<div style="font-weight:700">' + fmt$(estProfit) + '</div><div style="font-size:10px;color:var(--text-dim);margin-top:2px;font-weight:500">' + (estProfit / arv * 100).toFixed(1) + '%</div>')
+                : '—')
+          + '</td>'
+          + '<td style="padding:8px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px;color:' + (_annualIncome > 0 ? '#10b981' : 'var(--text-dim)') + '">'
+            + (_annualIncome > 0
+                ? ('<div style="font-weight:600">' + fmt$(_annualIncome) + '/yr</div>' + (annualCF > 0 ? '<div style="font-size:10px;color:var(--text-dim);margin-top:2px;font-weight:500">net ' + fmt$(annualCF) + '/yr</div>' : ''))
+                : '—')
+          + '</td>'
+          + '<td style="padding:8px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px;color:' + cocColor + '">'
+            + (cocPct > 0 ? ('<div style="font-weight:600">' + cocPct.toFixed(1) + '%</div>' + (netYieldPct > 0 ? '<div style="font-size:10px;color:var(--text-dim);margin-top:2px;font-weight:500">net ' + netYieldPct.toFixed(1) + '%</div>' : '')) : '—')
+          + '</td>'
+          + '<td style="padding:10px 12px;text-align:center;font-size:13px;color:var(--text-dim)">' + (built || '<span style="color:var(--text-dim)">—</span>') + '</td>'
+          + '<td style="padding:10px 12px;text-align:center;font-size:13px">' + (beds  != null ? beds  : '<span style="color:var(--text-dim)">—</span>') + '</td>' +
+      '<td style="padding:10px 12px;text-align:center;font-size:13px">' + (baths != null ? baths : '<span style="color:var(--text-dim)">—</span>') + '</td>'
+          + '<td style="padding:10px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px">' + (sqftRaw ? sqftRaw.toLocaleString() : '<span style="color:var(--text-dim)">—</span>') + '</td>';
+      })() +
+    '</tr>';
+  }).join('');
+
+  bodyEl.innerHTML =
+    '<div class="overflow-auto" style="max-height:70vh">' +
+    '<table style="width:100%;border-collapse:collapse">' +
+      '<thead style="position:sticky;top:0;background:var(--panel);z-index:1">' +
+        '<tr style="border-bottom:1px solid var(--border)">' +
+          '<th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Address</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="Packet asking price (override) or MAO × 1.20.">Packet Price</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="Accepted contract price for this deal (read-only — comes from your Underwriting Accepted field).">Contract</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="Total flip rehab budget. $/sf shown beneath.">Flip Rehab</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="Rental rehab budget — 60% of flip rehab (cheaper finishes, no aesthetic upgrades). $/sf shown beneath.">Rental Rehab</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">ARV</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="Closing fees the buyer pays at purchase — 3% of the Packet Price.">Closing</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="Holding (~2.5% ARV, ~6mo hold) + Agent Commission (5% ARV) + Resale Closing (3% ARV) = 10.5% of ARV. Same components as the Underwriting flip breakdown.">Selling</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="Estimated cash-flip profit for the buyer = ARV − Packet Price − Rehab − Buying − Holding − Selling.">Profit</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="Top: gross annual rent (monthly rent × 12). Below in small: net cashflow (rent − expenses). Recomputes from the Packet Price + Rental Rehab.">Cashflow</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="Top: gross yield = (rent × 12) / (Packet + Rental Rehab + Closing). Below in small: net yield = annual cashflow / same cash invested.">Yield</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="Year the subject property was built.">Build</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:60px">Beds</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:60px">Baths</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">SqFt</th>' +
+        '</tr>' +
+      '</thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table>' +
+    '</div>';
+}
+window.buyerRenderContractsPanel = buyerRenderContractsPanel;
+
+// Change a deal's contract status from inside the contracts panel.
+// Direct top-level write on the underwrites row — survives page reload.
+async function buyerSetContractStatus(id, next) {
+  if (!id || !cache.underwrites || !cache.underwrites[id]) return;
+  const prev = cache.underwrites[id].dispo_contract || '';
+  if (prev === next) return;
+  cache.underwrites[id].dispo_contract = next;
+  try {
+    if (typeof sb !== 'undefined' && sb) {
+      const { error } = await sb.from('underwrites').update({ dispo_contract: next }).eq('id', id);
+      if (error) throw error;
+    }
+    if (typeof toast === 'function') toast('Moved to ' + String(next).toUpperCase(), 'ok');
+  } catch (e) {
+    console.warn('buyerSetContractStatus:', e);
+    cache.underwrites[id].dispo_contract = prev;  // rollback cache
+    if (typeof toast === 'function') {
+      const msg = (e && e.message) ? e.message : 'unknown';
+      if (/schema cache|column .+ does not exist/i.test(msg)) {
+        toast('Run SQL: ALTER TABLE underwrites ADD COLUMN IF NOT EXISTS dispo_contract text;', 'err');
+      } else {
+        toast('Status change failed: ' + msg, 'err');
+      }
+    }
+  }
+  if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
+}
+window.buyerSetContractStatus = buyerSetContractStatus;
+
+// ------------------------------------------------------------
+// Local-only Contract Price overrides (Dispositions grid scratch pad)
+// ------------------------------------------------------------
+// Pure display-side tool: the user types a price in the contracts grid to
+// scenario-test cashflow + CoC at a different sell price. The value lives in
+// localStorage (window._dispoContractOverrides[id] = number). It NEVER writes
+// to Supabase, never touches cache.underwrites[id].data, and the grid recompute
+// uses a throwaway shallow-copy of u.data — so best exits, the rehab calc, and
+// every other downstream computation are completely untouched.
+(function hydratePacketPrices() {
+  try {
+    if (!window._dispoPacketPrices) {
+      const raw = localStorage.getItem('dispoPacketPrices');
+      window._dispoPacketPrices = raw ? (JSON.parse(raw) || {}) : {};
+    }
+    // One-time migration — fold any prior Assignment / ContractOverride values
+    // into the new Packet store so the user doesn't lose what they typed before.
+    if (window._dispoPacketPrices && Object.keys(window._dispoPacketPrices).length === 0) {
+      const a = localStorage.getItem('dispoAssignmentPrices');
+      const c = localStorage.getItem('dispoContractOverrides');
+      const src = a || c;
+      if (src) {
+        try {
+          window._dispoPacketPrices = JSON.parse(src) || {};
+          localStorage.setItem('dispoPacketPrices', JSON.stringify(window._dispoPacketPrices));
+        } catch (_) {}
+      }
+    }
+  } catch (_) {
+    window._dispoPacketPrices = {};
+  }
+})();
+
+function buyerSetPacketPrice(id, raw) {
+  if (!id) return;
+  if (!window._dispoPacketPrices) window._dispoPacketPrices = {};
+  const v = parseFloat(String(raw == null ? '' : raw).replace(/[^0-9.]/g, ''));
+  if (!isFinite(v) || v <= 0) {
+    delete window._dispoPacketPrices[id];
+  } else {
+    window._dispoPacketPrices[id] = v;
+  }
+  try { localStorage.setItem('dispoPacketPrices', JSON.stringify(window._dispoPacketPrices)); } catch (_) {}
+  if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
+}
+window.buyerSetPacketPrice = buyerSetPacketPrice;
+// Back-compat aliases — any cached row HTML still binding to the old names just no-ops onto the new one.
+window.buyerSetAssignmentPrice       = buyerSetPacketPrice;
+window.buyerSetContractPriceOverride = buyerSetPacketPrice;
 
 // ----- Verified filter toggle button (shared across all 5 rolodexes) -----
 // Each rolodex's "✓ Verified" button calls this with its own id + the render
@@ -24245,7 +25143,10 @@ function buyerOpenAddModal(editId) {
     buyerRenderStrategyChips(Array.isArray(b.strategy) ? b.strategy : []);
     // Restore the cycling button from qualification (with verified fallback).
     const _q = buyerQualState(b);
-    const st = _q === 'qualified' ? 'true' : (_q === 'unqualified' ? 'false' : 'unknown');
+    const st = _q === 'qualified'   ? 'true'
+            : _q === 'unqualified' ? 'false'
+            : _q === 'vetting'     ? 'vetting'
+            :                        'unknown';
     buyerSetQualifiedButton(st);
   } else {
     if (hiddenId) hiddenId.value = '';
@@ -24299,8 +25200,11 @@ async function buyerSaveNew() {
   //   qualification = 'qualified' / 'unqualified' / null   (new source of truth)
   //   verified      = true / false / null                  (legacy mirror — kept in sync)
   const _qSt = ($('buyer-add-verified-btn')?.getAttribute('data-state') || 'unknown');
-  const qualification = _qSt === 'true' ? 'qualified' : (_qSt === 'false' ? 'unqualified' : null);
-  const verified      = _qSt === 'true' ? true        : (_qSt === 'false' ? false         : null);
+  const qualification = _qSt === 'true'    ? 'qualified'
+                     :  _qSt === 'false'   ? 'unqualified'
+                     :  _qSt === 'vetting' ? 'vetting'
+                     :                       null;
+  const verified      = _qSt === 'true' ? true : (_qSt === 'false' ? false : null);
   if (!company) {
     if (typeof toast === 'function') toast('Entity / Purchaser is required.', 'warn');
     const c = $('buyer-add-company'); if (c) c.focus();
@@ -24469,6 +25373,32 @@ function renderBuyersList() {
   const qualVal = qualSel ? (qualSel.getAttribute('data-state') || '') : '';
   if (qualVal) rows = rows.filter(b => buyerQualState(b) === qualVal);
 
+  // Dispositions subview scope — narrows the buyer list based on which subtab
+  // is active in the Dispositions section. No-op when called from anywhere else.
+  const _dispoView = (typeof _getDispoActiveView === 'function') ? _getDispoActiveView() : null;
+  if (_dispoView === 'recent') {
+    // Last 30 days, newest first. Falls back to all when created_at is missing.
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    rows = rows.filter(b => {
+      if (!b.created_at) return true;  // legacy rows without created_at — show
+      const t = new Date(b.created_at).getTime();
+      return Number.isFinite(t) && t >= cutoff;
+    }).sort((a, b) => {
+      const ta = new Date(a.created_at || 0).getTime();
+      const tb = new Date(b.created_at || 0).getTime();
+      return tb - ta;
+    });
+  } else if (_dispoView === 'vetting') {
+    rows = rows.filter(b => buyerQualState(b) === 'vetting');
+  } else if (_dispoView === 'unknown') {
+    rows = rows.filter(b => buyerQualState(b) === 'unknown');
+  } else if (_dispoView === 'qualified') {
+    rows = rows.filter(b => buyerQualState(b) === 'qualified');
+  } else if (_dispoView === 'unqualified') {
+    rows = rows.filter(b => buyerQualState(b) === 'unqualified');
+  }
+  // Per Deal handled separately by buyerRenderPerDealPanel(); not a row filter.
+
   const searchEl = document.getElementById('buyers-search');
   const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
   if (q) {
@@ -24626,6 +25556,9 @@ function renderBuyersList() {
     } else if (_qs === 'unqualified') {
       statusIcon  = '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:rgba(239,68,68,0.18);color:#f87171;font-weight:700;font-size:12px" title="Unqualified">✗</span>';
       statusTitle = 'Unqualified';
+    } else if (_qs === 'vetting') {
+      statusIcon  = '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:rgba(251,146,60,0.18);color:#fb923c;font-weight:700;font-size:11px" title="Vetting">🔎</span>';
+      statusTitle = 'Vetting — actively being assessed';
     } else {
       statusIcon  = '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:rgba(156,163,175,0.18);color:#9ca3af;font-weight:700;font-size:12px" title="Unknown">?</span>';
       statusTitle = 'Unknown — not yet assessed';
@@ -24792,7 +25725,8 @@ window.buyerToggleChannelChip = buyerToggleChannelChip;
 function buyerSetQualifiedButton(state) {
   const btn = document.getElementById('buyer-add-verified-btn');
   if (!btn) return;
-  const st = (state === 'true' || state === 'false' || state === 'unknown') ? state : 'true';
+  const valid = ['true','false','unknown','vetting'];
+  const st = valid.indexOf(state) >= 0 ? state : 'true';
   btn.setAttribute('data-state', st);
   if (st === 'true') {
     btn.style.background  = 'rgba(16,185,129,0.15)';
@@ -24804,6 +25738,11 @@ function buyerSetQualifiedButton(state) {
     btn.style.borderColor = 'rgba(239,68,68,0.5)';
     btn.style.color       = '#f87171';
     btn.textContent       = '✗ Unqualified';
+  } else if (st === 'vetting') {
+    btn.style.background  = 'rgba(251,146,60,0.15)';
+    btn.style.borderColor = 'rgba(251,146,60,0.5)';
+    btn.style.color       = '#fb923c';
+    btn.textContent       = '🔎 Vetting';
   } else {
     btn.style.background  = 'rgba(156,163,175,0.15)';
     btn.style.borderColor = 'rgba(156,163,175,0.5)';
@@ -24817,7 +25756,10 @@ function buyerCycleQualified() {
   const btn = document.getElementById('buyer-add-verified-btn');
   if (!btn) return;
   const cur = btn.getAttribute('data-state') || 'true';
-  const next = cur === 'true' ? 'false' : (cur === 'false' ? 'unknown' : 'true');
+  const next = cur === 'true'   ? 'false'
+            : cur === 'false'   ? 'vetting'
+            : cur === 'vetting' ? 'unknown'
+            :                     'true';
   buyerSetQualifiedButton(next);
 }
 window.buyerCycleQualified = buyerCycleQualified;
@@ -24885,9 +25827,8 @@ window.buyerClearAllFilters = buyerClearAllFilters;
 function buyerQualState(b) {
   if (!b) return 'unknown';
   const q = b.qualification;
-  if (q === 'qualified' || q === 'unqualified' || q === 'unknown') return q;
+  if (q === 'qualified' || q === 'unqualified' || q === 'unknown' || q === 'vetting') return q;
   // Rows with no explicit qualification value default to Unknown (?).
-  // Cycle the button in the modal to set Qualified or Unqualified explicitly.
   return 'unknown';
 }
 window.buyerQualState = buyerQualState;
@@ -27439,6 +28380,13 @@ function renderCampaigns() {
 }
 
 function goSection(s) {
+  // If the user is navigating to any section other than 'underwriting', clear
+  // the dispo-mode flag — dispo bars + Remove button + nav highlight should
+  // restore for the new section.
+  if (s !== 'underwriting' && window._dispoReturnTo === 'dispositions') {
+    window._dispoReturnTo = null;
+    if (typeof uwToggleDispoStageBar === 'function') uwToggleDispoStageBar();
+  }
   // If the calculator is currently mounted inside Holdings or Renovation
   // (via _hrOpenInCalculator), and the user is now navigating elsewhere
   // via the top nav, restore the calculator to its original spot inside
@@ -27463,6 +28411,10 @@ function goSection(s) {
     if (typeof loadNotebook === "function") loadNotebook();
     if (typeof renderEmployees === "function") renderEmployees();
   }
+  if (s === "dispositions") {
+    // Default to Recently Added on first land (or restore last view if set).
+    if (typeof setDispoView === 'function') setDispoView(_dispoActiveView || 'new-contract');
+  }
   if (s === "underwriting" && typeof renderUnderwriteList === "function") {
     // If no subview is currently shown (first visit, or a previous session
     // left things blank), default to ⭐ Priority so the user lands on
@@ -27479,7 +28431,11 @@ function goSection(s) {
   if (s === "holdings"   && typeof renderHoldingsList   === "function") renderHoldingsList();
   if (s === "photos"     && typeof loadPhotoSubmissions === "function") loadPhotoSubmissions();
   if (s === "renovation" && typeof renderRenovationList === "function") renderRenovationList();
-  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.section === s));
+  // If we're in Dispositions mode (deal opened from the dispo contracts grid),
+  // keep the Dispositions tab highlighted instead of jumping to the actual physical
+  // section (which is Underwriting — that's where the calculator lives).
+  const _navHighlight = (window._dispoReturnTo === "dispositions" && s === "underwriting") ? "dispositions" : s;
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.section === _navHighlight));
   document.querySelectorAll(".section-content").forEach(el => el.style.display = "none");
   const target = document.getElementById("section-" + s);
   // SOP uses a fullscreen flex layout; everything else uses block.
@@ -40558,4 +41514,54 @@ window._rcLoadState = function(state){
       if (fl) fl.value = state.finishLevel;
     }
     if (state.crew != null) { const el = document.getElementById('crew'); if (el) el.value = state.crew; }
-    if (state.costContingency != null) { const el = document.getElementById
+    if (state.costContingency != null) { const el = document.getElementById('costContingency'); if (el) el.value = state.costContingency; }
+    if (state.timeContingency != null) { const el = document.getElementById('timeContingency'); if (el) el.value = state.timeContingency; }
+    if (state.occupancy != null) { const el = document.getElementById('rc-occupancy'); if (el) el.value = state.occupancy; }
+    if (state.tenancy != null) { const el = document.getElementById('rc-tenancy'); if (el) el.value = state.tenancy; }
+    if (typeof recalc === 'function') recalc();
+    // Clear any "active" preset highlight since we just loaded a saved state, not a preset
+    document.querySelectorAll('.rc-preset').forEach(b => b.classList.remove('active'));
+    return true;
+  } catch (e) { console.warn('[_rcLoadState]', e); return false; }
+};
+// Reset for "new deal" — turn everything off, clear special cases, reset finish/contingencies.
+window._rcResetToDefaults = function(){
+  try {
+    Object.keys(items).forEach(k => items[k].forEach(it => { it.on = false; }));
+    if (Array.isArray(specialCases)) specialCases.forEach(sc => { sc.sev = null; });
+    const fl = document.getElementById('finishLevel'); if (fl) fl.value = 'lab';
+    const cr = document.getElementById('crew'); if (cr) cr.value = '3';
+    const cc = document.getElementById('costContingency'); if (cc) cc.value = '10';
+    const tc = document.getElementById('timeContingency'); if (tc) tc.value = '25';
+    const oc = document.getElementById('rc-occupancy'); if (oc) oc.value = 'vacant';
+    const tn = document.getElementById('rc-tenancy'); if (tn) tn.value = 'none';
+    document.querySelectorAll('.rc-preset').forEach(b => b.classList.remove('active'));
+    if (typeof recalc === 'function') recalc();
+  } catch (e) { console.warn('[_rcResetToDefaults]', e); }
+};
+
+// Set initial hazmat visibility based on uw-built value (if any)
+try {
+  const _yr = parseInt((document.getElementById('uw-built') || {}).value);
+  const _haz = document.getElementById('hazmat-alert');
+  if (_haz) _haz.style.display = (isFinite(_yr) && _yr < 1978) ? 'block' : 'none';
+} catch(_){}
+
+if (_rcRoot && document.getElementById('basicGroups')) {
+  // Snapshot built-in basic group items list + auto list, then merge user
+  // customizations from localStorage. Order matters: snapshot before merging
+  // user items so we can later diff which items are user-added.
+  _rcSnapshotGroupOrigItems();
+  _rcSnapshotGroupOrigAuto();
+  _rcLoadUserItems();
+  _rcLoadUserGroups();
+  _rcLoadUserAuto();
+  loadLabRates();
+  renderCategoryRows();
+  recalc();
+  _rcApplyRecsCollapse();
+}
+})();
+</script>
+</body>
+</html>

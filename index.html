@@ -4518,7 +4518,7 @@
           <thead style="position:sticky;top:0;background:var(--panel);z-index:1">
             <tr style="border-bottom:1px solid var(--border)">
               <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Name</th>
-              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:110px">Rating</th>
+              
               <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Services</th>
               <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Prices</th>
               <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Contact</th>
@@ -4690,20 +4690,24 @@
        UI labels everything Agents. -->
   <div id="reno-realtors-wrap" style="display:none">
     <div class="panel p-5">
+      <!-- Row 1: title left, action buttons right -->
       <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
         <div>
           <div class="font-semibold text-lg">🤝 Agents</div>
           <div class="text-xs text-[var(--text-dim)]">Your rolodex of real estate agents. Ratings, brokerages, specialties, commission terms, and contact info, all in one place. Click ✏ Edit to update or remove.</div>
         </div>
-        <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
+        <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end">
           <button class="btn btn-primary text-sm" onclick="realtorOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new agent to your rolodex.">+ Add Agent</button>
-          <button type="button" id="realtors-verified-filter" data-active="false" onclick="toggleVerifiedFilter('realtors-verified-filter', 'renderRealtorsList')" title="Click to show only verified agents. Click again to show all." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
-          <select id="realtors-specialty-filter" onchange="renderRealtorsList()" title="Filter by specialty offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
-            <option value="">All specialties</option>
-          </select>
-          <input id="realtors-search" type="text" placeholder="🔍 Search by name, brokerage, or city..." oninput="renderRealtorsList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" title="Filter by name, brokerage, specialties, city, state, or notes. Matches anywhere." />
-          <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('realtors-search');if(i){i.value='';renderRealtorsList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
         </div>
+      </div>
+      <!-- Row 2: filter strip — capped widths so nothing stretches when wrapping -->
+      <div class="flex items-center gap-2 mb-3" style="flex-wrap:wrap">
+        <button type="button" id="realtors-verified-filter" data-active="false" onclick="toggleVerifiedFilter('realtors-verified-filter', 'renderRealtorsList')" title="Click to show only verified agents. Click again to show all." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
+        <select id="realtors-specialty-filter" onchange="renderRealtorsList()" title="Filter by specialty offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;min-width:200px;max-width:280px;width:240px">
+          <option value="">All specialties</option>
+        </select>
+        <input id="realtors-search" type="text" placeholder="🔍 Search by name, brokerage, or city..." oninput="renderRealtorsList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 240px;min-width:200px;max-width:480px;box-sizing:border-box" title="Filter by name, brokerage, specialties, city, state, or notes. Matches anywhere." />
+        <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('realtors-search');if(i){i.value='';renderRealtorsList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
       </div>
       <div id="realtors-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No agents saved yet — click <b>+ Add Agent</b> to start building your rolodex.</div>
       <div class="overflow-auto" style="max-height:140vh">
@@ -4733,7 +4737,7 @@
         <div style="font-weight:700;font-size:24px" id="realtor-modal-title">🤝 Add Agent</div>
         <button class="btn btn-ghost" onclick="realtorCloseAddModal()" style="padding:8px 14px;font-size:16px" title="Close without saving">✕</button>
       </div>
-      <div style="font-size:14px;color:var(--text-dim);margin-bottom:22px;line-height:1.5">Fill in whatever info you have. Only Contact Name is required — everything else is optional.</div>
+      <div style="font-size:14px;color:var(--text-dim);margin-bottom:22px;line-height:1.5">Fill in whatever info you have. Only Entity / Purchaser is required — everything else is optional. (Use the company name for LLC purchases, or the buyer's own name if they buy personally.)</div>
       <input type="hidden" id="realtor-edit-id" value="">
       <div class="grid grid-cols-2 gap-4">
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Brokerage <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
@@ -4885,20 +4889,18 @@
   <!-- Buyers subview — cash buyers / end-investors for wholesale & assignments. -->
   <div id="reno-buyers-wrap" style="display:none">
     <div class="panel p-5">
-      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
-        <div>
-          <div class="font-semibold text-lg">💰 Buyers</div>
-          <div class="text-xs text-[var(--text-dim)]">Your cash buyers list. Ratings, buy criteria, funding type, price ranges, and contact info, all in one place. Click ✏ Edit to update or remove.</div>
-        </div>
-        <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
-          <button class="btn btn-primary text-sm" onclick="buyerOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new buyer to your rolodex.">+ Add Buyer</button>
-          <button type="button" id="buyers-verified-filter" data-active="false" onclick="toggleVerifiedFilter('buyers-verified-filter', 'renderBuyersList')" title="Click to show only verified buyers. Click again to show all." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
-          <select id="buyers-criteria-filter" onchange="renderBuyersList()" title="Filter by buy-box criteria tag." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
-            <option value="">All criteria</option>
-          </select>
-          <input id="buyers-search" type="text" placeholder="🔍 Search by name, criteria, city..." oninput="renderBuyersList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" title="Filter by name, company, criteria, funding, city, state, or notes. Matches anywhere." />
-          <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('buyers-search');if(i){i.value='';renderBuyersList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
-        </div>
+      <!-- Single-row header: title + action buttons + filters + search. -->
+      <div class="flex items-center gap-2 mb-3" style="flex-wrap:wrap">
+        <div class="font-semibold text-lg" style="flex:0 0 auto;margin-right:8px;white-space:nowrap">💰 Buyers</div>
+        <button class="btn btn-primary text-sm" onclick="buyerOpenAddModal()" style="height:38px;padding:0 14px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new buyer to your rolodex.">+ Add Buyer</button>
+        <button class="btn btn-ghost text-sm" onclick="buyerOpenImportModal()" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0;line-height:1;border:1px solid var(--border)" title="Bulk-import buyers from a CSV / XLSX. You'll get to map columns + tag with a county / city / zip before importing.">📤 Import CSV</button>
+        <button id="buyers-undo-import-btn" class="btn btn-ghost text-xs" onclick="buyerUndoLastImport()" style="height:38px;padding:0 10px;white-space:nowrap;flex-shrink:0;display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4)" title="Delete every buyer that was NEWLY ADDED by the most recent import. Merged rows (rows that already existed) are NOT touched.">↶ Undo Import</button>
+        <button type="button" id="buyers-qualified-filter" data-state="" onclick="buyerCycleQualifiedFilter()" title="Click to cycle the qualification filter: All → Qualified → Unqualified → Unknown" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex:0 0 auto;min-width:150px;width:170px;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all 0.15s ease">All Statuses</button>
+        <select id="buyers-criteria-filter" onchange="renderBuyersList()" title="Filter by acquisitions range." style="height:38px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;min-width:170px;max-width:220px;width:200px">
+          <option value="">All Acquisitions</option>
+        </select>
+        <input id="buyers-search" type="text" placeholder="🔍 Search by name, criteria, city, county, zip, lender..." oninput="renderBuyersList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;box-sizing:border-box" title="Filter by name, company, criteria, funding, city, state, county, zip, lender, channel, or notes. Matches anywhere." />
+        <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('buyers-search');if(i){i.value='';renderBuyersList();i.focus();}})();" style="height:38px;padding:0 10px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
       </div>
       <div id="buyers-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No buyers saved yet — click <b>+ Add Buyer</b> to start building your rolodex.</div>
       <div class="overflow-auto" style="max-height:140vh">
@@ -4906,11 +4908,11 @@
           <thead style="position:sticky;top:0;background:var(--panel);z-index:1">
             <tr style="border-bottom:1px solid var(--border)">
               <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Name</th>
-              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:110px">Rating</th>
-              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Buy Box</th>
-              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Funding &amp; Price</th>
-              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Contact</th>
-              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:140px">Location</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:70px" title="Qualification status — click ✏ Edit to change.">Status</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:120px" title="How many properties this buyer has closed">Acquisitions</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:200px" title="What this buyer does with properties — Flip / Cashflow / Appreciation / Wholesale / Other">Strategy</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:220px">Contact</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:200px">Location</th>
               <th style="padding:10px 12px;text-align:right;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:100px">Actions</th>
             </tr>
           </thead>
@@ -4923,24 +4925,25 @@
   <!-- Add / Edit Buyer modal -->
   <div id="buyer-add-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
     <div class="panel" style="max-width:820px;width:100%;padding:32px;box-shadow:0 14px 50px rgba(0,0,0,0.6);max-height:92vh;overflow-y:auto">
-      <div class="flex items-center justify-between" style="margin-bottom:18px">
+      <div class="flex items-center justify-between" style="margin-bottom:18px;gap:12px;flex-wrap:wrap">
         <div style="font-weight:700;font-size:24px" id="buyer-modal-title">💰 Add Buyer</div>
-        <button class="btn btn-ghost" onclick="buyerCloseAddModal()" style="padding:8px 14px;font-size:16px" title="Close without saving">✕</button>
+        <!-- Top-right action cluster: Verify toggle + Save / Delete / Cancel.
+             Replaces the old ✕ close button + bottom button bar. -->
+        <div class="flex items-center" style="gap:10px;flex-wrap:wrap">
+          <button type="button" id="buyer-add-verified-btn" data-state="true" onclick="buyerCycleQualified()" style="height:34px;padding:0 14px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.5);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:#10b981;box-sizing:border-box;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease" title="Click to cycle status: Qualified → Unqualified → Unknown. Defaults to Qualified on new buyers.">✓ Qualified</button>
+          <button class="btn btn-ghost" onclick="buyerDeleteFromModal()" id="buyer-delete-btn" style="height:34px;padding:0 14px;font-size:13px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none;box-sizing:border-box;line-height:1" title="Delete this buyer">🗑 Delete</button>
+          <button class="btn btn-ghost" onclick="buyerCloseAddModal()" style="height:34px;padding:0 14px;font-size:13px;box-sizing:border-box;line-height:1" title="Discard changes and close">Cancel</button>
+          <button class="btn btn-primary" onclick="buyerSaveNew()" id="buyer-add-save-btn" style="height:34px;padding:0 18px;font-size:13px;font-weight:600;box-sizing:border-box;line-height:1" title="Save this buyer">💾 Save</button>
+        </div>
       </div>
       <div style="font-size:14px;color:var(--text-dim);margin-bottom:22px;line-height:1.5">Fill in whatever info you have. Only Contact Name is required — everything else is optional.</div>
       <input type="hidden" id="buyer-edit-id" value="">
       <div class="grid grid-cols-2 gap-4">
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Company / Entity <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
-          <input type="text" id="buyer-add-company" placeholder="e.g. Chen Holdings LLC" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Entity / Purchaser *
+          <input type="text" id="buyer-add-company" placeholder="e.g. Chen Holdings LLC  —  or  Mike Chen" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px" title="The legal entity OR person who's buying. Use the company name for LLC purchases, or the buyer's name if they purchase under their own name.">
         </label>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Contact Name *
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Contact Name <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
           <input type="text" id="buyer-add-name" placeholder="e.g. Mike Chen" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
-        </label>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Rating <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(0 – 5)</span>
-          <input type="number" id="buyer-add-rating" min="0" max="5" step="0.5" placeholder="e.g. 4.5" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
-        </label>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Funding Type
-          <input type="text" id="buyer-add-funding" placeholder="e.g. Cash, Hard Money, Conventional" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Phone
           <input type="tel" id="buyer-add-phone" placeholder="e.g. (812) 555-1234" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
@@ -4948,32 +4951,142 @@
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Email
           <input type="email" id="buyer-add-email" placeholder="e.g. mike@chenholdings.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">City
-          <input type="text" id="buyer-add-city" placeholder="e.g. Evansville" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        <!-- ===== Geography / strategy / pricing block (reordered) ===== -->
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Price Range / Budget <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(free text)</span>
+          <input type="text" id="buyer-add-price-notes" placeholder="e.g. $50k–$150k purchase • up to 75% ARV − rehab" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">State
-          <input type="text" id="buyer-add-state" placeholder="e.g. IN" maxlength="2" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase;letter-spacing:1px">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Number of Acquisitions <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(# closed)</span>
+          <input type="number" id="buyer-add-acq-count" min="0" step="1" placeholder="e.g. 36" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px" title="Total properties this buyer has closed. Importable from buyer-list CSVs.">
         </label>
-        <label class="col-span-2" style="font-size:14px;font-weight:600">Buy Criteria <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
-          <input type="text" id="buyer-add-criteria" placeholder="e.g. SFR, 3+ bed, Evansville, BRRRR, Section 8" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">States <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
+          <input type="text" id="buyer-add-states" placeholder="e.g. IN, KY, OH" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase;letter-spacing:1px" title="Every state this buyer purchases in. Comma-separated 2-letter codes.">
         </label>
-        <label class="col-span-2" style="font-size:14px;font-weight:600">Price Range / Budget <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(free text)</span>
-          <textarea id="buyer-add-price-notes" rows="3" placeholder="e.g. $50k – $150k purchase • Up to $200k ARV • Will pay up to 75% ARV − rehab" style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Cities <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
+          <input type="text" id="buyer-add-cities" placeholder="e.g. Evansville, Henderson, Newburgh" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px" title="Every city this buyer purchases in. Comma-separated.">
         </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Counties <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
+          <input type="text" id="buyer-add-counties" placeholder="e.g. Vanderburgh, Warrick, Posey" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px" title="Counties this buyer purchases in. Comma-separated.">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Zip Codes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
+          <input type="text" id="buyer-add-zips" placeholder="e.g. 47711, 47712, 47715" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px" title="Zip codes this buyer purchases in. Comma-separated.">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Strategy
+          <div id="buyer-add-strategy-chips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px" title="What this buyer does with the properties. Click to toggle each one on/off.">
+            <!-- Chips injected by buyerRenderStrategyChips() on modal open -->
+          </div>
+          <input type="hidden" id="buyer-add-strategy" value="">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Contact Channels
+          <div id="buyer-add-channels-chips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px" title="Which channels they accept. Click to toggle each one on/off.">
+            <!-- Chips injected by buyerRenderChannelChips() on modal open -->
+          </div>
+          <input type="hidden" id="buyer-add-channels" value="">
+        </label>
+        <!-- ===== /reordered block ===== -->
         <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
           <textarea id="buyer-add-notes" rows="3" placeholder="e.g. Closes in 7 days. Will rehab anything. Prefers off-market deals." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
         </label>
-        <label class="col-span-2" style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer">
-          <input type="checkbox" id="buyer-add-verified" style="width:18px;height:18px;cursor:pointer;accent-color:#10b981">
-          <span>✓ Mark as Verified</span>
-          <span style="color:var(--text-dim);font-weight:normal;font-size:12px;margin-left:4px">— check this once they've closed a deal with you and they're proven reliable.</span>
-        </label>
+        <div class="col-span-2" style="font-size:14px;font-weight:600">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
+            <div>Other Names / Sister LLCs <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional — add one per chip)</span></div>
+            <button type="button" class="btn btn-ghost text-xs" onclick="buyerAddAliasChip()" style="padding:6px 12px;white-space:nowrap;border:1px solid var(--border)" title="Add another sister LLC / sub-company to this buyer">+ Add Sub-Company</button>
+          </div>
+          <div id="buyer-add-aliases-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+            <!-- Each alias chip is injected by buyerRenderAliasChips(). 3 per row. -->
+          </div>
+        </div>
+        <div class="col-span-2" style="font-size:14px;font-weight:600">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
+            <div>Lenders Used <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(add one per chip + tag with loan type)</span></div>
+            <button type="button" class="btn btn-ghost text-xs" onclick="buyerAddLenderChip()" style="padding:6px 12px;white-space:nowrap;border:1px solid var(--border)" title="Add another lender + loan type">+ Add Lender</button>
+          </div>
+          <div id="buyer-add-lenders-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+            <!-- Each lender chip rendered by buyerRenderLenderChips(). 3 per row. -->
+          </div>
+          <div style="margin-top:6px;font-size:11px;color:var(--text-dim);line-height:1.5">
+            <b>PML</b> = Private Money &nbsp;·&nbsp; <b>HML</b> = Hard Money &nbsp;·&nbsp; <b>DSCR</b> = Long-term &nbsp;·&nbsp; Conventional &nbsp;·&nbsp; Other
+          </div>
+        </div>
+        
+              </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       Import Buyers CSV modal — two-step flow:
+         1) Pick file → parse with Papa Parse
+         2) Map each CSV column → buyer field (auto-detected, editable)
+            + optional "apply to every row" bulk-tag fields
+            (County / City / Zip / Lender / Channels)
+         3) Click Import → for each row: normalize company, look up by
+            company_norm, merge & accumulate OR insert new
+       ============================================================ -->
+  <input type="file" id="buyer-import-file" accept=".csv,.tsv,.xlsx,.xls" style="display:none" onchange="buyerHandleImportFile(event)">
+  <div id="buyer-import-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
+    <div class="panel" style="max-width:1100px;width:100%;padding:28px;box-shadow:0 14px 50px rgba(0,0,0,0.6);max-height:92vh;overflow-y:auto">
+      <div class="flex items-center justify-between" style="margin-bottom:14px">
+        <div>
+          <div style="font-weight:700;font-size:22px">📤 Import Buyers</div>
+          <div style="font-size:13px;color:var(--text-dim);margin-top:4px;line-height:1.4">Map each column → a buyer field. Auto-detected from headers; change any dropdown to override. Anything mapped to <b>Skip</b> won't be imported. Duplicates (same company name) are <b>merged</b> — lists like cities / counties / lenders / channels combine without removing what's already there.</div>
+        </div>
+        <button class="btn btn-ghost" onclick="buyerCloseImportModal()" style="padding:8px 14px;font-size:16px" title="Close without importing">✕</button>
       </div>
-      <div class="flex items-center justify-between gap-3" style="margin-top:28px">
-        <button class="btn btn-ghost" onclick="buyerDeleteFromModal()" id="buyer-delete-btn" style="padding:11px 22px;font-size:15px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none">🗑 Delete</button>
-        <div style="margin-left:auto" class="flex items-center gap-3">
-          <button class="btn btn-ghost" onclick="buyerCloseAddModal()" style="padding:11px 22px;font-size:15px">Cancel</button>
-          <button class="btn btn-primary" onclick="buyerSaveNew()" id="buyer-add-save-btn" style="padding:11px 26px;font-size:15px;font-weight:600">💾 Save Buyer</button>
+
+      <div id="buyer-import-empty" style="padding:32px;text-align:center;color:var(--text-dim);font-size:14px">
+        <div style="font-size:36px;margin-bottom:10px">📁</div>
+        <div>No file picked yet.</div>
+        <button class="btn btn-primary text-sm" onclick="document.getElementById('buyer-import-file').click()" style="margin-top:14px;padding:10px 20px">Choose CSV / XLSX file…</button>
+      </div>
+
+      <div id="buyer-import-body" style="display:none">
+        <div style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px">📍 Apply to every imported row <span style="color:var(--text-dim);font-weight:normal;font-size:12px">— optional. Use this when the whole CSV is "all my buyers in X."</span></div>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <label style="font-size:12px;font-weight:600">County
+              <input type="text" id="buyer-import-bulk-county" placeholder="e.g. Vanderburgh" style="width:100%;margin-top:4px;height:36px;font-size:13px;padding:0 10px">
+            </label>
+            <label style="font-size:12px;font-weight:600">City
+              <input type="text" id="buyer-import-bulk-city" placeholder="e.g. Evansville" style="width:100%;margin-top:4px;height:36px;font-size:13px;padding:0 10px">
+            </label>
+            <label style="font-size:12px;font-weight:600">Zip
+              <input type="text" id="buyer-import-bulk-zip" placeholder="e.g. 47711" style="width:100%;margin-top:4px;height:36px;font-size:13px;padding:0 10px">
+            </label>
+            <label style="font-size:12px;font-weight:600">Lender
+              <input type="text" id="buyer-import-bulk-lender" placeholder="e.g. Talon Mortgage" style="width:100%;margin-top:4px;height:36px;font-size:13px;padding:0 10px">
+            </label>
+            <label style="font-size:12px;font-weight:600;grid-column:1/-1">Channels <span style="color:var(--text-dim);font-weight:normal">(comma-separated — Phone, Email, SMS, Messenger, Other)</span>
+              <input type="text" id="buyer-import-bulk-channels" placeholder="e.g. Email, SMS" style="width:100%;margin-top:4px;height:36px;font-size:13px;padding:0 10px">
+            </label>
+          </div>
+        </div>
+
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔀 Column mapping <span id="buyer-import-stats" style="color:var(--text-dim);font-weight:normal;font-size:12px;margin-left:8px"></span></div>
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead style="background:var(--panel-2)">
+              <tr>
+                <th style="padding:8px 10px;text-align:left;font-weight:600;width:34%;border-bottom:1px solid var(--border)">CSV Column</th>
+                <th style="padding:8px 10px;text-align:left;font-weight:600;width:30%;border-bottom:1px solid var(--border)">Maps to →</th>
+                <th style="padding:8px 10px;text-align:left;font-weight:600;border-bottom:1px solid var(--border)">Sample values</th>
+              </tr>
+            </thead>
+            <tbody id="buyer-import-mapping-tbody"></tbody>
+          </table>
+        </div>
+
+        <details style="margin-bottom:14px">
+          <summary style="cursor:pointer;font-size:13px;font-weight:600;padding:4px 0">👁 Preview first 5 rows</summary>
+          <div style="border:1px solid var(--border);border-radius:8px;overflow:auto;max-height:240px;margin-top:8px">
+            <table id="buyer-import-preview" style="width:100%;border-collapse:collapse;font-size:12px"></table>
+          </div>
+        </details>
+
+        <div class="flex items-center justify-between gap-3" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+          <button class="btn btn-ghost text-sm" onclick="document.getElementById('buyer-import-file').click()" style="padding:8px 14px" title="Pick a different file">📁 Change file</button>
+          <div class="flex items-center gap-3">
+            <button class="btn btn-ghost" onclick="buyerCloseImportModal()" style="padding:10px 20px;font-size:14px">Cancel</button>
+            <button class="btn btn-primary" id="buyer-import-run-btn" onclick="buyerDoImport()" style="padding:10px 24px;font-size:14px;font-weight:600">📥 Import <span id="buyer-import-count-label"></span></button>
+          </div>
         </div>
       </div>
     </div>
@@ -23173,11 +23286,11 @@ function renderContractorsList() {
           ${nameBlock}
           ${c.notes ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px;max-width:240px;line-height:1.4">${esc(c.notes)}</div>` : ''}
         </td>
-        <td style="padding:10px 12px;vertical-align:top">${stars}</td>
+        
         <td style="padding:10px 12px;vertical-align:top;max-width:260px">${services}</td>
         <td style="padding:10px 12px;vertical-align:top">${prices}</td>
-        <td style="padding:10px 12px;vertical-align:top">${contact}</td>
-        <td style="padding:10px 12px;vertical-align:top;font-size:12px">${loc}</td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:center">${contact}</td>
+        <td style="padding:10px 12px;vertical-align:top;font-size:12px;text-align:center">${loc}</td>
         <td style="padding:10px 12px;vertical-align:top;text-align:right">
           <button class="btn btn-ghost text-xs" onclick="contractorOpenAddModal('${esc(c.id)}')" style="padding:5px 10px;white-space:nowrap" title="Edit this contractor">✏ Edit</button>
         </td>
@@ -23374,10 +23487,18 @@ function renderLendersList() {
   let rows = Object.values(cache.lenders)
     .filter(l => l && l.name)
     .sort((a, b) => {
-      const ra = (a.rating == null ? -1 : Number(a.rating));
-      const rb = (b.rating == null ? -1 : Number(b.rating));
-      if (ra !== rb) return rb - ra;
-      return String(a.name || '').toLowerCase().localeCompare(String(b.name || '').toLowerCase());
+      // Sort by acquisitions_count desc (the primary buyer metric now that
+      // rating isn't being captured). Buyers without a count sink to the bottom.
+      const ra = Number(a.acquisitions_count);
+      const rb = Number(b.acquisitions_count);
+      const aHas = Number.isFinite(ra), bHas = Number.isFinite(rb);
+      if (aHas && bHas && ra !== rb) return rb - ra;
+      if (aHas && !bHas) return -1;
+      if (!aHas && bHas) return 1;
+      // Tie-break by entity / company / name alphabetical.
+      const an = String(a.company || a.name || '').toLowerCase();
+      const bn = String(b.company || b.name || '').toLowerCase();
+      return an.localeCompare(bn);
     });
 
   const typeFilter = typeSel ? (typeSel.value || '').toLowerCase() : '';
@@ -24070,17 +24191,23 @@ window.loadBuyers = loadBuyers;
 function buyerOpenAddModal(editId) {
   const modal = document.getElementById('buyer-add-modal');
   if (!modal) return;
+  // Reset every text input so prior Edit state never leaks into a new Add.
   const ids = [
     'buyer-add-company','buyer-add-name','buyer-add-phone','buyer-add-email',
-    'buyer-add-criteria','buyer-add-city','buyer-add-state',
-    'buyer-add-rating','buyer-add-funding','buyer-add-price-notes','buyer-add-notes'
+    'buyer-add-states','buyer-add-price-notes','buyer-add-notes',
+    'buyer-add-cities','buyer-add-counties','buyer-add-zips',
+    'buyer-add-acq-count','buyer-add-channels','buyer-add-strategy'
   ];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  const verResetEl = document.getElementById('buyer-add-verified');
-  if (verResetEl) verResetEl.checked = false;
+  // Default the cycling Qualified button to Qualified for fresh Add; will be
+  // overridden below for Edit mode based on the buyer's current verified state.
+  buyerSetQualifiedButton('true');
   const hiddenId = document.getElementById('buyer-edit-id');
   const title    = document.getElementById('buyer-modal-title');
   const delBtn   = document.getElementById('buyer-delete-btn');
+  // Render channel chips fresh (no selection yet for Add mode).
+  buyerRenderChannelChips([]);
+  buyerRenderStrategyChips([]);
   if (editId && cache.buyers && cache.buyers[editId]) {
     const b = cache.buyers[editId];
     if (hiddenId) hiddenId.value = editId;
@@ -24088,25 +24215,49 @@ function buyerOpenAddModal(editId) {
     if (delBtn)   delBtn.style.display = '';
     const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : String(v)); };
     setVal('buyer-add-company',     b.company);
+    // Aliases: rebuild the chip grid from the buyer's stored list.
+    buyerRenderAliasChips(Array.isArray(b.aliases) ? b.aliases : []);
     setVal('buyer-add-name',        b.name);
     setVal('buyer-add-phone',       b.phone);
     setVal('buyer-add-email',       b.email);
-    setVal('buyer-add-criteria',    b.criteria);
-    setVal('buyer-add-city',        b.city);
-    setVal('buyer-add-state',       b.state);
-    setVal('buyer-add-rating',      b.rating);
-    setVal('buyer-add-funding',     b.funding_type);
+    // States: prepend legacy single b.state if not already present in b.states.
+    const stArr = Array.isArray(b.states) ? b.states.slice() : [];
+    const legacySt = String(b.state || '').trim().toUpperCase();
+    if (legacySt && !stArr.some(s => String(s).toUpperCase() === legacySt)) stArr.unshift(legacySt);
+    setVal('buyer-add-states',      stArr.join(', '));
     setVal('buyer-add-price-notes', b.price_notes);
     setVal('buyer-add-notes',       b.notes);
-    if (verResetEl) verResetEl.checked = !!b.verified;
+    // New multi-value fields → render as comma-joined strings (arrays in DB).
+    const asList = v => Array.isArray(v) ? v.join(', ') : (v == null ? '' : String(v));
+    // Cities now subsumes the legacy single-city column. Merge b.city in front
+    // if it isn't already represented in b.cities (case-insensitive).
+    const cityArr  = Array.isArray(b.cities) ? b.cities.slice() : [];
+    const legacyCi = String(b.city || '').trim();
+    if (legacyCi && !cityArr.some(c => String(c).toLowerCase().trim() === legacyCi.toLowerCase())) {
+      cityArr.unshift(legacyCi);
+    }
+    setVal('buyer-add-cities',      cityArr.join(', '));
+    setVal('buyer-add-counties',    asList(b.counties));
+    setVal('buyer-add-zips',        asList(b.zips));
+    buyerRenderLenderChips(Array.isArray(b.lenders) ? b.lenders : []);
+    setVal('buyer-add-acq-count',   b.acquisitions_count);
+    buyerRenderChannelChips(Array.isArray(b.channels) ? b.channels : []);
+    buyerRenderStrategyChips(Array.isArray(b.strategy) ? b.strategy : []);
+    // Restore the cycling button from qualification (with verified fallback).
+    const _q = buyerQualState(b);
+    const st = _q === 'qualified' ? 'true' : (_q === 'unqualified' ? 'false' : 'unknown');
+    buyerSetQualifiedButton(st);
   } else {
     if (hiddenId) hiddenId.value = '';
     if (title)    title.textContent = '💰 Add Buyer';
     if (delBtn)   delBtn.style.display = 'none';
+    buyerRenderAliasChips([]);   // Fresh add — wipe any leftover chips.
+    buyerRenderLenderChips([]);  // Wipe lender chips too.
   }
   modal.style.display = 'flex';
   setTimeout(() => {
-    const f = document.getElementById('buyer-add-name');
+    // Focus Company first since it's the required field now.
+    const f = document.getElementById('buyer-add-company');
     if (f) f.focus();
   }, 50);
 }
@@ -24125,40 +24276,78 @@ async function buyerSaveNew() {
   const name     = ($('buyer-add-name')?.value        || '').trim();
   const phone    = ($('buyer-add-phone')?.value       || '').trim();
   const email    = ($('buyer-add-email')?.value       || '').trim();
-  const criteria = ($('buyer-add-criteria')?.value    || '').trim();
-  const city     = ($('buyer-add-city')?.value        || '').trim();
-  const state    = ($('buyer-add-state')?.value       || '').trim().toUpperCase();
-  const ratingS  = ($('buyer-add-rating')?.value      || '').trim();
-  const funding  = ($('buyer-add-funding')?.value     || '').trim();
+  // criteria field removed from UI; preserve any pre-existing value on the row.
+  const editCacheRow = editId && cache.buyers ? cache.buyers[editId] : null;
+  const criteria = (editCacheRow && editCacheRow.criteria) ? editCacheRow.criteria : '';
+  // City input was merged into Cities (multi). Derive a single city from the
+  // cities list for backward compat with any code path that still reads b.city.
+  // We use the first non-empty entry; falls back to '' if Cities is empty.
+  // (Computed after we collect cities[] below.)
+  let city = '';
+  // States is now multi. Derive a single legacy b.state from states[0].
+  let state = '';
+  // Rating field removed from UI; preserve any pre-existing value on the row.
+  const editRowR = editId && cache.buyers ? cache.buyers[editId] : null;
+  const ratingS  = (editRowR && editRowR.rating != null) ? String(editRowR.rating) : '';
+  // Funding Type field removed — type now lives on each lender chip.
+  // Preserve any pre-existing funding_type value on the row.
+  const editRowF = editId && cache.buyers ? cache.buyers[editId] : null;
+  const funding  = (editRowF && editRowF.funding_type) ? editRowF.funding_type : '';
   const prices   = ($('buyer-add-price-notes')?.value || '').trim();
   const notes    = ($('buyer-add-notes')?.value       || '').trim();
-  const verified = !!($('buyer-add-verified')?.checked);
-  if (!name) {
-    if (typeof toast === 'function') toast('Contact Name is required.', 'warn');
-    const n = $('buyer-add-name'); if (n) n.focus();
+  // Read three-state qualification from the cycling button. We write to BOTH:
+  //   qualification = 'qualified' / 'unqualified' / null   (new source of truth)
+  //   verified      = true / false / null                  (legacy mirror — kept in sync)
+  const _qSt = ($('buyer-add-verified-btn')?.getAttribute('data-state') || 'unknown');
+  const qualification = _qSt === 'true' ? 'qualified' : (_qSt === 'false' ? 'unqualified' : null);
+  const verified      = _qSt === 'true' ? true        : (_qSt === 'false' ? false         : null);
+  if (!company) {
+    if (typeof toast === 'function') toast('Entity / Purchaser is required.', 'warn');
+    const c = $('buyer-add-company'); if (c) c.focus();
     return;
   }
-  if (state && state.length !== 2) {
-    if (typeof toast === 'function') toast('State must be a 2-letter code (e.g. IN, OH, KY).', 'warn');
-    const s = $('buyer-add-state'); if (s) s.focus();
-    return;
-  }
+  // State validation dropped — multi-state field accepts any list of codes.
+  // Rating field removed — value (if any) is preserved verbatim.
   let rating = null;
   if (ratingS !== '') {
     const r = parseFloat(ratingS);
-    if (isNaN(r) || r < 0 || r > 5) {
-      if (typeof toast === 'function') toast('Rating must be between 0 and 5.', 'warn');
-      const rEl = $('buyer-add-rating'); if (rEl) rEl.focus();
-      return;
-    }
-    rating = r;
+    if (!isNaN(r)) rating = r;
   }
   const btn = $('buyer-add-save-btn');
   let prevLabel = '';
   if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
   try {
     if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
-    const payload = { name, company, phone, email, criteria, city, state, rating, funding_type: funding, price_notes: prices, notes, verified };
+    // Collect new fields. Multi-value lists are stored as text[] in Postgres
+    // so we split on commas and dedupe (case-insensitive) before saving.
+    // Messenger URL field removed from UI; preserve any pre-existing value on the row.
+    const editRowM  = editId && cache.buyers ? cache.buyers[editId] : null;
+    const messenger = (editRowM && editRowM.messenger) ? editRowM.messenger : '';
+    // Aliases come from the chip grid now — collect every non-empty input.
+    const aliases   = buyerCollectAliasChips();
+    const cities   = splitTagsList($('buyer-add-cities')?.value);
+    city = cities[0] || '';   // keep legacy b.city in sync
+    const states   = splitTagsList($('buyer-add-states')?.value).map(s => String(s).trim().toUpperCase()).filter(Boolean);
+    state = states[0] || '';  // keep legacy b.state in sync
+    const strategy = splitTagsList($('buyer-add-strategy')?.value);
+    const counties = splitTagsList($('buyer-add-counties')?.value);
+    const zips     = splitTagsList($('buyer-add-zips')?.value);
+    const lenders  = buyerCollectLenderChips();
+    const channels = splitTagsList($('buyer-add-channels')?.value);
+    // Avg Buy Price field removed from UI; preserve any pre-existing value on the row.
+    const editRowA = editId && cache.buyers ? cache.buyers[editId] : null;
+    const avg_buy_price      = (editRowA && editRowA.avg_buy_price != null) ? editRowA.avg_buy_price : null;
+    const acqS     = ($('buyer-add-acq-count')?.value  || '').trim();
+    const acquisitions_count = acqS === '' ? null : (isNaN(parseInt(acqS, 10)) ? null : parseInt(acqS, 10));
+    // company_norm powers dedup on import — keep it in sync on every save.
+    const company_norm = companyNorm(company || name);
+    const payload = {
+      name, company, company_norm, phone, email, messenger, criteria, city, state, rating,
+      funding_type: funding, price_notes: prices, notes, verified, qualification,
+      cities, counties, zips, lenders, channels, aliases, states, strategy,
+      avg_buy_price, acquisitions_count,
+      updated_at: new Date().toISOString()
+    };
     let data, error;
     if (editId) {
       ({ data, error } = await sb.from('buyers').update(payload).eq('id', editId).select().single());
@@ -24175,7 +24364,7 @@ async function buyerSaveNew() {
     console.warn('buyerSaveNew:', e);
     if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = prevLabel || '💾 Save Buyer'; }
+    if (btn) { btn.disabled = false; btn.textContent = prevLabel || '💾 Save'; }
   }
 }
 window.buyerSaveNew = buyerSaveNew;
@@ -24209,25 +24398,40 @@ function renderBuyersList() {
   const tbody   = document.getElementById('buyers-tbody');
   const empty   = document.getElementById('buyers-empty');
   const tableEl = document.getElementById('buyers-table');
-  if (!tbody) return;
+  if (!tbody) {
+    // Tbody isn't in the DOM yet — surface this so we know to wait for the panel.
+    console.warn('[renderBuyersList] #buyers-tbody not found. Are we on the Buyers tab?');
+    return;
+  }
+  try {
 
   const critSel = document.getElementById('buyers-criteria-filter');
   const selectedCrit = critSel ? critSel.value : '';
+  // Acquisition-count ranges (inserted below the text-tag list).
+  // Each range entry's value carries an 'acq:' prefix so the filter logic
+  // below can tell them apart from regular criteria-tag values.
+  const ACQ_RANGES = [
+    { v: 'acq:0-10',     l: '🏠 0 – 10 Acquisitions' },
+    { v: 'acq:10-20',    l: '🏠 10 – 20 Acquisitions' },
+    { v: 'acq:20-50',    l: '🏠 20 – 50 Acquisitions' },
+    { v: 'acq:50-100',   l: '🏠 50 – 100 Acquisitions' },
+    { v: 'acq:100-300',  l: '🏠 100 – 300 Acquisitions' },
+    { v: 'acq:300-1000', l: '🏠 300 – 1,000 Acquisitions' },
+    { v: 'acq:1000+',    l: '🏠 1,000+ Acquisitions' }
+  ];
   if (critSel) {
-    const set = new Set();
-    Object.values(cache.buyers).forEach(b => {
-      const list = String((b && b.criteria) || '').split(',').map(s => s.trim()).filter(Boolean);
-      list.forEach(s => set.add(s));
-    });
-    const options = ['<option value="">All criteria</option>']
-      .concat(Array.from(set).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).map(s => `<option value="${s.replace(/"/g, '&quot;')}">${s}</option>`))
-      .join('');
+    // Acquisition-count ranges are the ONLY options in this dropdown
+    // (the old buy-criteria text tags were removed by request).
+    const rangeOpts = ACQ_RANGES.map(r => `<option value="${r.v}">${r.l}</option>`);
+    const options = ['<option value="">All Acquisitions</option>'].concat(rangeOpts).join('');
     if (critSel.innerHTML !== options) critSel.innerHTML = options;
-    if (selectedCrit && set.has(selectedCrit)) critSel.value = selectedCrit;
+    if (selectedCrit && ACQ_RANGES.some(r => r.v === selectedCrit)) {
+      critSel.value = selectedCrit;
+    }
   }
 
   let rows = Object.values(cache.buyers)
-    .filter(b => b && b.name)
+    .filter(b => b && (b.company || b.name))
     .sort((a, b) => {
       const ra = (a.rating == null ? -1 : Number(a.rating));
       const rb = (b.rating == null ? -1 : Number(b.rating));
@@ -24235,20 +24439,41 @@ function renderBuyersList() {
       return String(a.name || '').toLowerCase().localeCompare(String(b.name || '').toLowerCase());
     });
 
-  const critFilter = critSel ? (critSel.value || '').toLowerCase() : '';
+  const critFilter = critSel ? (critSel.value || '') : '';
   if (critFilter) {
-    rows = rows.filter(b => String(b.criteria || '').toLowerCase().split(',').map(s => s.trim()).includes(critFilter));
+    if (critFilter.indexOf('acq:') === 0) {
+      // Acquisitions-count range filter. '1000+' means open-ended on the high end.
+      const spec = critFilter.slice(4);
+      let lo = 0, hi = Infinity;
+      const m = spec.match(/^(\d+)-(\d+)$/);
+      const p = spec.match(/^(\d+)\+$/);
+      if (m)      { lo = parseInt(m[1], 10); hi = parseInt(m[2], 10); }
+      else if (p) { lo = parseInt(p[1], 10); hi = Infinity; }
+      rows = rows.filter(b => {
+        const n = Number(b.acquisitions_count);
+        if (!Number.isFinite(n)) return false;
+        // Lower bound inclusive, upper exclusive — so 10-20 means [10, 20). Avoids
+        // double-counting at the boundary.
+        return n >= lo && n < hi;
+      });
+    } else {
+      const lc = critFilter.toLowerCase();
+      rows = rows.filter(b => String(b.criteria || '').toLowerCase().split(',').map(s => s.trim()).includes(lc));
+    }
   }
 
-  const verBtn = document.getElementById('buyers-verified-filter');
-  const verFilter = !!(verBtn && verBtn.getAttribute('data-active') === 'true');
-  if (verFilter) rows = rows.filter(b => b.verified === true);
+  // Qualification dropdown — 3 explicit states + show-all.
+  // Qualification cycling button — uses buyerQualState() so legacy verified=false
+  // rows are treated as Unknown (not Unqualified) for display purposes.
+  const qualSel = document.getElementById('buyers-qualified-filter');
+  const qualVal = qualSel ? (qualSel.getAttribute('data-state') || '') : '';
+  if (qualVal) rows = rows.filter(b => buyerQualState(b) === qualVal);
 
   const searchEl = document.getElementById('buyers-search');
   const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
   if (q) {
     rows = rows.filter(b => {
-      const haystack = [b.name, b.company, b.criteria, b.funding_type, b.city, b.state, b.phone, b.email, b.notes, b.price_notes]
+      const haystack = [b.name, b.company, b.criteria, b.funding_type, b.city, b.state, b.phone, b.email, b.messenger, b.notes, b.price_notes, (b.cities||[]).join(' '), (b.counties||[]).join(' '), (b.zips||[]).join(' '), (b.lenders||[]).join(' '), (b.channels||[]).join(' '), (b.aliases||[]).join(' '), (b.states||[]).join(' '), (b.strategy||[]).join(' ')]
         .map(v => String(v || '').toLowerCase()).join(' | ');
       return haystack.includes(q);
     });
@@ -24257,9 +24482,23 @@ function renderBuyersList() {
   if (rows.length === 0) {
     if (empty) {
       empty.style.display = '';
-      empty.innerHTML = q || critFilter || verFilter
-        ? 'No buyers match the current filter. Try clearing the search or filters.'
-        : 'No buyers saved yet — click <b>+ Add Buyer</b> to start building your rolodex.';
+      // Surface diagnostic info: how many buyers are in the cache, and what filters
+      // are active. Helps debug 'why is the list empty?' situations.
+      const totalCached = Object.keys(cache.buyers || {}).length;
+      const filterParts = [];
+      if (q)          filterParts.push('search: "' + q + '"');
+      if (critFilter) filterParts.push('acquisitions: ' + critFilter);
+      if (qualVal)    filterParts.push('qualification: ' + qualVal);
+      const filtersStr = filterParts.length ? filterParts.join(' · ') : '(no filters)';
+      if (totalCached === 0) {
+        empty.innerHTML = 'No buyers saved yet — click <b>+ Add Buyer</b> or <b>📤 Import CSV</b> to start.';
+      } else {
+        // Active filters but no matches — give them a one-click escape hatch.
+        empty.innerHTML = 'No buyers match the current filter.<br>' +
+          '<small style="color:var(--text-dim)">' + totalCached + ' buyer' + (totalCached === 1 ? '' : 's') +
+          ' in cache · active filters: ' + filtersStr + '</small>' +
+          '<br><button class="btn btn-primary text-sm" onclick="buyerClearAllFilters()" style="margin-top:14px;padding:8px 18px">Show All ' + totalCached + ' Buyers</button>';
+      }
     }
     if (tableEl) tableEl.style.display = 'none';
     tbody.innerHTML = '';
@@ -24282,60 +24521,1084 @@ function renderBuyersList() {
     const v = String(p || '').trim();
     if (!v) return '';
     const sanitized = v.replace(/[^0-9+]/g, '');
-    return `<a href="tel:${esc(sanitized)}" style="color:var(--text);text-decoration:none;font-size:12px" title="Call ${esc(v)}">📞 ${esc(v)}</a>`;
+    return `<a href="tel:${esc(sanitized)}" onclick="event.stopPropagation()" style="color:var(--text);text-decoration:none;font-size:12px" title="Call ${esc(v)}">📞 ${esc(v)}</a>`;
   };
   const renderEmail = (e) => {
     const v = String(e || '').trim();
     if (!v) return '';
-    return `<a href="mailto:${esc(v)}" style="color:var(--text);text-decoration:none;font-size:12px;display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle" title="Email ${esc(v)}">✉️ ${esc(v)}</a>`;
+    return `<a href="mailto:${esc(v)}" onclick="event.stopPropagation()" style="color:var(--text);text-decoration:none;font-size:12px;display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle" title="Email ${esc(v)}">✉️ ${esc(v)}</a>`;
   };
 
   tbody.innerHTML = rows.map(b => {
     const name     = esc(b.name || '');
     const company  = esc(b.company || '');
     const stars    = renderStars(b.rating);
-    const criteria = b.criteria
-      ? String(b.criteria).split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="display:inline-block;padding:2px 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;font-size:11px;margin:1px 3px 1px 0;color:var(--text)">${esc(s)}</span>`).join('')
+    // Buy Box pills. We skip pure-number criteria values (e.g. '210') — those are
+    // almost always mis-imported acquisition counts from a column that should have
+    // mapped to acquisitions_count. The acqLine above will pick them up instead.
+    const critTags = b.criteria
+      ? String(b.criteria).split(',').map(s => s.trim()).filter(s => s && !/^\d+$/.test(s))
+      : [];
+    const criteria = critTags.length
+      ? critTags.map(s => `<span style="display:inline-block;padding:2px 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;font-size:11px;margin:1px 3px 1px 0;color:var(--text)">${esc(s)}</span>`).join('')
       : '<span style="color:var(--text-dim);font-size:11px">—</span>';
-    const fundingLine = b.funding_type
-      ? `<div style="font-size:11px;color:#a5b4fc;font-weight:600;margin-bottom:4px">${esc(b.funding_type)}</div>`
-      : '';
+    // Funding Type is now per-lender (in the lender chips). Skip the standalone line.
+    const fundingLine = '';
     const priceLine = b.price_notes
       ? `<div style="font-size:12px;max-width:280px;color:var(--text);white-space:pre-wrap;line-height:1.4">${esc(b.price_notes)}</div>`
       : (b.funding_type ? '' : '<span style="color:var(--text-dim);font-size:11px">—</span>');
-    const fundPrice = fundingLine + priceLine;
+    // Lender chips — small purple pills below the funding line.
+    // Lenders. Each entry is "Name|Type1,Type2" — render name + one badge per type,
+    // each colored per BUYER_LENDER_TYPES so the table glances readable.
+    const lenderTypeMap = (typeof BUYER_LENDER_TYPES !== 'undefined') ? BUYER_LENDER_TYPES : [];
+    const lenderColorFor = (t) => {
+      const hit = lenderTypeMap.find(x => x.key.toLowerCase() === String(t).toLowerCase());
+      return hit ? hit.color : '#c7d2fe';
+    };
+    const lenderChips = (Array.isArray(b.lenders) && b.lenders.length)
+      ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:3px;justify-content:center">' + b.lenders.map(L => {
+          const raw = String(L == null ? '' : L);
+          const pipe = raw.indexOf('|');
+          const name = pipe >= 0 ? raw.slice(0, pipe).trim() : raw.trim();
+          const typesRaw = pipe >= 0 ? raw.slice(pipe + 1).trim() : '';
+          const types = typesRaw.split(',').map(s => s.trim()).filter(Boolean);
+          const badges = types.map(t => {
+            const c = lenderColorFor(t);
+            return `<span style="display:inline-block;margin-left:4px;padding:0 5px;background:${c}33;border-radius:3px;font-size:9px;font-weight:700;color:${c};letter-spacing:0.3px" title="Loan type — ${esc(t)}">${esc(t)}</span>`;
+          }).join('');
+          return `<span style="display:inline-block;padding:1px 6px;background:rgba(165,180,252,0.15);border:1px solid rgba(165,180,252,0.4);border-radius:4px;font-size:10px;color:#a5b4fc" title="Lender${types.length ? ' — ' + esc(types.join(', ')) : ''}">🏦 ${esc(name)}${badges}</span>`;
+        }).join('') + '</div>'
+      : '';
+    // Avg Buy Price field removed — no longer rendered in the row.
+    const avgPriceLine = '';
+    // Acquisition count line. Two sources, in order:
+    //   1) the proper b.acquisitions_count column
+    //   2) if that's blank, but the criteria field is a pure number, treat that
+    //      number as the count — covers older imports where the count column was
+    //      accidentally mapped to criteria.
+    const acqCount = (b.acquisitions_count != null && b.acquisitions_count !== '' && Number.isFinite(Number(b.acquisitions_count)))
+      ? Number(b.acquisitions_count)
+      : (typeof b.criteria === 'string' && /^\s*\d+\s*$/.test(b.criteria) ? parseInt(b.criteria, 10) : null);
+    const acqLine = (acqCount != null)
+      ? `<div style="font-size:11px;color:var(--text-dim);margin-top:3px" title="Acquisitions — total properties this buyer has closed">🏠 ${acqCount.toLocaleString()} Acquisitions</div>`
+      : '';
+    // acqLine is rendered in the Acquisitions column instead — kept out of fundPrice
+    // to avoid duplicating the same number in two cells.
+    const fundPrice = fundingLine + priceLine + lenderChips + avgPriceLine;
+    // Clickable contact methods: Phone (tel:), Email (mailto:). Messenger is a
+    // channel tag (rendered separately) — no URL field anymore.
     const contactParts = [];
     if (b.phone) contactParts.push(renderPhone(b.phone));
     if (b.email) contactParts.push(renderEmail(b.email));
-    const contact = contactParts.length ? contactParts.map(p => `<div style="margin:2px 0">${p}</div>`).join('') : '<span style="color:var(--text-dim);font-size:11px">—</span>';
-    const loc = [b.city, b.state].filter(Boolean).map(esc).join(', ') || '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const contact = contactParts.length
+      ? contactParts.map(p => `<div style="margin:2px 0">${p}</div>`).join('')
+      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    // Location cell — states on the primary line; cities / counties / zips as chip
+    // rows below. Single-city/state columns are gone; multi-value arrays are source of truth.
+    const allCities = (Array.isArray(b.cities) && b.cities.length)
+      ? b.cities
+      : (b.city ? [b.city] : []);
+    const allStates = (Array.isArray(b.states) && b.states.length)
+      ? b.states
+      : (b.state ? [b.state] : []);
+    const primary = allStates.length ? allStates.map(esc).join(', ') : '';
+    const chipRow = (arr, icon, color, title) => {
+      if (!Array.isArray(arr) || arr.length === 0) return '';
+      return '<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;justify-content:center">' + arr.slice(0, 8).map(v =>
+        `<span style="display:inline-block;padding:1px 6px;background:${color};border-radius:4px;font-size:10px;color:var(--text)" title="${title}">${icon} ${esc(v)}</span>`
+      ).join('') + (arr.length > 8 ? `<span style="font-size:10px;color:var(--text-dim);padding:1px 4px">+${arr.length - 8}</span>` : '') + '</div>';
+    };
+    const locChips = chipRow(allCities, '🏙', 'rgba(99,102,241,0.18)', 'City') +
+                     chipRow(b.counties, '📍', 'rgba(16,185,129,0.18)', 'County') +
+                     chipRow(b.zips,     '📮', 'rgba(251,191,36,0.18)', 'Zip code');
+    const loc = (primary || locChips)
+      ? '<div style="font-size:12px">' + (primary || '') + locChips + '</div>'
+      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
 
-    const verBadge = b.verified
-      ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;vertical-align:middle;margin-left:6px" title="Verified — they\'ve closed a deal with you and they\'re proven reliable">✓ Verified</span>'
+    // Status icon + title for the Status column (column added after Name).
+    // Uses buyerQualState() so legacy verified=false rows show as Unknown
+    // until the user explicitly cycles them via the modal button.
+    const _qs = buyerQualState(b);
+    let statusIcon, statusTitle;
+    if (_qs === 'qualified') {
+      statusIcon  = '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:rgba(16,185,129,0.18);color:#10b981;font-weight:700;font-size:12px" title="Qualified">✓</span>';
+      statusTitle = 'Qualified — vetted and approved';
+    } else if (_qs === 'unqualified') {
+      statusIcon  = '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:rgba(239,68,68,0.18);color:#f87171;font-weight:700;font-size:12px" title="Unqualified">✗</span>';
+      statusTitle = 'Unqualified';
+    } else {
+      statusIcon  = '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:rgba(156,163,175,0.18);color:#9ca3af;font-weight:700;font-size:12px" title="Unknown">?</span>';
+      statusTitle = 'Unknown — not yet assessed';
+    }
+    // Aliases row — small dim text under the company name showing sister LLCs.
+    const aliasArr = Array.isArray(b.aliases) ? b.aliases.filter(a => a && String(a).trim()) : [];
+    const aliasLine = aliasArr.length
+      ? `<div style="color:var(--text-dim);font-size:10px;margin-top:3px;line-height:1.35" title="Sister LLCs / other names this buyer also uses">+${aliasArr.length} also: ${esc(aliasArr.slice(0, 3).join(', '))}${aliasArr.length > 3 ? ' …' : ''}</div>`
       : '';
+    // The inline ✓ Qualified badge is gone — the Status column carries that signal now.
     const nameBlock = company
-      ? `<div style="font-weight:600">${company}${verBadge}</div>
-         <div style="color:var(--text-dim);font-size:11px;margin-top:2px">${name}</div>`
-      : `<div style="font-weight:600">${name}${verBadge}</div>`;
+      ? `<div style="font-weight:600">${company}</div>
+         <div style="color:var(--text-dim);font-size:11px;margin-top:2px">${name}</div>
+         ${aliasLine}`
+      : `<div style="font-weight:600">${name}</div>${aliasLine}`;
 
     return `
-      <tr style="border-bottom:1px solid var(--border)" data-buyer-id="${esc(b.id)}">
+      <tr style="border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.12s ease" data-buyer-id="${esc(b.id)}" onclick="buyerOpenAddModal('${esc(b.id)}')" onmouseover="this.style.background='rgba(99,102,241,0.06)'" onmouseout="this.style.background=''" title="Click to edit this buyer">
         <td style="padding:10px 12px;font-size:13px;vertical-align:top">
           ${nameBlock}
           ${b.notes ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px;max-width:240px;line-height:1.4">${esc(b.notes)}</div>` : ''}
         </td>
-        <td style="padding:10px 12px;vertical-align:top">${stars}</td>
-        <td style="padding:10px 12px;vertical-align:top;max-width:260px">${criteria}</td>
-        <td style="padding:10px 12px;vertical-align:top">${fundPrice}</td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:center" title="${statusTitle}">${statusIcon}</td>
+        <td style="padding:10px 12px;vertical-align:top;font-size:13px;text-align:center">
+          ${acqCount == null
+            ? '<span style="color:var(--text-dim);font-size:11px">—</span>'
+            : acqCount.toLocaleString()}
+          ${critTags.length ? '<div style="margin-top:6px">' + criteria + '</div>' : ''}
+        </td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:center">
+          ${(Array.isArray(b.strategy) && b.strategy.length)
+            ? '<div style="display:flex;flex-wrap:wrap;gap:3px;justify-content:center">' + b.strategy.map(s => {
+                const c = (typeof BUYER_STRATEGY_TYPES !== 'undefined') ? (BUYER_STRATEGY_TYPES.find(x => x.key.toLowerCase() === String(s).toLowerCase()) || {color:'#a5b4fc'}).color : '#a5b4fc';
+                return `<span style="display:inline-block;padding:2px 8px;background:${c}33;border:1px solid ${c}66;border-radius:999px;font-size:11px;color:${c};font-weight:600" title="Strategy">${esc(s)}</span>`;
+              }).join('') + '</div>'
+            : '<span style="color:var(--text-dim);font-size:11px">—</span>'}
+        </td>
         <td style="padding:10px 12px;vertical-align:top">${contact}</td>
         <td style="padding:10px 12px;vertical-align:top;font-size:12px">${loc}</td>
         <td style="padding:10px 12px;vertical-align:top;text-align:right">
-          <button class="btn btn-ghost text-xs" onclick="buyerOpenAddModal('${esc(b.id)}')" style="padding:5px 10px;white-space:nowrap" title="Edit this buyer">✏ Edit</button>
+          <button class="btn btn-ghost text-xs" onclick="event.stopPropagation();buyerOpenAddModal('${esc(b.id)}')" style="padding:5px 10px;white-space:nowrap" title="Edit this buyer">✏ Edit</button>
         </td>
       </tr>`;
   }).join('');
+  } catch (e) {
+    // Surface any render error to the user instead of silently bailing.
+    console.error('[renderBuyersList] error:', e);
+    const emptyEl = document.getElementById('buyers-empty');
+    const tableEl2 = document.getElementById('buyers-table');
+    if (tableEl2) tableEl2.style.display = 'none';
+    if (emptyEl) {
+      emptyEl.style.display = '';
+      emptyEl.innerHTML = 'Error rendering buyers: <code>' + (e && e.message ? e.message : String(e)) + '</code><br><small>Open DevTools (F12) → Console for full stack.</small>';
+    }
+  }
 }
 window.renderBuyersList = renderBuyersList;
+
+// ============================================================
+// BUYERS — Multi-value helpers + CSV import flow
+// ============================================================
+// All of this hangs off the Buyers UI in Renovation → 💰 Buyers.
+// The CSV importer parses any file (csv/tsv/xlsx) into rows, lets the user
+// map each column → buyer field via dropdowns (auto-detected from header
+// text), optionally bulk-applies a county/city/zip/lender/channels list to
+// EVERY row, then merges or inserts each buyer using company_norm dedup.
+//
+// Merge rule (matches what the user chose): blank scalars get filled in,
+// and multi-value arrays UNION (no removal) — so importing list A then
+// list B for the same company accumulates everything.
+
+// --- Normalize a company name for dedup. ---
+// Strips "LLC / Inc / Corp / Ltd / Co / Holdings" and punctuation, then
+// lowercases & collapses whitespace. "Chen Holdings, LLC" and "chen
+// holdings llc" both become "chen". (We keep "holdings" as a stripped
+// suffix because nearly every LLC tacks it on.)
+function companyNorm(s) {
+  let v = String(s == null ? '' : s).toLowerCase().trim();
+  if (!v) return '';
+  // Remove suffixes (repeated to catch "Holdings Group LLC" etc.)
+  for (let i = 0; i < 4; i++) {
+    v = v
+      .replace(/[,\.\/\\&]/g, ' ')
+      .replace(/\b(llc|l\.l\.c|inc|incorporated|corp|corporation|ltd|limited|co|company|llp|lp|pllc|pllp|trust|gp|llc's)\b\.?/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  return v;
+}
+window.companyNorm = companyNorm;
+
+// --- Split a comma/semicolon/newline list into a deduped, trimmed array. ---
+// Uses case-insensitive dedup so "Email" and "email" don't both show up.
+function splitTagsList(s) {
+  if (Array.isArray(s)) {
+    s = s.join(',');
+  }
+  const raw = String(s == null ? '' : s).split(/[,;\n\r\t|]+/).map(x => x.trim()).filter(Boolean);
+  const seen = new Set(); const out = [];
+  raw.forEach(x => { const k = x.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(x); } });
+  return out;
+}
+window.splitTagsList = splitTagsList;
+
+// --- Union two arrays, preserving order of the first, case-insensitive dedup. ---
+function unionTags(a, b) {
+  const out = []; const seen = new Set();
+  (Array.isArray(a) ? a : []).concat(Array.isArray(b) ? b : []).forEach(v => {
+    const s = String(v == null ? '' : v).trim();
+    if (!s) return;
+    const k = s.toLowerCase();
+    if (!seen.has(k)) { seen.add(k); out.push(s); }
+  });
+  return out;
+}
+window.unionTags = unionTags;
+
+// --- Render the toggle-chips inside the Channels field of the modal. ---
+// Stores the currently-selected list in the hidden input #buyer-add-channels.
+// Channel labels are CANONICAL — fixed set so filtering is reliable.
+// Each channel gets its own color when active (matches strategy chip pattern).
+const BUYER_CHANNEL_TYPES = [
+  { key: 'Phone',     color: '#10b981' },  // green
+  { key: 'Email',     color: '#60a5fa' },  // blue
+  { key: 'SMS',       color: '#fbbf24' },  // yellow
+  { key: 'Messenger', color: '#f472b6' },  // pink
+  { key: 'Other',     color: '#9ca3af' }   // gray
+];
+
+function buyerRenderChannelChips(selected) {
+  const host = document.getElementById('buyer-add-channels-chips');
+  const hidden = document.getElementById('buyer-add-channels');
+  if (!host || !hidden) return;
+  const sel = new Set((Array.isArray(selected) ? selected : []).map(s => String(s).toLowerCase()));
+  hidden.value = BUYER_CHANNEL_TYPES.filter(c => sel.has(c.key.toLowerCase())).map(c => c.key).join(', ');
+  host.innerHTML = BUYER_CHANNEL_TYPES.map(c => {
+    const on = sel.has(c.key.toLowerCase());
+    const bg     = on ? `${c.color}33` : 'var(--panel-2)';
+    const border = on ? `${c.color}99` : 'var(--border)';
+    const text   = on ? c.color : 'var(--text)';
+    return `<button type="button" data-channel="${c.key}" onclick="buyerToggleChannelChip('${c.key}')" style="padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${border};background:${bg};color:${text};transition:all 0.15s ease;white-space:nowrap">${c.key}</button>`;
+  }).join('');
+}
+window.buyerRenderChannelChips = buyerRenderChannelChips;
+
+function buyerToggleChannelChip(name) {
+  const hidden = document.getElementById('buyer-add-channels');
+  if (!hidden) return;
+  const cur = splitTagsList(hidden.value);
+  const lc = String(name).toLowerCase();
+  const has = cur.some(x => x.toLowerCase() === lc);
+  const next = has ? cur.filter(x => x.toLowerCase() !== lc) : cur.concat([name]);
+  buyerRenderChannelChips(next);
+}
+window.buyerToggleChannelChip = buyerToggleChannelChip;
+
+// ============================================================
+// BUYERS — Qualification cycling button (3 states)
+// ============================================================
+// 'true' = Qualified (green ✓)  /  'false' = Unqualified (red ✗)  /  'unknown' = ? (gray)
+// Click cycles forward: true → false → unknown → true. The hidden DB column
+// `verified` boolean is set to true / false / null accordingly when saving.
+
+function buyerSetQualifiedButton(state) {
+  const btn = document.getElementById('buyer-add-verified-btn');
+  if (!btn) return;
+  const st = (state === 'true' || state === 'false' || state === 'unknown') ? state : 'true';
+  btn.setAttribute('data-state', st);
+  if (st === 'true') {
+    btn.style.background  = 'rgba(16,185,129,0.15)';
+    btn.style.borderColor = 'rgba(16,185,129,0.5)';
+    btn.style.color       = '#10b981';
+    btn.textContent       = '✓ Qualified';
+  } else if (st === 'false') {
+    btn.style.background  = 'rgba(239,68,68,0.15)';
+    btn.style.borderColor = 'rgba(239,68,68,0.5)';
+    btn.style.color       = '#f87171';
+    btn.textContent       = '✗ Unqualified';
+  } else {
+    btn.style.background  = 'rgba(156,163,175,0.15)';
+    btn.style.borderColor = 'rgba(156,163,175,0.5)';
+    btn.style.color       = '#9ca3af';
+    btn.textContent       = '? Unknown';
+  }
+}
+window.buyerSetQualifiedButton = buyerSetQualifiedButton;
+
+function buyerCycleQualified() {
+  const btn = document.getElementById('buyer-add-verified-btn');
+  if (!btn) return;
+  const cur = btn.getAttribute('data-state') || 'true';
+  const next = cur === 'true' ? 'false' : (cur === 'false' ? 'unknown' : 'true');
+  buyerSetQualifiedButton(next);
+}
+window.buyerCycleQualified = buyerCycleQualified;
+
+// Filter-row cycling button (separate from the modal's Qualified button).
+// Cycle order: '' (All) → 'qualified' → 'unqualified' → 'unknown' → ''.
+// Re-skin the button to reflect the active state + re-render the list.
+function buyerCycleQualifiedFilter() {
+  const btn = document.getElementById('buyers-qualified-filter');
+  if (!btn) return;
+  const cur = btn.getAttribute('data-state') || '';
+  const next = cur === '' ? 'qualified'
+            : cur === 'qualified' ? 'unqualified'
+            : cur === 'unqualified' ? 'unknown'
+            : '';
+  btn.setAttribute('data-state', next);
+  if (next === 'qualified') {
+    btn.style.background  = 'rgba(16,185,129,0.15)';
+    btn.style.borderColor = 'rgba(16,185,129,0.5)';
+    btn.style.color       = '#10b981';
+    btn.textContent       = '✓ Qualified';
+  } else if (next === 'unqualified') {
+    btn.style.background  = 'rgba(239,68,68,0.15)';
+    btn.style.borderColor = 'rgba(239,68,68,0.5)';
+    btn.style.color       = '#f87171';
+    btn.textContent       = '✗ Unqualified';
+  } else if (next === 'unknown') {
+    btn.style.background  = 'rgba(156,163,175,0.18)';
+    btn.style.borderColor = 'rgba(156,163,175,0.5)';
+    btn.style.color       = '#9ca3af';
+    btn.textContent       = '? Unknown';
+  } else {
+    btn.style.background  = 'var(--panel-2)';
+    btn.style.borderColor = 'var(--border)';
+    btn.style.color       = 'var(--text)';
+    btn.textContent       = 'All Statuses';
+  }
+  if (typeof renderBuyersList === 'function') renderBuyersList();
+}
+window.buyerCycleQualifiedFilter = buyerCycleQualifiedFilter;
+
+// One-click escape hatch shown in the empty-state message when filters hide
+// every row. Resets the search box, the acquisitions dropdown, and the
+// qualification cycling button to their show-all defaults, then re-renders.
+function buyerClearAllFilters() {
+  const searchEl = document.getElementById('buyers-search');
+  if (searchEl) searchEl.value = '';
+  const critSel = document.getElementById('buyers-criteria-filter');
+  if (critSel) critSel.value = '';
+  const qualBtn = document.getElementById('buyers-qualified-filter');
+  if (qualBtn) {
+    qualBtn.setAttribute('data-state', '');
+    qualBtn.style.background  = 'var(--panel-2)';
+    qualBtn.style.borderColor = 'var(--border)';
+    qualBtn.style.color       = 'var(--text)';
+    qualBtn.textContent       = 'All Statuses';
+  }
+  if (typeof renderBuyersList === 'function') renderBuyersList();
+}
+window.buyerClearAllFilters = buyerClearAllFilters;
+
+// Resolve a buyer's qualification state. New column `qualification` is the
+// source of truth; legacy rows that only have `verified === true` are treated
+// as 'qualified' for display. Everything else = 'unknown'.
+function buyerQualState(b) {
+  if (!b) return 'unknown';
+  const q = b.qualification;
+  if (q === 'qualified' || q === 'unqualified' || q === 'unknown') return q;
+  // Rows with no explicit qualification value default to Unknown (?).
+  // Cycle the button in the modal to set Qualified or Unqualified explicitly.
+  return 'unknown';
+}
+window.buyerQualState = buyerQualState;
+
+// ============================================================
+// BUYERS — Strategy multi-pill picker
+// ============================================================
+// Same UX as Contact Channels but for what the buyer does with the property:
+// Flip, Cashflow, Appreciation, Wholesale. Each gets a color so the row glance
+// readable.
+
+const BUYER_STRATEGY_TYPES = [
+  { key: 'Flip',         color: '#fb923c' },  // orange
+  { key: 'Cashflow',     color: '#10b981' },  // green
+  { key: 'Appreciation', color: '#60a5fa' },  // blue
+  { key: 'Wholesale',    color: '#a78bfa' },  // purple
+  { key: 'Other',        color: '#9ca3af' }   // gray
+];
+
+function buyerRenderStrategyChips(selected) {
+  const host = document.getElementById('buyer-add-strategy-chips');
+  const hidden = document.getElementById('buyer-add-strategy');
+  if (!host || !hidden) return;
+  const sel = new Set((Array.isArray(selected) ? selected : []).map(s => String(s).toLowerCase()));
+  hidden.value = BUYER_STRATEGY_TYPES.filter(t => sel.has(t.key.toLowerCase())).map(t => t.key).join(', ');
+  host.innerHTML = BUYER_STRATEGY_TYPES.map(t => {
+    const on = sel.has(t.key.toLowerCase());
+    const bg     = on ? `${t.color}33` : 'var(--panel-2)';
+    const border = on ? `${t.color}99` : 'var(--border)';
+    const text   = on ? t.color : 'var(--text)';
+    return `<button type="button" data-strategy="${t.key}" onclick="buyerToggleStrategyChip('${t.key}')" style="padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${border};background:${bg};color:${text};transition:all 0.15s ease;white-space:nowrap">${t.key}</button>`;
+  }).join('');
+}
+window.buyerRenderStrategyChips = buyerRenderStrategyChips;
+
+function buyerToggleStrategyChip(name) {
+  const hidden = document.getElementById('buyer-add-strategy');
+  if (!hidden) return;
+  const cur = splitTagsList(hidden.value);
+  const lc = String(name).toLowerCase();
+  const has = cur.some(x => x.toLowerCase() === lc);
+  const next = has ? cur.filter(x => x.toLowerCase() !== lc) : cur.concat([name]);
+  buyerRenderStrategyChips(next);
+}
+window.buyerToggleStrategyChip = buyerToggleStrategyChip;
+
+// ============================================================
+// BUYERS — Alias chip grid (sister-LLC names)
+// ============================================================
+// The aliases field used to be a single comma-separated input. Now it's a
+// 3-column grid where each sister-LLC name is its own small input + × delete
+// button. Add Sub-Company appends a new empty chip. Save reads all chip inputs
+// and stores them as the buyers.aliases text[] in Supabase.
+
+function buyerRenderAliasChips(aliases) {
+  const grid = document.getElementById('buyer-add-aliases-grid');
+  if (!grid) return;
+  const arr = Array.isArray(aliases) ? aliases.filter(a => a != null) : [];
+  // Always render at least one empty chip so the user has somewhere to type
+  // without having to click + Add first.
+  const list = arr.length ? arr : [''];
+  grid.innerHTML = list.map((v, i) => buyerAliasChipHTML(v, i)).join('');
+}
+window.buyerRenderAliasChips = buyerRenderAliasChips;
+
+function buyerAliasChipHTML(value, idx) {
+  // String inputs as <input>. Each carries an .alias-chip class so the collector
+  // can find them. The × button removes its chip on click. data-idx is just a
+  // visual aid for screen readers / debugging; we don't rely on it for ordering.
+  const safe = String(value == null ? '' : value).replace(/"/g, '&quot;');
+  return `<div class="alias-chip" style="display:flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--panel-2)">
+    <input type="text" class="alias-chip-input" data-idx="${idx}" value="${safe}" placeholder="e.g. Chen Holdings LLC" style="flex:1;min-width:0;height:38px;padding:0 10px;background:transparent;border:none;color:var(--text);font-size:13px;outline:none">
+    <button type="button" onclick="buyerRemoveAliasChip(this)" title="Remove this sub-company" style="height:38px;padding:0 10px;background:transparent;border:none;border-left:1px solid var(--border);color:#f87171;cursor:pointer;font-size:14px;font-weight:600">×</button>
+  </div>`;
+}
+window.buyerAliasChipHTML = buyerAliasChipHTML;
+
+function buyerAddAliasChip() {
+  const grid = document.getElementById('buyer-add-aliases-grid');
+  if (!grid) return;
+  // Append a fresh chip. The new input is auto-focused so the user can type
+  // immediately without an extra click.
+  const next = document.createElement('div');
+  next.innerHTML = buyerAliasChipHTML('', grid.children.length);
+  const chip = next.firstElementChild;
+  grid.appendChild(chip);
+  const input = chip.querySelector('.alias-chip-input');
+  if (input) input.focus();
+}
+window.buyerAddAliasChip = buyerAddAliasChip;
+
+function buyerRemoveAliasChip(btn) {
+  const chip = btn && btn.closest('.alias-chip');
+  if (!chip) return;
+  chip.remove();
+  // If we just removed the last chip, leave one empty placeholder so the user
+  // isn't stuck staring at a blank grid with no inputs.
+  const grid = document.getElementById('buyer-add-aliases-grid');
+  if (grid && grid.children.length === 0) buyerRenderAliasChips([]);
+}
+window.buyerRemoveAliasChip = buyerRemoveAliasChip;
+
+function buyerCollectAliasChips() {
+  // Read every alias input, trim, dedupe (case-insensitive). Empty inputs are
+  // ignored — they're just visual placeholders.
+  const inputs = document.querySelectorAll('#buyer-add-aliases-grid .alias-chip-input');
+  const seen = new Set(); const out = [];
+  inputs.forEach(el => {
+    const v = String(el.value || '').trim();
+    if (!v) return;
+    const k = v.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push(v);
+  });
+  return out;
+}
+window.buyerCollectAliasChips = buyerCollectAliasChips;
+
+// ============================================================
+// BUYERS — Lender chip grid (lender name + loan type)
+// ============================================================
+// Same UX pattern as the alias chips, but each chip has TWO inputs: the
+// lender's name and a loan-type dropdown (PML / HML / BML / DSCR / Cash /
+// Conventional / Other). Stored in the existing `lenders` text[] column as
+// "Name|Type" strings. Legacy entries with no pipe are still rendered as
+// type-less lender pills.
+
+// Each type has a label + a hue used both for the active pill state and the
+// row badge. Border/bg use rgba derived from these.
+const BUYER_LENDER_TYPES = [
+  { key: 'PML',          label: 'PML',          color: '#a78bfa' },  // purple — private
+  { key: 'HML',          label: 'HML',          color: '#fb923c' },  // orange — hard money
+  { key: 'DSCR',         label: 'DSCR',         color: '#10b981' },  // green — long-term DSCR
+  { key: 'Conventional', label: 'Conventional', color: '#60a5fa' },  // blue — bank / conventional
+  { key: 'Other',        label: 'Other',        color: '#9ca3af' }   // gray
+];
+
+function buyerRenderLenderChips(lenders) {
+  const grid = document.getElementById('buyer-add-lenders-grid');
+  if (!grid) return;
+  const arr = Array.isArray(lenders) ? lenders.filter(L => L != null) : [];
+  const list = arr.length ? arr : [''];  // Always show one empty chip.
+  grid.innerHTML = list.map((v, i) => buyerLenderChipHTML(v, i)).join('');
+}
+window.buyerRenderLenderChips = buyerRenderLenderChips;
+
+function buyerLenderChipHTML(value, idx) {
+  const raw = String(value == null ? '' : value);
+  const pipe = raw.indexOf('|');
+  const name = pipe >= 0 ? raw.slice(0, pipe).trim() : raw.trim();
+  // After the pipe can be a single type ("PML") OR a comma list ("PML,DSCR").
+  const typeStr = pipe >= 0 ? raw.slice(pipe + 1).trim() : '';
+  const activeTypes = new Set(
+    typeStr.split(',').map(s => s.trim()).filter(Boolean).map(s => s.toLowerCase())
+  );
+  const safeName = name.replace(/"/g, '&quot;');
+  // Build one pill per type. Active pills get the type's color in the fill +
+  // text; inactive pills are subtle bordered ghosts.
+  const pills = BUYER_LENDER_TYPES.map(t => {
+    const on = activeTypes.has(t.key.toLowerCase());
+    const bg     = on ? `${t.color}33` : 'transparent';            // hex + 33 alpha
+    const border = on ? `${t.color}99` : 'var(--border)';
+    const text   = on ? t.color : 'var(--text-dim)';
+    const weight = on ? '700' : '500';
+    return `<button type="button" data-lender-type="${t.key}" data-active="${on ? '1' : '0'}" onclick="buyerToggleLenderType(this)" style="padding:4px 10px;border-radius:999px;font-size:11px;font-weight:${weight};cursor:pointer;border:1px solid ${border};background:${bg};color:${text};transition:all 0.12s ease;letter-spacing:0.3px" title="${t.label}">${t.label}</button>`;
+  }).join('');
+  return `<div class="lender-chip" style="border:1px solid var(--border);border-radius:8px;background:var(--panel-2);padding:8px 10px">
+    <div style="display:flex;align-items:center;gap:6px">
+      <input type="text" class="lender-chip-name" data-idx="${idx}" value="${safeName}" placeholder="Lender name / entity" style="flex:1 1 auto;min-width:0;height:34px;padding:0 10px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none">
+      <button type="button" onclick="buyerRemoveLenderChip(this)" title="Remove this lender" style="flex:0 0 28px;width:28px;height:34px;padding:0;background:transparent;border:1px solid var(--border);border-radius:6px;color:#f87171;cursor:pointer;font-size:14px;font-weight:600">×</button>
+    </div>
+    <div class="lender-chip-types" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">${pills}</div>
+  </div>`;
+}
+window.buyerLenderChipHTML = buyerLenderChipHTML;
+
+function buyerToggleLenderType(btn) {
+  if (!btn) return;
+  const key = btn.getAttribute('data-lender-type');
+  const t = BUYER_LENDER_TYPES.find(x => x.key === key);
+  if (!t) return;
+  const on = btn.getAttribute('data-active') !== '1';  // toggle
+  btn.setAttribute('data-active', on ? '1' : '0');
+  btn.style.background   = on ? `${t.color}33` : 'transparent';
+  btn.style.borderColor  = on ? `${t.color}99` : 'var(--border)';
+  btn.style.color        = on ? t.color : 'var(--text-dim)';
+  btn.style.fontWeight   = on ? '700' : '500';
+}
+window.buyerToggleLenderType = buyerToggleLenderType;
+
+function buyerAddLenderChip() {
+  const grid = document.getElementById('buyer-add-lenders-grid');
+  if (!grid) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = buyerLenderChipHTML('', grid.children.length);
+  const chip = wrap.firstElementChild;
+  grid.appendChild(chip);
+  const input = chip.querySelector('.lender-chip-name');
+  if (input) input.focus();
+}
+window.buyerAddLenderChip = buyerAddLenderChip;
+
+function buyerRemoveLenderChip(btn) {
+  const chip = btn && btn.closest('.lender-chip');
+  if (!chip) return;
+  chip.remove();
+  const grid = document.getElementById('buyer-add-lenders-grid');
+  if (grid && grid.children.length === 0) buyerRenderLenderChips([]);
+}
+window.buyerRemoveLenderChip = buyerRemoveLenderChip;
+
+function buyerCollectLenderChips() {
+  // Read every lender chip → "Name|Type1,Type2" (or just "Name" if no pills active).
+  // Empty name = skipped; case-insensitive dedup on name.
+  const chips = document.querySelectorAll('#buyer-add-lenders-grid .lender-chip');
+  const seen = new Set(); const out = [];
+  chips.forEach(c => {
+    const nameEl = c.querySelector('.lender-chip-name');
+    const name = String((nameEl && nameEl.value) || '').trim();
+    if (!name) return;
+    const activePills = c.querySelectorAll('[data-lender-type][data-active="1"]');
+    const types = Array.from(activePills).map(p => p.getAttribute('data-lender-type'));
+    const key = name.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(types.length ? (name + '|' + types.join(',')) : name);
+  });
+  return out;
+}
+window.buyerCollectLenderChips = buyerCollectLenderChips;
+
+// ------------------------------------------------------------
+// CSV import flow
+// ------------------------------------------------------------
+// State for the in-flight import: parsed file + the column mapping the user
+// has chosen. Reset each time a new file is picked.
+window._buyerImportState = { headers: [], rows: [], fileName: '', mapping: {} };
+
+// Available mapping targets. The 'key' is what we read into the merged buyer.
+// Multi-value targets (cities/counties/zips/lenders/channels) get split on
+// commas/semis at import time.
+const BUYER_IMPORT_TARGETS = [
+  { key: 'skip',               label: '— Skip —' },
+  { key: 'company',            label: 'Company / Entity' },
+  { key: 'name',               label: 'Contact Name' },
+  { key: 'first_name',         label: 'First Name (+last → Name)' },
+  { key: 'last_name',          label: 'Last Name (+first → Name)' },
+  { key: 'phone',              label: 'Phone' },
+  { key: 'email',              label: 'Email' },
+  { key: 'messenger',          label: 'Messenger' },
+  { key: 'criteria',           label: 'Buy Criteria' },
+  { key: 'funding_type',       label: 'Funding Type' },
+  { key: 'price_notes',        label: 'Price Notes' },
+  { key: 'notes',              label: 'Notes / Strategy' },
+  { key: 'city',               label: 'Primary City' },
+  { key: 'state',              label: 'State' },
+  { key: 'cities',             label: 'Cities (multi)' },
+  { key: 'counties',           label: 'Counties (multi)' },
+  { key: 'zips',               label: 'Zip Codes (multi)' },
+  { key: 'lenders',            label: 'Lenders (multi)' },
+  { key: 'aliases',            label: 'Other Names / Sister LLCs (multi)' },
+  { key: 'channels',           label: 'Contact Channels (multi)' },
+  { key: 'avg_buy_price',      label: 'Avg Buy Price' },
+  { key: 'acquisitions_count', label: 'Acquisitions Count' }
+];
+
+function buyerOpenImportModal() {
+  const m = document.getElementById('buyer-import-modal');
+  if (!m) return;
+  // Reset to empty state — user must pick a file before mapping appears.
+  window._buyerImportState = { headers: [], rows: [], fileName: '', mapping: {} };
+  const empty = document.getElementById('buyer-import-empty');
+  const body  = document.getElementById('buyer-import-body');
+  if (empty) empty.style.display = '';
+  if (body)  body.style.display  = 'none';
+  ['buyer-import-bulk-county','buyer-import-bulk-city','buyer-import-bulk-zip','buyer-import-bulk-lender','buyer-import-bulk-channels'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const fInp = document.getElementById('buyer-import-file');
+  if (fInp) fInp.value = '';   // clear so picking the same file fires onchange
+  m.style.display = 'flex';
+}
+window.buyerOpenImportModal = buyerOpenImportModal;
+
+function buyerCloseImportModal() {
+  const m = document.getElementById('buyer-import-modal');
+  if (m) m.style.display = 'none';
+}
+window.buyerCloseImportModal = buyerCloseImportModal;
+
+async function buyerHandleImportFile(evt) {
+  const file = evt.target.files && evt.target.files[0];
+  if (!file) return;
+  try {
+    if (typeof readFileAsTable !== 'function') throw new Error('File parser not loaded');
+    const { headers, rows } = await readFileAsTable(file);
+    // Normalize headers — sometimes the first cell is blank or carries trailing spaces.
+    const cleanHeaders = (headers || []).map((h, i) => {
+      const s = String(h == null ? '' : h).trim();
+      return s || `Column ${i + 1}`;
+    });
+    // Drop entirely-blank rows.
+    const cleanRows = (rows || []).filter(r => Array.isArray(r) && r.some(c => String(c == null ? '' : c).trim() !== ''));
+    window._buyerImportState.headers = cleanHeaders;
+    window._buyerImportState.rows    = cleanRows;
+    window._buyerImportState.fileName = file.name;
+    window._buyerImportState.mapping = buyerAutoDetectMapping(cleanHeaders);
+    buyerRenderImportMapping();
+  } catch (e) {
+    console.warn('buyerHandleImportFile:', e);
+    if (typeof toast === 'function') toast('Could not read file: ' + (e.message || 'unknown'), 'err');
+  }
+}
+window.buyerHandleImportFile = buyerHandleImportFile;
+
+// Best-guess column mapping from header text.
+// Two-pass approach to avoid the "Contact Status → name" bug we hit before:
+//   Pass 1: EXACT match — normalized header must equal a listed token.
+//   Pass 2: SAFE substring — only multi-word tokens that won't accidentally
+//           collide (e.g. "primarycity" yes, "contact" no).
+// Anything still unmapped after both passes is left at 'skip'.
+// Also a hard-skip list for known junk columns (Sort, Sort2, Overall Status) that
+// only exist as internal sort/status indices and aren't buyer attributes.
+function buyerAutoDetectMapping(headers) {
+  const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  // Columns that should ALWAYS be skipped — pure internal/system data that
+  // doesn't belong on the buyer record. The user can manually override if they
+  // really want one of these.
+  const HARD_SKIP = new Set([
+    'sort','sort2','sort3','sortorder','sortid','rowid','rownumber','row','id',
+    'overallstatus','status','buyingstatus','contactstatus','currentdeals','currentproperty'
+  ]);
+
+  // Pass 1: exact match. Each rule lists the normalized headers that exactly
+  // identify this field (no substring magic).
+  const exactRules = [
+    { key: 'company',            exact: ['company','companyname','entity','buyercompanyname','buyer','businessname','organization','org','firm'] },
+    { key: 'first_name',         exact: ['firstname','first','givenname','fname'] },
+    { key: 'last_name',          exact: ['lastname','last','surname','familyname','lname'] },
+    { key: 'name',               exact: ['name','contactname','ownername','fullname','contactperson','buyername','personname'] },
+    { key: 'phone',              exact: ['phone','phonenumber','phone1','mobile','cell','ownernumber','contactnumber','phonenum','tel','telephone','number','phno'] },
+    { key: 'email',              exact: ['email','emailaddress','ownermail','contactemail','mail','emailaddr','emailaddrs'] },
+    { key: 'messenger',          exact: ['messenger','fbmessenger','facebook','fb','messengerurl','messengerlink','messengerhandle','mme','fblink','facebooklink','facebookurl','facebookprofile'] },
+    { key: 'avg_buy_price',      exact: ['avgbuyprice','averagebuyprice','avgprice','averageprice','typicalprice','buyprice','medianprice'] },
+    { key: 'acquisitions_count', exact: ['acquisitions','acquisition','quantity','count','closed','purchases','flips','units','dealsclosed','deals'] },
+    { key: 'lenders',            exact: ['lender','lenders','financingsource','fundedby','mortgagecompany','capitalsource','mortgage'] },
+    { key: 'aliases',            exact: ['aliases','alias','alternatenames','altnames','othernames','sisterllcs','sisterllc','sisterentities','dbas','dba','aka','alsoknownas','relatedentities','subentities','subllcs'] },
+    { key: 'channels',           exact: ['contactchannels','channels','channel','communication','contactmethod','contactchannel'] },
+    { key: 'counties',           exact: ['county','counties'] },
+    { key: 'zips',               exact: ['zipcode','zip','postalcode','zips','zipcodes','postal'] },
+    { key: 'cities',             exact: ['cities','citylist','marketcities','city','town','primarycity','marketcity'] },
+    { key: 'states',             exact: ['state','states','province','provinces','stateabbr','st'] },
+    { key: 'strategy',           exact: ['strategy','strategies','exitstrategy','play','playbook'] },
+    { key: 'criteria',           exact: ['criteria','buybox','buycriteria','target'] },
+    { key: 'funding_type',       exact: ['fundingtype','funding','financing','paymentmethod'] },
+    { key: 'price_notes',        exact: ['pricerange','budget','pricenotes','pricing'] },
+    { key: 'notes',              exact: ['notes','memo','comments','remarks','description','note','comment'] }
+  ];
+
+  // Pass 2: ONLY tokens that are specific enough to be safe as substring matches.
+  // (Anything ambiguous like 'mail', 'sort', 'contact' is deliberately excluded.)
+  const safeContains = [
+    { key: 'company',            tokens: ['companyname','buyercompanyname','businessname','entityname'] },
+    { key: 'first_name',         tokens: ['firstname'] },
+    { key: 'last_name',          tokens: ['lastname'] },
+    { key: 'phone',              tokens: ['phonenumber','telephone','contactnumber','ownernumber'] },
+    { key: 'email',              tokens: ['emailaddress','contactemail'] },
+    { key: 'cities',             tokens: ['primarycity','marketcity'] },
+    { key: 'zips',               tokens: ['zipcode','postalcode'] },
+    { key: 'criteria',           tokens: ['buycriteria'] },
+    { key: 'avg_buy_price',      tokens: ['avgbuyprice','averageprice','typicalprice'] },
+    { key: 'acquisitions_count', tokens: ['dealsclosed','flipscount'] }
+  ];
+
+  const out = {};
+  const usedKeys = new Set();
+  const multiKeys = new Set(['cities','counties','zips','lenders','channels','notes']);
+
+  headers.forEach((h, idx) => {
+    const n = norm(h);
+    if (!n || HARD_SKIP.has(n)) { out[idx] = 'skip'; return; }
+    let pick = 'skip';
+    for (const r of exactRules) {
+      if (usedKeys.has(r.key) && !multiKeys.has(r.key)) continue;
+      if (r.exact.includes(n)) { pick = r.key; if (!multiKeys.has(r.key)) usedKeys.add(r.key); break; }
+    }
+    out[idx] = pick;
+  });
+
+  headers.forEach((h, idx) => {
+    if (out[idx] !== 'skip') return; // already mapped in pass 1
+    const n = norm(h);
+    if (!n || HARD_SKIP.has(n)) return;
+    for (const r of safeContains) {
+      if (usedKeys.has(r.key) && !multiKeys.has(r.key)) continue;
+      if (r.tokens.some(t => n.includes(t))) { out[idx] = r.key; if (!multiKeys.has(r.key)) usedKeys.add(r.key); break; }
+    }
+  });
+
+  return out;
+}
+window.buyerAutoDetectMapping = buyerAutoDetectMapping;
+
+function buyerRenderImportMapping() {
+  const st = window._buyerImportState;
+  const empty = document.getElementById('buyer-import-empty');
+  const body  = document.getElementById('buyer-import-body');
+  const tbody = document.getElementById('buyer-import-mapping-tbody');
+  const stats = document.getElementById('buyer-import-stats');
+  const cntLab= document.getElementById('buyer-import-count-label');
+  const prevT = document.getElementById('buyer-import-preview');
+  if (!tbody) return;
+  if (empty) empty.style.display = 'none';
+  if (body)  body.style.display  = '';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // Mapping rows
+  tbody.innerHTML = st.headers.map((h, idx) => {
+    const samples = st.rows.slice(0, 5).map(r => String(r[idx] == null ? '' : r[idx]).trim()).filter(Boolean).slice(0, 3);
+    const sampleStr = samples.length ? samples.map(s => esc(s.length > 40 ? s.slice(0, 38) + '…' : s)).join(' · ') : '<span style="color:var(--text-dim)">(empty)</span>';
+    const opts = BUYER_IMPORT_TARGETS.map(t => `<option value="${t.key}"${st.mapping[idx] === t.key ? ' selected' : ''}>${esc(t.label)}</option>`).join('');
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 10px;font-weight:600">${esc(h)}</td>
+      <td style="padding:6px 10px"><select onchange="buyerSetMapping(${idx}, this.value)" style="width:100%;height:30px;font-size:12px;padding:0 6px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;color:var(--text)">${opts}</select></td>
+      <td style="padding:6px 10px;color:var(--text-dim);font-size:11px">${sampleStr}</td>
+    </tr>`;
+  }).join('');
+
+  // Preview (first 5 rows, all columns)
+  if (prevT) {
+    const head = '<thead style="background:var(--panel-2)"><tr>' + st.headers.map(h => `<th style="padding:6px 8px;text-align:left;font-weight:600;font-size:11px;border-bottom:1px solid var(--border);white-space:nowrap">${esc(h)}</th>`).join('') + '</tr></thead>';
+    const body2 = '<tbody>' + st.rows.slice(0, 5).map(r => '<tr style="border-bottom:1px solid var(--border)">' + st.headers.map((_, i) => `<td style="padding:5px 8px;font-size:11px;color:var(--text-dim);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r[i])}</td>`).join('') + '</tr>').join('') + '</tbody>';
+    prevT.innerHTML = head + body2;
+  }
+
+  if (stats) stats.textContent = `${st.fileName} — ${st.rows.length} row${st.rows.length === 1 ? '' : 's'}, ${st.headers.length} column${st.headers.length === 1 ? '' : 's'}`;
+  if (cntLab) cntLab.textContent = `(${st.rows.length})`;
+}
+window.buyerRenderImportMapping = buyerRenderImportMapping;
+
+function buyerSetMapping(idx, key) {
+  if (!window._buyerImportState.mapping) window._buyerImportState.mapping = {};
+  window._buyerImportState.mapping[idx] = key;
+}
+window.buyerSetMapping = buyerSetMapping;
+
+// ---- the actual import ----
+async function buyerDoImport() {
+  const st = window._buyerImportState;
+  if (!st || !Array.isArray(st.rows) || st.rows.length === 0) {
+    if (typeof toast === 'function') toast('Nothing to import.', 'warn');
+    return;
+  }
+  if (typeof sb === 'undefined' || !sb) {
+    if (typeof toast === 'function') toast('Supabase not ready.', 'err');
+    return;
+  }
+  const btn = document.getElementById('buyer-import-run-btn');
+  let prevLabel = '';
+  if (btn) { prevLabel = btn.innerHTML; btn.disabled = true; btn.innerHTML = '⏳ Importing…'; }
+
+  // Make sure cache is loaded so we can dedup against existing buyers.
+  if (!cache.buyers && typeof loadBuyers === 'function') {
+    try { await loadBuyers(); } catch (e) {}
+  }
+  cache.buyers = cache.buyers || {};
+
+  // Bulk fields applied to every row (from the "Apply to all" section).
+  const bulkCounty   = (document.getElementById('buyer-import-bulk-county')?.value   || '').trim();
+  const bulkCity     = (document.getElementById('buyer-import-bulk-city')?.value     || '').trim();
+  const bulkZip      = (document.getElementById('buyer-import-bulk-zip')?.value      || '').trim();
+  const bulkLender   = (document.getElementById('buyer-import-bulk-lender')?.value   || '').trim();
+  const bulkChannels = splitTagsList(document.getElementById('buyer-import-bulk-channels')?.value || '');
+
+  // Build a quick lookup: company_norm → existing buyer.
+  // ALSO index each buyer's aliases — so an import of 'BSG Holdings LLC' merges
+  // into an existing 'BSG Investments LLC' that lists 'BSG Holdings' as an alias,
+  // instead of creating a duplicate row.
+  const byNorm = {};
+  Object.values(cache.buyers).forEach(b => {
+    const primary = companyNorm(b.company || b.name);
+    if (primary) byNorm[primary] = b;
+    if (Array.isArray(b.aliases)) {
+      b.aliases.forEach(a => {
+        const k = companyNorm(a);
+        if (k) byNorm[k] = b;
+      });
+    }
+  });
+
+  // Mint a fresh batch id so this whole import can be undone in one click.
+  const batchId = 'imp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  window._buyersLastImportBatch = batchId;
+
+  // Per-target collectors used while reading each row.
+  let added = 0, merged = 0, skipped = 0;
+  const errors = [];
+
+  for (let ri = 0; ri < st.rows.length; ri++) {
+    const r = st.rows[ri];
+    if (!Array.isArray(r)) { skipped++; continue; }
+    // Build a scratch buyer from the mapping.
+    const buf = { _firstName: '', _lastName: '', cities: [], counties: [], zips: [], lenders: [], channels: [], aliases: [], states: [], strategy: [] };
+    Object.keys(st.mapping).forEach(idxStr => {
+      const idx = parseInt(idxStr, 10);
+      const key = st.mapping[idxStr];
+      if (!key || key === 'skip') return;
+      const raw = String(r[idx] == null ? '' : r[idx]).trim();
+      if (!raw) return;
+      if (key === 'first_name')      buf._firstName = raw;
+      else if (key === 'last_name')  buf._lastName  = raw;
+      else if (key === 'cities' || key === 'counties' || key === 'zips' || key === 'lenders' || key === 'channels' || key === 'aliases' || key === 'states' || key === 'strategy') {
+        buf[key] = unionTags(buf[key], splitTagsList(raw));
+      } else if (key === 'avg_buy_price') {
+        const v = parseFloat(String(raw).replace(/[$,\s]/g, ''));
+        if (!isNaN(v)) buf.avg_buy_price = v;
+      } else if (key === 'acquisitions_count') {
+        const v = parseInt(String(raw).replace(/[^0-9-]/g, ''), 10);
+        if (!isNaN(v)) buf.acquisitions_count = v;
+      } else if (key === 'notes') {
+        // Notes column may already exist — accumulate.
+        buf.notes = buf.notes ? (buf.notes + ' · ' + raw) : raw;
+      } else if (key === 'state') {
+        buf.state = raw.toUpperCase().slice(0, 2);
+      } else {
+        buf[key] = raw;
+      }
+    });
+    // Combine first+last → name if no Name column mapped.
+    if (!buf.name && (buf._firstName || buf._lastName)) {
+      buf.name = [buf._firstName, buf._lastName].filter(Boolean).join(' ').trim();
+    }
+    delete buf._firstName; delete buf._lastName;
+    // Apply bulk fields.
+    if (bulkCounty) buf.counties = unionTags(buf.counties, [bulkCounty]);
+    if (bulkCity)   buf.cities   = unionTags(buf.cities,   [bulkCity]);
+    if (bulkZip)    buf.zips     = unionTags(buf.zips,     [bulkZip]);
+    if (bulkLender) buf.lenders  = unionTags(buf.lenders,  [bulkLender]);
+    if (bulkChannels.length) buf.channels = unionTags(buf.channels, bulkChannels);
+
+    // Need at least a company OR a name to import — otherwise the row is junk.
+    const hasCompany = !!(buf.company && buf.company.trim());
+    const hasName    = !!(buf.name && buf.name.trim());
+    if (!hasCompany && !hasName) { skipped++; continue; }
+    // If only a company is present (e.g. top-buyers.csv style: just LLC name + count),
+    // fall back to the company name as the contact-name field. Avoids tripping any
+    // NOT NULL constraint on `name` on pre-existing buyers tables, and gives the
+    // row a non-empty display label in the list view.
+    if (!hasName && hasCompany) buf.name = buf.company;
+
+    const cnorm = companyNorm(buf.company || buf.name);
+    const existing = cnorm && byNorm[cnorm];
+
+    try {
+      if (existing) {
+        // If the incoming company name is DIFFERENT from the existing buyer's
+        // company, record it as an alias so the relationship is preserved.
+        // (e.g. existing = 'BSG Investments LLC', incoming = 'BSG Holdings LLC'
+        //  → add 'BSG Holdings LLC' to existing.aliases.)
+        if (buf.company && companyNorm(buf.company) !== companyNorm(existing.company || existing.name)) {
+          buf.aliases = unionTags(buf.aliases, [buf.company]);
+        }
+        // MERGE & ACCUMULATE — fill blanks, union multi-value arrays, don't trample.
+        const patch = { updated_at: new Date().toISOString() };
+        const scalarFields = ['name','company','phone','email','messenger','criteria','city','state','funding_type','price_notes','notes','rating','avg_buy_price','acquisitions_count'];
+        scalarFields.forEach(f => {
+          const cur = existing[f];
+          const incoming = buf[f];
+          const curEmpty = (cur == null || cur === '' || (typeof cur === 'number' && isNaN(cur)));
+          if (curEmpty && incoming != null && incoming !== '') patch[f] = incoming;
+        });
+        // For notes, concat (since notes is multi-source by nature).
+        if (buf.notes && existing.notes && !String(existing.notes).includes(buf.notes)) {
+          patch.notes = String(existing.notes) + ' · ' + buf.notes;
+        }
+        // Union multi-value arrays.
+        ['cities','counties','zips','lenders','channels','aliases','states','strategy'].forEach(f => {
+          const u = unionTags(existing[f], buf[f]);
+          if (u.length && (!(Array.isArray(existing[f])) || u.length !== existing[f].length)) {
+            patch[f] = u;
+          }
+        });
+        patch.company_norm = companyNorm(patch.company || existing.company || existing.name);
+        // Skip the write if literally nothing changed (besides updated_at).
+        const keys = Object.keys(patch).filter(k => k !== 'updated_at' && k !== 'company_norm');
+        if (keys.length === 0) { skipped++; continue; }
+        const { data, error } = await sb.from('buyers').update(patch).eq('id', existing.id).select().single();
+        if (error) throw error;
+        if (data && data.id) cache.buyers[data.id] = data;
+        if (data) byNorm[companyNorm(data.company || data.name)] = data;
+        merged++;
+      } else {
+        // INSERT NEW.
+        const payload = {
+          name: buf.name || '',
+          company: buf.company || '',
+          company_norm: cnorm,
+          phone: buf.phone || '',
+          email: buf.email || '',
+          messenger: buf.messenger || '',
+          criteria: buf.criteria || '',
+          city: buf.city || '',
+          state: buf.state || '',
+          rating: null,
+          funding_type: buf.funding_type || '',
+          price_notes: buf.price_notes || '',
+          notes: buf.notes || '',
+          verified: false,
+          cities: buf.cities || [],
+          counties: buf.counties || [],
+          zips: buf.zips || [],
+          lenders: buf.lenders || [],
+          aliases: buf.aliases || [],
+          states: buf.states || [],
+          strategy: buf.strategy || [],
+          channels: buf.channels || [],
+          avg_buy_price: (buf.avg_buy_price == null ? null : buf.avg_buy_price),
+          acquisitions_count: (buf.acquisitions_count == null ? null : buf.acquisitions_count),
+          updated_at: new Date().toISOString(),
+          import_batch_id: batchId
+        };
+        const { data, error } = await sb.from('buyers').insert(payload).select().single();
+        if (error) throw error;
+        if (data && data.id) {
+          cache.buyers[data.id] = data;
+          byNorm[companyNorm(data.company || data.name)] = data;
+        }
+        added++;
+      }
+    } catch (e) {
+      console.warn('buyerDoImport row', ri, e);
+      errors.push(`Row ${ri + 1}: ${e.message || e}`);
+      skipped++;
+    }
+  }
+
+  if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '📥 Import'; }
+
+  const parts = [];
+  if (added)   parts.push(`${added} new`);
+  if (merged)  parts.push(`${merged} merged`);
+  if (skipped) parts.push(`${skipped} skipped`);
+  if (typeof toast === 'function') {
+    if (errors.length) {
+      // Pull out the distinct error text (everything after "Row N: ") so we can show
+      // it inline. If they're all the same Supabase error, the user sees the cause
+      // without having to open DevTools.
+      const distinct = Array.from(new Set(errors.map(e => String(e).replace(/^Row \d+:\s*/, '').trim())));
+      const first    = distinct[0] || '';
+      // Detect the two most common causes and give specific guidance.
+      let extra = '';
+      if (/schema cache|could not find the column|column .+ does not exist/i.test(first)) {
+        extra = ' — Did you run the 📋 SQL migration? Click the SQL button next to Import CSV.';
+      } else if (/null value in column|violates not-null/i.test(first)) {
+        extra = ' — Your buyers table has a NOT NULL on a column the import left blank. Run the 📋 SQL migration to widen the schema, or fill the column manually.';
+      }
+      const sample = first ? ` · ${first.length > 140 ? first.slice(0, 138) + '…' : first}` : '';
+      toast(`Imported ${parts.join(', ') || '0'} — ${errors.length} error${errors.length === 1 ? '' : 's'}${sample}${extra}`, 'warn');
+      console.warn('Buyer import errors:', errors);
+    } else {
+      toast(`Imported ${parts.join(', ') || '0'}`, 'ok');
+    }
+  }
+  buyerCloseImportModal();
+  if (typeof renderBuyersList === 'function') renderBuyersList();
+  // Reveal the Undo Import button. Stays visible until the user clicks it OR
+  // runs another import (in which case it points at the newer batch).
+  const undoBtn = document.getElementById('buyers-undo-import-btn');
+  if (undoBtn && added > 0) {
+    undoBtn.style.display = '';
+    undoBtn.textContent = `↶ Undo Import (${added})`;
+  }
+}
+
+// Delete every buyer inserted by the most recent import. Merged rows aren't touched.
+// Uses the batch id we minted at import time; falls back to a generic warning if none.
+async function buyerUndoLastImport() {
+  const batchId = window._buyersLastImportBatch;
+  if (!batchId) {
+    if (typeof toast === 'function') toast('No recent import to undo.', 'warn');
+    return;
+  }
+  if (typeof sb === 'undefined' || !sb) {
+    if (typeof toast === 'function') toast('Supabase not ready.', 'err');
+    return;
+  }
+  // Count first so the confirm dialog is honest.
+  const inMem = Object.values(cache.buyers || {}).filter(b => b && b.import_batch_id === batchId);
+  if (!confirm(`Delete ${inMem.length} buyer${inMem.length === 1 ? '' : 's'} that the last import added? This won't touch rows that already existed before the import.`)) return;
+  const btn = document.getElementById('buyers-undo-import-btn');
+  let prev = '';
+  if (btn) { prev = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Undoing…'; }
+  try {
+    const { data, error } = await sb.from('buyers').delete().eq('import_batch_id', batchId).select('id');
+    if (error) throw error;
+    const deletedIds = new Set((data || []).map(x => x.id));
+    deletedIds.forEach(id => { if (cache.buyers) delete cache.buyers[id]; });
+    window._buyersLastImportBatch = null;
+    if (btn) { btn.style.display = 'none'; btn.disabled = false; btn.textContent = prev; }
+    if (typeof toast === 'function') toast(`Undone — removed ${deletedIds.size} imported buyer${deletedIds.size === 1 ? '' : 's'}.`, 'ok');
+    if (typeof renderBuyersList === 'function') renderBuyersList();
+  } catch (e) {
+    console.warn('buyerUndoLastImport:', e);
+    if (typeof toast === 'function') toast('Undo failed: ' + (e.message || 'unknown'), 'err');
+    if (btn) { btn.disabled = false; btn.textContent = prev || '↶ Undo Import'; }
+  }
+}
+window.buyerUndoLastImport = buyerUndoLastImport;
+window.buyerDoImport = buyerDoImport;
 
 function renderUnderwriteList() {
   // Lazy-load on first visit to either list view
@@ -31495,6 +32758,7 @@ CREATE TABLE IF NOT EXISTS results (
   phone text DEFAULT '',
   channel text DEFAULT '',
   verified boolean DEFAULT false,
+  qualification text DEFAULT NULL,
   last_contact timestamptz,
   raw_row jsonb,
   uploaded_at timestamptz DEFAULT now()
@@ -31516,6 +32780,91 @@ NOTIFY pgrst, 'reload schema';`;
   if (typeof showMigrationSql === 'function') showMigrationSql('Results migration SQL', sql);
   else { console.log(sql); toast('SQL logged to console', 'ok'); }
 }
+
+// ---------- Buyers (rolodex) ----------
+function copyBuyersMigrationSql() {
+  const sql = `-- Run in Supabase SQL Editor to enable the Buyers rolodex + CSV importer.
+-- Safe to re-run as many times as you want — every column is added IF NOT EXISTS.
+CREATE TABLE IF NOT EXISTS buyers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text DEFAULT '',
+  company text DEFAULT '',
+  company_norm text DEFAULT '',
+  phone text DEFAULT '',
+  email text DEFAULT '',
+  messenger text DEFAULT '',
+  criteria text DEFAULT '',
+  city text DEFAULT '',
+  state text DEFAULT '',
+  rating numeric,
+  funding_type text DEFAULT '',
+  price_notes text DEFAULT '',
+  notes text DEFAULT '',
+  verified boolean DEFAULT false,
+  cities text[] DEFAULT '{}',
+  counties text[] DEFAULT '{}',
+  zips text[] DEFAULT '{}',
+  lenders text[] DEFAULT '{}',
+  aliases text[] DEFAULT '{}',
+  states text[] DEFAULT '{}',
+  strategy text[] DEFAULT '{}',
+  channels text[] DEFAULT '{}',
+  avg_buy_price numeric,
+  acquisitions_count integer,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  import_batch_id text DEFAULT ''
+);
+-- Idempotent column adds for tables created BEFORE this expansion shipped.
+-- Without these ALTERs, imports / edits that include the new fields would silently
+-- fail with "Could not find the column 'X' of 'buyers' in the schema cache".
+-- Patch every non-id column. Safe to re-run; idempotent.
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS name               text DEFAULT '';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS company            text DEFAULT '';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS company_norm       text DEFAULT '';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS phone              text DEFAULT '';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS email              text DEFAULT '';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS criteria           text DEFAULT '';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS city               text DEFAULT '';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS state              text DEFAULT '';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS rating             numeric;
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS funding_type       text DEFAULT '';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS price_notes        text DEFAULT '';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS notes              text DEFAULT '';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS verified           boolean DEFAULT false;
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS cities             text[] DEFAULT '{}';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS counties           text[] DEFAULT '{}';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS zips               text[] DEFAULT '{}';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS lenders            text[] DEFAULT '{}';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS channels           text[] DEFAULT '{}';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS avg_buy_price      numeric;
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS acquisitions_count integer;
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS messenger          text DEFAULT '';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS aliases            text[] DEFAULT '{}';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS states             text[] DEFAULT '{}';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS strategy           text[] DEFAULT '{}';
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS qualification      text DEFAULT NULL;
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS created_at         timestamptz DEFAULT now();
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS updated_at         timestamptz DEFAULT now();
+ALTER TABLE buyers ADD COLUMN IF NOT EXISTS import_batch_id    text DEFAULT '';
+-- Drop any legacy NOT NULL constraint on the name column so imports of company-only
+-- lists (top-buyers.csv style: just LLC name + count) work. The JS importer fills
+-- name from company as a fallback, but this belt-and-suspenders the schema in case
+-- anyone hand-inserts later.
+ALTER TABLE buyers ALTER COLUMN name DROP NOT NULL;
+ALTER TABLE buyers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_all_buyers" ON buyers;
+DROP POLICY IF EXISTS "anon_all" ON buyers;
+CREATE POLICY "anon_all_buyers" ON buyers FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE INDEX IF NOT EXISTS idx_buyers_company_norm ON buyers(company_norm);
+CREATE INDEX IF NOT EXISTS idx_buyers_email        ON buyers(email);
+CREATE INDEX IF NOT EXISTS idx_buyers_phone        ON buyers(phone);
+CREATE INDEX IF NOT EXISTS idx_buyers_import_batch ON buyers(import_batch_id);
+NOTIFY pgrst, 'reload schema';`;
+  if (typeof showMigrationSql === 'function') showMigrationSql('Buyers migration SQL', sql);
+  else { console.log(sql); toast('SQL logged to console', 'ok'); }
+}
+window.copyBuyersMigrationSql = copyBuyersMigrationSql;
 
 function mapResultsRow(row, headers) {
   const h = headers.map(x => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
@@ -39209,54 +40558,4 @@ window._rcLoadState = function(state){
       if (fl) fl.value = state.finishLevel;
     }
     if (state.crew != null) { const el = document.getElementById('crew'); if (el) el.value = state.crew; }
-    if (state.costContingency != null) { const el = document.getElementById('costContingency'); if (el) el.value = state.costContingency; }
-    if (state.timeContingency != null) { const el = document.getElementById('timeContingency'); if (el) el.value = state.timeContingency; }
-    if (state.occupancy != null) { const el = document.getElementById('rc-occupancy'); if (el) el.value = state.occupancy; }
-    if (state.tenancy != null) { const el = document.getElementById('rc-tenancy'); if (el) el.value = state.tenancy; }
-    if (typeof recalc === 'function') recalc();
-    // Clear any "active" preset highlight since we just loaded a saved state, not a preset
-    document.querySelectorAll('.rc-preset').forEach(b => b.classList.remove('active'));
-    return true;
-  } catch (e) { console.warn('[_rcLoadState]', e); return false; }
-};
-// Reset for "new deal" — turn everything off, clear special cases, reset finish/contingencies.
-window._rcResetToDefaults = function(){
-  try {
-    Object.keys(items).forEach(k => items[k].forEach(it => { it.on = false; }));
-    if (Array.isArray(specialCases)) specialCases.forEach(sc => { sc.sev = null; });
-    const fl = document.getElementById('finishLevel'); if (fl) fl.value = 'lab';
-    const cr = document.getElementById('crew'); if (cr) cr.value = '3';
-    const cc = document.getElementById('costContingency'); if (cc) cc.value = '10';
-    const tc = document.getElementById('timeContingency'); if (tc) tc.value = '25';
-    const oc = document.getElementById('rc-occupancy'); if (oc) oc.value = 'vacant';
-    const tn = document.getElementById('rc-tenancy'); if (tn) tn.value = 'none';
-    document.querySelectorAll('.rc-preset').forEach(b => b.classList.remove('active'));
-    if (typeof recalc === 'function') recalc();
-  } catch (e) { console.warn('[_rcResetToDefaults]', e); }
-};
-
-// Set initial hazmat visibility based on uw-built value (if any)
-try {
-  const _yr = parseInt((document.getElementById('uw-built') || {}).value);
-  const _haz = document.getElementById('hazmat-alert');
-  if (_haz) _haz.style.display = (isFinite(_yr) && _yr < 1978) ? 'block' : 'none';
-} catch(_){}
-
-if (_rcRoot && document.getElementById('basicGroups')) {
-  // Snapshot built-in basic group items list + auto list, then merge user
-  // customizations from localStorage. Order matters: snapshot before merging
-  // user items so we can later diff which items are user-added.
-  _rcSnapshotGroupOrigItems();
-  _rcSnapshotGroupOrigAuto();
-  _rcLoadUserItems();
-  _rcLoadUserGroups();
-  _rcLoadUserAuto();
-  loadLabRates();
-  renderCategoryRows();
-  recalc();
-  _rcApplyRecsCollapse();
-}
-})();
-</script>
-</body>
-</html>
+    if (state.costContingency != null) { const el = document.getElementById

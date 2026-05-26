@@ -2084,22 +2084,22 @@
   <!-- Dispositions subtab bar — only visible when this deal was opened from
        the Dispositions contracts grid. Clicking any subtab here CLEARS dispo
        mode (this deal is being closed) and routes to Dispositions section. -->
-  <div id="uw-dispo-subtabs-row" class="flex items-center gap-2 mb-4" style="display:none;flex-wrap:wrap;min-width:0">
-    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
-      <div class="subtab subtab-compact" onclick="_leaveDispoToView('new-contract')"      title="Go to New Contract list.">📜 New Contract</div>
-      <div class="subtab subtab-compact" onclick="_leaveDispoToView('assigning-contract')" title="Go to Assigning Contract list.">🔁 Assigning Contract</div>
-      <div class="subtab subtab-compact" onclick="_leaveDispoToView('hot-contract')"       title="Go to Hot Contract list.">🔥 Hot Contract</div>
-      <div class="subtab subtab-compact" onclick="_leaveDispoToView('assigned-contract')"  title="Go to Assigned Contract list.">✅ Assigned Contract</div>
-      <div class="subtab subtab-compact" onclick="_leaveDispoToView('dead-contract')"      title="Go to Dead Contract list.">💀 Dead Contract</div>
+  <div id="uw-dispo-subtabs-row" class="flex items-center gap-2 mb-4" style="display:none;flex-wrap:nowrap;min-width:0">
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('new-contract')"      title="Go to New Contract list.">📜 New <span data-dispo-count="new-contract" class="dispo-count badge brand" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('assigning-contract')" title="Go to Assigning Contract list.">🔁 Assigning <span data-dispo-count="assigning-contract" class="dispo-count badge warn" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('hot-contract')"       title="Go to Hot Contract list.">🔥 Hot <span data-dispo-count="hot-contract" class="dispo-count badge bad" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('assigned-contract')"  title="Go to Assigned Contract list.">✅ Assigned <span data-dispo-count="assigned-contract" class="dispo-count badge ok" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('dead-contract')"      title="Go to Dead Contract list.">💀 Dead <span data-dispo-count="dead-contract" class="dispo-count badge" style="margin-left:3px;font-size:9px;background:rgba(156,163,175,0.2);color:#9ca3af">—</span></div>
     </div>
-    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
-      <div class="subtab subtab-compact" onclick="_leaveDispoToView('recent')"      title="Go to New Buyers list.">🌱 New Buyers</div>
-      <div class="subtab subtab-compact" onclick="_leaveDispoToView('vetting')"     title="Go to Vetting Buyers list.">🔎 Vetting Buyers</div>
-      <div class="subtab subtab-compact" onclick="_leaveDispoToView('unknown')"     title="Go to Unknown Buyers list.">? Unknown Buyers</div>
-      <div class="subtab subtab-compact" onclick="_leaveDispoToView('qualified')"   title="Go to Qualified Buyers list."><span style="color:#10b981">✓</span> Qualified Buyers</div>
-      <div class="subtab subtab-compact" onclick="_leaveDispoToView('unqualified')" title="Go to Unqualified Buyers list."><span style="color:#f87171">✗</span> Unqualified Buyers</div>
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('recent')"      title="Go to New Buyers list.">🌱 Recent <span data-dispo-count="recent" class="dispo-count badge brand" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('vetting')"     title="Go to Vetting Buyers list.">🔎 Vetting <span data-dispo-count="vetting" class="dispo-count badge warn" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('unknown')"     title="Go to Unknown Buyers list.">? Unknown <span data-dispo-count="unknown" class="dispo-count badge" style="margin-left:3px;font-size:9px;background:rgba(156,163,175,0.2);color:#9ca3af">—</span></div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('qualified')"   title="Go to Qualified Buyers list."><span style="color:#10b981">✓</span> Qualified <span data-dispo-count="qualified" class="dispo-count badge ok" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('unqualified')" title="Go to Unqualified Buyers list."><span style="color:#f87171">✗</span> Unqualified <span data-dispo-count="unqualified" class="dispo-count badge bad" style="margin-left:3px;font-size:9px">—</span></div>
     </div>
-    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
       <div class="subtab subtab-compact" onclick="_leaveDispoToView('per-deal')" title="Go to Per Deal view.">🎯 Per Deal</div>
     </div>
   </div>
@@ -4483,10 +4483,6 @@
 
 <!-- SECTION: Renovation -->
 <div id="section-renovation" class="section-content p-6" style="display:none">
-  <!-- Calculator mount: when a property is opened from Renovation, the
-       Underwriting calculator DOM is moved here so the user stays in
-       Renovation but sees the full calculator. -->
-  <div id="reno-calc-mount"></div>
 
   <!-- Top nav row — TWO disconnected panel pills on the same horizontal line:
        1) Phase subtab strip — All / Repossession / Demo / Planning / Mechanicals
@@ -4519,6 +4515,12 @@
       <div class="subtab subtab-compact" data-renoview="attorneys"   onclick="setRenoView('attorneys')"   title="Attorneys — your rolodex of closing / eviction / contract attorneys with ratings, practice areas, fees, and contact info.">⚖️ Attorneys <span id="reno-count-attorneys" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
     </div>
   </div>
+
+  <!-- Calculator mount: when a property is opened from Renovation, the
+       Underwriting calculator DOM is moved here so the user stays in
+       Renovation but sees the full calculator. Placed BELOW reno-top-nav so
+       the phase + resources subtab bar stays at the top of the deal view. -->
+  <div id="reno-calc-mount"></div>
 
   <div id="reno-table-wrap">
   <div class="panel p-5">
@@ -4962,20 +4964,20 @@
          that DON'T live in the buyer list — they list contracts/deals instead.
          Labels dropped "Contract" suffix — the whole pill group IS contracts. -->
     <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
-      <div class="subtab subtab-compact" data-dispoview="new-contract"      onclick="setDispoView('new-contract')"      title="Brand-new contracts that just got signed.">📜 New <span id="dispo-count-new-contract" class="badge brand" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact" data-dispoview="assigning-contract" onclick="setDispoView('assigning-contract')" title="Contracts in the middle of being assigned to an end-buyer.">🔁 Assigning <span id="dispo-count-assigning-contract" class="badge warn" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact" data-dispoview="hot-contract"      onclick="setDispoView('hot-contract')"      title="Contracts getting heavy buyer interest right now — top priority to push.">🔥 Hot <span id="dispo-count-hot-contract" class="badge bad" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact" data-dispoview="assigned-contract"  onclick="setDispoView('assigned-contract')"  title="Contracts already assigned to an end-buyer — waiting on the final closing.">✅ Assigned <span id="dispo-count-assigned-contract" class="badge ok" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact" data-dispoview="dead-contract"     onclick="setDispoView('dead-contract')"     title="Contracts that fell through.">💀 Dead <span id="dispo-count-dead-contract" class="badge" style="margin-left:3px;font-size:9px;background:rgba(156,163,175,0.2);color:#9ca3af">—</span></div>
+      <div class="subtab subtab-compact" data-dispoview="new-contract"      onclick="setDispoView('new-contract')"      title="Brand-new contracts that just got signed.">📜 New <span id="dispo-count-new-contract" data-dispo-count="new-contract" class="dispo-count badge brand" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-dispoview="assigning-contract" onclick="setDispoView('assigning-contract')" title="Contracts in the middle of being assigned to an end-buyer.">🔁 Assigning <span id="dispo-count-assigning-contract" data-dispo-count="assigning-contract" class="dispo-count badge warn" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-dispoview="hot-contract"      onclick="setDispoView('hot-contract')"      title="Contracts getting heavy buyer interest right now — top priority to push.">🔥 Hot <span id="dispo-count-hot-contract" data-dispo-count="hot-contract" class="dispo-count badge bad" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-dispoview="assigned-contract"  onclick="setDispoView('assigned-contract')"  title="Contracts already assigned to an end-buyer — waiting on the final closing.">✅ Assigned <span id="dispo-count-assigned-contract" data-dispo-count="assigned-contract" class="dispo-count badge ok" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-dispoview="dead-contract"     onclick="setDispoView('dead-contract')"     title="Contracts that fell through.">💀 Dead <span id="dispo-count-dead-contract" data-dispo-count="dead-contract" class="dispo-count badge" style="margin-left:3px;font-size:9px;background:rgba(156,163,175,0.2);color:#9ca3af">—</span></div>
     </div>
     <!-- Panel 1: status filters. Click any one to scope the buyer list.
          Labels dropped "Buyers" suffix — the whole pill group IS buyer status. -->
     <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
-      <div class="subtab subtab-compact active" data-dispoview="recent"      onclick="setDispoView('recent')"      title="Buyers added in the last 30 days, newest first.">🌱 Recent <span id="dispo-count-recent" class="badge brand" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact"        data-dispoview="vetting"     onclick="setDispoView('vetting')"     title="Buyers you've started vetting but haven't finalized as Qualified or Unqualified yet.">🔎 Vetting <span id="dispo-count-vetting" class="badge warn" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact"        data-dispoview="unknown"     onclick="setDispoView('unknown')"     title="Buyers with no qualification status set yet.">? Unknown <span id="dispo-count-unknown" class="badge" style="margin-left:3px;font-size:9px;background:rgba(156,163,175,0.2);color:#9ca3af">—</span></div>
-      <div class="subtab subtab-compact"        data-dispoview="qualified"   onclick="setDispoView('qualified')"   title="Buyers you've vetted and approved as real / reliable."><span style="color:#10b981">✓</span> Qualified <span id="dispo-count-qualified" class="badge ok" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact"        data-dispoview="unqualified" onclick="setDispoView('unqualified')" title="Buyers you've ruled out."><span style="color:#f87171">✗</span> Unqualified <span id="dispo-count-unqualified" class="badge bad" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact active" data-dispoview="recent"      onclick="setDispoView('recent')"      title="Buyers added in the last 30 days, newest first.">🌱 Recent <span id="dispo-count-recent" data-dispo-count="recent" class="dispo-count badge brand" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact"        data-dispoview="vetting"     onclick="setDispoView('vetting')"     title="Buyers you've started vetting but haven't finalized as Qualified or Unqualified yet.">🔎 Vetting <span id="dispo-count-vetting" data-dispo-count="vetting" class="dispo-count badge warn" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact"        data-dispoview="unknown"     onclick="setDispoView('unknown')"     title="Buyers with no qualification status set yet.">? Unknown <span id="dispo-count-unknown" data-dispo-count="unknown" class="dispo-count badge" style="margin-left:3px;font-size:9px;background:rgba(156,163,175,0.2);color:#9ca3af">—</span></div>
+      <div class="subtab subtab-compact"        data-dispoview="qualified"   onclick="setDispoView('qualified')"   title="Buyers you've vetted and approved as real / reliable."><span style="color:#10b981">✓</span> Qualified <span id="dispo-count-qualified" data-dispo-count="qualified" class="dispo-count badge ok" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact"        data-dispoview="unqualified" onclick="setDispoView('unqualified')" title="Buyers you've ruled out."><span style="color:#f87171">✗</span> Unqualified <span id="dispo-count-unqualified" data-dispo-count="unqualified" class="dispo-count badge bad" style="margin-left:3px;font-size:9px">—</span></div>
     </div>
     <!-- Panel 2: Per Deal — separated pill like GIS Maps. Looks up buyers by
          zip / city / county match against an open deal (or a typed zip). -->
@@ -23892,12 +23894,17 @@ window.buyerSetContractStatus = buyerSetContractStatus;
 function _dispoUpdateCounts() {
   // Two-mode badge setter: pass `null` to leave the "—" seed in place (when
   // the relevant cache hasn't loaded yet); pass a number to show the real count.
+  // Update EVERY span carrying the matching data-dispo-count key so the
+  // main bar (in section-dispositions) and the in-deal mirror inside
+  // section-underwriting both stay in sync from a single call.
   const setBadge = (id, n) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (n === null || n === undefined) { el.textContent = '—'; el.style.display = ''; return; }
-    el.textContent = (n || 0).toLocaleString();
-    el.style.display = '';
+    const key = id.replace(/^dispo-count-/, '');
+    const els = document.querySelectorAll('[data-dispo-count="' + key + '"]');
+    els.forEach(el => {
+      if (n === null || n === undefined) { el.textContent = '—'; el.style.display = ''; return; }
+      el.textContent = (n || 0).toLocaleString();
+      el.style.display = '';
+    });
   };
   // --- Contracts: count underwrites by dispo_contract value (top-level column
   //     OR legacy data._dispoContract for old rows). When the underwrites cache

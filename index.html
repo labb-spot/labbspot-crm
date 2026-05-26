@@ -691,8 +691,12 @@
 
   <!-- View: Upload -->
   <div id="view-upload" class="view-content">
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="panel p-5" style="display:flex;flex-direction:column">
+    <!-- align-items:stretch + grid-auto-rows:1fr guarantees both panel
+         columns share the same row height so the Property List and Skiptrace
+         Results panels end at the same Y position regardless of how much
+         form content each has above its dropzone. -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" style="align-items:stretch;grid-auto-rows:1fr">
+      <div class="panel p-5" style="display:flex;flex-direction:column;height:100%">
         <div class="flex items-center justify-between mb-1">
           <div class="font-semibold text-lg">📥 Upload Property List</div>
           <span class="chip">Step 1</span>
@@ -740,7 +744,7 @@
         </div>
       </div>
 
-      <div class="panel p-5" style="display:flex;flex-direction:column">
+      <div class="panel p-5" style="display:flex;flex-direction:column;height:100%">
         <div class="flex items-center justify-between mb-1">
           <div class="font-semibold text-lg">📞 Upload Skiptrace Results</div>
           <span class="chip">Step 2</span>
@@ -757,9 +761,12 @@
           </div>
         </div>
         <!-- Skip-trace dropzone — wrapped so the lazy-load overlay can sit
-             on top until cache.skiptrace finishes streaming in. -->
-        <div style="flex:1;position:relative;min-width:0">
-          <div class="dropzone" id="dz-skip" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:220px;transition:opacity 0.2s">
+             on top until cache.skiptrace finishes streaming in. The wrapper
+             grows to fill the panel column (flex:1) and the inner dropzone
+             stretches to fill the wrapper (height:100%) so its bottom edge
+             aligns with the Property List dropzone on the left. -->
+        <div style="flex:1;position:relative;min-width:0;display:flex;flex-direction:column">
+          <div class="dropzone" id="dz-skip" style="flex:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:220px;transition:opacity 0.2s">
             <div class="text-5xl mb-3">📞</div>
             <div class="font-medium text-base">Drop skiptrace CSV/XLSX</div>
             <div class="text-xs text-[var(--text-dim)] mt-1">Matches to existing properties by normalized address</div>

@@ -518,6 +518,10 @@
       <div class="text-xs text-[var(--text-dim)]">Data Management</div>
     </div>
   </div>
+  <!-- Lazy-load status banner — sits in the empty middle of the top bar.
+       Compact one-line layout: spinner / check + icon + label only.
+       Hidden once everything is loaded. -->
+  <div id="lazy-load-banner-global" style="flex:0 0 auto;margin:0 16px;color:var(--text-dim);display:inline-grid;grid-template-columns:14px 14px auto;grid-auto-rows:min-content;column-gap:6px;row-gap:0;align-items:center;justify-items:start;font-size:10px;line-height:1" data-lazy-banner></div>
   <div class="flex items-center gap-3">
     <span id="sop-save-status" class="sop-save-status" title="SOP auto-saves to your browser localStorage. Changes persist across reloads unless you hit Undo.">💾 <span class="sop-save-status-text">Saved</span></span>
     <div id="storage-bar-wrapper" style="min-width:220px" title="Estimated Supabase DB storage used. Click for a breakdown." onclick="showStorageBreakdown()" onmouseover="this.style.cursor='pointer'">
@@ -752,12 +756,25 @@
             <button class="btn btn-ghost text-sm" onclick="openVendorModal()">+ New</button>
           </div>
         </div>
-        <div class="dropzone" id="dz-skip" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:220px">
-          <div class="text-5xl mb-3">📞</div>
-          <div class="font-medium text-base">Drop skiptrace CSV/XLSX</div>
-          <div class="text-xs text-[var(--text-dim)] mt-1">Matches to existing properties by normalized address</div>
-          <div class="text-xs text-[var(--text-dim)] mt-2" style="max-width:360px">Any column layout — we auto-detect phones, emails, and owner fields per vendor.</div>
-          <input type="file" id="file-skip" accept=".csv,.xlsx,.xls" class="hidden" />
+        <!-- Skip-trace dropzone — wrapped so the lazy-load overlay can sit
+             on top until cache.skiptrace finishes streaming in. -->
+        <div style="flex:1;position:relative;min-width:0">
+          <div class="dropzone" id="dz-skip" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:220px;transition:opacity 0.2s">
+            <div class="text-5xl mb-3">📞</div>
+            <div class="font-medium text-base">Drop skiptrace CSV/XLSX</div>
+            <div class="text-xs text-[var(--text-dim)] mt-1">Matches to existing properties by normalized address</div>
+            <div class="text-xs text-[var(--text-dim)] mt-2" style="max-width:360px">Any column layout — we auto-detect phones, emails, and owner fields per vendor.</div>
+            <input type="file" id="file-skip" accept=".csv,.xlsx,.xls" class="hidden" />
+          </div>
+          <!-- Lazy-load overlay. _renderLazyBanners removes the .lazy-locked
+               class once cache.skiptrace is loaded, which hides this overlay. -->
+          <div data-lazy-guard="skiptrace" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(15,23,42,0.78);backdrop-filter:blur(2px);border-radius:14px;border:1px dashed rgba(251,191,36,0.45);pointer-events:auto;z-index:5">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);border-radius:999px">
+              <span style="display:inline-block;color:#fbbf24;font-size:14px;animation:lazy-spin 1.2s linear infinite">⏳</span>
+              <span style="color:#fbbf24;font-size:12px;font-weight:600;letter-spacing:0.2px">Loading existing skip records…</span>
+            </div>
+            <div style="color:var(--text-dim);font-size:11px;margin-top:10px;max-width:300px;text-align:center;line-height:1.4">Hold off on dropping a new CSV until this clears — keeps your dedupe check honest.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -31141,6 +31158,65 @@ async function fetchSkipUploadsLean() {
 }
 
 // --------- Load all data from Supabase ---------
+// ------------------------------------------------------------
+// Lazy-load status tracker — drives the small banners above section-data and
+// section-results so the user can see when phones / emails / skip records
+// finish streaming in. Each key flips 'loading' → 'loaded' (with a count)
+// or 'loading' → 'error'.
+// ------------------------------------------------------------
+window._lazyLoadStatus = window._lazyLoadStatus || { phones: 'idle', emails: 'idle', skiptrace: 'idle' };
+function _setLazyStatus(key, status, count) {
+  window._lazyLoadStatus[key] = status;
+  if (typeof count === 'number') window._lazyLoadStatus[key + '_count'] = count;
+  if (typeof _renderLazyBanners === 'function') _renderLazyBanners();
+}
+window._setLazyStatus = _setLazyStatus;
+function _renderLazyBanners() {
+  const fmt = (label, key, icon) => {
+    const s = window._lazyLoadStatus[key];
+    const n = window._lazyLoadStatus[key + '_count'];
+    // Three grid cells per row: [status icon][emoji][label]. Letting the grid
+    // own the layout means icons line up in vertical columns regardless of
+    // which status symbol is rendered.
+    let statusCell, tip;
+    if (s === 'loaded') {
+      tip = Number.isFinite(n) ? ' title="' + n.toLocaleString() + ' rows"' : '';
+      statusCell = '<span style="color:#10b981;font-weight:700;text-align:center;width:14px"' + tip + '>✓</span>';
+    } else if (s === 'error') {
+      statusCell = '<span style="color:#f87171;font-weight:700;text-align:center;width:14px" title="Failed to load">✗</span>';
+    } else {
+      statusCell = '<span style="color:#fbbf24;display:inline-block;text-align:center;width:14px;animation:lazy-spin 1.2s linear infinite" title="Loading…">⏳</span>';
+    }
+    const iconCell  = '<span style="text-align:center;width:14px;display:inline-block">' + icon + '</span>';
+    const labelCell = '<span style="white-space:nowrap">' + label + '</span>';
+    return statusCell + iconCell + labelCell;
+  };
+  const html =
+    fmt('Emails',  'emails',    '✉️') +
+    fmt('Phones',  'phones',    '📞') +
+    fmt('Records', 'skiptrace', '🗂️');
+  document.querySelectorAll('[data-lazy-banner]').forEach(el => {
+    el.innerHTML = html;
+    // Always visible. Inline style on the container drives layout (inline-grid
+    // in the top-bar banner). Just clear any prior `display:none`.
+    if (el.style.display === 'none') el.style.display = '';
+  });
+  // Hide every lazy-guard overlay whose key has finished loading.
+  document.querySelectorAll('[data-lazy-guard]').forEach(g => {
+    const k = g.getAttribute('data-lazy-guard');
+    const s = window._lazyLoadStatus[k];
+    g.style.display = (s === 'loaded' || s === 'error') ? 'none' : 'flex';
+  });
+}
+window._renderLazyBanners = _renderLazyBanners;
+(function(){
+  if (document.getElementById('lazy-load-spin-css')) return;
+  const st = document.createElement('style');
+  st.id = 'lazy-load-spin-css';
+  st.textContent = '@keyframes lazy-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+  document.head.appendChild(st);
+})();
+
 async function loadAllFromDB() {
   // Wrap each fetch so one failure doesn't kill the rest (Promise.all rejects on first failure).
   const safe = async (fn, fallback) => {
@@ -31166,19 +31242,16 @@ async function loadAllFromDB() {
       throw e;
     }
   };
-  // NOTE: Reverted from fetchAllParallel back to fetchAll (keyset pagination).
-  // fetchAllParallel uses estimated counts + range queries, which gave wrong
-  // results when PostgREST's max-rows-per-request cap (1000) was lower than
-  // our 5000-row range size. Keyset pagination via id is slower but always right.
-  const [pData, lData, plData, vData, sData, suData, phData, emData, cRes] = await Promise.all([
+  // CRITICAL PHASE — small/medium tables needed for the app to be navigable.
+  // phones, emails, and skiptrace_records moved to the background phase below;
+  // they're huge and most pages don't need them immediately. Banner widgets
+  // update as those land via _setLazyStatus().
+  const [pData, lData, plData, vData, suData, cRes] = await Promise.all([
     safe(tracked('properties', () => fetchAll('properties', '*', { col: 'updated_at', asc: false })), []),
     safe(tracked('lists', () => fetchAll('lists', '*', { col: 'uploaded_at', asc: false })), []),
     safe(tracked('property_lists', () => fetchAll('property_lists', '*', null, { noIdColumn: true })), []),
     safe(tracked('vendors', () => fetchAll('vendors', '*', { col: 'name', asc: true })), []),
-    safe(tracked('skiptrace_records', () => fetchAll('skiptrace_records', '*', { col: 'uploaded_at', asc: false })), []),
     safe(tracked('skip_uploads', () => fetchSkipUploadsLean()), []),
-    safe(tracked('phones', () => fetchAll('phones')), []),
-    safe(tracked('emails', () => fetchAll('emails')), []),
     safe(tracked('app_config', () => sb.from('app_config').select('*').eq('id', 1).maybeSingle()), { data: null }),
   ]);
 
@@ -31187,10 +31260,7 @@ async function loadAllFromDB() {
   const lRes = { data: lData };
   const plRes = { data: plData };
   const vRes = { data: vData };
-  const sRes = { data: sData };
   const suRes = { data: suData };
-  const phRes = { data: phData };
-  const emRes = { data: emData };
 
   cache.properties = {};
   (pRes.data || []).forEach(p => { p._lists = []; p._phones = []; p._emails = []; cache.properties[p.id] = p; });
@@ -31206,24 +31276,63 @@ async function loadAllFromDB() {
   cache.vendors = {};
   (vRes.data || []).forEach(v => cache.vendors[v.id] = v);
 
-  cache.skiptrace = {};
-  (sRes.data || []).forEach(s => cache.skiptrace[s.id] = s);
-
   cache.skipUploads = {};
   (suRes.data || []).forEach(u => cache.skipUploads[u.id] = u);
 
-  // Link phones and emails to properties
-  cache.phones = {};
-  (phRes.data || []).forEach(ph => {
-    cache.phones[ph.id] = ph;
-    if (cache.properties[ph.property_id]) cache.properties[ph.property_id]._phones.push(ph);
-  });
-
-  cache.emails = {};
-  (emRes.data || []).forEach(em => {
-    cache.emails[em.id] = em;
-    if (cache.properties[em.property_id]) cache.properties[em.property_id]._emails.push(em);
-  });
+  // Seed empty containers so consumers don't crash before the bg fetch lands.
+  cache.skiptrace = cache.skiptrace || {};
+  cache.phones    = cache.phones    || {};
+  cache.emails    = cache.emails    || {};
+  if (typeof _setLazyStatus === 'function') {
+    _setLazyStatus('phones',    'loading');
+    _setLazyStatus('emails',    'loading');
+    _setLazyStatus('skiptrace', 'loading');
+  }
+  // BACKGROUND PHASE — fire phones / emails / skiptrace_records but DON'T await.
+  // Each updates the lazy-load banner + reruns dependent widgets on resolve.
+  setTimeout(() => {
+    const _bgRehydrateProps = () => {
+      Object.values(cache.properties || {}).forEach(p => { p._phones = []; p._emails = []; });
+      Object.values(cache.phones || {}).forEach(ph => {
+        if (cache.properties[ph.property_id]) cache.properties[ph.property_id]._phones.push(ph);
+      });
+      Object.values(cache.emails || {}).forEach(em => {
+        if (cache.properties[em.property_id]) cache.properties[em.property_id]._emails.push(em);
+      });
+    };
+    const _rerenderAfterLazy = () => {
+      try { if (typeof renderCompare              === 'function') renderCompare(); }              catch(e){console.warn('renderCompare bg:',e);}
+      try { if (typeof renderKPIs                 === 'function') renderKPIs(); }                 catch(e){console.warn('renderKPIs bg:',e);}
+      try { if (typeof renderProperties           === 'function') renderProperties(); }           catch(e){console.warn('renderProperties bg:',e);}
+      try { if (typeof renderSkiptrace            === 'function') renderSkiptrace(); }            catch(e){console.warn('renderSkiptrace bg:',e);}
+      try { if (typeof renderResults              === 'function') renderResults(); }              catch(e){console.warn('renderResults bg:',e);}
+      try { if (typeof renderProviderPhonesWidget === 'function') renderProviderPhonesWidget(); } catch(e){console.warn('renderProviderPhonesWidget bg:',e);}
+      try { if (typeof renderVendorOverlap        === 'function') renderVendorOverlap(); }        catch(e){console.warn('renderVendorOverlap bg:',e);}
+      try { if (typeof renderBest2Combo           === 'function') renderBest2Combo(); }           catch(e){console.warn('renderBest2Combo bg:',e);}
+      try { if (typeof renderGapNoSkip            === 'function') renderGapNoSkip(); }            catch(e){console.warn('renderGapNoSkip bg:',e);}
+      try { if (typeof renderGapNoPhone           === 'function') renderGapNoPhone(); }           catch(e){console.warn('renderGapNoPhone bg:',e);}
+    };
+    safe(tracked('skiptrace_records', () => fetchAll('skiptrace_records', '*', { col: 'uploaded_at', asc: false })), []).then(rows => {
+      cache.skiptrace = {};
+      (rows || []).forEach(s => cache.skiptrace[s.id] = s);
+      if (typeof _setLazyStatus === 'function') _setLazyStatus('skiptrace', 'loaded', (rows||[]).length);
+      _rerenderAfterLazy();
+    }).catch(() => { if (typeof _setLazyStatus === 'function') _setLazyStatus('skiptrace', 'error'); });
+    safe(tracked('phones', () => fetchAll('phones')), []).then(rows => {
+      cache.phones = {};
+      (rows || []).forEach(ph => { cache.phones[ph.id] = ph; });
+      _bgRehydrateProps();
+      if (typeof _setLazyStatus === 'function') _setLazyStatus('phones', 'loaded', (rows||[]).length);
+      _rerenderAfterLazy();
+    }).catch(() => { if (typeof _setLazyStatus === 'function') _setLazyStatus('phones', 'error'); });
+    safe(tracked('emails', () => fetchAll('emails')), []).then(rows => {
+      cache.emails = {};
+      (rows || []).forEach(em => { cache.emails[em.id] = em; });
+      _bgRehydrateProps();
+      if (typeof _setLazyStatus === 'function') _setLazyStatus('emails', 'loaded', (rows||[]).length);
+      _rerenderAfterLazy();
+    }).catch(() => { if (typeof _setLazyStatus === 'function') _setLazyStatus('emails', 'error'); });
+  }, 0);
 
   // Results (call records) — paginated via fetchAll so we get ALL rows.
   // No ORDER BY: server-side ordering on nullable columns can silently drop rows
@@ -34392,6 +34501,13 @@ async function onListFile(file) {
 
 async function onSkipFile(file) {
   try {
+    // Guard: dedupe-on-upload compares the CSV against cache.skiptrace. If
+    // that cache hasn't finished loading yet, every row would look "new" and
+    // we'd risk inserting duplicates. Block until the lazy fetch lands.
+    if (window._lazyLoadStatus && window._lazyLoadStatus.skiptrace && window._lazyLoadStatus.skiptrace !== 'loaded') {
+      toast('Skip records are still loading — try again in a few seconds.', 'warn');
+      return;
+    }
     const vendorSelect = document.getElementById('skip-vendor');
     const vendorId = vendorSelect ? vendorSelect.value : '';
     if (!vendorId) { toast('Pick a vendor first', 'err'); return; }

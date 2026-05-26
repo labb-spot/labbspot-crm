@@ -5034,6 +5034,7 @@
         <button class="btn btn-primary text-sm" onclick="buyerOpenAddModal()" style="height:38px;padding:0 14px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new buyer to your rolodex.">+ Add Buyer</button>
         <button class="btn btn-ghost text-sm" onclick="buyerOpenImportModal()" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0;line-height:1;border:1px solid var(--border)" title="Bulk-import buyers from a CSV / XLSX. You'll get to map columns + tag with a county / city / zip before importing.">📤 Import CSV</button>
         <button id="buyers-undo-import-btn" class="btn btn-ghost text-xs" onclick="buyerUndoLastImport()" style="height:38px;padding:0 10px;white-space:nowrap;flex-shrink:0;display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4)" title="Delete every buyer that was NEWLY ADDED by the most recent import. Merged rows (rows that already existed) are NOT touched.">↶ Undo Import</button>
+        <button id="buyers-retry-failed-btn" class="btn btn-ghost text-xs" onclick="_buyerRetryFailedGeocodes()" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0;display:none;color:#fbbf24;border:1px solid rgba(251,191,36,0.4)" title="Retry geocoding for purchase addresses that previously failed. Uses your Google API — each call costs ~$0.005.">↻ Retry Failed</button>
         <button type="button" id="buyers-qualified-filter" data-state="" onclick="buyerCycleQualifiedFilter()" title="Click to cycle the qualification filter: All → Qualified → Unqualified → Unknown" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex:0 0 auto;min-width:150px;width:170px;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all 0.15s ease">All Statuses</button>
         <select id="buyers-criteria-filter" onchange="renderBuyersList()" title="Filter by acquisitions range." style="height:38px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;min-width:170px;max-width:220px;width:200px">
           <option value="">All Acquisitions</option>
@@ -23618,6 +23619,88 @@ function _dispoPacketPrice(u) {
 // breakdown of components so the UI can show the user why a buyer
 // scored what they did. Falls back to zip-match-only scoring for
 // buyers with no purchase history (capped at 50).
+// One-shot geocoder for the SUBJECT property of a dispo deal. Wired to the
+// red "Subject not geocoded" banner so the user can fix it in-place. Stores
+// the result on cache.underwrites[id].data.lat/lng so _dispoGetDealCoords()
+// picks it up immediately, and persists the same data blob to Supabase so
+// the next session inherits it.
+async function _dispoGeocodeSubject(dealId, ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  if (!dealId) return;
+  if (typeof sb === 'undefined' || !sb) {
+    if (typeof toast === 'function') toast('Supabase not ready.', 'err');
+    return;
+  }
+  if (typeof geocodeAddress !== 'function') {
+    if (typeof toast === 'function') toast('Geocoder not available.', 'err');
+    return;
+  }
+  const u = cache.underwrites && cache.underwrites[dealId];
+  if (!u) { if (typeof toast === 'function') toast('Deal not found.', 'err'); return; }
+  const d = u.data || {};
+  const addr = String(u.address || d.address || d._address || '').trim();
+  const city = String(d.city || u.city || '').trim();
+  const state= String(d.state || u.state || '').trim();
+  // Zip: u.zip > d.zip > extract from address.
+  let zip = String(u.zip || d.zip || '').trim();
+  if (!zip) {
+    const m = addr.match(/\b(\d{5})(?:-\d{4})?\b/);
+    if (m) zip = m[1];
+  }
+  if (!addr) {
+    if (typeof toast === 'function') toast('No address on this deal to geocode.', 'warn');
+    return;
+  }
+  const btn = document.getElementById('dispo-geocode-subject-btn');
+  let prev = '';
+  if (btn) { prev = btn.innerHTML; btn.disabled = true; btn.innerHTML = '\u23F3 Geocoding\u2026'; }
+  try {
+    let res = await geocodeAddress(addr, city, state, zip);
+    // If Google hit a quota / rate-limit / billing error, fall back to the
+    // free US Census geocoder. Census is U.S.-only and a touch less accurate
+    // on rural / apt addresses, but it has no rate limit and costs nothing.
+    const shouldFallback = res && res.geocode_status !== 'ok' && res.error_reason && (
+      /rate limit/i.test(res.error_reason) ||
+      /query limit/i.test(res.error_reason) ||
+      /request denied/i.test(res.error_reason) ||
+      /billing/i.test(res.error_reason) ||
+      /quota/i.test(res.error_reason)
+    );
+    if (shouldFallback && typeof geocodeAddressCensus === 'function') {
+      if (btn) btn.innerHTML = '\u23F3 Trying Census fallback\u2026';
+      const censusRes = await geocodeAddressCensus(addr, city, state, zip);
+      if (censusRes && censusRes.geocode_status === 'ok' && typeof censusRes.lat === 'number' && typeof censusRes.lng === 'number') {
+        res = censusRes;
+        if (typeof toast === 'function') toast('Google was rate-limited \u2014 used free US Census geocoder instead.', 'ok');
+      }
+    }
+    if (!res || res.geocode_status !== 'ok' || typeof res.lat !== 'number' || typeof res.lng !== 'number') {
+      if (typeof toast === 'function') toast('Geocode failed: ' + (res && res.error_reason ? res.error_reason : 'unknown') + ' \u2014 likely Google daily quota exceeded. Check Google Cloud Console \u2192 APIs & Services \u2192 Geocoding API.', 'err');
+      if (btn) { btn.disabled = false; btn.innerHTML = prev || '\u{1F4CD} Geocode now'; }
+      return;
+    }
+    // In-memory hydrate — _dispoGetDealCoords looks at u.data.lat/lng.
+    u.data = u.data || {};
+    u.data.lat = res.lat;
+    u.data.lng = res.lng;
+    u.data.geocoded_address = res.geocoded_address || addr;
+    // Persist to Supabase. Write the whole data blob (existing pattern in this file).
+    const { error } = await sb.from('underwrites').update({ data: u.data, updated_at: new Date().toISOString() }).eq('id', dealId);
+    if (error) {
+      console.warn('[_dispoGeocodeSubject] persist failed:', error);
+      if (typeof toast === 'function') toast('Geocoded but failed to save \u2014 ' + (error.message || error), 'warn');
+    } else if (typeof toast === 'function') {
+      toast('Subject geocoded \u2014 distance scoring is now live.', 'ok');
+    }
+    if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+  } catch (e) {
+    console.warn('[_dispoGeocodeSubject]', e);
+    if (typeof toast === 'function') toast('Geocode error: ' + (e.message || e), 'err');
+    if (btn) { btn.disabled = false; btn.innerHTML = prev || '\u{1F4CD} Geocode now'; }
+  }
+}
+window._dispoGeocodeSubject = _dispoGeocodeSubject;
+
 function _dispoGetDealCoords(u) {
   if (!u) return { lat: null, lng: null };
   if (typeof cache !== 'undefined' && cache.properties && cache.properties[u.id]) {
@@ -23640,10 +23723,12 @@ function _dispoGetDealAttrs(u) {
     const n = parseFloat(String(v).replace(/[$,\s]/g, ''));
     return isFinite(n) ? n : null;
   };
-  const sqft  = num(d.sqft || d['uw-sqft'] || u.sqft);
-  const beds  = num(d.beds || d['uw-beds'] || u.beds);
-  const baths = num(d.baths || d['uw-baths'] || u.baths);
-  const year  = num(d.year || d['uw-year'] || u.year_built);
+  // Underwriting form field IDs use singular 'uw-bed' / 'uw-bath' and 'uw-built' (not uw-year).
+  // Also accept top-level columns and plural fallbacks just in case.
+  const sqft  = num(d['uw-sqft']  || d.sqft  || u.sqft);
+  const beds  = num(d['uw-bed']   || d['uw-beds']  || d.beds  || u.beds);
+  const baths = num(d['uw-bath']  || d['uw-baths'] || d.baths || u.baths);
+  const year  = num(d['uw-built'] || d['uw-year']  || d.year  || u.year_built);
   // Price for buy-box fit = packet/target/contract — whichever is set.
   const tryPrice = (raw) => {
     const n = parseFloat(String(raw || '').replace(/[^0-9.]/g, ''));
@@ -23702,6 +23787,7 @@ function _dispoScoreBuyerWithPurchases(buyer, deal, dealCoords, dealAttrs, opene
   }
 
   // 1. Distance to subject — 15 pts. Closer = higher.
+  // 6-tier ladder; top score reserved for buyers who've bought within 0.5mi.
   if (dealCoords && dealCoords.lat != null) {
     const np = buyerNearestPurchase(buyer.id, dealCoords.lat, dealCoords.lng);
     if (np) {
@@ -23709,30 +23795,37 @@ function _dispoScoreBuyerWithPurchases(buyer, deal, dealCoords, dealAttrs, opene
       out.nearestPurchase = np.purchase;
       const mi = np.miles;
       let pts = 0;
-      if (mi <= 1) pts = 15;
-      else if (mi <= 3) pts = 12;
-      else if (mi <= 5) pts = 9;
-      else if (mi <= 10) pts = 5;
-      else if (mi <= 15) pts = 2;
+      if (mi <= 0.5)      pts = 15;
+      else if (mi <= 1)   pts = 13;
+      else if (mi <= 3)   pts = 10;
+      else if (mi <= 5)   pts = 7;
+      else if (mi <= 10)  pts = 4;
+      else if (mi <= 15)  pts = 2;
       out.components.distance = pts;
     }
   }
 
-  // 2. Density nearby — 15 pts. Count of their purchases within 5mi of subject.
+  // 2. Density nearby — 15 pts.
+  // Primary radius: 2mi (max score requires close clustering). If they have
+  // nothing within 2mi but at least one within 5mi, they get a small
+  // consolation point so wider-radius buyers still register some signal.
   if (dealCoords && dealCoords.lat != null) {
-    let count = 0;
+    let n2 = 0, n5 = 0;
     for (const p of purchases) {
       if (p.lat == null || p.lng == null) continue;
       const mi = _buyerHaversineMi(Number(p.lat), Number(p.lng), dealCoords.lat, dealCoords.lng);
-      if (mi <= 5) count++;
+      if (mi <= 5) n5++;
+      if (mi <= 2) n2++;
     }
-    out.densityNearby = count;
+    out.densityNearby = n2;       // primary count surfaced in the tooltip
+    out.densityWithin5 = n5;
     let pts = 0;
-    if (count >= 5) pts = 15;
-    else if (count === 4) pts = 12;
-    else if (count === 3) pts = 9;
-    else if (count === 2) pts = 6;
-    else if (count === 1) pts = 3;
+    if (n2 >= 5)      pts = 15;
+    else if (n2 === 4) pts = 12;
+    else if (n2 === 3) pts = 9;
+    else if (n2 === 2) pts = 6;
+    else if (n2 === 1) pts = 3;
+    else if (n5 >= 1)  pts = 2;   // consolation: have any nearby but not in close ring
     out.components.density = pts;
   }
 
@@ -23764,11 +23857,11 @@ function _dispoScoreBuyerWithPurchases(buyer, deal, dealCoords, dealAttrs, opene
   else if (acq12 >= 1) acq12Pts = 4;
   out.components.acq12 = acq12Pts;
 
-  // 5. Sqft fit — 10 pts. Inside their P10-P90 band.
+  // 5. Sqft fit — 10 pts. Inside their P10-P90 band, partial within ±15%.
   if (dealAttrs && dealAttrs.sqft && bb.sqftMin != null && bb.sqftMax != null) {
     const s = dealAttrs.sqft;
     if (s >= bb.sqftMin && s <= bb.sqftMax) out.components.sqft = 10;
-    else if (s >= bb.sqftMin * 0.75 && s <= bb.sqftMax * 1.25) out.components.sqft = 5;
+    else if (s >= bb.sqftMin * 0.85 && s <= bb.sqftMax * 1.15) out.components.sqft = 5;
   }
 
   // 6. Beds — 5 pts. Off-by-one OK.
@@ -24024,6 +24117,38 @@ function buyerRenderPerDealPanel() {
           +     acqChip
           +     (contactBits.length ? '<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;flex-shrink:0">' + contactBits.join(' \u00B7 ') + '</div>' : '')
           +   '</div>'
+          // Per-component breakdown strip — 10 small pills, color-coded by % of max earned.
+          // Hidden for fallback (no-purchase-data) buyers since all components would be 0.
+          +   (function () {
+                if (r.fallback) {
+                  return '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:11px;color:var(--text-dim);font-style:italic">No purchase history \u2014 score from zip-match only (capped at 30)</div>';
+                }
+                const items = [
+                  { k: 'distance', m: 15, ic: '\u{1F4CD}', l: 'Dist' },
+                  { k: 'density',  m: 15, ic: '\u{1F3AF}', l: 'Near' },
+                  { k: 'recency',  m: 10, ic: '\u23F1',    l: 'Rcnt' },
+                  { k: 'acq12',    m: 10, ic: '\u{1F4C8}', l: 'Acq' },
+                  { k: 'sqft',     m: 10, ic: '\u{1F4D0}', l: 'Sqft' },
+                  { k: 'beds',     m: 5,  ic: '\u{1F6CF}', l: 'Bed' },
+                  { k: 'baths',    m: 5,  ic: '\u{1F6BF}', l: 'Bth' },
+                  { k: 'year',     m: 15, ic: '\u{1F3D7}', l: 'Year' },
+                  { k: 'ppsf',     m: 10, ic: '\u{1F4B5}', l: '$/sf' },
+                  { k: 'price',    m: 5,  ic: '\u{1F4B0}', l: 'Price' }
+                ];
+                return '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)" onclick="event.stopPropagation()">'
+                  + items.map(function (it) {
+                      const v = Math.round(_comps[it.k] || 0);
+                      const pct = it.m > 0 ? v / it.m : 0;
+                      const c = pct >= 1.0 ? '#10b981'
+                              : pct >= 0.6 ? '#fbbf24'
+                              : pct > 0    ? '#a5b4fc'
+                              :              '#6b7280';
+                      const op = pct === 0 ? '0.55' : '1';
+                      return '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;background:' + c + '22;color:' + c + ';border:1px solid ' + c + '55;opacity:' + op + ';font-variant-numeric:tabular-nums" title="' + it.l + ' (max ' + it.m + ')">'
+                        + it.ic + ' ' + it.l + ' ' + v + '/' + it.m + '</span>';
+                    }).join('')
+                  + '</div>';
+              })()
           +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)" onclick="event.stopPropagation()">'
           +     '<div style="flex:1;min-width:0">'
           +       '<div style="font-size:10px;color:var(--text-dim);letter-spacing:0.3px;text-transform:uppercase;margin-bottom:6px">Outreach</div>'
@@ -24103,6 +24228,47 @@ function buyerRenderPerDealPanel() {
       +   '<div style="font-size:18px;font-weight:700;color:var(--text)">🏠 ' + esc(deal.address || '(no address)') + '</div>'
       +   (locBits ? '<div style="font-size:13px;color:var(--text-dim);margin-top:4px">' + locBits + (deal.county ? ' · ' + esc(deal.county) + ' County' : '') + '</div>' : '')
       +   '<div style="font-size:11px;color:var(--text-dim);letter-spacing:0.4px;text-transform:uppercase;margin-top:12px">🎯 ' + totalMatchCount + ' Qualifying ' + (totalMatchCount === 1 ? 'Buyer' : 'Buyers') + ' (zip ' + esc(deal.zip || '?') + ')</div>'
+      // Distance-scoring diagnostic — at a glance the user can see whether
+      // the subject property is geocoded AND whether the buyer purchase
+      // history has been mapped. Distance scoring depends on BOTH sides.
+      +   (function () {
+            const dc = _dealCoords && _dealCoords.lat != null ? _dealCoords : null;
+            let totalP = 0, geoP = 0;
+            try {
+              const map = cache.buyerPurchases || {};
+              Object.keys(map).forEach(k => {
+                const arr = map[k] || [];
+                totalP += arr.length;
+                arr.forEach(p => { if (p && p.lat != null && p.lng != null) geoP++; });
+              });
+            } catch (e) {}
+            const pct = totalP > 0 ? Math.round((geoP / totalP) * 100) : 0;
+            const dealOk    = !!dc;
+            const purchaseOk = totalP > 0 && geoP > 0;
+            const allGood = dealOk && purchaseOk && pct >= 80;
+            const bg = allGood ? 'rgba(16,185,129,0.10)'
+                    : (dealOk && purchaseOk) ? 'rgba(251,191,36,0.10)'
+                    : 'rgba(239,68,68,0.10)';
+            const bd = allGood ? 'rgba(16,185,129,0.4)'
+                    : (dealOk && purchaseOk) ? 'rgba(251,191,36,0.4)'
+                    : 'rgba(239,68,68,0.4)';
+            const col = allGood ? '#10b981'
+                    : (dealOk && purchaseOk) ? '#fbbf24'
+                    : '#f87171';
+            const dealBit = dealOk
+              ? '\u2705 Subject mapped (' + dc.lat.toFixed(4) + ', ' + dc.lng.toFixed(4) + ')'
+              : '\u26A0 Subject not geocoded \u2014 distance scoring offline.'
+                + ' <button id="dispo-geocode-subject-btn" type="button" onclick="_dispoGeocodeSubject(\'' + esc(deal.id) + '\', event)" style="margin-left:6px;padding:3px 10px;border-radius:6px;background:#f87171;border:1px solid #f87171;color:#fff;cursor:pointer;font-size:11px;font-weight:700">\u{1F4CD} Geocode now</button>';
+            const purchaseBit = totalP > 0
+              ? (geoP + ' / ' + totalP + ' buyer purchases mapped (' + pct + '%)')
+              : 'No buyer purchases imported yet';
+            return '<div style="margin-top:10px;padding:8px 12px;border-radius:8px;background:' + bg + ';border:1px solid ' + bd + ';color:' + col + ';font-size:11px;font-weight:600;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+              + '<span>\u{1F4CD} Distance scoring:</span>'
+              + '<span>' + dealBit + '</span>'
+              + '<span style="opacity:0.7">\u00B7</span>'
+              + '<span>' + purchaseBit + '</span>'
+              + '</div>';
+          })()
       +   filterBarHtml
       +   '<div id="dispo-deal-buyers" style="margin-top:6px"></div>'
       + '</div>';
@@ -26704,6 +26870,8 @@ function renderBuyersList() {
   if (!cache.buyerPurchases && typeof loadBuyerPurchases === 'function') {
     Promise.resolve(loadBuyerPurchases()).then(() => renderBuyersList()).catch(() => {});
   }
+  // Update the "Retry Failed" button visibility/count from current cache.
+  if (typeof _buyerUpdateRetryButtonCount === 'function') _buyerUpdateRetryButtonCount();
   // Refresh dispo subtab badges every time the buyer list rerenders — covers
   // qualification changes, new imports, deletes, etc.
   if (typeof _dispoUpdateCounts === 'function') _dispoUpdateCounts();
@@ -28323,7 +28491,12 @@ async function _buyerDoImportPurchases() {
         if (existing >= 0) { arr[existing] = data; purchasesUpdated++; }
         else { arr.unshift(data); purchasesInserted++; }
         if (data.lat == null || data.lng == null) {
-          geocodeQueue.push({ id: data.id, address: data.address, city: data.city || '', state: data.state || '', zip: data.zip || '' });
+          // Re-imports NEVER auto-retry previously-failed addresses. The user
+          // controls retries explicitly via the "Retry Failed (N)" button in
+          // the Buyers header. New addresses still queue automatically.
+          if (data.geocode_status !== 'failed') {
+            geocodeQueue.push({ id: data.id, address: data.address, city: data.city || '', state: data.state || '', zip: data.zip || '' });
+          }
         }
         // Immediately fold the purchase's CSV-provided city / state / zip into
         // the buyer's chip lists. Geocoding will refine these later (and add
@@ -28430,18 +28603,28 @@ async function _buyerGeocodePurchaseQueue(queue) {
   if (!Array.isArray(queue) || queue.length === 0) return;
   if (typeof sb === 'undefined' || !sb) return;
   if (typeof geocodeAddress !== 'function') return;
-  // Pre-approve the whole batch with ONE confirmation. Without this, the
-  // geocode protection toggle prompts for each address individually.
+  // Pre-approve the whole batch with ONE confirmation.
   if (typeof geoSettings !== 'undefined' && typeof geoSettings.requestApproval === 'function') {
     if (!geoSettings.requestApproval(queue.length)) {
-      if (typeof toast === 'function') toast('Geocoding cancelled — ' + queue.length + ' addresses left unmapped. Open the 🌍 badge to re-run.', 'warn');
+      if (typeof toast === 'function') toast('Geocoding cancelled \u2014 ' + queue.length + ' addresses left unmapped. Open the \u{1F30D} badge to re-run.', 'warn');
       return;
     }
   }
-  let ok = 0, fail = 0;
-  for (const job of queue) {
+  // Throttle: 150ms between calls keeps us well under Google's per-second
+  // rate ceiling so we don't get OVER_QUERY_LIMIT errors on large batches.
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  let ok = 0, fail = 0, rateHits = 0;
+  for (let qi = 0; qi < queue.length; qi++) {
+    const job = queue[qi];
+    if (qi > 0) await sleep(150);
     try {
-      const res = await geocodeAddress(job.address, job.city, job.state, job.zip);
+      let res = await geocodeAddress(job.address, job.city, job.state, job.zip);
+      // If Google rate-limited, back off and retry once.
+      if (res && res.geocode_status === 'failed' && res.error_reason && /rate limit/i.test(res.error_reason)) {
+        rateHits++;
+        await sleep(2000);
+        res = await geocodeAddress(job.address, job.city, job.state, job.zip);
+      }
       if (res && res.geocode_status === 'ok' && typeof res.lat === 'number' && typeof res.lng === 'number') {
         const patch = { lat: res.lat, lng: res.lng, geocode_status: 'ok', geocode_at: new Date().toISOString() };
         const { data, error } = await sb.from('buyer_purchases').update(patch).eq('id', job.id).select().single();
@@ -28472,11 +28655,76 @@ async function _buyerGeocodePurchaseQueue(queue) {
     }
   }
   if (typeof toast === 'function' && (ok || fail)) {
-    toast('Geocode complete \u2014 ' + ok + ' ok \u00b7 ' + fail + ' failed', fail ? 'warn' : 'ok');
+    const rateNote = rateHits > 0 ? ' (' + rateHits + ' rate-limit retries)' : '';
+    toast('Geocode complete \u2014 ' + ok + ' ok \u00b7 ' + fail + ' failed' + rateNote, fail ? 'warn' : 'ok');
   }
   if (typeof renderBuyersList === 'function') renderBuyersList();
 }
 window._buyerGeocodePurchaseQueue = _buyerGeocodePurchaseQueue;
+
+// Manually retry every previously-failed buyer purchase geocode.
+// Pulls fresh from Supabase (so we get every failed row, even ones not
+// currently in cache), pre-approves the batch once, and runs them through
+// the same throttled queue. Failures get re-marked 'failed' but with a
+// fresh geocode_at, so they're skipped on re-import next time.
+async function _buyerRetryFailedGeocodes() {
+  if (typeof sb === 'undefined' || !sb) {
+    if (typeof toast === 'function') toast('Supabase not ready.', 'err');
+    return;
+  }
+  const btn = document.getElementById('buyers-retry-failed-btn');
+  let prevLabel = '';
+  if (btn) { prevLabel = btn.innerHTML; btn.disabled = true; btn.innerHTML = '\u23F3 Loading\u2026'; }
+  try {
+    const { data, error } = await sb
+      .from('buyer_purchases')
+      .select('id, address, city, state, zip')
+      .eq('geocode_status', 'failed')
+      .is('lat', null);
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      if (typeof toast === 'function') toast('No failed addresses to retry.', 'ok');
+      if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '\u21BB Retry Failed'; }
+      return;
+    }
+    const queue = data.map(r => ({ id: r.id, address: r.address, city: r.city || '', state: r.state || '', zip: r.zip || '' }));
+    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '\u21BB Retry Failed'; }
+    // Hand off to the throttled queue — it owns its own approval prompt.
+    await _buyerGeocodePurchaseQueue(queue);
+    // Refresh cache + button count.
+    if (typeof loadBuyerPurchases === 'function') await loadBuyerPurchases(true);
+    if (typeof _buyerUpdateRetryButtonCount === 'function') _buyerUpdateRetryButtonCount();
+  } catch (e) {
+    console.warn('[_buyerRetryFailedGeocodes]', e);
+    if (typeof toast === 'function') toast('Retry failed: ' + (e.message || e), 'err');
+    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '\u21BB Retry Failed'; }
+  }
+}
+window._buyerRetryFailedGeocodes = _buyerRetryFailedGeocodes;
+
+// Update the Retry button label + visibility. Counts purchases with
+// geocode_status='failed' AND lat IS NULL.
+function _buyerUpdateRetryButtonCount() {
+  const btn = document.getElementById('buyers-retry-failed-btn');
+  if (!btn) return;
+  let count = 0;
+  try {
+    const map = cache.buyerPurchases || {};
+    Object.keys(map).forEach(k => {
+      (map[k] || []).forEach(p => {
+        if (p && p.geocode_status === 'failed' && p.lat == null) count++;
+      });
+    });
+  } catch (e) {}
+  if (count > 0) {
+    btn.style.display = '';
+    btn.innerHTML = '\u21BB Retry Failed (' + count + ')';
+  } else {
+    btn.style.display = 'none';
+    btn.innerHTML = '\u21BB Retry Failed';
+  }
+}
+window._buyerUpdateRetryButtonCount = _buyerUpdateRetryButtonCount;
 
 function renderUnderwriteList() {
   // Lazy-load on first visit to either list view

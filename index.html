@@ -23419,40 +23419,115 @@ async function _dispoMigrateLocalStorageOnce() {
 }
 window._dispoMigrateLocalStorageOnce = _dispoMigrateLocalStorageOnce;
 
+// Manual force-sync: pushes EVERY localStorage outreach + offer row up to
+// Supabase via upsert. Unlike _dispoMigrateLocalStorageOnce, this does NOT
+// clear localStorage on success — so the user can retry safely if anything
+// goes wrong, and the local copy stays as a backup.
+// Wired to the "Sync Local → Cloud" button in the Per Deal filter bar.
+async function _dispoForceSyncToCloud() {
+  if (typeof sb === 'undefined' || !sb) {
+    if (typeof toast === 'function') toast('Supabase not ready.', 'err');
+    return;
+  }
+  // Re-hydrate from localStorage in case window state was wiped this session.
+  try {
+    if (!window._dispoOutreach || Object.keys(window._dispoOutreach).length === 0) {
+      const raw = localStorage.getItem('dispoOutreach');
+      if (raw) window._dispoOutreach = JSON.parse(raw) || {};
+    }
+    if (!window._dispoBuyerOffers || Object.keys(window._dispoBuyerOffers).length === 0) {
+      const raw = localStorage.getItem('dispoBuyerOffers');
+      if (raw) window._dispoBuyerOffers = JSON.parse(raw) || {};
+    }
+  } catch (e) {}
+
+  const lOut = window._dispoOutreach    || {};
+  const lOff = window._dispoBuyerOffers || {};
+  const rows = [];
+  const seen = new Set();
+  Object.keys(lOut).forEach(dealId => {
+    Object.keys(lOut[dealId] || {}).forEach(buyerId => {
+      const key = dealId + '|' + buyerId;
+      seen.add(key);
+      rows.push({
+        deal_id: dealId,
+        buyer_id: buyerId,
+        outreach: lOut[dealId][buyerId] || null,
+        offer_amount: (lOff[dealId] && lOff[dealId][buyerId]) ? Number(lOff[dealId][buyerId]) : null
+      });
+    });
+  });
+  Object.keys(lOff).forEach(dealId => {
+    Object.keys(lOff[dealId] || {}).forEach(buyerId => {
+      const key = dealId + '|' + buyerId;
+      if (seen.has(key)) return;
+      seen.add(key);
+      rows.push({
+        deal_id: dealId,
+        buyer_id: buyerId,
+        outreach: null,
+        offer_amount: Number(lOff[dealId][buyerId]) || null
+      });
+    });
+  });
+  if (rows.length === 0) {
+    if (typeof toast === 'function') toast('Nothing to sync — no local engagement data found.', 'warn');
+    return;
+  }
+
+  const btn = document.getElementById('dispo-perdeal-sync-btn');
+  let prev = '';
+  if (btn) { prev = btn.innerHTML; btn.disabled = true; btn.innerHTML = '⏳ Syncing…'; }
+
+  try {
+    const { error } = await sb.from('dispo_buyer_engagement').upsert(rows, { onConflict: 'deal_id,buyer_id' });
+    if (error) throw error;
+    // Hydrate cache with synced rows.
+    if (typeof cache !== 'undefined') {
+      cache.dispoEngagement = cache.dispoEngagement || {};
+      rows.forEach(r => {
+        if (!cache.dispoEngagement[r.deal_id]) cache.dispoEngagement[r.deal_id] = {};
+        cache.dispoEngagement[r.deal_id][r.buyer_id] = { outreach: r.outreach || null, offer_amount: Number(r.offer_amount) || 0 };
+      });
+    }
+    if (typeof toast === 'function') toast('✅ Synced ' + rows.length + ' engagement record' + (rows.length === 1 ? '' : 's') + ' to cloud. localStorage kept as backup.', 'ok');
+    if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+  } catch (e) {
+    console.warn('[_dispoForceSyncToCloud]', e);
+    const msg = (e && e.message) || String(e);
+    if (typeof toast === 'function') {
+      if (/row-level security|RLS|permission denied/i.test(msg)) {
+        toast('Sync failed: RLS blocking writes. Run in Supabase: ALTER TABLE dispo_buyer_engagement DISABLE ROW LEVEL SECURITY;', 'err');
+      } else {
+        toast('Sync failed: ' + msg, 'err');
+      }
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = prev || '☁ Sync Local → Cloud'; }
+  }
+}
+window._dispoForceSyncToCloud = _dispoForceSyncToCloud;
+
 // Async upsert helper. Updates cache immediately, fires Supabase write in
 // background, falls back to localStorage shadow so the UI always feels instant
 // and offline edits don't get dropped. Refreshes the panel on success/failure.
 async function _dispoUpsertEngagement(dealId, buyerId, patch) {
   if (!dealId || !buyerId) return;
-  // 1. Update in-memory cache + localStorage shadow immediately.
+  // 1. Optimistically update in-memory cache so the UI feels instant.
+  //    If the cloud write fails, we ROLL BACK below so the UI never lies.
+  let rollback = null;
   if (typeof cache !== 'undefined') {
     cache.dispoEngagement = cache.dispoEngagement || {};
     if (!cache.dispoEngagement[dealId]) cache.dispoEngagement[dealId] = {};
-    const prev = cache.dispoEngagement[dealId][buyerId] || { outreach: null, offer_amount: 0 };
-    const next = Object.assign({}, prev, patch);
-    cache.dispoEngagement[dealId][buyerId] = next;
+    rollback = Object.assign({}, cache.dispoEngagement[dealId][buyerId] || { outreach: null, offer_amount: 0 });
+    cache.dispoEngagement[dealId][buyerId] = Object.assign({}, rollback, patch);
   }
-  // 2. Mirror to localStorage so a hard refresh before the network response
-  //    doesn't lose the edit.
-  try {
-    if ('outreach' in patch) {
-      window._dispoOutreach = window._dispoOutreach || {};
-      if (!window._dispoOutreach[dealId]) window._dispoOutreach[dealId] = {};
-      if (patch.outreach) window._dispoOutreach[dealId][buyerId] = patch.outreach;
-      else                delete window._dispoOutreach[dealId][buyerId];
-      localStorage.setItem('dispoOutreach', JSON.stringify(window._dispoOutreach));
-    }
-    if ('offer_amount' in patch) {
-      window._dispoBuyerOffers = window._dispoBuyerOffers || {};
-      if (!window._dispoBuyerOffers[dealId]) window._dispoBuyerOffers[dealId] = {};
-      const v = Number(patch.offer_amount) || 0;
-      if (v > 0) window._dispoBuyerOffers[dealId][buyerId] = v;
-      else       delete window._dispoBuyerOffers[dealId][buyerId];
-      localStorage.setItem('dispoBuyerOffers', JSON.stringify(window._dispoBuyerOffers));
-    }
-  } catch (e) {}
-  // 3. Push to Supabase. Upsert with the unique (deal_id, buyer_id) constraint.
-  if (typeof sb === 'undefined' || !sb) return;
+  // 2. Push to Supabase. THIS IS THE ONLY PERSISTENCE PATH.
+  //    No localStorage mirror — multi-user app, must always be cloud-truth.
+  if (typeof sb === 'undefined' || !sb) {
+    if (typeof toast === 'function') toast('\u274C NOT SAVED \u2014 Supabase client not ready. Reload the page.', 'err');
+    return;
+  }
   try {
     const row = { deal_id: dealId, buyer_id: buyerId };
     if ('outreach'    in patch) row.outreach     = patch.outreach || null;
@@ -23460,20 +23535,24 @@ async function _dispoUpsertEngagement(dealId, buyerId, patch) {
     const { error } = await sb.from('dispo_buyer_engagement').upsert(row, { onConflict: 'deal_id,buyer_id' });
     if (error) throw error;
   } catch (e) {
-    console.warn('[_dispoUpsertEngagement]', e && e.message);
-    if (typeof toast === 'function') toast('Save failed (still kept locally): ' + (e.message || 'unknown'), 'warn');
+    console.warn('[_dispoUpsertEngagement] FAILED:', e && e.message);
+    // Roll the UI back so it reflects reality (the write didn't happen).
+    if (rollback && typeof cache !== 'undefined' && cache.dispoEngagement && cache.dispoEngagement[dealId]) {
+      cache.dispoEngagement[dealId][buyerId] = rollback;
+    }
+    if (typeof toast === 'function') toast('\u274C NOT SAVED to cloud: ' + (e.message || 'unknown') + '. Re-type after fixing connection.', 'err');
   }
 }
 window._dispoUpsertEngagement = _dispoUpsertEngagement;
 function _dispoGetOutreach(dealId, buyerId) {
-  // Prefer Supabase-loaded cache; fall back to localStorage if cache hasn't
-  // loaded yet (e.g. first paint before _dispoLoadEngagement resolves).
+  // Cloud-only. If cache.dispoEngagement hasn't loaded yet, the user sees no
+  // value — accurate, since we don't know yet. localStorage is no longer a
+  // source of truth (multi-user app must always show the same data to all).
   if (typeof cache !== 'undefined' && cache.dispoEngagement && cache.dispoEngagement[dealId]) {
     const r = cache.dispoEngagement[dealId][buyerId];
     if (r) return r.outreach || null;
   }
-  const m = (window._dispoOutreach || {})[dealId];
-  return (m && m[buyerId]) || null;
+  return null;
 }
 function _dispoSetOutreach(dealId, buyerId, status) {
   if (!dealId || !buyerId) return;
@@ -23501,13 +23580,12 @@ function _dispoCloseDeal() {
 }
 window._dispoCloseDeal = _dispoCloseDeal;
 function _dispoGetBuyerOffer(dealId, buyerId) {
-  // Prefer Supabase-loaded cache; fall back to localStorage.
+  // Cloud-only. localStorage is no longer a source of truth.
   if (typeof cache !== 'undefined' && cache.dispoEngagement && cache.dispoEngagement[dealId]) {
     const r = cache.dispoEngagement[dealId][buyerId];
     if (r && Number(r.offer_amount) > 0) return Number(r.offer_amount);
   }
-  const m = (window._dispoBuyerOffers || {})[dealId];
-  return (m && m[buyerId]) || null;
+  return null;
 }
 // Per-deal detail-view filter state. Session-only (not persisted) — resets
 // when the user navigates away from the deal. Updated via _dispoSetFilter,
@@ -24331,6 +24409,20 @@ function buyerRenderPerDealPanel() {
     +   '<button type="button" onclick="_dispoPerDealClearFilter()" '
     +     'style="height:32px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:12px;cursor:pointer;white-space:nowrap" '
     +     'title="Clear search + stage filters">\u2715 Clear</button>'
+    +   (function () {
+            // Show "Sync Local \u2192 Cloud" only when there's untracked local data.
+            let n = 0;
+            try {
+              const o = window._dispoBuyerOffers || {};
+              const r = window._dispoOutreach    || {};
+              Object.keys(o).forEach(d => { n += Object.keys(o[d] || {}).length; });
+              Object.keys(r).forEach(d => { n += Object.keys(r[d] || {}).length; });
+            } catch (e) {}
+            if (n === 0) return '';
+            return '<button id="dispo-perdeal-sync-btn" type="button" onclick="_dispoForceSyncToCloud()" '
+              + 'style="height:32px;padding:0 12px;background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.5);border-radius:6px;color:#fbbf24;font-size:12px;cursor:pointer;white-space:nowrap;font-weight:600" '
+              + 'title="' + n + ' offer/outreach record' + (n === 1 ? '' : 's') + ' in localStorage haven\'t synced to cloud. Click to push them up now.">\u2601 Sync Local \u2192 Cloud (' + n + ')</button>';
+          })()
     +   '<button type="button" onclick="if(typeof buyerRenderPerDealPanel===\'function\') buyerRenderPerDealPanel();" '
     +     'style="height:32px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;cursor:pointer;white-space:nowrap;font-weight:600" '
     +     'title="Rescore + redraw using the latest buyer + deal data.">\u{1F501} Refresh</button>'

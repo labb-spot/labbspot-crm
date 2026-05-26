@@ -4996,9 +4996,21 @@
        Top: the currently-open deal's address.  Bottom: the single best-match
        buyer for that deal (ranked by zip → city → county → state match, then
        by acquisitions count). buyerRenderPerDealPanel() populates this. -->
+  <!-- Per Deal panel — lists EVERY underwrite that has dispo_contract set
+       (i.e. anything you've assigned into Dispositions). For each, surfaces
+       the top 10 buyer matches scored on zip + county overlap with the
+       deal's address + the buyer's acquisitions count (volume = stronger fit).
+       Container is one big list so the user can scan their whole dispo
+       pipeline + likely buyers in one place. -->
   <div id="dispo-perdeal-panel" class="panel p-5 mb-3" style="display:none">
-    <div id="dispo-perdeal-deal" style="font-size:14px;color:var(--text-dim)">No deal selected — open a deal in Underwriting first, then come back.</div>
-    <div id="dispo-perdeal-best" style="margin-top:14px"></div>
+    <!-- Refresh button — manual escape hatch if a freshly-edited buyer doesn't
+         auto-surface. Per Deal also auto-refreshes on buyer save/delete and
+         when cache.underwrites finishes loading. -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+      <div style="font-size:11px;color:var(--text-dim);letter-spacing:0.4px;text-transform:uppercase">🎯 Per Deal — buyer matches by zip code</div>
+      <button class="btn btn-ghost text-xs" onclick="if(typeof buyerRenderPerDealPanel==='function') buyerRenderPerDealPanel();" title="Rescore + redraw using the latest buyer + deal data.">🔁 Refresh</button>
+    </div>
+    <div id="dispo-perdeal-list"></div>
   </div>
   <!-- Contracts panel — shown when a contracts subview is active. Stays a
        placeholder until you wire it to the underwrites/contracts table; the
@@ -5085,18 +5097,34 @@
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Number of Acquisitions <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(# closed)</span>
           <input type="number" id="buyer-add-acq-count" min="0" step="1" placeholder="e.g. 36" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px" title="Total properties this buyer has closed. Importable from buyer-list CSVs.">
         </label>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">States <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
-          <input type="text" id="buyer-add-states" placeholder="e.g. IN, KY, OH" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase;letter-spacing:1px" title="Every state this buyer purchases in. Comma-separated 2-letter codes.">
-        </label>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Cities <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
-          <input type="text" id="buyer-add-cities" placeholder="e.g. Evansville, Henderson, Newburgh" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px" title="Every city this buyer purchases in. Comma-separated.">
-        </label>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Counties <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
-          <input type="text" id="buyer-add-counties" placeholder="e.g. Vanderburgh, Warrick, Posey" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px" title="Counties this buyer purchases in. Comma-separated.">
-        </label>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Zip Codes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
-          <input type="text" id="buyer-add-zips" placeholder="e.g. 47711, 47712, 47715" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px" title="Zip codes this buyer purchases in. Comma-separated.">
-        </label>
+        <div class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span>States</span>
+            <button type="button" onclick="buyerAddLocChip('states')" class="btn btn-ghost text-xs" style="height:28px;padding:0 10px;font-size:11px;font-weight:600">+ Add State</button>
+          </div>
+          <div id="buyer-add-states-grid" style="margin-top:8px;display:grid;grid-template-columns:repeat(2,1fr);gap:6px" title="Every state this buyer purchases in."></div>
+        </div>
+        <div class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span>Cities</span>
+            <button type="button" onclick="buyerAddLocChip('cities')" class="btn btn-ghost text-xs" style="height:28px;padding:0 10px;font-size:11px;font-weight:600">+ Add City</button>
+          </div>
+          <div id="buyer-add-cities-grid" style="margin-top:8px;display:grid;grid-template-columns:repeat(2,1fr);gap:6px" title="Every city this buyer purchases in."></div>
+        </div>
+        <div class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span>Counties</span>
+            <button type="button" onclick="buyerAddLocChip('counties')" class="btn btn-ghost text-xs" style="height:28px;padding:0 10px;font-size:11px;font-weight:600">+ Add County</button>
+          </div>
+          <div id="buyer-add-counties-grid" style="margin-top:8px;display:grid;grid-template-columns:repeat(2,1fr);gap:6px" title="Counties this buyer purchases in."></div>
+        </div>
+        <div class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span>Zip Codes</span>
+            <button type="button" onclick="buyerAddLocChip('zips')" class="btn btn-ghost text-xs" style="height:28px;padding:0 10px;font-size:11px;font-weight:600">+ Add Zip</button>
+          </div>
+          <div id="buyer-add-zips-grid" style="margin-top:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px" title="Zip codes this buyer purchases in."></div>
+        </div>
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Strategy
           <div id="buyer-add-strategy-chips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px" title="What this buyer does with the properties. Click to toggle each one on/off.">
             <!-- Chips injected by buyerRenderStrategyChips() on modal open -->
@@ -5133,6 +5161,13 @@
           <div style="margin-top:6px;font-size:11px;color:var(--text-dim);line-height:1.5">
             <b>PML</b> = Private Money &nbsp;·&nbsp; <b>HML</b> = Hard Money &nbsp;·&nbsp; <b>DSCR</b> = Long-term &nbsp;·&nbsp; Conventional &nbsp;·&nbsp; Other
           </div>
+        </div>
+        <div class="col-span-2" style="font-size:14px;font-weight:600">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;cursor:pointer" onclick="buyerModalPurchasesToggle()" title="Show or hide this buyer's purchase history">
+            <div><span id="buyer-add-purchases-arrow">▸</span> 📊 Purchased Addresses <span id="buyer-add-purchases-count" style="color:var(--text-dim);font-weight:normal;font-size:13px">(0)</span></div>
+            <span style="color:var(--text-dim);font-weight:normal;font-size:12px">Click to expand / collapse</span>
+          </div>
+          <div id="buyer-add-purchases-list" style="display:none;max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:var(--panel);padding:8px"></div>
         </div>
         
               </div>
@@ -23207,6 +23242,13 @@ function setDispoView(view) {
       }
     });
   }
+  // Per Deal also depends on cache.underwrites — kick that load too and
+  // re-render once it lands so deals stop being missing on first view.
+  if (isPerDeal && typeof loadUnderwrites === 'function') {
+    Promise.resolve(loadUnderwrites()).then(() => {
+      if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+    }).catch(() => {});
+  }
 }
 window.setDispoView = setDispoView;
 window._dispoActiveView = _dispoActiveView;
@@ -23218,123 +23260,957 @@ window._getDispoActiveView = _getDispoActiveView;
 // Per Deal panel — picks the best buyer for the currently-open deal.
 // ------------------------------------------------------------
 
-function _dispoCurrentDealInfo() {
-  // Pull deal info from whichever deal is loaded in Underwriting.
-  // Falls back to nothing if no deal is open.
-  const id = (typeof _uwCurrentId !== 'undefined') ? _uwCurrentId : null;
-  if (!id || !cache.underwrites || !cache.underwrites[id]) return null;
-  const u = cache.underwrites[id] || {};
+// Pull location info from any underwrite. Generalizes the old _dispoCurrentDealInfo
+// which only inspected the currently-open deal. Used by the Per Deal listing
+// so we can score buyers against every dispo property in one pass.
+function _dispoDealInfoFromRow(u) {
+  if (!u) return null;
   const d = u.data || {};
-  // The address lives in u.address (top-level) most reliably. Zip + city +
-  // state + county can be parsed out of the address string or read from
-  // dedicated saved fields if present.
   const address = String(u.address || d.address || d._address || '').trim();
+  // Zip can live on (in priority order): u.zip top-level column (where the
+  // contracts grid reads it from), data.zip on the underwrite blob, or as a
+  // 5-digit substring of the address. Falling through any of these makes
+  // sure the Per Deal scoring actually finds a zip to match against.
   const zip = (function () {
+    if (u.zip) return String(u.zip).trim();
     if (d.zip) return String(d.zip).trim();
     const m = address.match(/\b(\d{5})(?:-\d{4})?\b/);
     return m ? m[1] : '';
   })();
-  const city = String(d.city || u.city || '').trim();
-  const state = String(d.state || u.state || '').trim();
+  const city   = String(d.city   || u.city   || '').trim();
+  const state  = String(d.state  || u.state  || '').trim();
   const county = String(d.county || u.county || '').trim();
-  return { id, address, zip, city, state, county };
+  return { id: u.id, address, zip, city, state, county, stage: u.dispo_contract || (d._dispoContract || '') };
+}
+// Kept for any old callers (e.g. if other panels still want the open deal info).
+function _dispoCurrentDealInfo() {
+  const id = (typeof _uwCurrentId !== 'undefined') ? _uwCurrentId : null;
+  if (!id || !cache.underwrites || !cache.underwrites[id]) return null;
+  return _dispoDealInfoFromRow(cache.underwrites[id]);
 }
 
-function _dispoScoreBuyer(buyer, deal) {
-  // Higher is better. Sum of weighted matches across zip / city / county / state.
+// ZIP-ONLY scoring. Buyers must have the deal's zip in their zips[] list to
+// surface at all. Within zip-matched buyers, acquisitions count breaks ties.
+function _dispoScoreBuyerStrict(buyer, deal) {
   if (!buyer || !deal) return 0;
-  let score = 0;
   const includesCI = (arr, val) => {
     if (!val) return false;
     const lv = String(val).toLowerCase().trim();
     if (!lv) return false;
     return (Array.isArray(arr) ? arr : []).some(x => String(x).toLowerCase().trim() === lv);
   };
-  if (deal.zip    && includesCI(buyer.zips,     deal.zip))    score += 1000;
-  if (deal.city   && includesCI(buyer.cities,   deal.city))   score += 200;
-  if (deal.county && includesCI(buyer.counties, deal.county)) score += 100;
-  if (deal.state  && includesCI(buyer.states,   deal.state))  score += 20;
-  // Acquisitions count as a small tiebreaker so within an equal-match group the
-  // higher-volume buyer floats to the top.
+  const zipHit = deal.zip && includesCI(buyer.zips, deal.zip);
+  if (!zipHit) return { score: 0, zipHit: false, acq: 0 };
+  let score = 1000;
   const acq = Number(buyer.acquisitions_count);
-  if (Number.isFinite(acq)) score += Math.min(50, acq / 10);
-  return score;
+  if (Number.isFinite(acq) && acq > 0) score += Math.min(500, acq * 5);
+  return { score, zipHit: true, acq: Number.isFinite(acq) ? acq : 0 };
 }
 
-function buyerRenderPerDealPanel() {
-  const dealEl = document.getElementById('dispo-perdeal-deal');
-  const bestEl = document.getElementById('dispo-perdeal-best');
-  if (!dealEl || !bestEl) return;
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const deal = _dispoCurrentDealInfo();
-  if (!deal) {
-    dealEl.innerHTML = '<div style="font-size:14px;color:var(--text-dim)">No deal selected — open a deal in <b>Underwriting</b> first, then come back here to see the best buyer match.</div>';
-    bestEl.innerHTML = '';
-    return;
-  }
-  // Deal header.
-  const parts = [];
-  if (deal.address) parts.push(esc(deal.address));
-  const locBits = [deal.city, deal.state, deal.zip].filter(Boolean).map(esc).join(' · ');
-  dealEl.innerHTML =
-    '<div style="font-size:11px;color:var(--text-dim);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px">🎯 Current Deal</div>' +
-    '<div style="font-size:18px;font-weight:700;color:var(--text)">' + (parts.join(' ') || '<span style="color:var(--text-dim)">No address</span>') + '</div>' +
-    (locBits ? '<div style="font-size:13px;color:var(--text-dim);margin-top:4px">' + locBits + '</div>' : '');
+// Kept under the old name so anything that imported _dispoScoreBuyer still works.
+function _dispoScoreBuyer(buyer, deal) {
+  const r = _dispoScoreBuyerStrict(buyer, deal);
+  return r.score;
+}
 
-  // Best buyer (top of ranked list). Buyers are scored against the deal; we
-  // surface only the #1 match unless there's a tie.
+// ------------------------------------------------------------
+// Per Deal — outreach tracking + collapse state (localStorage-backed).
+// ------------------------------------------------------------
+// Outreach: one status per (dealId, buyerId) pair. Mutually exclusive states.
+// Expand: which property cards are currently expanded. Both persist across reloads.
+(function _dispoHydrateOutreach() {
+  // Outreach + buyer offers now live in Supabase (dispo_buyer_engagement table)
+  // so they share across users. localStorage still acts as a TRANSIENT shadow
+  // so the UI updates instantly while the network round-trip happens (and as
+  // a fallback if Supabase is unreachable). cache.dispoEngagement is the source
+  // of truth at runtime — populated by _dispoLoadEngagement on app boot or
+  // first Dispositions visit.
+  try {
+    if (!window._dispoOutreach) {
+      const raw = localStorage.getItem('dispoOutreach');
+      window._dispoOutreach = raw ? (JSON.parse(raw) || {}) : {};
+    }
+    if (!window._dispoBuyerOffers) {
+      const raw = localStorage.getItem('dispoBuyerOffers');
+      window._dispoBuyerOffers = raw ? (JSON.parse(raw) || {}) : {};
+    }
+  } catch (e) {
+    window._dispoOutreach    = window._dispoOutreach    || {};
+    window._dispoBuyerOffers = window._dispoBuyerOffers || {};
+  }
+  // cache.dispoEngagement[dealId][buyerId] = { outreach, offer_amount }
+  if (typeof cache !== 'undefined') cache.dispoEngagement = cache.dispoEngagement || {};
+  if (typeof window._dispoOpenedDealId === 'undefined') window._dispoOpenedDealId = null;
+})();
+
+// Fetch every dispo_buyer_engagement row and merge into cache.dispoEngagement.
+// Safe to call multiple times — replaces the in-memory cache on each call so
+// other-user writes that landed since the last fetch are picked up.
+window._dispoEngagementLoaded = false;
+async function _dispoLoadEngagement() {
+  if (typeof sb === 'undefined' || !sb) return;
+  try {
+    const rows = (typeof fetchAll === 'function')
+      ? await fetchAll('dispo_buyer_engagement', '*')
+      : (await sb.from('dispo_buyer_engagement').select('*')).data || [];
+    const fresh = {};
+    (rows || []).forEach(r => {
+      if (!r || !r.deal_id || !r.buyer_id) return;
+      if (!fresh[r.deal_id]) fresh[r.deal_id] = {};
+      fresh[r.deal_id][r.buyer_id] = { outreach: r.outreach || null, offer_amount: Number(r.offer_amount) || 0 };
+    });
+    if (typeof cache !== 'undefined') cache.dispoEngagement = fresh;
+    window._dispoEngagementLoaded = true;
+    // First load — try migrating any stranded localStorage rows up to the DB.
+    if (typeof _dispoMigrateLocalStorageOnce === 'function') _dispoMigrateLocalStorageOnce();
+    return fresh;
+  } catch (e) {
+    // Table may not exist yet (pre-migration). Don't crash; reads fall back to localStorage.
+    console.warn('[_dispoLoadEngagement]', e && e.message);
+  }
+}
+window._dispoLoadEngagement = _dispoLoadEngagement;
+
+// One-time push of pre-DB localStorage data into Supabase. Runs after the first
+// successful load — only does anything if the cache is empty AND localStorage
+// has something. After it runs, clears the localStorage stores so they don't
+// keep getting re-pushed (they'll continue to be used as a transient shadow).
+let _dispoMigrationRan = false;
+async function _dispoMigrateLocalStorageOnce() {
+  if (_dispoMigrationRan) return;
+  _dispoMigrationRan = true;
+  if (typeof sb === 'undefined' || !sb) return;
+  const lOut = window._dispoOutreach    || {};
+  const lOff = window._dispoBuyerOffers || {};
+  const rows = [];
+  const seen = new Set();
+  Object.keys(lOut).forEach(dealId => {
+    Object.keys(lOut[dealId] || {}).forEach(buyerId => {
+      const key = dealId + '|' + buyerId;
+      seen.add(key);
+      rows.push({ deal_id: dealId, buyer_id: buyerId, outreach: lOut[dealId][buyerId] || null, offer_amount: (lOff[dealId] && lOff[dealId][buyerId]) ? Number(lOff[dealId][buyerId]) : null });
+    });
+  });
+  Object.keys(lOff).forEach(dealId => {
+    Object.keys(lOff[dealId] || {}).forEach(buyerId => {
+      const key = dealId + '|' + buyerId;
+      if (seen.has(key)) return;
+      seen.add(key);
+      rows.push({ deal_id: dealId, buyer_id: buyerId, outreach: null, offer_amount: Number(lOff[dealId][buyerId]) || null });
+    });
+  });
+  if (rows.length === 0) return;
+  try {
+    const { error } = await sb.from('dispo_buyer_engagement').upsert(rows, { onConflict: 'deal_id,buyer_id' });
+    if (error) throw error;
+    // Merge into cache immediately so the UI reflects them without another fetch.
+    if (typeof cache !== 'undefined') {
+      cache.dispoEngagement = cache.dispoEngagement || {};
+      rows.forEach(r => {
+        if (!cache.dispoEngagement[r.deal_id]) cache.dispoEngagement[r.deal_id] = {};
+        cache.dispoEngagement[r.deal_id][r.buyer_id] = { outreach: r.outreach || null, offer_amount: Number(r.offer_amount) || 0 };
+      });
+    }
+    // Clear localStorage so we don't re-push on next load.
+    try { localStorage.removeItem('dispoOutreach');    window._dispoOutreach    = {}; } catch (e) {}
+    try { localStorage.removeItem('dispoBuyerOffers'); window._dispoBuyerOffers = {}; } catch (e) {}
+    if (typeof toast === 'function') toast('Migrated ' + rows.length + ' dispo engagement record' + (rows.length === 1 ? '' : 's') + ' to Supabase', 'ok');
+  } catch (e) {
+    console.warn('[_dispoMigrateLocalStorageOnce]', e && e.message);
+    _dispoMigrationRan = false; // allow retry on next session
+  }
+}
+window._dispoMigrateLocalStorageOnce = _dispoMigrateLocalStorageOnce;
+
+// Async upsert helper. Updates cache immediately, fires Supabase write in
+// background, falls back to localStorage shadow so the UI always feels instant
+// and offline edits don't get dropped. Refreshes the panel on success/failure.
+async function _dispoUpsertEngagement(dealId, buyerId, patch) {
+  if (!dealId || !buyerId) return;
+  // 1. Update in-memory cache + localStorage shadow immediately.
+  if (typeof cache !== 'undefined') {
+    cache.dispoEngagement = cache.dispoEngagement || {};
+    if (!cache.dispoEngagement[dealId]) cache.dispoEngagement[dealId] = {};
+    const prev = cache.dispoEngagement[dealId][buyerId] || { outreach: null, offer_amount: 0 };
+    const next = Object.assign({}, prev, patch);
+    cache.dispoEngagement[dealId][buyerId] = next;
+  }
+  // 2. Mirror to localStorage so a hard refresh before the network response
+  //    doesn't lose the edit.
+  try {
+    if ('outreach' in patch) {
+      window._dispoOutreach = window._dispoOutreach || {};
+      if (!window._dispoOutreach[dealId]) window._dispoOutreach[dealId] = {};
+      if (patch.outreach) window._dispoOutreach[dealId][buyerId] = patch.outreach;
+      else                delete window._dispoOutreach[dealId][buyerId];
+      localStorage.setItem('dispoOutreach', JSON.stringify(window._dispoOutreach));
+    }
+    if ('offer_amount' in patch) {
+      window._dispoBuyerOffers = window._dispoBuyerOffers || {};
+      if (!window._dispoBuyerOffers[dealId]) window._dispoBuyerOffers[dealId] = {};
+      const v = Number(patch.offer_amount) || 0;
+      if (v > 0) window._dispoBuyerOffers[dealId][buyerId] = v;
+      else       delete window._dispoBuyerOffers[dealId][buyerId];
+      localStorage.setItem('dispoBuyerOffers', JSON.stringify(window._dispoBuyerOffers));
+    }
+  } catch (e) {}
+  // 3. Push to Supabase. Upsert with the unique (deal_id, buyer_id) constraint.
+  if (typeof sb === 'undefined' || !sb) return;
+  try {
+    const row = { deal_id: dealId, buyer_id: buyerId };
+    if ('outreach'    in patch) row.outreach     = patch.outreach || null;
+    if ('offer_amount' in patch) row.offer_amount = (Number(patch.offer_amount) || 0) || null;
+    const { error } = await sb.from('dispo_buyer_engagement').upsert(row, { onConflict: 'deal_id,buyer_id' });
+    if (error) throw error;
+  } catch (e) {
+    console.warn('[_dispoUpsertEngagement]', e && e.message);
+    if (typeof toast === 'function') toast('Save failed (still kept locally): ' + (e.message || 'unknown'), 'warn');
+  }
+}
+window._dispoUpsertEngagement = _dispoUpsertEngagement;
+function _dispoGetOutreach(dealId, buyerId) {
+  // Prefer Supabase-loaded cache; fall back to localStorage if cache hasn't
+  // loaded yet (e.g. first paint before _dispoLoadEngagement resolves).
+  if (typeof cache !== 'undefined' && cache.dispoEngagement && cache.dispoEngagement[dealId]) {
+    const r = cache.dispoEngagement[dealId][buyerId];
+    if (r) return r.outreach || null;
+  }
+  const m = (window._dispoOutreach || {})[dealId];
+  return (m && m[buyerId]) || null;
+}
+function _dispoSetOutreach(dealId, buyerId, status) {
+  if (!dealId || !buyerId) return;
+  // Toggle off if clicking the same status again — fall back to "Not contacted".
+  const cur = _dispoGetOutreach(dealId, buyerId);
+  const next = (cur === status) ? null : status;
+  _dispoUpsertEngagement(dealId, buyerId, { outreach: next });
+  if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+}
+window._dispoSetOutreach = _dispoSetOutreach;
+function _dispoOpenDeal(dealId) {
+  if (!dealId) return;
+  window._dispoOpenedDealId = dealId;
+  // Reset filter state on deal change so a leftover filter from a previous
+  // deal doesn't hide buyers on the new one. Users almost never want
+  // cross-deal filter persistence.
+  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '' };
+  if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+}
+window._dispoOpenDeal = _dispoOpenDeal;
+function _dispoCloseDeal() {
+  window._dispoOpenedDealId = null;
+  if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+}
+window._dispoCloseDeal = _dispoCloseDeal;
+function _dispoGetBuyerOffer(dealId, buyerId) {
+  // Prefer Supabase-loaded cache; fall back to localStorage.
+  if (typeof cache !== 'undefined' && cache.dispoEngagement && cache.dispoEngagement[dealId]) {
+    const r = cache.dispoEngagement[dealId][buyerId];
+    if (r && Number(r.offer_amount) > 0) return Number(r.offer_amount);
+  }
+  const m = (window._dispoBuyerOffers || {})[dealId];
+  return (m && m[buyerId]) || null;
+}
+// Per-deal detail-view filter state. Session-only (not persisted) — resets
+// when the user navigates away from the deal. Updated via _dispoSetFilter,
+// which re-renders ONLY the buyer list (preserving search-input focus).
+window._dispoFilter = window._dispoFilter || { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '' };
+function _dispoSetFilter(key, value) {
+  if (!window._dispoFilter) window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '' };
+  window._dispoFilter[key] = value;
+  if (typeof _dispoRenderDealBuyers === 'function') _dispoRenderDealBuyers();
+}
+window._dispoSetFilter = _dispoSetFilter;
+function _dispoClearFilters() {
+  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '' };
+  // Reset the live inputs in the DOM (we only re-render the buyer list, so
+  // they'd otherwise still display the old values).
+  const s = document.getElementById('dispo-deal-search');     if (s) s.value = '';
+  const o = document.getElementById('dispo-deal-outreach');   if (o) o.value = '';
+  const q = document.getElementById('dispo-deal-qual');       if (q) q.value = '';
+  const a = document.getElementById('dispo-deal-acq');        if (a) a.value = '0';
+  if (typeof _dispoRenderDealBuyers === 'function') _dispoRenderDealBuyers();
+}
+window._dispoClearFilters = _dispoClearFilters;
+
+function _dispoSetBuyerOffer(dealId, buyerId, raw) {
+  if (!dealId || !buyerId) return;
+  const n = parseFloat(String(raw == null ? '' : raw).replace(/[^0-9.]/g, ''));
+  const offerAmount = (isFinite(n) && n > 0) ? n : null;
+  _dispoUpsertEngagement(dealId, buyerId, { offer_amount: offerAmount });
+  // DON'T re-render the detail view — that would steal focus from the input.
+}
+window._dispoSetBuyerOffer = _dispoSetBuyerOffer;
+
+// Standalone Cash Flip Max + Packet Price helpers for the Per Deal panel.
+// Mirrors the in-closure versions inside buyerRenderContractsPanel so both
+// surfaces show the same "max packet price" number for a given deal.
+function _dispoCashFlipMaxFromData(d) {
+  if (!d || typeof d !== 'object') return 0;
+  const N = (id, def) => {
+    const raw = d[id];
+    if (raw == null || raw === '') return (def || 0);
+    const v = parseFloat(String(raw).replace(/,/g, ''));
+    return isFinite(v) && v > 0 ? v : (def || 0);
+  };
+  const arv = (d._compsMode === 'listed')
+    ? (N('uw-lreal-override', 0) || N('uw-lreal-arv', 0) || (N('uw-lavg-psf', 0) * N('uw-sqft', 0) * 0.9))
+    : (N('uw-arv-override',   0) || N('uw-arv',       0) || (N('uw-asqft',    0) * N('uw-sqft', 0)));
+  if (arv <= 0) return 0;
+  let fRehab = N('uw-rehab-override', 0);
+  if (fRehab <= 0) {
+    const state = d._rehab;
+    const _sqftForRehab = N('uw-sqft', 0) || 1077;
+    if (Array.isArray(state) && state.length) {
+      const isPhantomV2 = state.length === 1 && state[0] && state[0].id === 'rc-bridge';
+      if (isPhantomV2) {
+        const item = state[0].items && state[0].items[0];
+        if (item) fRehab = (parseFloat(item.price) || 0) * _sqftForRehab;
+      } else {
+        let sum = 0;
+        state.forEach(col => {
+          (col.items || []).forEach(item => {
+            if (item && (item.needed || item.checked)) sum += parseFloat(item.price || 0) || 0;
+          });
+        });
+        const cont = N('uw-rehab-contingency-pct', 10);
+        fRehab = sum * _sqftForRehab * (1 + cont / 100);
+      }
+    }
+    if (fRehab <= 0) fRehab = N('uw-rehab-flip', 0) || N('uw-rehab-cost', 0);
+  }
+  const wsSellClose  = arv * 0.03;
+  const wsSellAgents = arv * 0.05;
+  const wsFlMonths   = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
+  const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 150;
+  const wsHolding    = wsHoldingMonthly * wsFlMonths;
+  const ifpVal = N('uw-ifp-slider', 60);
+  const stops = [{x:0,pct:8},{x:20,pct:10},{x:40,pct:15},{x:60,pct:20},{x:80,pct:25},{x:120,pct:35}];
+  let basePct = 8;
+  for (let i = 0; i < stops.length - 1; i++) {
+    const a = stops[i], b = stops[i + 1];
+    if (ifpVal >= a.x && ifpVal <= b.x) {
+      const t = (b.x - a.x) > 0 ? (ifpVal - a.x) / (b.x - a.x) : 0;
+      basePct = a.pct + t * (b.pct - a.pct);
+      break;
+    }
+  }
+  const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 0.5);
+  const wsIdealProfit = arv * (finalPct / 100);
+  return Math.max(0, (arv - fRehab - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit) / 1.03);
+}
+function _dispoPacketPrice(u) {
+  if (!u) return 0;
+  const d = u.data || {};
+  const raw = d['uw-packet-asking-override'] || d['uw-packet-asking'] || '';
+  const ov  = parseFloat(String(raw).replace(/[^0-9.]/g, ''));
+  if (isFinite(ov) && ov > 0) return ov;
+  const cfm = _dispoCashFlipMaxFromData(d);
+  if (cfm <= 0) return 0;
+  return Math.ceil(cfm * 1.20 / 1000) * 1000;
+}
+
+// ============================================================
+// PER DEAL — purchase-aware scoring
+// ============================================================
+// Composite buyer score for a given deal. Returns 0-100 plus a
+// breakdown of components so the UI can show the user why a buyer
+// scored what they did. Falls back to zip-match-only scoring for
+// buyers with no purchase history (capped at 50).
+function _dispoGetDealCoords(u) {
+  if (!u) return { lat: null, lng: null };
+  if (typeof cache !== 'undefined' && cache.properties && cache.properties[u.id]) {
+    const p = cache.properties[u.id];
+    if (p.lat != null && p.lng != null) return { lat: Number(p.lat), lng: Number(p.lng) };
+  }
+  if (u.lat != null && u.lng != null) return { lat: Number(u.lat), lng: Number(u.lng) };
+  if (u.data && u.data.lat != null && u.data.lng != null) return { lat: Number(u.data.lat), lng: Number(u.data.lng) };
+  return { lat: null, lng: null };
+}
+window._dispoGetDealCoords = _dispoGetDealCoords;
+
+// Try to pull deal sqft / beds / baths / price from the underwrite blob
+// for use in buy-box fit scoring. Falls back to nulls if missing.
+function _dispoGetDealAttrs(u) {
+  if (!u) return { sqft: null, beds: null, baths: null, year: null, type: null, price: null };
+  const d = u.data || {};
+  const num = v => {
+    if (v == null || v === '') return null;
+    const n = parseFloat(String(v).replace(/[$,\s]/g, ''));
+    return isFinite(n) ? n : null;
+  };
+  const sqft  = num(d.sqft || d['uw-sqft'] || u.sqft);
+  const beds  = num(d.beds || d['uw-beds'] || u.beds);
+  const baths = num(d.baths || d['uw-baths'] || u.baths);
+  const year  = num(d.year || d['uw-year'] || u.year_built);
+  // Price for buy-box fit = packet/target/contract — whichever is set.
+  const tryPrice = (raw) => {
+    const n = parseFloat(String(raw || '').replace(/[^0-9.]/g, ''));
+    return (isFinite(n) && n > 0) ? n : 0;
+  };
+  let price = tryPrice(typeof _dispoPacketPrice === 'function' ? _dispoPacketPrice(u) : 0);
+  if (!price) price = tryPrice((d && d['uw-accepted']) || u.accepted);
+  if (!price) price = tryPrice(d.arv || d['uw-arv']);
+  return { sqft, beds, baths, year, type: d.property_type || u.property_type || null, price: price || null };
+}
+window._dispoGetDealAttrs = _dispoGetDealAttrs;
+
+function _dispoScoreBuyerWithPurchases(buyer, deal, dealCoords, dealAttrs, opened) {
+  // 10-component scoring, weighted per user spec, summing to 100.
+  // Component weights:
+  //    1. distance (15)  2. densityNearby (15)  3. recency (10)
+  //    4. acq12mo (10)   5. sqft (10)           6. beds (5)
+  //    7. baths (5)      8. year (15)           9. ppsf (10)
+  //   10. price (5)
+  // Property type still acts as a HARD FILTER — buyer who's never bought
+  // this property type doesn't surface at all.
+  const base = _dispoScoreBuyerStrict(buyer, deal);
+  const purchases = (typeof getBuyerPurchases === 'function') ? getBuyerPurchases(buyer.id) : [];
+  const hasPurchases = purchases.length > 0;
+  const out = Object.assign({}, base, {
+    miles: null,
+    components: {
+      distance: 0, density: 0, recency: 0, acq12: 0, sqft: 0,
+      beds: 0, baths: 0, year: 0, ppsf: 0, price: 0
+    },
+    fallback: !hasPurchases,
+    nearestPurchase: null,
+    buyBox: null,
+    densityNearby: 0,
+    acq12mo: 0
+  });
+
+  if (!hasPurchases) {
+    // No purchase data → score on zip-match alone, capped at 30 so they
+    // never outrank a buyer with actual purchase history.
+    out.score = base.score > 0 ? Math.min(30, base.score * 3) : 0;
+    return out;
+  }
+  const bb = getBuyerDerivedBuyBox(buyer.id);
+  out.buyBox = bb;
+
+  // HARD FILTER: property type.
+  if (dealAttrs && dealAttrs.type && bb.types && bb.types.length) {
+    const want = String(dealAttrs.type).toLowerCase();
+    const has = bb.types.some(t => String(t).toLowerCase().includes(want) || want.includes(String(t).toLowerCase()));
+    if (!has) {
+      out.score = 0;
+      out.components.typeFilter = 'excluded';
+      return out;
+    }
+  }
+
+  // 1. Distance to subject — 15 pts. Closer = higher.
+  if (dealCoords && dealCoords.lat != null) {
+    const np = buyerNearestPurchase(buyer.id, dealCoords.lat, dealCoords.lng);
+    if (np) {
+      out.miles = np.miles;
+      out.nearestPurchase = np.purchase;
+      const mi = np.miles;
+      let pts = 0;
+      if (mi <= 1) pts = 15;
+      else if (mi <= 3) pts = 12;
+      else if (mi <= 5) pts = 9;
+      else if (mi <= 10) pts = 5;
+      else if (mi <= 15) pts = 2;
+      out.components.distance = pts;
+    }
+  }
+
+  // 2. Density nearby — 15 pts. Count of their purchases within 5mi of subject.
+  if (dealCoords && dealCoords.lat != null) {
+    let count = 0;
+    for (const p of purchases) {
+      if (p.lat == null || p.lng == null) continue;
+      const mi = _buyerHaversineMi(Number(p.lat), Number(p.lng), dealCoords.lat, dealCoords.lng);
+      if (mi <= 5) count++;
+    }
+    out.densityNearby = count;
+    let pts = 0;
+    if (count >= 5) pts = 15;
+    else if (count === 4) pts = 12;
+    else if (count === 3) pts = 9;
+    else if (count === 2) pts = 6;
+    else if (count === 1) pts = 3;
+    out.components.density = pts;
+  }
+
+  // 3. Last purchase recency — 10 pts.
+  if (bb.monthsSinceLast != null) {
+    const m = bb.monthsSinceLast;
+    let pts = 0;
+    if (m <= 3)       pts = 10;
+    else if (m <= 6)  pts = 8;
+    else if (m <= 12) pts = 6;
+    else if (m <= 24) pts = 3;
+    out.components.recency = pts;
+  }
+
+  // 4. Acquisitions in last 12 months — 10 pts.
+  const now = new Date();
+  const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+  let acq12 = 0;
+  for (const p of purchases) {
+    const d = p.sale_date || p.recording_date;
+    if (!d) continue;
+    const dt = new Date(d);
+    if (!isNaN(dt.getTime()) && dt >= oneYearAgo) acq12++;
+  }
+  out.acq12mo = acq12;
+  let acq12Pts = 0;
+  if (acq12 >= 5)      acq12Pts = 10;
+  else if (acq12 >= 3) acq12Pts = 7;
+  else if (acq12 >= 1) acq12Pts = 4;
+  out.components.acq12 = acq12Pts;
+
+  // 5. Sqft fit — 10 pts. Inside their P10-P90 band.
+  if (dealAttrs && dealAttrs.sqft && bb.sqftMin != null && bb.sqftMax != null) {
+    const s = dealAttrs.sqft;
+    if (s >= bb.sqftMin && s <= bb.sqftMax) out.components.sqft = 10;
+    else if (s >= bb.sqftMin * 0.75 && s <= bb.sqftMax * 1.25) out.components.sqft = 5;
+  }
+
+  // 6. Beds — 5 pts. Off-by-one OK.
+  if (dealAttrs && dealAttrs.beds && bb.bedsMin != null && bb.bedsMax != null) {
+    const b = dealAttrs.beds;
+    if (b >= bb.bedsMin && b <= bb.bedsMax) out.components.beds = 5;
+    else if (b >= bb.bedsMin - 1 && b <= bb.bedsMax + 1) out.components.beds = 2;
+  }
+
+  // 7. Baths — 5 pts.
+  if (dealAttrs && dealAttrs.baths && bb.bathsMin != null && bb.bathsMax != null) {
+    const ba = dealAttrs.baths;
+    if (ba >= bb.bathsMin && ba <= bb.bathsMax) out.components.baths = 5;
+    else if (ba >= bb.bathsMin - 1 && ba <= bb.bathsMax + 1) out.components.baths = 2;
+  }
+
+  // 8. Year built fit — 15 pts. Higher weight per user spec.
+  if (dealAttrs && dealAttrs.year && bb.yearMin != null && bb.yearMax != null) {
+    const y = dealAttrs.year;
+    if (y >= bb.yearMin && y <= bb.yearMax)                       out.components.year = 15;
+    else if (y >= bb.yearMin - 10 && y <= bb.yearMax + 10)        out.components.year = 9;
+    else if (y >= bb.yearMin - 25 && y <= bb.yearMax + 25)        out.components.year = 4;
+  }
+
+  // 9. $/sqft they pay — 10 pts. Compares buyer's avg $/sqft against
+  // the deal's $/sqft (price ÷ sqft). Paying at or above deal $/sqft = full pts.
+  // Falls back to absolute thresholds if either side's data is missing.
+  if (bb.avgDollarPerSqft != null) {
+    const buyerPPSF = bb.avgDollarPerSqft;
+    let pts = 0;
+    if (dealAttrs && dealAttrs.price && dealAttrs.sqft && dealAttrs.sqft > 0) {
+      const dealPPSF = dealAttrs.price / dealAttrs.sqft;
+      const ratio = dealPPSF > 0 ? buyerPPSF / dealPPSF : 0;
+      if (ratio >= 1.00)      pts = 10;
+      else if (ratio >= 0.85) pts = 7;
+      else if (ratio >= 0.70) pts = 4;
+      else if (ratio >= 0.50) pts = 2;
+    } else {
+      // Fallback absolute thresholds.
+      if (buyerPPSF >= 100)     pts = 8;
+      else if (buyerPPSF >= 60) pts = 5;
+      else if (buyerPPSF >= 30) pts = 3;
+    }
+    out.components.ppsf = pts;
+  }
+
+  // 10. Price band fit — 5 pts. Deal price inside buyer's P10-P90 band.
+  if (dealAttrs && dealAttrs.price && bb.priceMin != null && bb.priceMax != null) {
+    const p = dealAttrs.price;
+    if (p >= bb.priceMin && p <= bb.priceMax)                    out.components.price = 5;
+    else if (p >= bb.priceMin * 0.75 && p <= bb.priceMax * 1.25) out.components.price = 2;
+  }
+
+  // Sum to final 0-100.
+  const total =
+      out.components.distance + out.components.density + out.components.recency +
+      out.components.acq12    + out.components.sqft    + out.components.beds    +
+      out.components.baths    + out.components.year    + out.components.ppsf    +
+      out.components.price;
+  out.score = Math.min(100, Math.max(0, Math.round(total)));
+  return out;
+}
+window._dispoScoreBuyerWithPurchases = _dispoScoreBuyerWithPurchases;
+
+function buyerRenderPerDealPanel() {
+  const listEl = document.getElementById('dispo-perdeal-list');
+  if (!listEl) return;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const STAGE_LABEL = {
+    'new':       { label: 'New Contract',       color: '#a5b4fc', bg: 'rgba(99,102,241,0.18)' },
+    'hot':       { label: 'Hot Contract',       color: '#f87171', bg: 'rgba(239,68,68,0.18)'  },
+    'assigning': { label: 'Assigning Contract', color: '#fb923c', bg: 'rgba(251,146,60,0.18)' },
+    'assigned':  { label: 'Assigned Contract',  color: '#10b981', bg: 'rgba(16,185,129,0.18)' },
+    'dead':      { label: 'Dead Contract',      color: '#9ca3af', bg: 'rgba(156,163,175,0.18)' }
+  };
+
+  const dispoDeals = Object.values(cache.underwrites || {})
+    .filter(u => u && (u.dispo_contract || (u.data && u.data._dispoContract)))
+    .sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
+  if (dispoDeals.length === 0) {
+    listEl.innerHTML = '<div style="font-size:13px;color:var(--text-dim);padding:24px;text-align:center;background:var(--panel-2);border:1px dashed var(--border);border-radius:10px">No properties in Dispositions yet — open a deal in <b>Underwriting</b> and click the <b>📤 Assign</b> button (or move it to a contract stage) to surface it here.</div>';
+    return;
+  }
   const buyers = Object.values(cache.buyers || {}).filter(b => b && (b.company || b.name));
-  if (buyers.length === 0) {
-    bestEl.innerHTML = '<div style="font-size:13px;color:var(--text-dim);padding:14px;text-align:center;background:var(--panel-2);border:1px dashed var(--border);border-radius:8px">No buyers in your rolodex yet — go to Dispositions → Recently Added to import or add some.</div>';
+
+  const OUTREACH = [
+    { key: 'reached',       label: 'Reached',       icon: '📞', color: '#a5b4fc' },
+    { key: 'responded',     label: 'Responded',     icon: '💬', color: '#fbbf24' },
+    { key: 'interested',    label: 'Interested',    icon: '👍', color: '#10b981' },
+    { key: 'inspecting',    label: 'Inspecting',    icon: '🔎', color: '#06b6d4' },
+    { key: 'not-interested',label: 'Not Interested',icon: '👎', color: '#f87171' }
+  ];
+
+  // ============================================================
+  // DETAIL VIEW — one deal opened, show ALL qualifying buyers + offer inputs.
+  // ============================================================
+  const openedId = window._dispoOpenedDealId;
+  const opened = openedId
+    ? dispoDeals.find(u => u.id === openedId)
+    : null;
+  if (opened) {
+    const deal = _dispoDealInfoFromRow(opened);
+    const stage = STAGE_LABEL[deal.stage] || { label: deal.stage || '—', color: '#9ca3af', bg: 'rgba(156,163,175,0.18)' };
+    const locBits = [deal.city, deal.state, deal.zip].filter(Boolean).map(esc).join(' · ');
+    // Score ALL buyers ONCE; filtering happens inside _dispoRenderDealBuyers.
+    // Uses the new purchase-aware scorer when buyer has purchase data;
+    // falls back to zip-match-only for buyers without any imports yet.
+    const _dealCoords = _dispoGetDealCoords(opened);
+    const _dealAttrs  = _dispoGetDealAttrs(opened);
+    const rankedAll = buyers
+      .map(b => Object.assign({ b }, _dispoScoreBuyerWithPurchases(b, deal, _dealCoords, _dealAttrs, opened)))
+      .filter(r => r.score > 0)
+      .sort((a, b) => b.score - a.score);
+    const totalMatchCount = rankedAll.length;
+
+    // Stash everything the inner re-renderer needs so it can run without
+    // rebuilding the filter bar (which would steal search-input focus).
+    window._dispoDealCtx = { deal: deal, rankedAll: rankedAll, OUTREACH: OUTREACH, esc: esc };
+
+    // Inner renderer — only touches the buyer list. Filter bar stays intact.
+    window._dispoRenderDealBuyers = function () {
+      const ctx = window._dispoDealCtx;
+      if (!ctx) return;
+      const innerEl = document.getElementById('dispo-deal-buyers');
+      if (!innerEl) return;
+      const flt = window._dispoFilter || {};
+      const search   = String(flt.search || '').trim().toLowerCase();
+      const outreach = String(flt.outreach || '');
+      const qual     = String(flt.qual || '');
+      const acqMin   = Number(flt.acqMin) || 0;
+      const offer    = String(flt.offer || '');
+      const minScore = Number(flt.minScore) || 0;
+      const active   = String(flt.active || '');
+      const ranked = ctx.rankedAll.filter(r => {
+        const b = r.b;
+        if (minScore > 0 && (r.score || 0) < minScore) return false;
+        if (active) {
+          const bb = r.buyBox || (typeof getBuyerDerivedBuyBox === 'function' ? getBuyerDerivedBuyBox(b.id) : null);
+          const m  = bb ? bb.monthsSinceLast : null;
+          if (active === '12mo' && (m == null || m > 12))  return false;
+          if (active === '24mo' && (m == null || m > 24))  return false;
+        }
+        if (search) {
+          const hay = ((b.company || '') + ' ' + (b.name || '') + ' ' + (b.email || '') + ' ' + (b.phone || '')).toLowerCase();
+          if (!hay.includes(search)) return false;
+        }
+        if (outreach) {
+          const cur = _dispoGetOutreach(ctx.deal.id, b.id) || '';
+          if (outreach === 'none') { if (cur) return false; }
+          else if (cur !== outreach) return false;
+        }
+        if (qual) {
+          const q = (typeof buyerQualState === 'function') ? buyerQualState(b) : 'unknown';
+          if (q !== qual) return false;
+        }
+        if (acqMin > 0) {
+          if (!(r.acq >= acqMin)) return false;
+        }
+        if (offer) {
+          // "Made offer" = any buyer with a non-zero number in the Buyer Offer slot.
+          // "No offer yet" = the inverse. Reads from cache.dispoEngagement first,
+          // falls back to the localStorage shadow.
+          const has = (Number(_dispoGetBuyerOffer(ctx.deal.id, b.id)) || 0) > 0;
+          if (offer === 'made'   && !has) return false;
+          if (offer === 'noffer' &&  has) return false;
+        }
+        return true;
+      });
+
+      const renderOutreachRow = (buyerId) => {
+        const cur = _dispoGetOutreach(ctx.deal.id, buyerId);
+        return '<div style="display:flex;gap:4px;flex-wrap:wrap">' +
+          ctx.OUTREACH.map(o => {
+            const on = (cur === o.key);
+            const bg = on ? (o.color + '33') : 'transparent';
+            const fg = on ? o.color : 'var(--text-dim)';
+            const bd = on ? (o.color + '88') : 'var(--border)';
+            return '<button type="button" onclick="_dispoSetOutreach(\'' + ctx.esc(ctx.deal.id) + '\',\'' + ctx.esc(buyerId) + '\',\'' + o.key + '\')" '
+              + 'style="padding:4px 9px;font-size:11px;font-weight:600;background:' + bg + ';color:' + fg + ';border:1px solid ' + bd + ';border-radius:6px;cursor:pointer;white-space:nowrap" '
+              + 'title="' + ctx.esc(on ? 'Click to clear' : o.label) + '">' + o.icon + ' ' + ctx.esc(o.label) + '</button>';
+          }).join('') +
+        '</div>';
+      };
+      const renderOfferInput = (buyerId) => {
+        const cur = _dispoGetBuyerOffer(ctx.deal.id, buyerId);
+        const val = cur ? cur.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '';
+        return '<div style="display:inline-flex;align-items:center;height:30px;background:var(--panel);border:1px solid var(--border);border-radius:6px;overflow:hidden">'
+          + '<span style="padding:0 6px 0 9px;color:var(--text-dim);font-size:12px;font-weight:600">$</span>'
+          + '<input type="text" inputmode="numeric" placeholder="—" value="' + ctx.esc(val) + '" '
+          +   'oninput="(function(el){var raw=el.value.replace(/[^0-9.]/g,\'\');var n=parseFloat(raw);el.value=isFinite(n)&&raw!==\'\'?n.toLocaleString(\'en-US\',{maximumFractionDigits:0}):raw;})(this);_dispoSetBuyerOffer(\'' + ctx.esc(ctx.deal.id) + '\',\'' + ctx.esc(buyerId) + '\',this.value);" '
+          +   'style="width:108px;height:28px;padding:0 8px 0 0;background:transparent;border:none;outline:none;color:var(--text);font-size:13px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums">'
+          + '</div>';
+      };
+
+      const countLine = '<div style="font-size:11px;color:var(--text-dim);margin-bottom:10px">' + ranked.length + ' of ' + ctx.rankedAll.length + ' buyer' + (ctx.rankedAll.length === 1 ? '' : 's') + ' shown</div>';
+
+      if (ranked.length === 0) {
+        innerEl.innerHTML = countLine + '<div style="padding:24px;text-align:center;color:var(--text-dim);font-size:13px;background:var(--panel);border:1px dashed var(--border);border-radius:8px">' + (ctx.rankedAll.length === 0 ? 'No buyer in your rolodex has zip ' + ctx.esc(ctx.deal.zip || '?') + ' in their list yet.' : 'No buyers match the current filters.') + '</div>';
+        return;
+      }
+      innerEl.innerHTML = countLine + '<div style="display:flex;flex-direction:column;gap:10px">' + ranked.map((r, idx) => {
+        const b = r.b;
+        const contactBits = [];
+        if (b.phone) contactBits.push('📞 ' + ctx.esc(b.phone));
+        if (b.email) contactBits.push('✉️ ' + ctx.esc(b.email));
+        const acqChip = r.acq > 0
+          ? '<span style="padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(251,191,36,0.18);color:#fbbf24;border:1px solid rgba(251,191,36,0.4)">🏠 ' + r.acq.toLocaleString() + ' acqs</span>'
+          : '';
+        // Qualification chip — color-coded so the user sees buyer trust at a glance.
+        const q = (typeof buyerQualState === 'function') ? buyerQualState(b) : 'unknown';
+        const qMeta = q === 'qualified'   ? { lab: '✓ Qualified',   c: '#10b981' }
+                    : q === 'unqualified' ? { lab: '✗ Unqualified', c: '#f87171' }
+                    : q === 'vetting'     ? { lab: '🔎 Vetting',     c: '#fbbf24' }
+                    :                       { lab: '? Unknown',     c: '#9ca3af' };
+        const qChip = '<span style="padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;background:' + qMeta.c + '22;color:' + qMeta.c + ';border:1px solid ' + qMeta.c + '55">' + qMeta.lab + '</span>';
+        // Score badge — color-coded by band. Title shows the breakdown
+        // so the user can see WHY a buyer scored what they did.
+        const _score = Math.max(0, Math.round(r.score || 0));
+        const _scoreColor = _score >= 80 ? '#10b981'
+                          : _score >= 60 ? '#fbbf24'
+                          : _score >= 40 ? '#a5b4fc'
+                          :                '#9ca3af';
+        const _comps = r.components || {};
+        const _scoreTitle = 'Composite score (0-100) — 10 components'
+          + (r.fallback ? ' — fallback: no purchase data, capped at 30' : '')
+          + '\n1. Distance to subject (15): ' + Math.round(_comps.distance || 0)
+          + '\n2. Density within 5mi (15): ' + Math.round(_comps.density || 0) + ' [' + (r.densityNearby || 0) + ' nearby]'
+          + '\n3. Last purchase recency (10): ' + Math.round(_comps.recency || 0) + (r.buyBox && r.buyBox.monthsSinceLast != null ? ' [' + r.buyBox.monthsSinceLast + 'mo ago]' : '')
+          + '\n4. Acquisitions last 12mo (10): ' + Math.round(_comps.acq12 || 0) + ' [' + (r.acq12mo || 0) + ' bought]'
+          + '\n5. Sqft fit (10): ' + Math.round(_comps.sqft || 0)
+          + '\n6. Beds match (5): ' + Math.round(_comps.beds || 0)
+          + '\n7. Baths match (5): ' + Math.round(_comps.baths || 0)
+          + '\n8. Year built fit (15): ' + Math.round(_comps.year || 0)
+          + '\n9. $/sqft they pay (10): ' + Math.round(_comps.ppsf || 0) + (r.buyBox && r.buyBox.avgDollarPerSqft != null ? ' [$' + Math.round(r.buyBox.avgDollarPerSqft) + '/sf avg]' : '')
+          + '\n10. Price band fit (5): ' + Math.round(_comps.price || 0)
+          + (r.miles != null ? '\nNearest purchase: ' + r.miles.toFixed(2) + 'mi' : '');
+        const _scoreBadge = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:28px;padding:0 8px;border-radius:6px;background:' + _scoreColor + '22;border:1px solid ' + _scoreColor + '88;color:' + _scoreColor + ';font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;flex-shrink:0" title="' + ctx.esc(_scoreTitle) + '">' + _score + (r.fallback ? '\u2733' : '') + '</span>';
+        const _milesLine = r.miles != null
+          ? '<div style="font-size:11px;color:var(--text-dim);margin-top:3px">\u{1F4CD} Nearest purchase ' + r.miles.toFixed(2) + 'mi away' + (r.nearestPurchase && (r.nearestPurchase.sale_amount > 0) ? ' \u00B7 $' + Math.round(r.nearestPurchase.sale_amount).toLocaleString() : '') + '</div>'
+          : '';
+        return ''
+          + '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px">'
+          +   '<div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="buyerOpenAddModal(\'' + ctx.esc(b.id) + '\')" title="Click name to open this buyer">'
+          +     '<div style="font-size:11px;color:var(--text-dim);font-weight:700;width:22px;text-align:center;flex-shrink:0">#' + (idx + 1) + '</div>'
+          +     _scoreBadge
+          +     '<div style="flex:1;min-width:0">'
+          +       '<div style="font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + ctx.esc(b.company || b.name || '(no name)') + '</div>'
+          +       (b.company && b.name ? '<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + ctx.esc(b.name) + '</div>' : '')
+          +       _milesLine
+          +     '</div>'
+          +     qChip
+          +     acqChip
+          +     (contactBits.length ? '<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;flex-shrink:0">' + contactBits.join(' \u00B7 ') + '</div>' : '')
+          +   '</div>'
+          +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)" onclick="event.stopPropagation()">'
+          +     '<div style="flex:1;min-width:0">'
+          +       '<div style="font-size:10px;color:var(--text-dim);letter-spacing:0.3px;text-transform:uppercase;margin-bottom:6px">Outreach</div>'
+          +       renderOutreachRow(b.id)
+          +     '</div>'
+          +     '<div>'
+          +       '<div style="font-size:10px;color:var(--text-dim);letter-spacing:0.3px;text-transform:uppercase;margin-bottom:6px;text-align:right">Buyer Offer</div>'
+          +       renderOfferInput(b.id)
+          +     '</div>'
+          +   '</div>'
+          + '</div>';
+      }).join('') + '</div>';
+    };
+
+    // Filter bar — built once. Inputs use _dispoSetFilter which only re-renders
+    // #dispo-deal-buyers below, so search-input focus is never stolen.
+    const flt = window._dispoFilter || {};
+    // Single-row filter bar. Global CSS forces `width:100%` on input/select
+    // so every field has explicit widths to override it. Search is capped at
+    // 320px so it doesn't dominate; a flex spacer pushes filters to the right.
+    const filterBarHtml = ''
+      + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap;margin-top:14px;margin-bottom:6px;width:100%;min-width:0">'
+      +   '<input id="dispo-deal-search" type="text" placeholder="🔍 Search…" value="' + esc(flt.search || '') + '" oninput="_dispoSetFilter(\'search\', this.value)" style="flex:0 1 280px;min-width:0;width:280px;max-width:320px;height:30px;padding:0 10px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;box-sizing:border-box">'
+      +   '<div style="flex:1 1 auto"></div>'
+      +   '<select id="dispo-deal-outreach" onchange="_dispoSetFilter(\'outreach\', this.value)" style="flex:0 0 auto;width:140px;height:30px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;box-sizing:border-box" title="Filter by outreach status">'
+      +     '<option value="">All outreach</option>'
+      +     '<option value="none"' +           (flt.outreach === 'none' ? ' selected' : '') +           '>Not contacted</option>'
+      +     '<option value="reached"' +        (flt.outreach === 'reached' ? ' selected' : '') +        '>📞 Reached</option>'
+      +     '<option value="responded"' +      (flt.outreach === 'responded' ? ' selected' : '') +      '>💬 Responded</option>'
+      +     '<option value="interested"' +     (flt.outreach === 'interested' ? ' selected' : '') +     '>👍 Interested</option>'
+      +     '<option value="inspecting"' +     (flt.outreach === 'inspecting' ? ' selected' : '') +     '>🔎 Inspecting</option>'
+      +     '<option value="not-interested"' + (flt.outreach === 'not-interested' ? ' selected' : '') + '>👎 Not Interested</option>'
+      +   '</select>'
+      +   '<select id="dispo-deal-qual" onchange="_dispoSetFilter(\'qual\', this.value)" style="flex:0 0 auto;width:130px;height:30px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;box-sizing:border-box" title="Filter by qualification (Verified)">'
+      +     '<option value="">All Statuses</option>'
+      +     '<option value="qualified"' +   (flt.qual === 'qualified' ? ' selected' : '') +   '>✓ Qualified</option>'
+      +     '<option value="vetting"' +     (flt.qual === 'vetting' ? ' selected' : '') +     '>🔎 Vetting</option>'
+      +     '<option value="unknown"' +     (flt.qual === 'unknown' ? ' selected' : '') +     '>? Unknown</option>'
+      +     '<option value="unqualified"' + (flt.qual === 'unqualified' ? ' selected' : '') + '>✗ Unqualified</option>'
+      +   '</select>'
+      +   '<select id="dispo-deal-acq" onchange="_dispoSetFilter(\'acqMin\', Number(this.value)||0)" style="flex:0 0 auto;width:175px;height:30px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;box-sizing:border-box" title="Minimum acquisitions">'
+      +     '<option value="0"'   + (Number(flt.acqMin) === 0   ? ' selected' : '') + '>Any Acquisitions</option>'
+      +     '<option value="1"'   + (Number(flt.acqMin) === 1   ? ' selected' : '') + '>1+ Acquisitions</option>'
+      +     '<option value="5"'   + (Number(flt.acqMin) === 5   ? ' selected' : '') + '>5+ Acquisitions</option>'
+      +     '<option value="10"'  + (Number(flt.acqMin) === 10  ? ' selected' : '') + '>10+ Acquisitions</option>'
+      +     '<option value="25"'  + (Number(flt.acqMin) === 25  ? ' selected' : '') + '>25+ Acquisitions</option>'
+      +     '<option value="50"'  + (Number(flt.acqMin) === 50  ? ' selected' : '') + '>50+ Acquisitions</option>'
+      +     '<option value="100"' + (Number(flt.acqMin) === 100 ? ' selected' : '') + '>100+ Acquisitions</option>'
+      +   '</select>'
+      +   '<select id="dispo-deal-offer" onchange="_dispoSetFilter(\'offer\', this.value)" style="flex:0 0 auto;width:130px;height:30px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;box-sizing:border-box" title="Filter by whether this buyer has made an offer on this deal">'
+      +     '<option value="">All offers</option>'
+      +     '<option value="made"'   + (flt.offer === 'made'   ? ' selected' : '') + '>💰 Made offer</option>'
+      +     '<option value="noffer"' + (flt.offer === 'noffer' ? ' selected' : '') + '>· No offer yet</option>'
+      +   '</select>'
+      +   '<select id="dispo-deal-minscore" onchange="_dispoSetFilter(\'minScore\', Number(this.value)||0)" style="flex:0 0 auto;width:120px;height:30px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;box-sizing:border-box" title="Minimum composite buyer score (0-100). Hides anyone below this.">'
+      +     '<option value="0"'  + (Number(flt.minScore) === 0  ? ' selected' : '') + '>Min Score: Any</option>'
+      +     '<option value="25"' + (Number(flt.minScore) === 25 ? ' selected' : '') + '>25+</option>'
+      +     '<option value="50"' + (Number(flt.minScore) === 50 ? ' selected' : '') + '>50+</option>'
+      +     '<option value="75"' + (Number(flt.minScore) === 75 ? ' selected' : '') + '>75+</option>'
+      +     '<option value="90"' + (Number(flt.minScore) === 90 ? ' selected' : '') + '>90+</option>'
+      +   '</select>'
+      +   '<select id="dispo-deal-active" onchange="_dispoSetFilter(\'active\', this.value)" style="flex:0 0 auto;width:130px;height:30px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;box-sizing:border-box" title="Only show buyers with a recent purchase">'
+      +     '<option value=""'      + (flt.active === ''      ? ' selected' : '') + '>Active: All</option>'
+      +     '<option value="12mo"'  + (flt.active === '12mo'  ? ' selected' : '') + '>Active 12mo</option>'
+      +     '<option value="24mo"'  + (flt.active === '24mo'  ? ' selected' : '') + '>Active 24mo</option>'
+      +   '</select>'
+      +   '<button onclick="_dispoClearFilters()" title="Clear all filters" style="flex:0 0 auto;width:30px;height:30px;padding:0;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:12px;cursor:pointer">✕</button>'
+      + '</div>';
+
+    listEl.innerHTML = ''
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'
+      +   '<button class="btn btn-ghost text-sm" onclick="_dispoCloseDeal()" title="Back to all dispositions">← Back</button>'
+      +   '<div style="flex:1"></div>'
+      +   '<span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:' + stage.bg + ';color:' + stage.color + '">' + esc(stage.label) + '</span>'
+      + '</div>'
+      + '<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px">'
+      +   '<div style="font-size:18px;font-weight:700;color:var(--text)">🏠 ' + esc(deal.address || '(no address)') + '</div>'
+      +   (locBits ? '<div style="font-size:13px;color:var(--text-dim);margin-top:4px">' + locBits + (deal.county ? ' · ' + esc(deal.county) + ' County' : '') + '</div>' : '')
+      +   '<div style="font-size:11px;color:var(--text-dim);letter-spacing:0.4px;text-transform:uppercase;margin-top:12px">🎯 ' + totalMatchCount + ' Qualifying ' + (totalMatchCount === 1 ? 'Buyer' : 'Buyers') + ' (zip ' + esc(deal.zip || '?') + ')</div>'
+      +   filterBarHtml
+      +   '<div id="dispo-deal-buyers" style="margin-top:6px"></div>'
+      + '</div>';
+    // Initial buyer-list render. Inputs already in DOM; from here on, every
+    // filter change re-renders only #dispo-deal-buyers (input focus preserved).
+    if (typeof _dispoRenderDealBuyers === 'function') _dispoRenderDealBuyers();
     return;
   }
-  const ranked = buyers.map(b => ({ b, s: _dispoScoreBuyer(b, deal) })).sort((a, b) => b.s - a.s);
-  const top = ranked[0];
-  if (!top || top.s <= 0) {
-    bestEl.innerHTML = '<div style="font-size:13px;color:var(--text-dim);padding:14px;text-align:center;background:var(--panel-2);border:1px dashed var(--border);border-radius:8px">No buyer matches the deal\'s zip, city, county, or state yet. Open a buyer to add this location to their list.</div>';
-    return;
-  }
-  const b = top.b;
-  const lenderChips = (Array.isArray(b.lenders) && b.lenders.length)
-    ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">' + b.lenders.map(L => {
-        const raw = String(L == null ? '' : L);
-        const pipe = raw.indexOf('|');
-        const nm = pipe >= 0 ? raw.slice(0, pipe).trim() : raw.trim();
-        const types = pipe >= 0 ? raw.slice(pipe + 1).trim().split(',').map(s => s.trim()).filter(Boolean) : [];
-        const badges = types.map(t => '<span style="margin-left:4px;padding:0 5px;border-radius:3px;font-size:9px;font-weight:700;background:rgba(99,102,241,0.25);color:#c7d2fe">' + esc(t) + '</span>').join('');
-        return '<span style="padding:2px 8px;background:rgba(165,180,252,0.15);border:1px solid rgba(165,180,252,0.4);border-radius:6px;font-size:11px;color:#a5b4fc">🏦 ' + esc(nm) + badges + '</span>';
-      }).join('') + '</div>'
-    : '';
-  const strategyChips = (Array.isArray(b.strategy) && b.strategy.length)
-    ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">' + b.strategy.map(s => '<span style="padding:2px 8px;background:rgba(165,180,252,0.15);border:1px solid rgba(165,180,252,0.4);border-radius:6px;font-size:11px;color:#a5b4fc">' + esc(s) + '</span>').join('') + '</div>'
-    : '';
-  const acq = Number(b.acquisitions_count);
-  const acqLine = Number.isFinite(acq) ? '<div style="margin-top:4px;font-size:12px;color:var(--text-dim)">🏠 ' + acq.toLocaleString() + ' acquisitions</div>' : '';
-  const matchReasons = [];
-  if (deal.zip    && (b.zips     || []).some(x => String(x).toLowerCase() === deal.zip.toLowerCase()))    matchReasons.push('zip ' + esc(deal.zip));
-  if (deal.city   && (b.cities   || []).some(x => String(x).toLowerCase() === deal.city.toLowerCase()))   matchReasons.push('city ' + esc(deal.city));
-  if (deal.county && (b.counties || []).some(x => String(x).toLowerCase() === deal.county.toLowerCase())) matchReasons.push('county ' + esc(deal.county));
-  if (deal.state  && (b.states   || []).some(x => String(x).toLowerCase() === deal.state.toLowerCase()))  matchReasons.push('state ' + esc(deal.state));
-  const matchLine = matchReasons.length
-    ? '<div style="margin-top:6px;font-size:11px;color:#10b981;font-weight:600">✓ Matches: ' + matchReasons.join(' · ') + '</div>'
-    : '';
-  const contactBits = [];
-  if (b.phone) contactBits.push('<a href="tel:' + esc(String(b.phone).replace(/[^0-9+]/g, '')) + '" style="color:var(--text);text-decoration:none">📞 ' + esc(b.phone) + '</a>');
-  if (b.email) contactBits.push('<a href="mailto:' + esc(b.email) + '" style="color:var(--text);text-decoration:none">✉️ ' + esc(b.email) + '</a>');
-  const contact = contactBits.length
-    ? '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px">' + contactBits.join('') + '</div>'
-    : '';
-  bestEl.innerHTML =
-    '<div style="font-size:11px;color:var(--text-dim);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px">🏆 Best Buyer Match</div>' +
-    '<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer" onclick="buyerOpenAddModal(\'' + esc(b.id) + '\')" title="Click to edit this buyer">' +
-      '<div style="font-size:16px;font-weight:700">' + esc(b.company || b.name || '(no name)') + '</div>' +
-      (b.company && b.name ? '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">' + esc(b.name) + '</div>' : '') +
-      acqLine +
-      matchLine +
-      strategyChips +
-      lenderChips +
-      contact +
-    '</div>';
+
+  // ============================================================
+  // LIST VIEW — show every dispo property as a clickable summary row.
+  // ============================================================
+  listEl.innerHTML = dispoDeals.map(u => {
+    const deal = _dispoDealInfoFromRow(u);
+    if (!deal) return '';
+    const stage = STAGE_LABEL[deal.stage] || { label: deal.stage || '—', color: '#9ca3af', bg: 'rgba(156,163,175,0.18)' };
+    const locBits = [deal.city, deal.state, deal.zip].filter(Boolean).map(esc).join(' · ');
+    // Count matched buyers + how many of them are flagged ✓ Qualified, so the
+    // preview card can show "X/Y qualified matches" alongside the raw match count.
+    const matched = buyers.filter(b => _dispoScoreBuyerStrict(b, deal).score > 0);
+    const matchCount     = matched.length;
+    const qualifiedCount = matched.filter(b => (typeof buyerQualState === 'function' ? buyerQualState(b) : 'unknown') === 'qualified').length;
+    // Estimated max buyer price / target assignment price for this deal —
+    // either the user-overridden Packet Price or Cash Flip Max × 1.20 ceiling.
+    const targetPkt = _dispoPacketPrice(u);
+    // Contract price — what we actually signed it for. Reads u.accepted or
+    // data['uw-accepted'] (same field the dispo grid uses).
+    const contractPrice = (function () {
+      const raw = (u.data && u.data['uw-accepted']) || u.accepted || 0;
+      const n = parseFloat(String(raw).replace(/[^0-9.]/g, ''));
+      return (isFinite(n) && n > 0) ? n : 0;
+    })();
+    // Compute the TOP 3 buyer offers for this deal + how many buyers in
+    // total have given an offer. Pulls from localStorage-backed
+    // window._dispoBuyerOffers[dealId] = {buyerId: $}.
+    const offers = (window._dispoBuyerOffers || {})[deal.id] || {};
+    const offerEntries = Object.keys(offers)
+      .map(bid => ({ buyer: (cache.buyers || {})[bid] || null, amount: Number(offers[bid]) || 0 }))
+      .filter(e => e.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+    const offerCount = offerEntries.length;
+    const top3 = offerEntries.slice(0, 3);
+    // Medal color per rank: gold / silver / bronze.
+    const RANK_COLOR = ['#fbbf24', '#e5e7eb', '#d97706'];
+    // Bottom "Top 3 offers" section — single line when it fits, wraps to a
+    // second line if the buyer names would otherwise overflow. NO ellipsis —
+    // names show in full so the user always sees the whole company.
+    const topOfferHtml = top3.length > 0
+      ? '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);display:flex;align-items:flex-start;gap:10px;min-width:0;flex-wrap:wrap">'
+        + '<span style="font-size:10px;color:var(--text-dim);letter-spacing:0.4px;text-transform:uppercase;font-weight:700;flex-shrink:0;line-height:1.6">🏆 Top ' + (top3.length === 1 ? 'Offer' : (top3.length + ' Offers')) + '</span>'
+        + '<div style="display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;flex-wrap:wrap;row-gap:4px">'
+        +   top3.map((e, i) => ''
+            + '<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap">'
+            +   '<span style="color:' + RANK_COLOR[i] + ';font-weight:800">#' + (i + 1) + '</span>'
+            +   '<span style="color:#10b981;font-weight:700;font-variant-numeric:tabular-nums">$' + e.amount.toLocaleString('en-US', { maximumFractionDigits: 0 }) + '</span>'
+            +   (e.buyer ? '<span style="color:var(--text);font-weight:600">' + esc(e.buyer.company || e.buyer.name || '(unknown)') + '</span>' : '')
+            + '</span>').join('<span style="color:var(--text-dim);font-size:11px">·</span>')
+        + '</div>'
+        + '</div>'
+      : '';
+    const offersCountPill = offerCount > 0
+      ? '<span style="padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(16,185,129,0.18);color:#10b981;white-space:nowrap;flex-shrink:0" title="Total buyers that have submitted an offer on this deal">' + offerCount + ' offer' + (offerCount === 1 ? '' : 's') + '</span>'
+      : '';
+    return ''
+      + '<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:10px;cursor:pointer;transition:background 0.12s" '
+      +      'onclick="_dispoOpenDeal(\'' + esc(deal.id) + '\')" '
+      +      'onmouseover="this.style.background=\'rgba(99,102,241,0.06)\'" '
+      +      'onmouseout="this.style.background=\'var(--panel-2)\'" '
+      +      'title="Click to see all qualifying buyers + record offers">'
+      +   '<div style="display:flex;align-items:center;gap:12px;min-width:0">'
+      // Address column — flexes to fill leftover space; pills sit on the right.
+      +     '<div style="flex:1 1 auto;min-width:0">'
+      +       '<div style="font-size:15px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🏠 ' + esc(deal.address || '(no address)') + '</div>'
+      +       (locBits ? '<div style="font-size:11px;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + locBits + '</div>' : '')
+      +     '</div>'
+      // Right-side stack — TWO rows of pills, stacked vertically. Top row =
+      // price chips (Contract + Target), bottom row = offer/match/stage pills.
+      // Address column on the left already takes 2 text lines, so the right
+      // column matches its height without making the card any taller.
+      +     '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'
+      +       '<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">'
+      +         (contractPrice > 0
+                  ? '<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.35);white-space:nowrap" title="What we actually contracted this deal for (uw-accepted).">'
+                    + '<span style="font-size:9px;color:var(--text-dim);font-weight:700;letter-spacing:0.3px">📝 CONTRACT</span>'
+                    + '<span style="font-size:12px;color:#10b981;font-weight:700;font-variant-numeric:tabular-nums">$' + contractPrice.toLocaleString('en-US', { maximumFractionDigits: 0 }) + '</span>'
+                    + '</span>'
+                  : '')
+      +         (targetPkt > 0
+                  ? '<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;background:rgba(165,180,252,0.12);border:1px solid rgba(165,180,252,0.35);white-space:nowrap" title="Est max buyer price = Cash Flip Max × 1.20 rounded UP to next $1k.">'
+                    + '<span style="font-size:9px;color:var(--text-dim);font-weight:700;letter-spacing:0.3px">🎯 TARGET</span>'
+                    + '<span style="font-size:12px;color:#a5b4fc;font-weight:700;font-variant-numeric:tabular-nums">$' + targetPkt.toLocaleString('en-US', { maximumFractionDigits: 0 }) + '</span>'
+                    + '</span>'
+                  : '')
+      +       '</div>'
+      +       '<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">'
+      +         offersCountPill
+      +         '<span style="padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(99,102,241,0.18);color:#a5b4fc;white-space:nowrap" title="Buyers in your rolodex whose zip list contains this property\'s zip">' + matchCount + ' match' + (matchCount === 1 ? '' : 'es') + '</span>'
+      +         (matchCount > 0
+                  ? '<span style="padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(16,185,129,0.18);color:#10b981;white-space:nowrap" title="Of those matches, how many you\'ve flagged ✓ Qualified.">' + qualifiedCount + '/' + matchCount + ' qualified</span>'
+                  : '')
+      +         '<span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:' + stage.bg + ';color:' + stage.color + ';white-space:nowrap">' + esc(stage.label) + '</span>'
+      +         '<span style="color:var(--text-dim);font-size:18px">›</span>'
+      +       '</div>'
+      +     '</div>'
+      +   '</div>'
+      +   topOfferHtml
+      + '</div>';
+  }).join('');
 }
 window.buyerRenderPerDealPanel = buyerRenderPerDealPanel;
 
@@ -25259,14 +26135,261 @@ async function loadBuyers() {
 }
 window.loadBuyers = loadBuyers;
 
+async function loadBuyerPurchases(force) {
+  if (cache.buyerPurchases && !force) return;
+  try {
+    if (typeof fetchAll !== 'function') { cache.buyerPurchases = {}; return; }
+    const rows = await fetchAll('buyer_purchases', '*');
+    const map = {};
+    (rows || []).forEach(p => {
+      if (!p || !p.buyer_id) return;
+      (map[p.buyer_id] = map[p.buyer_id] || []).push(p);
+    });
+    Object.keys(map).forEach(k => {
+      map[k].sort((a, b) => {
+        const da = a.sale_date || a.recording_date || '';
+        const db = b.sale_date || b.recording_date || '';
+        return String(db).localeCompare(String(da));
+      });
+    });
+    cache.buyerPurchases = map;
+  } catch (e) {
+    console.warn('loadBuyerPurchases:', e);
+    cache.buyerPurchases = {};
+  }
+}
+window.loadBuyerPurchases = loadBuyerPurchases;
+
+function getBuyerPurchases(buyerId) {
+  if (!buyerId || !cache.buyerPurchases) return [];
+  return cache.buyerPurchases[buyerId] || [];
+}
+window.getBuyerPurchases = getBuyerPurchases;
+
+// ============================================================
+// DERIVED BUY-BOX — computed from a buyer's purchase history.
+// Used by the Per Deal scoring + future buyer-card stat strip.
+// ============================================================
+// Pure function: returns an object with price/sqft bands, beds/baths
+// ranges, year ranges, property-type set, discount/cash/PML rates,
+// recency, and avg $/sqft. Excludes $0 sale rows (family transfers /
+// seller financing) from all price-derived math.
+function buyerComputeBuyBox(purchases) {
+  const stub = {
+    count: 0,
+    marketCount: 0,
+    lastSaleDate: null,
+    oldestSaleDate: null,
+    monthsSinceLast: null,
+    priceMin: null, priceMax: null, priceMed: null,
+    sqftMin: null,  sqftMax: null,  sqftMed: null,
+    yearMin: null,  yearMax: null,
+    bedsMin: null,  bedsMax: null,
+    bathsMin: null, bathsMax: null,
+    types: [],
+    discountRate: 0, cashRate: 0, pmlRate: 0, corpRate: 0,
+    avgDollarPerSqft: null,
+    avgDiscountOffAVM: null,
+    topLender: null, topSeller: null
+  };
+  if (!Array.isArray(purchases) || purchases.length === 0) return stub;
+  const out = Object.assign({}, stub, { count: purchases.length });
+
+  const market = purchases.filter(p => p && p.sale_amount != null && Number(p.sale_amount) > 0);
+  out.marketCount = market.length;
+
+  const pct = (arr, p) => {
+    if (!arr.length) return null;
+    const s = arr.slice().sort((a, b) => a - b);
+    const idx = (s.length - 1) * p;
+    const lo = Math.floor(idx), hi = Math.ceil(idx);
+    if (lo === hi) return s[lo];
+    return s[lo] + (s[hi] - s[lo]) * (idx - lo);
+  };
+
+  const prices = market.map(p => Number(p.sale_amount)).filter(n => isFinite(n) && n > 0);
+  if (prices.length) {
+    out.priceMin = pct(prices, 0.10);
+    out.priceMax = pct(prices, 0.90);
+    out.priceMed = pct(prices, 0.50);
+  }
+
+  const sqfts = market.map(p => Number(p.sqft)).filter(n => isFinite(n) && n > 0);
+  if (sqfts.length) {
+    out.sqftMin = pct(sqfts, 0.10);
+    out.sqftMax = pct(sqfts, 0.90);
+    out.sqftMed = pct(sqfts, 0.50);
+  }
+
+  const years = market.map(p => Number(p.year_built)).filter(n => isFinite(n) && n > 1800 && n <= 2100);
+  if (years.length) {
+    out.yearMin = pct(years, 0.10);
+    out.yearMax = pct(years, 0.90);
+  }
+
+  const beds  = market.map(p => Number(p.bedrooms)).filter(n => isFinite(n) && n >= 0);
+  if (beds.length)  { out.bedsMin  = Math.min.apply(null, beds);  out.bedsMax  = Math.max.apply(null, beds); }
+
+  const baths = market.map(p => Number(p.bathrooms)).filter(n => isFinite(n) && n >= 0);
+  if (baths.length) { out.bathsMin = Math.min.apply(null, baths); out.bathsMax = Math.max.apply(null, baths); }
+
+  const typeSet = new Set();
+  purchases.forEach(p => {
+    const t = String(p.property_type || '').trim();
+    if (t) typeSet.add(t);
+  });
+  out.types = Array.from(typeSet);
+
+  // Rates over ALL purchases (the flags are valid even for $0 transfers).
+  const flagRate = key => {
+    if (!purchases.length) return 0;
+    let n = 0;
+    purchases.forEach(p => { if (p && p[key]) n++; });
+    return n / purchases.length;
+  };
+  out.discountRate = flagRate('discounted_purchase');
+  out.cashRate     = flagRate('cash_buyer');
+  out.pmlRate      = flagRate('private_lender_used');
+  out.corpRate     = flagRate('corporate_buyer');
+
+  // $/sqft average — only on market rows that have both numbers.
+  const dpsf = market
+    .filter(p => p.sqft != null && Number(p.sqft) > 0)
+    .map(p => Number(p.sale_amount) / Number(p.sqft))
+    .filter(n => isFinite(n) && n > 0);
+  if (dpsf.length) {
+    out.avgDollarPerSqft = dpsf.reduce((a, b) => a + b, 0) / dpsf.length;
+  }
+
+  // Average discount off AVM (estimated_value) — strong wholesale signal.
+  const discRatios = market
+    .filter(p => p.estimated_value != null && Number(p.estimated_value) > 0)
+    .map(p => 1 - (Number(p.sale_amount) / Number(p.estimated_value)))
+    .filter(n => isFinite(n));
+  if (discRatios.length) {
+    out.avgDiscountOffAVM = discRatios.reduce((a, b) => a + b, 0) / discRatios.length;
+  }
+
+  // Dates — sort by sale_date desc.
+  const dates = purchases
+    .map(p => p.sale_date || p.recording_date)
+    .filter(Boolean)
+    .map(d => String(d).slice(0, 10))
+    .sort();
+  if (dates.length) {
+    out.oldestSaleDate = dates[0];
+    out.lastSaleDate   = dates[dates.length - 1];
+    const last = new Date(out.lastSaleDate);
+    if (!isNaN(last.getTime())) {
+      const now = new Date();
+      out.monthsSinceLast = (now.getFullYear() - last.getFullYear()) * 12 + (now.getMonth() - last.getMonth());
+    }
+  }
+
+  // Most-common lender + seller (string identifiers only).
+  const tally = key => {
+    const counts = {};
+    purchases.forEach(p => {
+      const v = String(p[key] || '').trim();
+      if (!v) return;
+      counts[v] = (counts[v] || 0) + 1;
+    });
+    let best = null, n = 0;
+    Object.keys(counts).forEach(k => { if (counts[k] > n) { best = k; n = counts[k]; } });
+    return best ? { name: best, count: n } : null;
+  };
+  out.topLender = tally('lender_name');
+  out.topSeller = tally('seller_name');
+
+  return out;
+}
+window.buyerComputeBuyBox = buyerComputeBuyBox;
+
+// Cached accessor — invalidates whenever the underlying purchase array
+// changes (length changes are the cheap signal we use). The cache is
+// kept on `cache.buyerDerivedBuyBox` keyed by buyer id.
+function getBuyerDerivedBuyBox(buyerId) {
+  if (!buyerId) return null;
+  cache.buyerDerivedBuyBox = cache.buyerDerivedBuyBox || {};
+  const purchases = getBuyerPurchases(buyerId);
+  const sig = purchases.length;
+  const entry = cache.buyerDerivedBuyBox[buyerId];
+  if (entry && entry._sig === sig) return entry;
+  const computed = buyerComputeBuyBox(purchases);
+  computed._sig = sig;
+  cache.buyerDerivedBuyBox[buyerId] = computed;
+  return computed;
+}
+window.getBuyerDerivedBuyBox = getBuyerDerivedBuyBox;
+
+// Haversine distance — miles between two lat/lng points.
+// Returns Infinity if either point is missing.
+function _buyerHaversineMi(lat1, lng1, lat2, lng2) {
+  if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return Infinity;
+  const R = 3958.7613;
+  const toRad = x => x * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat/2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+window._buyerHaversineMi = _buyerHaversineMi;
+
+// Returns the closest purchase to (lat, lng) plus the distance in miles.
+// { purchase, miles } or null if the buyer has no geocoded purchases.
+function buyerNearestPurchase(buyerId, lat, lng) {
+  if (lat == null || lng == null) return null;
+  const purchases = getBuyerPurchases(buyerId);
+  if (!purchases.length) return null;
+  let bestP = null, bestMi = Infinity;
+  for (const p of purchases) {
+    if (p.lat == null || p.lng == null) continue;
+    const mi = _buyerHaversineMi(Number(p.lat), Number(p.lng), Number(lat), Number(lng));
+    if (mi < bestMi) { bestMi = mi; bestP = p; }
+  }
+  if (!bestP) return null;
+  return { purchase: bestP, miles: bestMi };
+}
+window.buyerNearestPurchase = buyerNearestPurchase;
+
+// Toggle/render helpers for the Purchased Addresses block inside the
+// edit-buyer modal. Reuses buyerPurchasesRowHTML() for the row HTML so
+// the modal and (anywhere else we wanted to drop it) stay consistent.
+function buyerModalPurchasesToggle() {
+  const list  = document.getElementById('buyer-add-purchases-list');
+  const arrow = document.getElementById('buyer-add-purchases-arrow');
+  if (!list) return;
+  const isOpen = list.style.display !== 'none';
+  list.style.display = isOpen ? 'none' : '';
+  if (arrow) arrow.textContent = isOpen ? '▸' : '▾';
+}
+window.buyerModalPurchasesToggle = buyerModalPurchasesToggle;
+
+function buyerRenderModalPurchases(buyer) {
+  const list  = document.getElementById('buyer-add-purchases-list');
+  const count = document.getElementById('buyer-add-purchases-count');
+  const arrow = document.getElementById('buyer-add-purchases-arrow');
+  if (!list) return;
+  const purchases = (buyer && typeof getBuyerPurchases === 'function') ? getBuyerPurchases(buyer.id) : [];
+  if (count) count.textContent = '(' + purchases.length + ')';
+  if (typeof buyerPurchasesRowHTML === 'function') {
+    list.innerHTML = buyer ? buyerPurchasesRowHTML(buyer) : '';
+  }
+  // Reset to collapsed on every open so prior open-state never leaks
+  // between buyers.
+  list.style.display = 'none';
+  if (arrow) arrow.textContent = '▸';
+}
+window.buyerRenderModalPurchases = buyerRenderModalPurchases;
+
 function buyerOpenAddModal(editId) {
   const modal = document.getElementById('buyer-add-modal');
   if (!modal) return;
   // Reset every text input so prior Edit state never leaks into a new Add.
   const ids = [
     'buyer-add-company','buyer-add-name','buyer-add-phone','buyer-add-email',
-    'buyer-add-states','buyer-add-price-notes','buyer-add-notes',
-    'buyer-add-cities','buyer-add-counties','buyer-add-zips',
+    'buyer-add-price-notes','buyer-add-notes',
     'buyer-add-acq-count','buyer-add-channels','buyer-add-strategy'
   ];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -25295,11 +26418,10 @@ function buyerOpenAddModal(editId) {
     const stArr = Array.isArray(b.states) ? b.states.slice() : [];
     const legacySt = String(b.state || '').trim().toUpperCase();
     if (legacySt && !stArr.some(s => String(s).toUpperCase() === legacySt)) stArr.unshift(legacySt);
-    setVal('buyer-add-states',      stArr.join(', '));
+    buyerRenderLocChips('states', stArr);
     setVal('buyer-add-price-notes', b.price_notes);
     setVal('buyer-add-notes',       b.notes);
-    // New multi-value fields → render as comma-joined strings (arrays in DB).
-    const asList = v => Array.isArray(v) ? v.join(', ') : (v == null ? '' : String(v));
+    // New multi-value fields → chip grids.
     // Cities now subsumes the legacy single-city column. Merge b.city in front
     // if it isn't already represented in b.cities (case-insensitive).
     const cityArr  = Array.isArray(b.cities) ? b.cities.slice() : [];
@@ -25307,9 +26429,9 @@ function buyerOpenAddModal(editId) {
     if (legacyCi && !cityArr.some(c => String(c).toLowerCase().trim() === legacyCi.toLowerCase())) {
       cityArr.unshift(legacyCi);
     }
-    setVal('buyer-add-cities',      cityArr.join(', '));
-    setVal('buyer-add-counties',    asList(b.counties));
-    setVal('buyer-add-zips',        asList(b.zips));
+    buyerRenderLocChips('cities',   cityArr);
+    buyerRenderLocChips('counties', Array.isArray(b.counties) ? b.counties : []);
+    buyerRenderLocChips('zips',     Array.isArray(b.zips)     ? b.zips     : []);
     buyerRenderLenderChips(Array.isArray(b.lenders) ? b.lenders : []);
     setVal('buyer-add-acq-count',   b.acquisitions_count);
     buyerRenderChannelChips(Array.isArray(b.channels) ? b.channels : []);
@@ -25327,6 +26449,13 @@ function buyerOpenAddModal(editId) {
     if (delBtn)   delBtn.style.display = 'none';
     buyerRenderAliasChips([]);   // Fresh add — wipe any leftover chips.
     buyerRenderLenderChips([]);  // Wipe lender chips too.
+  }
+  // Purchased Addresses block inside the modal — show purchases for the
+  // buyer being edited, or an empty placeholder for fresh-add.
+  if (typeof buyerRenderModalPurchases === 'function') {
+    buyerRenderModalPurchases(
+      (editId && cache.buyers && cache.buyers[editId]) ? cache.buyers[editId] : null
+    );
   }
   modal.style.display = 'flex';
   setTimeout(() => {
@@ -25402,13 +26531,13 @@ async function buyerSaveNew() {
     const messenger = (editRowM && editRowM.messenger) ? editRowM.messenger : '';
     // Aliases come from the chip grid now — collect every non-empty input.
     const aliases   = buyerCollectAliasChips();
-    const cities   = splitTagsList($('buyer-add-cities')?.value);
+    const cities   = buyerCollectLocChips('cities');
     city = cities[0] || '';   // keep legacy b.city in sync
-    const states   = splitTagsList($('buyer-add-states')?.value).map(s => String(s).trim().toUpperCase()).filter(Boolean);
+    const states   = buyerCollectLocChips('states');
     state = states[0] || '';  // keep legacy b.state in sync
     const strategy = splitTagsList($('buyer-add-strategy')?.value);
-    const counties = splitTagsList($('buyer-add-counties')?.value);
-    const zips     = splitTagsList($('buyer-add-zips')?.value);
+    const counties = buyerCollectLocChips('counties');
+    const zips     = buyerCollectLocChips('zips');
     const lenders  = buyerCollectLenderChips();
     const channels = splitTagsList($('buyer-add-channels')?.value);
     // Avg Buy Price field removed from UI; preserve any pre-existing value on the row.
@@ -25437,6 +26566,9 @@ async function buyerSaveNew() {
     if (typeof toast === 'function') toast(editId ? ('Updated ' + name) : ('Added ' + name), 'ok');
     buyerCloseAddModal();
     renderBuyersList();
+    // Per Deal scoring depends on buyer.zips — refresh that panel too so a
+    // newly-added zip surfaces matching properties immediately.
+    if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
   } catch (e) {
     console.warn('buyerSaveNew:', e);
     if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
@@ -25467,10 +26599,110 @@ async function buyerDeleteFromModal() {
 }
 window.buyerDeleteFromModal = buyerDeleteFromModal;
 
+// ============================================================
+// BUYER PURCHASES — dropdown subrow on each buyer card
+// ============================================================
+// State persisted per-buyer in localStorage so expand/collapse sticks
+// between renders + page reloads. Subrow is a separate <tr> directly
+// below the buyer row, colspan=7 across all columns.
+function buyerPurchasesIsOpen(buyerId) {
+  if (!buyerId) return false;
+  try { return localStorage.getItem('labb_buyer_purchases_open_' + buyerId) === '1'; } catch (e) { return false; }
+}
+window.buyerPurchasesIsOpen = buyerPurchasesIsOpen;
+
+function buyerPurchasesToggle(buyerId, ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  const sub = document.getElementById('buyer-purchases-sub-' + buyerId);
+  const arrow = document.getElementById('buyer-purchases-arrow-' + buyerId);
+  if (!sub) return;
+  const isOpen = sub.style.display !== 'none';
+  const next = !isOpen;
+  sub.style.display = next ? '' : 'none';
+  if (arrow) arrow.textContent = next ? '\u25BE' : '\u25B8';
+  try { localStorage.setItem('labb_buyer_purchases_open_' + buyerId, next ? '1' : '0'); } catch (e) {}
+}
+window.buyerPurchasesToggle = buyerPurchasesToggle;
+
+// Render the address list as compact rows inside the subrow.
+// Each row links the address to Google Maps; click bubbles are stopped
+// so we don't accidentally open the buyer edit modal.
+function buyerPurchasesRowHTML(buyer) {
+  const purchases = (typeof getBuyerPurchases === 'function') ? getBuyerPurchases(buyer.id) : [];
+  if (!purchases || purchases.length === 0) {
+    return '<div style="color:var(--text-dim);font-size:12px;padding:10px 6px">No purchases imported yet for this buyer. Import a Buyer Activity CSV from the top \u201CImport\u201D button to add purchase history.</div>';
+  }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtDate = d => {
+    if (!d) return '\u2014';
+    const s = String(d).slice(0, 10);
+    const dt = new Date(s);
+    if (isNaN(dt.getTime())) return s;
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return months[dt.getMonth()] + ' ' + dt.getDate() + ', ' + dt.getFullYear();
+  };
+  const fmtMoney = v => {
+    if (v == null) return '\u2014';
+    const n = Number(v);
+    if (!isFinite(n)) return '\u2014';
+    if (n === 0) return '$0';
+    if (n >= 1000000) return '$' + (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 1000) return '$' + Math.round(n / 1000) + 'k';
+    return '$' + Math.round(n).toLocaleString();
+  };
+  const fmtSqft = v => v == null ? '' : Number(v).toLocaleString() + 'sf';
+  const fmtBedBath = (b, ba) => {
+    if (b == null && ba == null) return '';
+    const cv = x => {
+      if (x == null) return '?';
+      const n = Number(x);
+      return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, '');
+    };
+    return cv(b) + '/' + cv(ba);
+  };
+  const rows = purchases.slice(0, 10).map(p => {
+    const addrFull = [p.address, p.city, p.state, p.zip].filter(Boolean).join(', ');
+    const mapsUrl = 'https://maps.google.com/?q=' + encodeURIComponent(addrFull);
+    const flags = [];
+    if (p.cash_buyer) {
+      flags.push('<span style="color:#fbbf24" title="Cash purchase">\u{1F4B5} Cash</span>');
+    } else if (p.lender_name) {
+      flags.push('<span style="color:#a5b4fc" title="Lender">\u{1F3E6} ' + esc(p.lender_name) + '</span>');
+    } else if (p.private_lender_used) {
+      flags.push('<span style="color:#a5b4fc" title="Private Lender Used">\u{1F4B0} PML</span>');
+    }
+    if (p.discounted_purchase) flags.push('<span style="color:#34d399" title="Discounted purchase">\u2713 Disc</span>');
+    if (p.geocode_status === 'failed') flags.push('<span style="color:#f87171" title="Address could not be geocoded">\u26A0 geo</span>');
+    if (p.geocode_status === 'pending') flags.push('<span style="color:#fbbf24" title="Geocoding in progress">\u{1F30D} pending</span>');
+    const isZero = (p.sale_amount == null || Number(p.sale_amount) === 0);
+    const priceCell = isZero
+      ? '<span style="color:var(--text-dim)" title="$0 \u2014 likely seller financing or family transfer, excluded from market math">\u{1F3E0} non-market</span>'
+      : fmtMoney(p.sale_amount);
+    const addrLabel = esc(p.address) + (p.zip ? ' ' + esc(p.zip) : (p.city ? ', ' + esc(p.city) : ''));
+    return '<div style="display:flex;flex-wrap:wrap;gap:10px;padding:6px 10px;border-bottom:1px dashed var(--border);align-items:baseline;font-size:12px">'
+      + '<span style="color:var(--text-dim);min-width:96px">' + esc(fmtDate(p.sale_date || p.recording_date)) + '</span>'
+      + '<a href="' + mapsUrl + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--text);text-decoration:underline;text-decoration-color:rgba(165,180,252,0.3);min-width:220px" title="Open in Google Maps">' + addrLabel + '</a>'
+      + '<span style="color:var(--text);font-weight:600;min-width:80px">' + priceCell + '</span>'
+      + (p.sqft ? '<span style="color:var(--text-dim);min-width:60px">' + esc(fmtSqft(p.sqft)) + '</span>' : '')
+      + ((p.bedrooms != null || p.bathrooms != null) ? '<span style="color:var(--text-dim);min-width:40px">' + esc(fmtBedBath(p.bedrooms, p.bathrooms)) + '</span>' : '')
+      + (p.property_type ? '<span style="color:var(--text-dim);min-width:90px">' + esc(p.property_type) + '</span>' : '')
+      + (flags.length ? '<span style="margin-left:auto;display:flex;gap:8px;align-items:baseline">' + flags.join(' ') + '</span>' : '')
+      + '</div>';
+  }).join('');
+  const more = purchases.length > 10
+    ? '<div style="text-align:center;color:var(--text-dim);font-size:11px;padding:8px">+ ' + (purchases.length - 10) + ' more purchases not shown</div>'
+    : '';
+  return '<div style="background:rgba(99,102,241,0.04);border-radius:8px;padding:2px 0">' + rows + more + '</div>';
+}
+window.buyerPurchasesRowHTML = buyerPurchasesRowHTML;
+
 function renderBuyersList() {
   if (!cache.buyers) {
     loadBuyers().then(() => renderBuyersList());
     return;
+  }
+  if (!cache.buyerPurchases && typeof loadBuyerPurchases === 'function') {
+    Promise.resolve(loadBuyerPurchases()).then(() => renderBuyersList()).catch(() => {});
   }
   // Refresh dispo subtab badges every time the buyer list rerenders — covers
   // qualification changes, new imports, deletes, etc.
@@ -26125,6 +27357,72 @@ function buyerCollectAliasChips() {
 window.buyerCollectAliasChips = buyerCollectAliasChips;
 
 // ============================================================
+// BUYERS — Location chip grids (States / Cities / Counties / Zips)
+// ============================================================
+// Same UX as the alias chips, with per-kind placeholder + input formatting.
+// Each kind has its own grid (#buyer-add-{kind}-grid) and chip class
+// .{kind}-chip-input so the collector knows which set to read.
+const _BUYER_LOC_META = {
+  states:   { placeholder: 'e.g. IN',          upper: true,  maxLen: 2,  add: '+ Add State' },
+  cities:   { placeholder: 'e.g. Evansville',  upper: false, maxLen: 60, add: '+ Add City' },
+  counties: { placeholder: 'e.g. Vanderburgh', upper: false, maxLen: 60, add: '+ Add County' },
+  zips:     { placeholder: 'e.g. 47711',       upper: false, maxLen: 10, add: '+ Add Zip' }
+};
+function buyerLocChipHTML(kind, value, idx) {
+  const meta = _BUYER_LOC_META[kind] || {};
+  const safe = String(value == null ? '' : value).replace(/"/g, '&quot;');
+  const upperStyle = meta.upper ? ';text-transform:uppercase;letter-spacing:1px' : '';
+  const upperHandler = meta.upper ? "this.value=this.value.toUpperCase();" : '';
+  return '<div class="' + kind + '-chip" style="display:flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--panel-2)">'
+    + '<input type="text" class="' + kind + '-chip-input" data-idx="' + idx + '" value="' + safe + '" placeholder="' + meta.placeholder + '" maxlength="' + (meta.maxLen || 60) + '" oninput="' + upperHandler + '" style="flex:1;min-width:0;height:36px;padding:0 10px;background:transparent;border:none;color:var(--text);font-size:13px;outline:none' + upperStyle + '">'
+    + '<button type="button" onclick="buyerRemoveLocChip(this, \'' + kind + '\')" title="Remove" style="height:36px;padding:0 10px;background:transparent;border:none;border-left:1px solid var(--border);color:#f87171;cursor:pointer;font-size:14px;font-weight:600">×</button>'
+    + '</div>';
+}
+window.buyerLocChipHTML = buyerLocChipHTML;
+function buyerRenderLocChips(kind, values) {
+  const grid = document.getElementById('buyer-add-' + kind + '-grid');
+  if (!grid) return;
+  const arr = Array.isArray(values) ? values.filter(v => v != null) : [];
+  const list = arr.length ? arr : [''];  // always show at least one empty chip
+  grid.innerHTML = list.map((v, i) => buyerLocChipHTML(kind, v, i)).join('');
+}
+window.buyerRenderLocChips = buyerRenderLocChips;
+function buyerAddLocChip(kind) {
+  const grid = document.getElementById('buyer-add-' + kind + '-grid');
+  if (!grid) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = buyerLocChipHTML(kind, '', grid.children.length);
+  const chip = wrap.firstElementChild;
+  grid.appendChild(chip);
+  const input = chip.querySelector('.' + kind + '-chip-input');
+  if (input) input.focus();
+}
+window.buyerAddLocChip = buyerAddLocChip;
+function buyerRemoveLocChip(btn, kind) {
+  const chip = btn && btn.closest('.' + kind + '-chip');
+  if (!chip) return;
+  chip.remove();
+  const grid = document.getElementById('buyer-add-' + kind + '-grid');
+  if (grid && grid.children.length === 0) buyerRenderLocChips(kind, []);
+}
+window.buyerRemoveLocChip = buyerRemoveLocChip;
+function buyerCollectLocChips(kind) {
+  const inputs = document.querySelectorAll('#buyer-add-' + kind + '-grid .' + kind + '-chip-input');
+  const seen = new Set(); const out = [];
+  inputs.forEach(el => {
+    let v = String(el.value || '').trim();
+    if (!v) return;
+    if (kind === 'states') v = v.toUpperCase();
+    const k = v.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push(v);
+  });
+  return out;
+}
+window.buyerCollectLocChips = buyerCollectLocChips;
+
+// ============================================================
 // BUYERS — Lender chip grid (lender name + loan type)
 // ============================================================
 // Same UX pattern as the alias chips, but each chip has TWO inputs: the
@@ -26272,6 +27570,111 @@ const BUYER_IMPORT_TARGETS = [
   { key: 'acquisitions_count', label: 'Acquisitions Count' }
 ];
 
+const BUYER_PURCHASE_IMPORT_TARGETS = [
+  { key: 'skip',                 label: '— Skip —' },
+  { key: 'buyer_name',           label: 'Buyer Name (matches/creates a buyer)' },
+  { key: 'lender_name',          label: 'Lender Name' },
+  { key: 'address',              label: 'Property Address' },
+  { key: 'city',                 label: 'City' },
+  { key: 'state',                label: 'State' },
+  { key: 'zip',                  label: 'ZIP Code' },
+  { key: 'sqft',                 label: 'Building Sqft' },
+  { key: 'year_built',           label: 'Year Built' },
+  { key: 'estimated_value',      label: 'Estimated Home Value' },
+  { key: 'sale_amount',          label: 'Sale Amount' },
+  { key: 'sale_date',            label: 'Sale Date' },
+  { key: 'recording_date',       label: 'Recording Date' },
+  { key: 'seller_name',          label: 'Seller Name' },
+  { key: 'corporate_buyer',      label: 'Corporate Buyer (1/0)' },
+  { key: 'discounted_purchase',  label: 'Discounted Purchase (1/0)' },
+  { key: 'cash_buyer',           label: 'Cash Buyer (1/0)' },
+  { key: 'private_lender_used',  label: 'Private Lender Used (1/0)' },
+  { key: 'bedrooms',             label: 'Bedrooms' },
+  { key: 'bathrooms',            label: 'Bathrooms' },
+  { key: 'property_type',        label: 'Property Type' }
+];
+
+function buyerDetectImportShape(headers) {
+  const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const set = new Set((headers || []).map(norm).filter(Boolean));
+  const hasAddress = set.has('address') || set.has('propertyaddress') || set.has('streetaddress') || set.has('siteaddress');
+  const hasSale    = set.has('saleamount') || set.has('saledate') || set.has('salesamount') || set.has('salesdate') || set.has('saleprice') || set.has('recordingdate');
+  const hasBuyer   = set.has('buyername') || set.has('buyer') || set.has('buyercompanyname') || set.has('purchaser') || set.has('purchasername');
+  return (hasAddress && hasSale && hasBuyer) ? 'purchase' : 'buyer';
+}
+window.buyerDetectImportShape = buyerDetectImportShape;
+
+function buyerAutoDetectPurchaseMapping(headers) {
+  const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const HARD_SKIP = new Set(['sort','sort2','sort3','sortorder','sortid','rowid','rownumber','row','id']);
+
+  const exactRules = [
+    { key: 'buyer_name',          exact: ['buyername','buyer','buyercompanyname','purchaser','purchasername','grantee','granteename'] },
+    { key: 'lender_name',         exact: ['lender','lendername','lendingbank','mortgagee','mortgagecompany','beneficiary'] },
+    { key: 'address',             exact: ['address','propertyaddress','streetaddress','siteaddress','street','propertystreet','addr'] },
+    { key: 'city',                exact: ['city','propertycity','sitecity','town'] },
+    { key: 'state',               exact: ['state','propertystate','sitestate','st','stateabbr'] },
+    { key: 'zip',                 exact: ['zip','zipcode','postalcode','propertyzip','sitezip','zipcd','postal'] },
+    { key: 'sqft',                exact: ['sqft','squarefeet','buildingsqft','buildingsize','sumbuildingsqft','livingarea','livingsqft','grosslivingarea','gla','heatedsqft','finishedarea'] },
+    { key: 'year_built',          exact: ['yearbuilt','yrbuilt','builtyear','yearbuilttotal','constructionyear'] },
+    { key: 'estimated_value',     exact: ['estimatedhomevalue','estvalue','estimatedvalue','avmvalue','marketvalue','assessedvalue','zestimate','redfinestimate','autovaluation'] },
+    { key: 'sale_amount',         exact: ['saleamount','salesamount','saleprice','salesprice','salepriceamount','soldprice','soldamount','transferamount','consideration'] },
+    { key: 'sale_date',           exact: ['saledate','salesdate','closingdate','closedate','transferdate','transactiondate'] },
+    { key: 'recording_date',      exact: ['recordingdate','recordeddate','recorddate','filingdate'] },
+    { key: 'seller_name',         exact: ['sellername','seller','grantor','grantorname','vendor'] },
+    { key: 'corporate_buyer',     exact: ['corporatebuyer','iscorporatebuyer','corpbuyer'] },
+    { key: 'discounted_purchase', exact: ['discountedpurchase','isdiscounted','discountedsale','distressedsale'] },
+    { key: 'cash_buyer',          exact: ['cashbuyer','iscash','allcash','cashpurchase','cash'] },
+    { key: 'private_lender_used', exact: ['privatelenderused','privatelender','pml','usedprivatelender'] },
+    { key: 'bedrooms',            exact: ['bedrooms','beds','br','bedroomcount','bedroomtotal'] },
+    { key: 'bathrooms',           exact: ['bathrooms','baths','ba','bathroomcount','bathroomtotal','fullbaths','totalbaths'] },
+    { key: 'property_type',       exact: ['propertytype','proptype','type','propertyclass','useclass','landuse'] }
+  ];
+
+  const safeContains = [
+    { key: 'buyer_name',          tokens: ['buyername','purchasername'] },
+    { key: 'lender_name',         tokens: ['lendername','mortgagecompany'] },
+    { key: 'address',             tokens: ['streetaddress','propertyaddress','siteaddress'] },
+    { key: 'zip',                 tokens: ['zipcode','postalcode'] },
+    { key: 'sqft',                tokens: ['buildingsqft','livingarea','livingsqft','heatedsqft'] },
+    { key: 'year_built',          tokens: ['yearbuilt'] },
+    { key: 'estimated_value',     tokens: ['estimatedvalue','marketvalue','avmvalue'] },
+    { key: 'sale_amount',         tokens: ['saleamount','saleprice','salesamount','salesprice'] },
+    { key: 'sale_date',           tokens: ['saledate','salesdate','closingdate'] },
+    { key: 'recording_date',      tokens: ['recordingdate','recordeddate'] },
+    { key: 'seller_name',         tokens: ['sellername','grantorname'] },
+    { key: 'property_type',       tokens: ['propertytype','propertyclass'] }
+  ];
+
+  const out = {};
+  const usedKeys = new Set();
+  const multiKeys = new Set();
+
+  headers.forEach((h, idx) => {
+    const n = norm(h);
+    if (!n || HARD_SKIP.has(n)) { out[idx] = 'skip'; return; }
+    let pick = 'skip';
+    for (const r of exactRules) {
+      if (usedKeys.has(r.key) && !multiKeys.has(r.key)) continue;
+      if (r.exact.includes(n)) { pick = r.key; if (!multiKeys.has(r.key)) usedKeys.add(r.key); break; }
+    }
+    out[idx] = pick;
+  });
+
+  headers.forEach((h, idx) => {
+    if (out[idx] !== 'skip') return;
+    const n = norm(h);
+    if (!n || HARD_SKIP.has(n)) return;
+    for (const r of safeContains) {
+      if (usedKeys.has(r.key) && !multiKeys.has(r.key)) continue;
+      if (r.tokens.some(t => n.includes(t))) { out[idx] = r.key; if (!multiKeys.has(r.key)) usedKeys.add(r.key); break; }
+    }
+  });
+
+  return out;
+}
+window.buyerAutoDetectPurchaseMapping = buyerAutoDetectPurchaseMapping;
+
 function buyerOpenImportModal() {
   const m = document.getElementById('buyer-import-modal');
   if (!m) return;
@@ -26309,10 +27712,16 @@ async function buyerHandleImportFile(evt) {
     });
     // Drop entirely-blank rows.
     const cleanRows = (rows || []).filter(r => Array.isArray(r) && r.some(c => String(c == null ? '' : c).trim() !== ''));
+    const shape = (typeof buyerDetectImportShape === 'function')
+      ? buyerDetectImportShape(cleanHeaders)
+      : 'buyer';
     window._buyerImportState.headers = cleanHeaders;
     window._buyerImportState.rows    = cleanRows;
     window._buyerImportState.fileName = file.name;
-    window._buyerImportState.mapping = buyerAutoDetectMapping(cleanHeaders);
+    window._buyerImportState.shape   = shape;
+    window._buyerImportState.mapping = (shape === 'purchase')
+      ? buyerAutoDetectPurchaseMapping(cleanHeaders)
+      : buyerAutoDetectMapping(cleanHeaders);
     buyerRenderImportMapping();
   } catch (e) {
     console.warn('buyerHandleImportFile:', e);
@@ -26423,11 +27832,46 @@ function buyerRenderImportMapping() {
   if (body)  body.style.display  = '';
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+  const shape = st.shape || 'buyer';
+  const TARGETS = (shape === 'purchase')
+    ? (typeof BUYER_PURCHASE_IMPORT_TARGETS !== 'undefined' ? BUYER_PURCHASE_IMPORT_TARGETS : BUYER_IMPORT_TARGETS)
+    : BUYER_IMPORT_TARGETS;
+  if (body) {
+    Array.from(body.children).forEach(child => {
+      if (child.id !== 'buyer-import-shape-banner' && child.style && child.style.cssText && child.style.cssText.indexOf('Apply to every') === -1) {
+        // no-op: kept for future targeted toggles
+      }
+    });
+    const bulkPanel = body.querySelector('[id^="buyer-import-bulk-"]');
+    const bulkContainer = bulkPanel ? bulkPanel.closest('div[style*="background:var(--panel-2)"]') : null;
+    if (bulkContainer) bulkContainer.style.display = (shape === 'purchase') ? 'none' : '';
+  }
+  let banner = document.getElementById('buyer-import-shape-banner');
+  if (!banner && body) {
+    banner = document.createElement('div');
+    banner.id = 'buyer-import-shape-banner';
+    banner.style.cssText = 'padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px';
+    body.insertBefore(banner, body.firstElementChild);
+  }
+  if (banner) {
+    if (shape === 'purchase') {
+      banner.style.background = 'rgba(99,102,241,0.12)';
+      banner.style.border     = '1px solid rgba(99,102,241,0.5)';
+      banner.style.color      = '#a5b4fc';
+      banner.innerHTML = '\u{1F4CA} <span>Detected <b>Buyer Activity</b> CSV \u2014 each row will be saved as a purchase under the matched buyer. Addresses geocode automatically via your existing Google API key.</span>';
+    } else {
+      banner.style.background = 'rgba(16,185,129,0.10)';
+      banner.style.border     = '1px solid rgba(16,185,129,0.4)';
+      banner.style.color      = '#34d399';
+      banner.innerHTML = '\u{1F465} <span>Detected <b>Buyer List</b> CSV \u2014 each row will create or merge into a buyer record.</span>';
+    }
+  }
+
   // Mapping rows
   tbody.innerHTML = st.headers.map((h, idx) => {
     const samples = st.rows.slice(0, 5).map(r => String(r[idx] == null ? '' : r[idx]).trim()).filter(Boolean).slice(0, 3);
-    const sampleStr = samples.length ? samples.map(s => esc(s.length > 40 ? s.slice(0, 38) + '…' : s)).join(' · ') : '<span style="color:var(--text-dim)">(empty)</span>';
-    const opts = BUYER_IMPORT_TARGETS.map(t => `<option value="${t.key}"${st.mapping[idx] === t.key ? ' selected' : ''}>${esc(t.label)}</option>`).join('');
+    const sampleStr = samples.length ? samples.map(s => esc(s.length > 40 ? s.slice(0, 38) + '\u2026' : s)).join(' \u00b7 ') : '<span style="color:var(--text-dim)">(empty)</span>';
+    const opts = TARGETS.map(t => `<option value="${t.key}"${st.mapping[idx] === t.key ? ' selected' : ''}>${esc(t.label)}</option>`).join('');
     return `<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:6px 10px;font-weight:600">${esc(h)}</td>
       <td style="padding:6px 10px"><select onchange="buyerSetMapping(${idx}, this.value)" style="width:100%;height:30px;font-size:12px;padding:0 6px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;color:var(--text)">${opts}</select></td>
@@ -26463,6 +27907,9 @@ async function buyerDoImport() {
   if (typeof sb === 'undefined' || !sb) {
     if (typeof toast === 'function') toast('Supabase not ready.', 'err');
     return;
+  }
+  if (st.shape === 'purchase' && typeof _buyerDoImportPurchases === 'function') {
+    return _buyerDoImportPurchases();
   }
   const btn = document.getElementById('buyer-import-run-btn');
   let prevLabel = '';
@@ -26672,6 +28119,8 @@ async function buyerDoImport() {
   }
   buyerCloseImportModal();
   if (typeof renderBuyersList === 'function') renderBuyersList();
+  // Per Deal scoring depends on buyer zip lists — refresh after bulk import.
+  if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
   // Reveal the Undo Import button. Stays visible until the user clicks it OR
   // runs another import (in which case it points at the newer batch).
   const undoBtn = document.getElementById('buyers-undo-import-btn');
@@ -26716,6 +28165,318 @@ async function buyerUndoLastImport() {
 }
 window.buyerUndoLastImport = buyerUndoLastImport;
 window.buyerDoImport = buyerDoImport;
+
+// PURCHASE IMPORT — handles a Buyer Activity CSV (one row per closed transaction)
+async function _buyerDoImportPurchases() {
+  const st = window._buyerImportState;
+  if (!st || !Array.isArray(st.rows) || st.rows.length === 0) return;
+  if (typeof sb === 'undefined' || !sb) {
+    if (typeof toast === 'function') toast('Supabase not ready.', 'err');
+    return;
+  }
+  const btn = document.getElementById('buyer-import-run-btn');
+  let prevLabel = '';
+  if (btn) { prevLabel = btn.innerHTML; btn.disabled = true; btn.innerHTML = '\u23F3 Importing purchases\u2026'; }
+
+  if (!cache.buyers && typeof loadBuyers === 'function') {
+    try { await loadBuyers(); } catch (e) {}
+  }
+  cache.buyers = cache.buyers || {};
+
+  const byNorm = {};
+  Object.values(cache.buyers).forEach(b => {
+    const primary = companyNorm(b.company || b.name);
+    if (primary) byNorm[primary] = b;
+    if (Array.isArray(b.aliases)) {
+      b.aliases.forEach(a => {
+        const k = companyNorm(a);
+        if (k) byNorm[k] = b;
+      });
+    }
+  });
+
+  const colFor = {};
+  Object.keys(st.mapping).forEach(idxStr => {
+    const idx = parseInt(idxStr, 10);
+    const key = st.mapping[idxStr];
+    if (key && key !== 'skip') colFor[key] = idx;
+  });
+
+  if (colFor.buyer_name == null) {
+    if (typeof toast === 'function') toast('Need a Buyer Name column to import purchases.', 'err');
+    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '\u{1F4E5} Import'; }
+    return;
+  }
+  if (colFor.address == null) {
+    if (typeof toast === 'function') toast('Need a Property Address column to import purchases.', 'err');
+    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '\u{1F4E5} Import'; }
+    return;
+  }
+
+  const batchId = 'pimp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  window._buyersLastPurchaseImportBatch = batchId;
+
+  const cell = (r, key) => {
+    const idx = colFor[key];
+    if (idx == null) return '';
+    return String(r[idx] == null ? '' : r[idx]).trim();
+  };
+  const toBool = v => {
+    const s = String(v || '').trim().toLowerCase();
+    return s === '1' || s === 'true' || s === 'yes' || s === 'y' || s === 't';
+  };
+  const toNum = v => {
+    if (v == null || v === '') return null;
+    const n = parseFloat(String(v).replace(/[$,\s]/g, ''));
+    return isNaN(n) ? null : n;
+  };
+  const toInt = v => {
+    const n = toNum(v);
+    return n == null ? null : Math.round(n);
+  };
+  const toDate = v => {
+    if (!v) return null;
+    const s = String(v).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + day;
+    }
+    return null;
+  };
+
+  let buyersCreated = 0, purchasesInserted = 0, purchasesUpdated = 0, skipped = 0;
+  const errors = [];
+  const geocodeQueue = [];
+
+  for (let ri = 0; ri < st.rows.length; ri++) {
+    const r = st.rows[ri];
+    if (!Array.isArray(r)) { skipped++; continue; }
+    const buyerName = cell(r, 'buyer_name');
+    const address   = cell(r, 'address');
+    if (!buyerName || !address) { skipped++; continue; }
+
+    try {
+      const cnorm = companyNorm(buyerName);
+      let buyer = cnorm ? byNorm[cnorm] : null;
+      if (!buyer) {
+        const payload = {
+          name: buyerName,
+          company: buyerName,
+          company_norm: cnorm,
+          updated_at: new Date().toISOString(),
+          import_batch_id: batchId
+        };
+        const { data, error } = await sb.from('buyers').insert(payload).select().single();
+        if (error) throw error;
+        if (data && data.id) {
+          cache.buyers[data.id] = data;
+          byNorm[cnorm] = data;
+          buyer = data;
+          buyersCreated++;
+        }
+      }
+      if (!buyer || !buyer.id) { skipped++; continue; }
+
+      const sale_date      = toDate(cell(r, 'sale_date'));
+      const recording_date = toDate(cell(r, 'recording_date'));
+      const purchase = {
+        buyer_id:            buyer.id,
+        recording_date:      recording_date,
+        sale_date:           sale_date,
+        address:             address,
+        city:                cell(r, 'city') || null,
+        state:               (cell(r, 'state') || '').toUpperCase().slice(0, 2) || null,
+        zip:                 cell(r, 'zip') || null,
+        sqft:                toInt(cell(r, 'sqft')),
+        year_built:          toInt(cell(r, 'year_built')),
+        bedrooms:            toNum(cell(r, 'bedrooms')),
+        bathrooms:           toNum(cell(r, 'bathrooms')),
+        property_type:       cell(r, 'property_type') || null,
+        sale_amount:         toNum(cell(r, 'sale_amount')),
+        estimated_value:     toNum(cell(r, 'estimated_value')),
+        lender_name:         cell(r, 'lender_name') || null,
+        seller_name:         cell(r, 'seller_name') || null,
+        corporate_buyer:     toBool(cell(r, 'corporate_buyer')),
+        discounted_purchase: toBool(cell(r, 'discounted_purchase')),
+        cash_buyer:          toBool(cell(r, 'cash_buyer')),
+        private_lender_used: toBool(cell(r, 'private_lender_used')),
+        geocode_status:      'pending',
+        source_batch_id:     batchId,
+        imported_at:         new Date().toISOString()
+      };
+
+      const { data, error } = await sb
+        .from('buyer_purchases')
+        .upsert(purchase, { onConflict: 'buyer_id,address,sale_date', ignoreDuplicates: false })
+        .select()
+        .single();
+      if (error) throw error;
+      if (data) {
+        cache.buyerPurchases = cache.buyerPurchases || {};
+        cache.buyerPurchases[buyer.id] = cache.buyerPurchases[buyer.id] || [];
+        const arr = cache.buyerPurchases[buyer.id];
+        const existing = arr.findIndex(p => p.id === data.id);
+        if (existing >= 0) { arr[existing] = data; purchasesUpdated++; }
+        else { arr.unshift(data); purchasesInserted++; }
+        if (data.lat == null || data.lng == null) {
+          geocodeQueue.push({ id: data.id, address: data.address, city: data.city || '', state: data.state || '', zip: data.zip || '' });
+        }
+        // Immediately fold the purchase's CSV-provided city / state / zip into
+        // the buyer's chip lists. Geocoding will refine these later (and add
+        // county) but this gives the user instant visual feedback.
+        if (typeof _buyerMergeLocationIntoBuyer === 'function') {
+          _buyerMergeLocationIntoBuyer(buyer.id, {
+            city:   data.city  || '',
+            state:  data.state || '',
+            zip:    data.zip   || '',
+            county: ''
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn('_buyerDoImportPurchases row', ri, e);
+      errors.push('Row ' + (ri + 1) + ': ' + (e.message || e));
+      skipped++;
+    }
+  }
+
+  if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '\u{1F4E5} Import'; }
+
+  if (cache.buyerPurchases) {
+    Object.keys(cache.buyerPurchases).forEach(k => {
+      cache.buyerPurchases[k].sort((a, b) => {
+        const da = a.sale_date || a.recording_date || '';
+        const db = b.sale_date || b.recording_date || '';
+        return String(db).localeCompare(String(da));
+      });
+    });
+  }
+
+  const parts = [];
+  if (buyersCreated)     parts.push(buyersCreated + ' new buyers');
+  if (purchasesInserted) parts.push(purchasesInserted + ' purchases added');
+  if (purchasesUpdated)  parts.push(purchasesUpdated + ' updated');
+  if (skipped)           parts.push(skipped + ' skipped');
+  if (typeof toast === 'function') {
+    if (errors.length) {
+      const uniq = Array.from(new Set(errors.map(e => e.replace(/^Row \d+: /, '')))).slice(0, 3);
+      toast(parts.join(' \u00b7 ') + ' \u2014 errors: ' + uniq.join(' / '), 'warn');
+    } else {
+      toast(parts.join(' \u00b7 ') || 'Nothing imported', parts.length ? 'ok' : 'warn');
+    }
+  }
+
+  if (typeof buyerCloseImportModal === 'function') buyerCloseImportModal();
+  if (typeof renderBuyersList === 'function') renderBuyersList();
+  if (typeof buyerRenderPerDealPanel === 'function') {
+    try { buyerRenderPerDealPanel(); } catch (e) {}
+  }
+
+  if (geocodeQueue.length && typeof geocodeAddress === 'function') {
+    _buyerGeocodePurchaseQueue(geocodeQueue).catch(e => console.warn('[purchase geocode]', e));
+  }
+}
+window._buyerDoImportPurchases = _buyerDoImportPurchases;
+
+// Add a purchase's city / state / zip / county to the matched buyer's
+// chip lists. Additive only — never removes anything. Case-insensitive
+// dedup via unionTags so re-imports + repeat geocodes don't duplicate.
+// Per buyer: each buyer's lists are updated only from THEIR purchases.
+async function _buyerMergeLocationIntoBuyer(buyerId, loc) {
+  if (!buyerId || !loc) return false;
+  if (typeof sb === 'undefined' || !sb) return false;
+  if (!cache.buyers || !cache.buyers[buyerId]) return false;
+  const b = cache.buyers[buyerId];
+  const city   = String(loc.city   || '').trim();
+  const state  = String(loc.state  || '').trim().toUpperCase().slice(0, 2);
+  const zip    = String(loc.zip    || '').trim();
+  const county = String(loc.county || '').trim();
+  if (!city && !state && !zip && !county) return false;
+
+  const tag = (v) => v ? [v] : [];
+  // unionTags is already defined in this file (used by the buyer-list importer).
+  const newCities   = (typeof unionTags === 'function') ? unionTags(b.cities   || [], tag(city))   : (b.cities   || []);
+  const newStates   = (typeof unionTags === 'function') ? unionTags(b.states   || [], tag(state))  : (b.states   || []);
+  const newZips     = (typeof unionTags === 'function') ? unionTags(b.zips     || [], tag(zip))    : (b.zips     || []);
+  const newCounties = (typeof unionTags === 'function') ? unionTags(b.counties || [], tag(county)) : (b.counties || []);
+
+  // Detect actual change so we only hit Supabase when something is new.
+  const same = (a, x) => Array.isArray(a) && a.length === x.length && a.every((v, i) => String(v).toLowerCase() === String(x[i]).toLowerCase());
+  const patch = {};
+  if (!same(b.cities,   newCities))   patch.cities   = newCities;
+  if (!same(b.states,   newStates))   patch.states   = newStates;
+  if (!same(b.zips,     newZips))     patch.zips     = newZips;
+  if (!same(b.counties, newCounties)) patch.counties = newCounties;
+  if (Object.keys(patch).length === 0) return false;
+  patch.updated_at = new Date().toISOString();
+
+  try {
+    const { data, error } = await sb.from('buyers').update(patch).eq('id', buyerId).select().single();
+    if (error) throw error;
+    if (data) cache.buyers[buyerId] = data;
+    return true;
+  } catch (e) {
+    console.warn('[_buyerMergeLocationIntoBuyer]', e);
+    return false;
+  }
+}
+window._buyerMergeLocationIntoBuyer = _buyerMergeLocationIntoBuyer;
+
+async function _buyerGeocodePurchaseQueue(queue) {
+  if (!Array.isArray(queue) || queue.length === 0) return;
+  if (typeof sb === 'undefined' || !sb) return;
+  if (typeof geocodeAddress !== 'function') return;
+  // Pre-approve the whole batch with ONE confirmation. Without this, the
+  // geocode protection toggle prompts for each address individually.
+  if (typeof geoSettings !== 'undefined' && typeof geoSettings.requestApproval === 'function') {
+    if (!geoSettings.requestApproval(queue.length)) {
+      if (typeof toast === 'function') toast('Geocoding cancelled — ' + queue.length + ' addresses left unmapped. Open the 🌍 badge to re-run.', 'warn');
+      return;
+    }
+  }
+  let ok = 0, fail = 0;
+  for (const job of queue) {
+    try {
+      const res = await geocodeAddress(job.address, job.city, job.state, job.zip);
+      if (res && res.geocode_status === 'ok' && typeof res.lat === 'number' && typeof res.lng === 'number') {
+        const patch = { lat: res.lat, lng: res.lng, geocode_status: 'ok', geocode_at: new Date().toISOString() };
+        const { data, error } = await sb.from('buyer_purchases').update(patch).eq('id', job.id).select().single();
+        if (!error && data) {
+          const arr = (cache.buyerPurchases && cache.buyerPurchases[data.buyer_id]) || [];
+          const i = arr.findIndex(p => p.id === data.id);
+          if (i >= 0) arr[i] = data;
+          ok++;
+          // Now that we have CANONICAL city / state / zip / county from Google,
+          // fold them into the buyer's chip lists. County is the new contribution
+          // here (CSV imports usually don't have it).
+          if (typeof _buyerMergeLocationIntoBuyer === 'function') {
+            _buyerMergeLocationIntoBuyer(data.buyer_id, {
+              city:   res.city   || data.city  || '',
+              state:  res.state  || data.state || '',
+              zip:    res.zip    || data.zip   || '',
+              county: res.county || ''
+            }).catch(() => {});
+          }
+        }
+      } else {
+        await sb.from('buyer_purchases').update({ geocode_status: 'failed', geocode_at: new Date().toISOString() }).eq('id', job.id);
+        fail++;
+      }
+    } catch (e) {
+      fail++;
+      try { await sb.from('buyer_purchases').update({ geocode_status: 'failed', geocode_at: new Date().toISOString() }).eq('id', job.id); } catch (_) {}
+    }
+  }
+  if (typeof toast === 'function' && (ok || fail)) {
+    toast('Geocode complete \u2014 ' + ok + ' ok \u00b7 ' + fail + ' failed', fail ? 'warn' : 'ok');
+  }
+  if (typeof renderBuyersList === 'function') renderBuyersList();
+}
+window._buyerGeocodePurchaseQueue = _buyerGeocodePurchaseQueue;
 
 function renderUnderwriteList() {
   // Lazy-load on first visit to either list view
@@ -28590,19 +30351,42 @@ function goSection(s) {
   if (s === "dispositions") {
     // Default to Recently Added on first land (or restore last view if set).
     if (typeof setDispoView === 'function') setDispoView(_dispoActiveView || 'new-contract');
-    // Eagerly load the data the subtab badges depend on so they can flip from
-    // "—" to a real number (including 0) without waiting for the user to click
-    // each subtab. setDispoView already kicks loadBuyers on its async paths,
-    // but we trigger it here explicitly so the badges populate even when the
-    // user landed on a contracts subview (which doesn't pull buyers).
+    // Eagerly load the data the subtab badges + Per Deal panel depend on so
+    // they populate without waiting for the user to click each subtab. Each
+    // load resolves into a count refresh AND a Per Deal re-render (when that
+    // view is active) so late-arriving rows still show up.
+    const _maybeRerenderPerDeal = () => {
+      // _getDispoActiveView returns the LIVE value; window._dispoActiveView is
+      // stale (set once at init, never updated by setDispoView).
+      const cur = (typeof _getDispoActiveView === 'function') ? _getDispoActiveView() : null;
+      if (cur === 'per-deal' && typeof buyerRenderPerDealPanel === 'function') {
+        buyerRenderPerDealPanel();
+      }
+    };
     if (typeof loadBuyers === 'function') {
       Promise.resolve(loadBuyers()).then(() => {
         if (typeof _dispoUpdateCounts === 'function') _dispoUpdateCounts();
+        _maybeRerenderPerDeal();
       }).catch(() => {});
     }
     if (typeof loadUnderwrites === 'function') {
       Promise.resolve(loadUnderwrites()).then(() => {
         if (typeof _dispoUpdateCounts === 'function') _dispoUpdateCounts();
+        _maybeRerenderPerDeal();
+      }).catch(() => {});
+    }
+    // Engagement table (outreach + buyer offers) — small, single fetch. Resolve
+    // it BEFORE re-rendering Per Deal so chips/offers/medal rows are accurate
+    // on first paint instead of catching up on the next render tick.
+    if (typeof _dispoLoadEngagement === 'function') {
+      Promise.resolve(_dispoLoadEngagement()).then(() => {
+        _maybeRerenderPerDeal();
+      }).catch(() => {});
+    }
+    if (typeof loadBuyerPurchases === 'function') {
+      Promise.resolve(loadBuyerPurchases()).then(() => {
+        if (typeof renderBuyersList === 'function') renderBuyersList();
+        _maybeRerenderPerDeal();
       }).catch(() => {});
     }
   }
@@ -29154,6 +30938,11 @@ async function geocodeAddressGoogle(street, city, state, zip) {
       // Check if it's a partial match (low confidence)
       const isPartial = r.partial_match || false;
       if (typeof geoSettings !== 'undefined' && geoSettings.recordGeocode) geoSettings.recordGeocode();
+      // County comes from administrative_area_level_2 — strip the trailing
+      // " County" suffix Google adds so it merges cleanly with user-entered
+      // values like "Vanderburgh" instead of "Vanderburgh County".
+      const _countyRaw = components.administrative_area_level_2 ? components.administrative_area_level_2.long_name : '';
+      const _county = String(_countyRaw || '').replace(/\s+county$/i, '').trim();
       return {
         geocoded_address: r.formatted_address,
         lat: r.geometry.location.lat,
@@ -29168,6 +30957,7 @@ async function geocodeAddressGoogle(street, city, state, zip) {
         city: components.locality?.long_name || components.sublocality?.long_name || city,
         state: components.administrative_area_level_1?.short_name || state,
         zip: components.postal_code?.long_name || zip,
+        county: _county || null,
       };
     }
     if (data.status === 'ZERO_RESULTS') return { geocode_status: 'failed', error_reason: 'Address not found — Google returned zero results' };
@@ -41868,4 +43658,4 @@ if (_rcRoot && document.getElementById('basicGroups')) {
 })();
 </script>
 </body>
-</html>
+</html

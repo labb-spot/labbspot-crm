@@ -2101,23 +2101,27 @@
       <div class="subtab subtab-compact" data-uwview="gis-maps" onclick="goUwView('gis-maps'); renderUnderwriteList();" title="GIS Maps — county assessor / GIS portal links you've collected, organized in one place.">🗺 GIS Maps</div>
     </div>
     <!-- Workflow subtab bar — workflow order: Help → Analyzing → Check → Analyzed -->
-    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:1;min-width:0;width:fit-content;font-size:13px">
-    <div class="subtab subtab-compact" data-uwview="all" onclick="goUwView('all'); renderUnderwriteList();" title="All deals across every workflow stage — searchable.">📋 All <span id="uw-all-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
-    <div class="subtab subtab-compact" data-uwview="help" onclick="goUwView('help'); renderUnderwriteList();">❓ Help <span id="uw-help-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
-    <div class="subtab subtab-compact active" data-uwview="analyzing" onclick="goUwView('analyzing'); renderUnderwriteList();">🔍 Analyzing <span id="uw-analyzing-count" class="badge bad" style="margin-left:3px;font-size:9px;display:none"></span></div>
-    <div class="subtab subtab-compact" data-uwview="priority" onclick="goUwView('priority'); renderUnderwriteList();" title="Manually-flagged priority deals — toggle the ⭐ Priority button in the calculator header to add/remove a deal here.">⭐ Priority <span id="uw-priority-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
-    <div class="subtab subtab-compact" data-uwview="checking" onclick="goUwView('checking'); renderUnderwriteList();" title="Deals waiting for a second underwriter to double-check the math.">🕵️ Check <span id="uw-checking-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
-    <div class="subtab subtab-compact" data-uwview="analyzed" onclick="goUwView('analyzed'); renderUnderwriteList();">✅ Analyzed <span id="uw-analyzed-count" class="badge ok" style="margin-left:3px;font-size:9px;display:none"></span></div>
-    <div class="subtab subtab-compact" data-uwview="hot" onclick="goUwView('hot'); renderUnderwriteList();" title="Cross-cutting view: deals where Asking is BELOW Max Offer, OR within $15k, OR within 25% of Max Offer — i.e. priced within striking distance. Requires rehab to be priced first.">🔥 Hot <span id="uw-hot-count" class="badge bad" style="margin-left:3px;font-size:9px;display:none"></span></div>
+    <!-- gap-0 (no gap) so the active pill's background sits flush against its
+         neighbors. With gap-1 the transparent strip on the inactive side
+         visually exaggerated the spacing around the active pill. -->
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:1;min-width:0;width:fit-content;font-size:13px">
+    <div class="subtab subtab-compact" data-uwview="all" onclick="goUwView('all'); renderUnderwriteList();" title="All deals across every workflow stage — searchable.">📋 All <span id="uw-all-count" class="badge brand" style="margin-left:3px;font-size:9px">—</span></div>
+    <div class="subtab subtab-compact" data-uwview="help" onclick="goUwView('help'); renderUnderwriteList();">❓ Help <span id="uw-help-count" class="badge warn" style="margin-left:3px;font-size:9px">—</span></div>
+    <div class="subtab subtab-compact active" data-uwview="analyzing" onclick="goUwView('analyzing'); renderUnderwriteList();">🔍 Analyzing <span id="uw-analyzing-count" class="badge bad" style="margin-left:3px;font-size:9px">—</span></div>
+    <div class="subtab subtab-compact" data-uwview="priority" onclick="goUwView('priority'); renderUnderwriteList();" title="Manually-flagged priority deals — toggle the ⭐ Priority button in the calculator header to add/remove a deal here.">⭐ Priority <span id="uw-priority-count" class="badge warn" style="margin-left:3px;font-size:9px">—</span></div>
+    <div class="subtab subtab-compact" data-uwview="checking" onclick="goUwView('checking'); renderUnderwriteList();" title="Deals waiting for a second underwriter to double-check the math.">🕵️ Check <span id="uw-checking-count" class="badge brand" style="margin-left:3px;font-size:9px">—</span></div>
+    <div class="subtab subtab-compact" data-uwview="analyzed" onclick="goUwView('analyzed'); renderUnderwriteList();">✅ Analyzed <span id="uw-analyzed-count" class="badge ok" style="margin-left:3px;font-size:9px">—</span></div>
+    <div class="subtab subtab-compact" data-uwview="hot" onclick="goUwView('hot'); renderUnderwriteList();" title="Cross-cutting view: deals where Asking is BELOW Max Offer, OR within $15k, OR within 25% of Max Offer — i.e. priced within striking distance. Requires rehab to be priced first.">🔥 Hot <span id="uw-hot-count" class="badge bad" style="margin-left:3px;font-size:9px">—</span></div>
     </div>
     <!-- Post-offer tabs — its own panel pill, formatted exactly like the
          GIS Maps pill so it reads as a separate group from the main workflow
-         strip. Holds Offered / Inspection / Contracted / Closed. -->
-    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
-      <div class="subtab subtab-compact" data-uwview="offered" onclick="goUwView('offered'); renderUnderwriteList();">📤 Offered <span id="uw-offered-count" class="badge brand" style="margin-left:3px;font-size:9px;display:none"></span></div>
-      <div class="subtab subtab-compact" data-uwview="inspection" onclick="goUwView('inspection'); renderUnderwriteList();"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection <span id="uw-inspection-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
-      <div class="subtab subtab-compact" data-uwview="contracted" onclick="goUwView('contracted'); renderUnderwriteList();">📝 Contracted <span id="uw-contracted-count" class="badge warn" style="margin-left:3px;font-size:9px;display:none"></span></div>
-      <div class="subtab subtab-compact" data-uwview="closed" onclick="goUwView('closed'); renderUnderwriteList();" title="Finalized — deals that closed successfully or were dropped. Set the Offer Status to Closed or Dropped to land a deal here.">🏁 Finalized <span id="uw-closed-count" class="badge ok" style="margin-left:3px;font-size:9px;display:none"></span></div>
+         strip. Holds Offered / Inspection / Contracted / Closed. gap-0 so the
+         active pill sits flush against its neighbors (matches workflow strip). -->
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
+      <div class="subtab subtab-compact" data-uwview="offered" onclick="goUwView('offered'); renderUnderwriteList();">📤 Offered <span id="uw-offered-count" class="badge brand" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-uwview="inspection" onclick="goUwView('inspection'); renderUnderwriteList();"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection <span id="uw-inspection-count" class="badge warn" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-uwview="contracted" onclick="goUwView('contracted'); renderUnderwriteList();">📝 Contracted <span id="uw-contracted-count" class="badge warn" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-uwview="closed" onclick="goUwView('closed'); renderUnderwriteList();" title="Finalized — deals that closed successfully or were dropped. Set the Offer Status to Closed or Dropped to land a deal here.">🏁 Finalized <span id="uw-closed-count" class="badge ok" style="margin-left:3px;font-size:9px">—</span></div>
     </div>
   </div>
 
@@ -2202,7 +2206,7 @@
          in the top-right even when the title block has multiple lines (address +
          subtitle + Added/Last-submission badge). Title text can wrap within its
          own div via min-width:0; action buttons stay in a single row to the right. -->
-    <div class="panel p-4 mb-4" style="position:relative">
+    <div class="panel p-4 mb-4" style="position:relative;padding-bottom:8px">
       <!-- Add to Renovation + Remove from Renovation — both absolutely
            positioned in the bottom-right corner of the header panel so they
            don't take any layout space (no extra row, no wrapping, no height
@@ -4478,24 +4482,24 @@
   <div id="reno-top-nav" class="flex items-center gap-2 mb-4" style="flex-wrap:wrap;min-width:0">
     <!-- Phase subtabs — filter the renovation phase table by phase. Clicking
          any of these also switches the view back from contractors/lenders to phases. -->
-    <div class="flex items-center gap-1 panel p-1" id="reno-subtabs" style="flex-shrink:1;min-width:0;width:fit-content;font-size:13px">
-      <div class="subtab subtab-compact active" data-reno-subtab="all"          onclick="setRenoSubtab('all')">All <span id="reno-count-all" class="badge ok" style="margin-left:4px;font-size:10px;display:none"></span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="repossession" onclick="setRenoSubtab('repossession')" title="Deals currently in eviction / getting a tenant out.">🚪 Repossession <span id="reno-count-repossession" class="badge bad" style="margin-left:4px;font-size:10px;display:none"></span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="demo"         onclick="setRenoSubtab('demo')" title="Deals currently in demolition + clean out (tear-out work, trash haul-out, odor remediation).">💥 Demolition &amp; Clean Out <span id="reno-count-demo" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="planning"     onclick="setRenoSubtab('planning')" title="Deals currently in the planning + permits phase (or restructure work).">📋 Planning &amp; Permits <span id="reno-count-planning" class="badge warn" style="margin-left:4px;font-size:10px;display:none"></span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="mechanicals"  onclick="setRenoSubtab('mechanicals')" title="Deals currently in mechanicals + exterior shell work (drain/supply/electrical, HVAC, roof, siding, windows, gutters).">⚙️ Mechanicals &amp; Exterior <span id="reno-count-mechanicals" class="badge brand" style="margin-left:4px;font-size:10px;display:none"></span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="cosmetics"    onclick="setRenoSubtab('cosmetics')" title="Deals currently in cosmetics (paint, flooring, fixtures, cabinets).">🎨 Cosmetics <span id="reno-count-cosmetics" class="badge brand" style="margin-left:4px;font-size:10px;display:none"></span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="punch-list"   onclick="setRenoSubtab('punch-list')" title="Deals currently in the final walkthrough / punch list.">✅ Punch List <span id="reno-count-punch-list" class="badge ok" style="margin-left:4px;font-size:10px;display:none"></span></div>
+    <div class="flex items-center gap-0 panel p-1" id="reno-subtabs" style="flex-shrink:1;min-width:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact active" data-reno-subtab="all"          onclick="setRenoSubtab('all')">All <span id="reno-count-all" class="badge ok" style="margin-left:4px;font-size:10px">—</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="repossession" onclick="setRenoSubtab('repossession')" title="Deals currently in eviction / getting a tenant out.">🚪 Repossession <span id="reno-count-repossession" class="badge bad" style="margin-left:4px;font-size:10px">—</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="demo"         onclick="setRenoSubtab('demo')" title="Deals currently in demolition + clean out (tear-out work, trash haul-out, odor remediation).">💥 Demo <span id="reno-count-demo" class="badge warn" style="margin-left:4px;font-size:10px">—</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="planning"     onclick="setRenoSubtab('planning')" title="Deals currently in the planning + permits phase (or restructure work).">📋 Planning <span id="reno-count-planning" class="badge warn" style="margin-left:4px;font-size:10px">—</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="mechanicals"  onclick="setRenoSubtab('mechanicals')" title="Deals currently in mechanicals + exterior shell work (drain/supply/electrical, HVAC, roof, siding, windows, gutters).">⚙️ Mechanicals <span id="reno-count-mechanicals" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="cosmetics"    onclick="setRenoSubtab('cosmetics')" title="Deals currently in cosmetics (paint, flooring, fixtures, cabinets).">🎨 Cosmetics <span id="reno-count-cosmetics" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="punch-list"   onclick="setRenoSubtab('punch-list')" title="Deals currently in the final walkthrough / punch list.">✅ Punch List <span id="reno-count-punch-list" class="badge ok" style="margin-left:4px;font-size:10px">—</span></div>
     </div>
     <!-- Resources panel — Contractors + Lenders + Agents + Attorneys + Buyers
          pills, visually disconnected from the phase tabs. Placed AFTER the
          phase tabs so the workflow pipeline reads left-to-right and the
          rolodexes sit on the right. -->
-    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
-      <div class="subtab subtab-compact" data-renoview="contractors" onclick="setRenoView('contractors')" title="Contractors — your rolodex of trade vendors with ratings, prices, and contact info, organized in one place.">👷 Contractors</div>
-      <div class="subtab subtab-compact" data-renoview="lenders"     onclick="setRenoView('lenders')"     title="Lenders — your rolodex of banks, hard money sources, and private lenders with ratings, rates, and contact info.">🏦 Lenders</div>
-      <div class="subtab subtab-compact" data-renoview="realtors"    onclick="setRenoView('realtors')"    title="Agents — your rolodex of real estate agents with ratings, brokerages, specialties, commission terms, and contact info.">🤝 Agents</div>
-      <div class="subtab subtab-compact" data-renoview="attorneys"   onclick="setRenoView('attorneys')"   title="Attorneys — your rolodex of closing / eviction / contract attorneys with ratings, practice areas, fees, and contact info.">⚖️ Attorneys</div>
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact" data-renoview="contractors" onclick="setRenoView('contractors')" title="Contractors — your rolodex of trade vendors with ratings, prices, and contact info, organized in one place.">👷 Contractors <span id="reno-count-contractors" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
+      <div class="subtab subtab-compact" data-renoview="lenders"     onclick="setRenoView('lenders')"     title="Lenders — your rolodex of banks, hard money sources, and private lenders with ratings, rates, and contact info.">🏦 Lenders <span id="reno-count-lenders" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
+      <div class="subtab subtab-compact" data-renoview="realtors"    onclick="setRenoView('realtors')"    title="Agents — your rolodex of real estate agents with ratings, brokerages, specialties, commission terms, and contact info.">🤝 Agents <span id="reno-count-realtors" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
+      <div class="subtab subtab-compact" data-renoview="attorneys"   onclick="setRenoView('attorneys')"   title="Attorneys — your rolodex of closing / eviction / contract attorneys with ratings, practice areas, fees, and contact info.">⚖️ Attorneys <span id="reno-count-attorneys" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
     </div>
   </div>
 
@@ -4936,27 +4940,29 @@
        Underwriting GIS-Maps / workflow split pattern.
        Panel 1: status filters (Recently Added / Vetting / Unknown / Qualified / Unqualified)
        Panel 2: Per Deal (separated — uses a different lookup model, namely zip-match) -->
-  <div class="flex items-center gap-2 mb-4" style="flex-wrap:wrap;min-width:0" id="dispo-subtabs">
+  <div class="flex items-center gap-2 mb-4" style="flex-wrap:nowrap;min-width:0" id="dispo-subtabs">
     <!-- Panel 0: Contracts. Separated pill on the left for contract-state views
-         that DON'T live in the buyer list — they list contracts/deals instead. -->
-    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
-      <div class="subtab subtab-compact" data-dispoview="new-contract"      onclick="setDispoView('new-contract')"      title="Brand-new contracts that just got signed.">📜 New Contract</div>
-      <div class="subtab subtab-compact" data-dispoview="assigning-contract" onclick="setDispoView('assigning-contract')" title="Contracts in the middle of being assigned to an end-buyer.">🔁 Assigning Contract</div>
-      <div class="subtab subtab-compact" data-dispoview="hot-contract"      onclick="setDispoView('hot-contract')"      title="Contracts getting heavy buyer interest right now — top priority to push.">🔥 Hot Contract</div>
-      <div class="subtab subtab-compact" data-dispoview="assigned-contract"  onclick="setDispoView('assigned-contract')"  title="Contracts already assigned to an end-buyer — waiting on the final closing.">✅ Assigned Contract</div>
-      <div class="subtab subtab-compact" data-dispoview="dead-contract"     onclick="setDispoView('dead-contract')"     title="Contracts that fell through.">💀 Dead Contract</div>
+         that DON'T live in the buyer list — they list contracts/deals instead.
+         Labels dropped "Contract" suffix — the whole pill group IS contracts. -->
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact" data-dispoview="new-contract"      onclick="setDispoView('new-contract')"      title="Brand-new contracts that just got signed.">📜 New <span id="dispo-count-new-contract" class="badge brand" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-dispoview="assigning-contract" onclick="setDispoView('assigning-contract')" title="Contracts in the middle of being assigned to an end-buyer.">🔁 Assigning <span id="dispo-count-assigning-contract" class="badge warn" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-dispoview="hot-contract"      onclick="setDispoView('hot-contract')"      title="Contracts getting heavy buyer interest right now — top priority to push.">🔥 Hot <span id="dispo-count-hot-contract" class="badge bad" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-dispoview="assigned-contract"  onclick="setDispoView('assigned-contract')"  title="Contracts already assigned to an end-buyer — waiting on the final closing.">✅ Assigned <span id="dispo-count-assigned-contract" class="badge ok" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-dispoview="dead-contract"     onclick="setDispoView('dead-contract')"     title="Contracts that fell through.">💀 Dead <span id="dispo-count-dead-contract" class="badge" style="margin-left:3px;font-size:9px;background:rgba(156,163,175,0.2);color:#9ca3af">—</span></div>
     </div>
-    <!-- Panel 1: status filters. Click any one to scope the buyer list. -->
-    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
-      <div class="subtab subtab-compact active" data-dispoview="recent"      onclick="setDispoView('recent')"      title="Buyers added in the last 30 days, newest first.">🌱 New Buyers</div>
-      <div class="subtab subtab-compact"        data-dispoview="vetting"     onclick="setDispoView('vetting')"     title="Buyers you've started vetting but haven't finalized as Qualified or Unqualified yet.">🔎 Vetting Buyers</div>
-      <div class="subtab subtab-compact"        data-dispoview="unknown"     onclick="setDispoView('unknown')"     title="Buyers with no qualification status set yet.">? Unknown Buyers</div>
-      <div class="subtab subtab-compact"        data-dispoview="qualified"   onclick="setDispoView('qualified')"   title="Buyers you've vetted and approved as real / reliable."><span style="color:#10b981">✓</span> Qualified Buyers</div>
-      <div class="subtab subtab-compact"        data-dispoview="unqualified" onclick="setDispoView('unqualified')" title="Buyers you've ruled out."><span style="color:#f87171">✗</span> Unqualified Buyers</div>
+    <!-- Panel 1: status filters. Click any one to scope the buyer list.
+         Labels dropped "Buyers" suffix — the whole pill group IS buyer status. -->
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact active" data-dispoview="recent"      onclick="setDispoView('recent')"      title="Buyers added in the last 30 days, newest first.">🌱 Recent <span id="dispo-count-recent" class="badge brand" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact"        data-dispoview="vetting"     onclick="setDispoView('vetting')"     title="Buyers you've started vetting but haven't finalized as Qualified or Unqualified yet.">🔎 Vetting <span id="dispo-count-vetting" class="badge warn" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact"        data-dispoview="unknown"     onclick="setDispoView('unknown')"     title="Buyers with no qualification status set yet.">? Unknown <span id="dispo-count-unknown" class="badge" style="margin-left:3px;font-size:9px;background:rgba(156,163,175,0.2);color:#9ca3af">—</span></div>
+      <div class="subtab subtab-compact"        data-dispoview="qualified"   onclick="setDispoView('qualified')"   title="Buyers you've vetted and approved as real / reliable."><span style="color:#10b981">✓</span> Qualified <span id="dispo-count-qualified" class="badge ok" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact"        data-dispoview="unqualified" onclick="setDispoView('unqualified')" title="Buyers you've ruled out."><span style="color:#f87171">✗</span> Unqualified <span id="dispo-count-unqualified" class="badge bad" style="margin-left:3px;font-size:9px">—</span></div>
     </div>
     <!-- Panel 2: Per Deal — separated pill like GIS Maps. Looks up buyers by
          zip / city / county match against an open deal (or a typed zip). -->
-    <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
       <div class="subtab subtab-compact" data-dispoview="per-deal" onclick="setDispoView('per-deal')" title="Show buyers whose Cities / Counties / Zips list overlaps with a deal's zip code.">🎯 Per Deal</div>
     </div>
   </div>
@@ -17049,19 +17055,34 @@ function _uwUpdateStageSelector() {
   // Always keep the Offer Status buttons in sync — packet_status drives
   // both the workflow stage strip and the 2×2 Offer Status grid.
   if (typeof _uwUpdateOfferStatusButtons === 'function') _uwUpdateOfferStatusButtons();
-  document.querySelectorAll('#uw-stage-selector [data-uw-stage]').forEach(b => {
+  // First pass — paint all buttons; remember which one is active.
+  const stageBtns = Array.from(document.querySelectorAll('#uw-stage-selector [data-uw-stage]'));
+  let activeIdx = -1;
+  stageBtns.forEach((b, i) => {
     const s = b.getAttribute('data-uw-stage');
     if (s === cur) {
       const c = colors[s];
       b.style.background = c.bg;
       b.style.color = c.fg;
       b.style.fontWeight = '600';
+      activeIdx = i;
     } else {
       b.style.background = 'transparent';
       b.style.color = 'var(--text-dim)';
       b.style.fontWeight = '';
     }
+    // Reset divider — restored or hidden in the second pass below.
+    b.style.borderRightColor = 'var(--border)';
+    b.style.boxShadow = '';
   });
+  // Second pass — hide the dividers that TOUCH the active pill (its own
+  // border-right + its left neighbor's border-right). The semi-transparent
+  // active bg can't cover a dark divider cleanly, so we just remove the
+  // dividers that would clash.
+  if (activeIdx >= 0) {
+    if (stageBtns[activeIdx])     stageBtns[activeIdx].style.borderRightColor     = 'transparent';
+    if (stageBtns[activeIdx - 1]) stageBtns[activeIdx - 1].style.borderRightColor = 'transparent';
+  }
 }
 
 function uwSetStage(stage) {
@@ -21845,7 +21866,9 @@ function _uwUpdateRenoPhaseSelector() {
     cosmetics:    { bg: 'rgba(168,85,247,0.20)',  fg: '#a855f7' },
     'punch-list': { bg: 'rgba(16,185,129,0.20)',  fg: '#10b981' },
   };
-  sel.querySelectorAll('[data-reno-phase-btn]').forEach(b => {
+  const renoBtns = Array.from(sel.querySelectorAll('[data-reno-phase-btn]'));
+  let activeRenoIdx = -1;
+  renoBtns.forEach((b, i) => {
     const id = b.getAttribute('data-reno-phase-btn');
     const isActive = (override ? id === override : id === activeId)
                      || (id === 'auto' && !override);
@@ -21854,12 +21877,21 @@ function _uwUpdateRenoPhaseSelector() {
       b.style.background = c.bg;
       b.style.color      = c.fg;
       b.style.fontWeight = '700';
+      activeRenoIdx = i;
     } else {
       b.style.background = 'transparent';
       b.style.color      = 'var(--text-dim)';
       b.style.fontWeight = '600';
     }
+    b.style.borderRightColor = 'var(--border)';
+    b.style.boxShadow        = '';
   });
+  // Hide the dividers TOUCHING the active pill so its semi-transparent bg
+  // doesn't have a dark 1px line bleeding through on either side.
+  if (activeRenoIdx >= 0) {
+    if (renoBtns[activeRenoIdx])     renoBtns[activeRenoIdx].style.borderRightColor     = 'transparent';
+    if (renoBtns[activeRenoIdx - 1]) renoBtns[activeRenoIdx - 1].style.borderRightColor = 'transparent';
+  }
 }
 window._uwUpdateRenoPhaseSelector = _uwUpdateRenoPhaseSelector;
 
@@ -22273,17 +22305,38 @@ window.setRenoSubtab = setRenoSubtab;
 // are in each phase without clicking each one. Called whenever the renovation
 // list is rendered.
 function _renoUpdateSubtabCounts() {
-  const all = Object.values(cache.underwrites || {}).filter(u => u && u.data && u.data._holdingStatus === 'renovation');
-  const counts = { all: all.length, repossession: 0, demo: 0, planning: 0, mechanicals: 0, cosmetics: 0, 'punch-list': 0 };
-  all.forEach(u => {
-    const phase = _renoCurrentPhaseId(u);
-    if (phase && counts.hasOwnProperty(phase)) counts[phase]++;
-  });
+  // Phase counts — only meaningful once underwrites have loaded. Until then
+  // we leave the "—" seed in the badge so it's clear the count isn't ready.
+  const uwReady = (typeof cache !== 'undefined' && cache.underwrites);
+  const counts = { all: null, repossession: null, demo: null, planning: null, mechanicals: null, cosmetics: null, 'punch-list': null };
+  if (uwReady) {
+    const all = Object.values(cache.underwrites).filter(u => u && u.data && u.data._holdingStatus === 'renovation');
+    counts.all = all.length;
+    counts.repossession = counts.demo = counts.planning = 0;
+    counts.mechanicals = counts.cosmetics = counts['punch-list'] = 0;
+    all.forEach(u => {
+      const phase = _renoCurrentPhaseId(u);
+      if (phase && counts.hasOwnProperty(phase)) counts[phase]++;
+    });
+  }
+  // Resources counts — Contractors / Lenders / Agents (realtors) / Attorneys.
+  // Each cache key holds {id: row} so the count is the number of own keys.
+  // When the per-resource cache hasn't loaded yet, leave the "—" seed.
+  const resCount = (k) => {
+    const c = (typeof cache !== 'undefined' && cache[k]) ? cache[k] : null;
+    return c ? Object.keys(c).length : null;
+  };
+  counts.contractors = resCount('contractors');
+  counts.lenders     = resCount('lenders');
+  counts.realtors    = resCount('realtors');
+  counts.attorneys   = resCount('attorneys');
   Object.keys(counts).forEach(key => {
     const el = document.getElementById('reno-count-' + key);
     if (!el) return;
-    if (counts[key] > 0) { el.style.display = ''; el.textContent = counts[key].toLocaleString(); }
-    else { el.style.display = 'none'; }
+    el.style.display = '';
+    // Null → keep '—' (data not loaded yet). Number → render the count.
+    if (counts[key] === null || counts[key] === undefined) el.textContent = '—';
+    else el.textContent = (counts[key] || 0).toLocaleString();
   });
 }
 window._renoUpdateSubtabCounts = _renoUpdateSubtabCounts;
@@ -23081,6 +23134,9 @@ function setDispoView(view) {
   document.querySelectorAll('#section-dispositions [data-dispoview]').forEach(p => {
     p.classList.toggle('active', p.getAttribute('data-dispoview') === _dispoActiveView);
   });
+  // Refresh subtab count badges every time the view switches — covers cases
+  // where the user moved a contract/buyer to a different state in another tab.
+  if (typeof _dispoUpdateCounts === 'function') _dispoUpdateCounts();
   const isPerDeal   = (_dispoActiveView === 'per-deal');
   const isContract  = (_dispoActiveView === 'new-contract' || _dispoActiveView === 'hot-contract' || _dispoActiveView === 'assigning-contract' || _dispoActiveView === 'assigned-contract' || _dispoActiveView === 'dead-contract');
   // Show/hide three mutually-exclusive surfaces: buyer table / per-deal panel
@@ -23341,13 +23397,24 @@ function uwToggleDispoStageBar() {
               ? (cache.underwrites[id].dispo_contract || (cache.underwrites[id].data && cache.underwrites[id].data._dispoContract) || '')
               : '';
   if (dispoBar) {
-    dispoBar.querySelectorAll('[data-dispo-stage-btn]').forEach(btn => {
+    const dispoBtns = Array.from(dispoBar.querySelectorAll('[data-dispo-stage-btn]'));
+    let activeDispoIdx = -1;
+    dispoBtns.forEach((btn, i) => {
       const s = btn.getAttribute('data-dispo-stage-btn');
       const on = (s === cur);
-      btn.style.background = on ? 'rgba(99,102,241,0.18)' : 'transparent';
+      const onBg = 'rgba(99,102,241,0.18)';
+      btn.style.background = on ? onBg : 'transparent';
       btn.style.color      = on ? '#a5b4fc' : 'var(--text-dim)';
       btn.style.fontWeight = on ? '700' : '500';
+      btn.style.borderRightColor = 'var(--border)';
+      btn.style.boxShadow        = '';
+      if (on) activeDispoIdx = i;
     });
+    // Hide dividers touching the active pill so its bg fills cleanly.
+    if (activeDispoIdx >= 0) {
+      if (dispoBtns[activeDispoIdx])     dispoBtns[activeDispoIdx].style.borderRightColor     = 'transparent';
+      if (dispoBtns[activeDispoIdx - 1]) dispoBtns[activeDispoIdx - 1].style.borderRightColor = 'transparent';
+    }
   }
 }
 window.uwToggleDispoStageBar = uwToggleDispoStageBar;
@@ -23419,6 +23486,9 @@ window._leaveDispoToView = _leaveDispoToView;
 // matching the underwriting list style. Columns: Address / Packet Price /
 // Rehab / ARV / Cash Rental Cashflow (annual) / Beds / Baths / SqFt / Status.
 function buyerRenderContractsPanel() {
+  // Always refresh the subtab count badges when the contracts panel rerenders —
+  // it covers every status change path (assign / set / remove / inline dropdown).
+  if (typeof _dispoUpdateCounts === 'function') _dispoUpdateCounts();
   const bodyEl = document.getElementById('dispo-contracts-body');
   if (!bodyEl) return;
   const view = (typeof _getDispoActiveView === 'function') ? _getDispoActiveView() : '';
@@ -23796,6 +23866,70 @@ async function buyerSetContractStatus(id, next) {
 window.buyerSetContractStatus = buyerSetContractStatus;
 
 // ------------------------------------------------------------
+// Dispositions subtab count badges
+// ------------------------------------------------------------
+// Walks cache.underwrites + cache.buyers and writes the per-tab count into the
+// matching badge span next to each subtab. Mirrors the underwriting subtab
+// count pattern (line ~27133). Called from setDispoView, after status changes,
+// after buyer changes, and after initial data load.
+function _dispoUpdateCounts() {
+  // Two-mode badge setter: pass `null` to leave the "—" seed in place (when
+  // the relevant cache hasn't loaded yet); pass a number to show the real count.
+  const setBadge = (id, n) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (n === null || n === undefined) { el.textContent = '—'; el.style.display = ''; return; }
+    el.textContent = (n || 0).toLocaleString();
+    el.style.display = '';
+  };
+  // --- Contracts: count underwrites by dispo_contract value (top-level column
+  //     OR legacy data._dispoContract for old rows). When the underwrites cache
+  //     hasn't loaded yet, keep the "—" seed instead of writing a misleading 0.
+  const uwReady = (typeof cache !== 'undefined' && cache.underwrites);
+  const cnt = { new: null, assigning: null, hot: null, assigned: null, dead: null };
+  if (uwReady) {
+    cnt.new = cnt.assigning = cnt.hot = cnt.assigned = cnt.dead = 0;
+    Object.values(cache.underwrites).forEach(u => {
+      if (!u) return;
+      const v = u.dispo_contract || (u.data && u.data._dispoContract) || '';
+      if (v && Object.prototype.hasOwnProperty.call(cnt, v)) cnt[v]++;
+    });
+  }
+  setBadge('dispo-count-new-contract',       cnt.new);
+  setBadge('dispo-count-assigning-contract', cnt.assigning);
+  setBadge('dispo-count-hot-contract',       cnt.hot);
+  setBadge('dispo-count-assigned-contract',  cnt.assigned);
+  setBadge('dispo-count-dead-contract',      cnt.dead);
+  // --- Buyers: count by qualification + recent-30-days for "New Buyers".
+  //     Same "—" fallback when cache.buyers hasn't loaded yet.
+  const buyersReady = (typeof cache !== 'undefined' && cache.buyers);
+  const bcn = { recent: null, vetting: null, unknown: null, qualified: null, unqualified: null };
+  if (buyersReady) {
+    bcn.recent = bcn.vetting = bcn.unknown = bcn.qualified = bcn.unqualified = 0;
+    const buyers = Object.values(cache.buyers).filter(b => b && (b.company || b.name));
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    buyers.forEach(b => {
+      if (typeof buyerQualState === 'function') {
+        const q = buyerQualState(b);
+        if (Object.prototype.hasOwnProperty.call(bcn, q)) bcn[q]++;
+      }
+      if (b.created_at) {
+        const t = new Date(b.created_at).getTime();
+        if (Number.isFinite(t) && t >= cutoff) bcn.recent++;
+      } else {
+        bcn.recent++;  // legacy rows without created_at — count under New (matches list filter)
+      }
+    });
+  }
+  setBadge('dispo-count-recent',      bcn.recent);
+  setBadge('dispo-count-vetting',     bcn.vetting);
+  setBadge('dispo-count-unknown',     bcn.unknown);
+  setBadge('dispo-count-qualified',   bcn.qualified);
+  setBadge('dispo-count-unqualified', bcn.unqualified);
+}
+window._dispoUpdateCounts = _dispoUpdateCounts;
+
+// ------------------------------------------------------------
 // Local-only Contract Price overrides (Dispositions grid scratch pad)
 // ------------------------------------------------------------
 // Pure display-side tool: the user types a price in the contracts grid to
@@ -24053,6 +24187,8 @@ window.contractorDeleteFromModal = contractorDeleteFromModal;
 
 // Render the contractor rolodex table. Applies search + service-filter.
 function renderContractorsList() {
+  // Always refresh the resources count badges (Contractors/Lenders/Agents/Attorneys).
+  if (typeof _renoUpdateSubtabCounts === 'function') _renoUpdateSubtabCounts();
   if (!cache.contractors) {
     loadContractors().then(() => renderContractorsList());
     return;
@@ -24356,6 +24492,8 @@ window.lenderDeleteFromModal = lenderDeleteFromModal;
 
 // Render the lender rolodex table. Applies search + loan-type-filter.
 function renderLendersList() {
+  // Always refresh the resources count badges (Contractors/Lenders/Agents/Attorneys).
+  if (typeof _renoUpdateSubtabCounts === 'function') _renoUpdateSubtabCounts();
   if (!cache.lenders) {
     loadLenders().then(() => renderLendersList());
     return;
@@ -24647,6 +24785,8 @@ async function realtorDeleteFromModal() {
 window.realtorDeleteFromModal = realtorDeleteFromModal;
 
 function renderRealtorsList() {
+  // Always refresh the resources count badges (Contractors/Lenders/Agents/Attorneys).
+  if (typeof _renoUpdateSubtabCounts === 'function') _renoUpdateSubtabCounts();
   if (!cache.realtors) {
     loadRealtors().then(() => renderRealtorsList());
     return;
@@ -24935,6 +25075,8 @@ async function attorneyDeleteFromModal() {
 window.attorneyDeleteFromModal = attorneyDeleteFromModal;
 
 function renderAttorneysList() {
+  // Always refresh the resources count badges (Contractors/Lenders/Agents/Attorneys).
+  if (typeof _renoUpdateSubtabCounts === 'function') _renoUpdateSubtabCounts();
   if (!cache.attorneys) {
     loadAttorneys().then(() => renderAttorneysList());
     return;
@@ -25299,6 +25441,9 @@ function renderBuyersList() {
     loadBuyers().then(() => renderBuyersList());
     return;
   }
+  // Refresh dispo subtab badges every time the buyer list rerenders — covers
+  // qualification changes, new imports, deletes, etc.
+  if (typeof _dispoUpdateCounts === 'function') _dispoUpdateCounts();
   const tbody   = document.getElementById('buyers-tbody');
   const empty   = document.getElementById('buyers-empty');
   const tableEl = document.getElementById('buyers-table');
@@ -26719,17 +26864,17 @@ function renderUnderwriteList() {
   const aCount = document.getElementById('uw-analyzing-count');
   if (aCount) {
     aCount.textContent = analyzing.length.toLocaleString();
-    aCount.style.display = analyzing.length ? '' : 'none';
+    aCount.style.display = '';
   }
   const pCount = document.getElementById('uw-priority-count');
   if (pCount) {
     pCount.textContent = priority.length.toLocaleString();
-    pCount.style.display = priority.length ? '' : 'none';
+    pCount.style.display = '';
   }
   const dCount = document.getElementById('uw-analyzed-count');
   if (dCount) {
     dCount.textContent = analyzed.length.toLocaleString();
-    dCount.style.display = analyzed.length ? '' : 'none';
+    dCount.style.display = '';
   }
   // In-header count for the Analyzed subview: "X / Y Offered" where
   //   X = Analyzed deals whose Offer Status is anything past "Needed"
@@ -26754,27 +26899,27 @@ function renderUnderwriteList() {
   const hCount = document.getElementById('uw-help-count');
   if (hCount) {
     hCount.textContent = needsHelp.length.toLocaleString();
-    hCount.style.display = needsHelp.length ? '' : 'none';
+    hCount.style.display = '';
   }
   const cCount = document.getElementById('uw-checking-count');
   if (cCount) {
     cCount.textContent = inChecking.length.toLocaleString();
-    cCount.style.display = inChecking.length ? '' : 'none';
+    cCount.style.display = '';
   }
   const oCount = document.getElementById('uw-offered-count');
   if (oCount) {
     oCount.textContent = offered.length.toLocaleString();
-    oCount.style.display = offered.length ? '' : 'none';
+    oCount.style.display = '';
   }
   const inCount = document.getElementById('uw-inspection-count');
   if (inCount) {
     inCount.textContent = inspection.length.toLocaleString();
-    inCount.style.display = inspection.length ? '' : 'none';
+    inCount.style.display = '';
   }
   const ctCount = document.getElementById('uw-contracted-count');
   if (ctCount) {
     ctCount.textContent = contracted.length.toLocaleString();
-    ctCount.style.display = contracted.length ? '' : 'none';
+    ctCount.style.display = '';
   }
   const clCount = document.getElementById('uw-closed-count');
   if (clCount) {
@@ -26782,7 +26927,7 @@ function renderUnderwriteList() {
     // headline number. They show in the list only when the "Show Dropped"
     // toggle is enabled.
     clCount.textContent = closedOnly.length.toLocaleString();
-    clCount.style.display = closedOnly.length ? '' : 'none';
+    clCount.style.display = '';
   }
   // In-header count for the Finalized subview: "X / Y Funded" where
   //   X = number of successfully Closed deals
@@ -26800,7 +26945,7 @@ function renderUnderwriteList() {
   const hotCount = document.getElementById('uw-hot-count');
   if (hotCount) {
     hotCount.textContent = hot.length.toLocaleString();
-    hotCount.style.display = hot.length ? '' : 'none';
+    hotCount.style.display = '';
   }
 
   const fmt$ = (n) => n ? '$' + Math.round(Number(n)).toLocaleString() : '—';
@@ -27133,7 +27278,7 @@ function renderUnderwriteList() {
     const allCount = document.getElementById('uw-all-count');
     if (allCount) {
       allCount.textContent = all.length.toLocaleString();
-      allCount.style.display = all.length ? '' : 'none';
+      allCount.style.display = '';
     }
   }
 
@@ -28414,6 +28559,21 @@ function goSection(s) {
   if (s === "dispositions") {
     // Default to Recently Added on first land (or restore last view if set).
     if (typeof setDispoView === 'function') setDispoView(_dispoActiveView || 'new-contract');
+    // Eagerly load the data the subtab badges depend on so they can flip from
+    // "—" to a real number (including 0) without waiting for the user to click
+    // each subtab. setDispoView already kicks loadBuyers on its async paths,
+    // but we trigger it here explicitly so the badges populate even when the
+    // user landed on a contracts subview (which doesn't pull buyers).
+    if (typeof loadBuyers === 'function') {
+      Promise.resolve(loadBuyers()).then(() => {
+        if (typeof _dispoUpdateCounts === 'function') _dispoUpdateCounts();
+      }).catch(() => {});
+    }
+    if (typeof loadUnderwrites === 'function') {
+      Promise.resolve(loadUnderwrites()).then(() => {
+        if (typeof _dispoUpdateCounts === 'function') _dispoUpdateCounts();
+      }).catch(() => {});
+    }
   }
   if (s === "underwriting" && typeof renderUnderwriteList === "function") {
     // If no subview is currently shown (first visit, or a previous session
@@ -28431,6 +28591,20 @@ function goSection(s) {
   if (s === "holdings"   && typeof renderHoldingsList   === "function") renderHoldingsList();
   if (s === "photos"     && typeof loadPhotoSubmissions === "function") loadPhotoSubmissions();
   if (s === "renovation" && typeof renderRenovationList === "function") renderRenovationList();
+  if (s === "renovation") {
+    // Eagerly load each resource cache so the Contractors/Lenders/Agents/Attorneys
+    // count badges can flip from "—" to a real number without waiting for the
+    // user to click into each rolodex. Phase badges depend on cache.underwrites
+    // which renderRenovationList already triggers.
+    const _refreshReno = () => {
+      if (typeof _renoUpdateSubtabCounts === 'function') _renoUpdateSubtabCounts();
+    };
+    ['loadContractors','loadLenders','loadRealtors','loadAttorneys','loadUnderwrites'].forEach(fname => {
+      const fn = window[fname];
+      if (typeof fn !== 'function') return;
+      Promise.resolve(fn()).then(_refreshReno).catch(() => {});
+    });
+  }
   // If we're in Dispositions mode (deal opened from the dispo contracts grid),
   // keep the Dispositions tab highlighted instead of jumping to the actual physical
   // section (which is Underwriting — that's where the calculator lives).

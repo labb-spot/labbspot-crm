@@ -5006,10 +5006,6 @@
     <!-- Refresh button — manual escape hatch if a freshly-edited buyer doesn't
          auto-surface. Per Deal also auto-refreshes on buyer save/delete and
          when cache.underwrites finishes loading. -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px;flex-wrap:wrap">
-      <div style="font-size:11px;color:var(--text-dim);letter-spacing:0.4px;text-transform:uppercase">🎯 Per Deal — buyer matches by zip code</div>
-      <button class="btn btn-ghost text-xs" onclick="if(typeof buyerRenderPerDealPanel==='function') buyerRenderPerDealPanel();" title="Rescore + redraw using the latest buyer + deal data.">🔁 Refresh</button>
-    </div>
     <div id="dispo-perdeal-list"></div>
   </div>
   <!-- Contracts panel — shown when a contracts subview is active. Stays a
@@ -24222,6 +24218,7 @@ function buyerRenderPerDealPanel() {
       + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'
       +   '<button class="btn btn-ghost text-sm" onclick="_dispoCloseDeal()" title="Back to all dispositions">← Back</button>'
       +   '<div style="flex:1"></div>'
+      +   '<button class="btn btn-ghost text-xs" onclick="if(typeof buyerRenderPerDealPanel===\'function\') buyerRenderPerDealPanel();" title="Rescore + redraw using the latest buyer + deal data." style="padding:5px 12px">\u{1F501} Refresh</button>'
       +   '<span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:' + stage.bg + ';color:' + stage.color + '">' + esc(stage.label) + '</span>'
       + '</div>'
       + '<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px">'
@@ -24281,7 +24278,78 @@ function buyerRenderPerDealPanel() {
   // ============================================================
   // LIST VIEW — show every dispo property as a clickable summary row.
   // ============================================================
-  listEl.innerHTML = dispoDeals.map(u => {
+  // Filter state (persisted in window so re-renders don't lose it).
+  window._dispoPerDealListFilter = window._dispoPerDealListFilter || { search: '', stages: [] };
+  const _flt = window._dispoPerDealListFilter;
+  const _searchLo = String(_flt.search || '').trim().toLowerCase();
+  const _stageSet = new Set(Array.isArray(_flt.stages) ? _flt.stages : []);
+  const _stageOpts = ['new', 'assigning', 'hot', 'assigned', 'dead'];
+  // Per-stage counts BEFORE filtering — used to label the chips so the user
+  // sees how many deals are in each bucket.
+  const _stageCounts = {};
+  _stageOpts.forEach(s => { _stageCounts[s] = 0; });
+  dispoDeals.forEach(u => {
+    const info = _dispoDealInfoFromRow(u);
+    const st = (info && info.stage) || '';
+    if (_stageCounts[st] != null) _stageCounts[st]++;
+  });
+  // Apply filters to dispoDeals.
+  const _filteredDeals = dispoDeals.filter(u => {
+    const info = _dispoDealInfoFromRow(u);
+    if (!info) return false;
+    if (_stageSet.size > 0 && !_stageSet.has(info.stage || '')) return false;
+    if (_searchLo) {
+      const hay = ((info.address || '') + ' ' + (info.city || '') + ' ' + (info.state || '') + ' ' + (info.zip || '')).toLowerCase();
+      if (!hay.includes(_searchLo)) return false;
+    }
+    return true;
+  });
+  // Filter bar HTML — search input + clickable stage chips. Each chip toggles
+  // its stage in/out of the filter; empty selection = show all stages.
+  const _stageChip = (key) => {
+    const meta = STAGE_LABEL[key] || { label: key, color: '#9ca3af', bg: 'rgba(156,163,175,0.18)' };
+    const on   = _stageSet.has(key);
+    const bg   = on ? meta.bg : 'transparent';
+    const bd   = on ? meta.color : 'var(--border)';
+    const col  = on ? meta.color : 'var(--text-dim)';
+    const cnt  = _stageCounts[key] || 0;
+    return '<button type="button" onclick="_dispoPerDealToggleStage(\'' + key + '\')" '
+      + 'style="padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;'
+      + 'background:' + bg + ';border:1px solid ' + bd + ';color:' + col + ';white-space:nowrap;transition:all 0.12s" '
+      + 'title="Toggle ' + meta.label + ' (' + cnt + ' deal' + (cnt === 1 ? '' : 's') + ')">'
+      + esc(meta.label) + ' <span style="opacity:0.7">' + cnt + '</span></button>';
+  };
+  const _filterBarHtml = ''
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px">'
+    +   '<input id="dispo-perdeal-search" type="text" placeholder="\u{1F50D} Search subject address\u2026" '
+    +     'value="' + esc(_flt.search || '') + '" oninput="_dispoPerDealSetSearch(this.value)" '
+    +     'style="flex:1 1 240px;min-width:200px;max-width:360px;height:32px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;box-sizing:border-box">'
+    +   '<div style="display:flex;align-items:center;gap:6px;flex:1 1 auto;flex-wrap:wrap">'
+    +     '<span style="font-size:10px;color:var(--text-dim);font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-right:4px">Stages:</span>'
+    +     _stageOpts.map(_stageChip).join('')
+    +   '</div>'
+    +   '<button type="button" onclick="_dispoPerDealClearFilter()" '
+    +     'style="height:32px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:12px;cursor:pointer;white-space:nowrap" '
+    +     'title="Clear search + stage filters">\u2715 Clear</button>'
+    +   '<button type="button" onclick="if(typeof buyerRenderPerDealPanel===\'function\') buyerRenderPerDealPanel();" '
+    +     'style="height:32px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;cursor:pointer;white-space:nowrap;font-weight:600" '
+    +     'title="Rescore + redraw using the latest buyer + deal data.">\u{1F501} Refresh</button>'
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">'
+    +   'Showing ' + _filteredDeals.length + ' of ' + dispoDeals.length + ' deal' + (dispoDeals.length === 1 ? '' : 's')
+    + '</div>';
+
+  if (_filteredDeals.length === 0) {
+    listEl.innerHTML = _filterBarHtml + '<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:13px;background:var(--panel);border:1px dashed var(--border);border-radius:8px">No dispositions match the current filters.</div>';
+    // Restore focus + caret to the search input after re-render.
+    setTimeout(function () {
+      const el = document.getElementById('dispo-perdeal-search');
+      if (el && document.activeElement !== el) { /* keep focus elsewhere if user moved */ }
+    }, 0);
+    return;
+  }
+
+  listEl.innerHTML = _filterBarHtml + _filteredDeals.map(u => {
     const deal = _dispoDealInfoFromRow(u);
     if (!deal) return '';
     const stage = STAGE_LABEL[deal.stage] || { label: deal.stage || '—', color: '#9ca3af', bg: 'rgba(156,163,175,0.18)' };
@@ -24379,6 +24447,41 @@ function buyerRenderPerDealPanel() {
   }).join('');
 }
 window.buyerRenderPerDealPanel = buyerRenderPerDealPanel;
+
+// Filter handlers for the Per Deal LIST view (address search + stage chips).
+// Each one mutates window._dispoPerDealListFilter then re-renders the panel.
+function _dispoPerDealSetSearch(v) {
+  window._dispoPerDealListFilter = window._dispoPerDealListFilter || { search: '', stages: [] };
+  window._dispoPerDealListFilter.search = String(v || '');
+  if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+  // Restore focus + caret to the search input so typing isn't interrupted.
+  setTimeout(function () {
+    const el = document.getElementById('dispo-perdeal-search');
+    if (el) {
+      const pos = el.value.length;
+      el.focus();
+      try { el.setSelectionRange(pos, pos); } catch (e) {}
+    }
+  }, 0);
+}
+window._dispoPerDealSetSearch = _dispoPerDealSetSearch;
+
+function _dispoPerDealToggleStage(stage) {
+  window._dispoPerDealListFilter = window._dispoPerDealListFilter || { search: '', stages: [] };
+  const f = window._dispoPerDealListFilter;
+  f.stages = Array.isArray(f.stages) ? f.stages : [];
+  const i = f.stages.indexOf(stage);
+  if (i >= 0) f.stages.splice(i, 1);
+  else f.stages.push(stage);
+  if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+}
+window._dispoPerDealToggleStage = _dispoPerDealToggleStage;
+
+function _dispoPerDealClearFilter() {
+  window._dispoPerDealListFilter = { search: '', stages: [] };
+  if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+}
+window._dispoPerDealClearFilter = _dispoPerDealClearFilter;
 
 // ------------------------------------------------------------
 // Contracts (Dispositions section)

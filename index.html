@@ -539,10 +539,54 @@
          style="cursor:pointer;font-size:12px;padding:5px 10px;border-radius:6px;background:var(--panel-2);border:1px solid var(--border);color:var(--text-dim);white-space:nowrap;line-height:1">
       🌍 <b>0</b> this mo · <b>$0.00</b>
     </div>
+    <button class="btn btn-ghost text-sm" id="header-presence-chip" onclick="togglePresencePopover(event)" title="Teammates currently signed in — click to see names" style="padding:5px 10px;display:none"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 0 2px rgba(16,185,129,0.25);margin-right:6px;vertical-align:1px"></span><b id="presence-count">1</b><span style="opacity:0.7;margin-left:3px">online</span></button>
+    <button class="btn btn-ghost text-sm" id="header-activity-btn" onclick="openActivityFeed()" title="Live feed of who edited what across all your data — refreshes every 30s.">📊 Activity<span id="activity-badge" style="display:none;margin-left:5px;padding:1px 6px;border-radius:999px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;vertical-align:1px"></span></button>
     <button class="btn btn-ghost text-sm" onclick="diagnoseLists()" title="Inspect DB row counts across every table">🔍 Diagnose</button>
     <button class="btn btn-ghost text-sm" id="header-sop-btn" onclick="toggleSopSection()" title="Open Standard Operating Procedures (click again to return to where you were).">📋 SOP</button>
     <button class="btn btn-ghost text-sm" onclick="openSettings();if(typeof syncGeoProviderRadios==='function')syncGeoProviderRadios()">⚙️ Settings</button>
     <button class="btn btn-ghost text-sm" onclick="logoutApp()" title="Sign out">🚪</button>
+  </div>
+</div>
+
+<!-- Activity Feed slide-in panel — Phase 3 -->
+<div id="activity-feed-panel" style="position:fixed;top:0;right:-440px;width:420px;height:100vh;background:var(--panel);border-left:1px solid var(--border);box-shadow:-8px 0 24px rgba(0,0,0,0.4);z-index:9500;transition:right 0.25s ease;display:flex;flex-direction:column;">
+  <!-- header -->
+  <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--panel-2)">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="font-size:18px">📊</div>
+      <div>
+        <div style="font-weight:700;font-size:14px;color:var(--text);line-height:1.1">Activity Feed</div>
+        <div id="activity-feed-status" style="font-size:10px;color:var(--text-dim);margin-top:2px">Loading…</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button id="activity-refresh-btn" class="btn btn-ghost text-xs" onclick="loadActivityFeed(true)" title="Refresh now" style="padding:4px 8px">↻</button>
+      <button class="btn btn-ghost text-xs" onclick="closeActivityFeed()" title="Close" style="padding:4px 10px;font-size:14px">✕</button>
+    </div>
+  </div>
+  <!-- filter chips -->
+  <div style="padding:8px 16px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;background:var(--panel)">
+    <button class="activity-filter-chip" data-window="all" onclick="setActivityWindow('all')" style="padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:11px;cursor:pointer">All</button>
+    <button class="activity-filter-chip" data-window="today" onclick="setActivityWindow('today')" style="padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:11px;cursor:pointer">Today</button>
+    <button class="activity-filter-chip" data-window="week" onclick="setActivityWindow('week')" style="padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:11px;cursor:pointer">This week</button>
+    <button class="activity-filter-chip" data-window="me" onclick="setActivityWindow('me')" style="padding:3px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:11px;cursor:pointer">Just me</button>
+  </div>
+  <!-- list -->
+  <div id="activity-feed-list" style="flex:1;overflow-y:auto;padding:8px 0">
+    <div style="text-align:center;padding:40px 20px;color:var(--text-dim);font-size:12px">Loading recent activity…</div>
+  </div>
+  <!-- footer -->
+  <div style="padding:8px 16px;border-top:1px solid var(--border);font-size:10px;color:var(--text-dim);text-align:center;background:var(--panel-2)">
+    Auto-refreshes every 30 seconds while open.
+  </div>
+</div>
+<div id="activity-feed-backdrop" onclick="closeActivityFeed()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:9499"></div>
+
+<!-- Presence popover — Phase 4 -->
+<div id="presence-popover" style="display:none;position:fixed;top:60px;right:16px;width:240px;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.35);z-index:9700;padding:10px 0;">
+  <div style="padding:6px 14px 8px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text-dim);letter-spacing:0.6px">CURRENTLY ONLINE</div>
+  <div id="presence-list" style="max-height:280px;overflow-y:auto;padding:4px 0">
+    <div style="padding:14px;text-align:center;font-size:11px;color:var(--text-dim)">Connecting…</div>
   </div>
 </div>
 
@@ -23345,26 +23389,9 @@ function _dispoScoreBuyer(buyer, deal) {
 // Outreach: one status per (dealId, buyerId) pair. Mutually exclusive states.
 // Expand: which property cards are currently expanded. Both persist across reloads.
 (function _dispoHydrateOutreach() {
-  // Outreach + buyer offers now live in Supabase (dispo_buyer_engagement table)
-  // so they share across users. localStorage still acts as a TRANSIENT shadow
-  // so the UI updates instantly while the network round-trip happens (and as
-  // a fallback if Supabase is unreachable). cache.dispoEngagement is the source
-  // of truth at runtime — populated by _dispoLoadEngagement on app boot or
-  // first Dispositions visit.
-  try {
-    if (!window._dispoOutreach) {
-      const raw = localStorage.getItem('dispoOutreach');
-      window._dispoOutreach = raw ? (JSON.parse(raw) || {}) : {};
-    }
-    if (!window._dispoBuyerOffers) {
-      const raw = localStorage.getItem('dispoBuyerOffers');
-      window._dispoBuyerOffers = raw ? (JSON.parse(raw) || {}) : {};
-    }
-  } catch (e) {
-    window._dispoOutreach    = window._dispoOutreach    || {};
-    window._dispoBuyerOffers = window._dispoBuyerOffers || {};
-  }
-  // cache.dispoEngagement[dealId][buyerId] = { outreach, offer_amount }
+  // Engagement (outreach + buyer offers) lives in Supabase only —
+  // dispo_buyer_engagement table, hydrated into cache.dispoEngagement by
+  // _dispoLoadEngagement. No localStorage fallback (legacy migration done).
   if (typeof cache !== 'undefined') cache.dispoEngagement = cache.dispoEngagement || {};
   if (typeof window._dispoOpenedDealId === 'undefined') window._dispoOpenedDealId = null;
 })();
@@ -23387,8 +23414,6 @@ async function _dispoLoadEngagement() {
     });
     if (typeof cache !== 'undefined') cache.dispoEngagement = fresh;
     window._dispoEngagementLoaded = true;
-    // First load — try migrating any stranded localStorage rows up to the DB.
-    if (typeof _dispoMigrateLocalStorageOnce === 'function') _dispoMigrateLocalStorageOnce();
     return fresh;
   } catch (e) {
     // Table may not exist yet (pre-migration). Don't crash; reads fall back to localStorage.
@@ -23396,146 +23421,6 @@ async function _dispoLoadEngagement() {
   }
 }
 window._dispoLoadEngagement = _dispoLoadEngagement;
-
-// One-time push of pre-DB localStorage data into Supabase. Runs after the first
-// successful load — only does anything if the cache is empty AND localStorage
-// has something. After it runs, clears the localStorage stores so they don't
-// keep getting re-pushed (they'll continue to be used as a transient shadow).
-let _dispoMigrationRan = false;
-async function _dispoMigrateLocalStorageOnce() {
-  if (_dispoMigrationRan) return;
-  _dispoMigrationRan = true;
-  if (typeof sb === 'undefined' || !sb) return;
-  const lOut = window._dispoOutreach    || {};
-  const lOff = window._dispoBuyerOffers || {};
-  const rows = [];
-  const seen = new Set();
-  Object.keys(lOut).forEach(dealId => {
-    Object.keys(lOut[dealId] || {}).forEach(buyerId => {
-      const key = dealId + '|' + buyerId;
-      seen.add(key);
-      rows.push({ deal_id: dealId, buyer_id: buyerId, outreach: lOut[dealId][buyerId] || null, offer_amount: (lOff[dealId] && lOff[dealId][buyerId]) ? Number(lOff[dealId][buyerId]) : null });
-    });
-  });
-  Object.keys(lOff).forEach(dealId => {
-    Object.keys(lOff[dealId] || {}).forEach(buyerId => {
-      const key = dealId + '|' + buyerId;
-      if (seen.has(key)) return;
-      seen.add(key);
-      rows.push({ deal_id: dealId, buyer_id: buyerId, outreach: null, offer_amount: Number(lOff[dealId][buyerId]) || null });
-    });
-  });
-  if (rows.length === 0) return;
-  try {
-    const { error } = await sb.from('dispo_buyer_engagement').upsert(rows, { onConflict: 'deal_id,buyer_id' });
-    if (error) throw error;
-    // Merge into cache immediately so the UI reflects them without another fetch.
-    if (typeof cache !== 'undefined') {
-      cache.dispoEngagement = cache.dispoEngagement || {};
-      rows.forEach(r => {
-        if (!cache.dispoEngagement[r.deal_id]) cache.dispoEngagement[r.deal_id] = {};
-        cache.dispoEngagement[r.deal_id][r.buyer_id] = { outreach: r.outreach || null, offer_amount: Number(r.offer_amount) || 0 };
-      });
-    }
-    // Clear localStorage so we don't re-push on next load.
-    try { localStorage.removeItem('dispoOutreach');    window._dispoOutreach    = {}; } catch (e) {}
-    try { localStorage.removeItem('dispoBuyerOffers'); window._dispoBuyerOffers = {}; } catch (e) {}
-    if (typeof toast === 'function') toast('Migrated ' + rows.length + ' dispo engagement record' + (rows.length === 1 ? '' : 's') + ' to Supabase', 'ok');
-  } catch (e) {
-    console.warn('[_dispoMigrateLocalStorageOnce]', e && e.message);
-    _dispoMigrationRan = false; // allow retry on next session
-  }
-}
-window._dispoMigrateLocalStorageOnce = _dispoMigrateLocalStorageOnce;
-
-// Manual force-sync: pushes EVERY localStorage outreach + offer row up to
-// Supabase via upsert. Unlike _dispoMigrateLocalStorageOnce, this does NOT
-// clear localStorage on success — so the user can retry safely if anything
-// goes wrong, and the local copy stays as a backup.
-// Wired to the "Sync Local → Cloud" button in the Per Deal filter bar.
-async function _dispoForceSyncToCloud() {
-  if (typeof sb === 'undefined' || !sb) {
-    if (typeof toast === 'function') toast('Supabase not ready.', 'err');
-    return;
-  }
-  // Re-hydrate from localStorage in case window state was wiped this session.
-  try {
-    if (!window._dispoOutreach || Object.keys(window._dispoOutreach).length === 0) {
-      const raw = localStorage.getItem('dispoOutreach');
-      if (raw) window._dispoOutreach = JSON.parse(raw) || {};
-    }
-    if (!window._dispoBuyerOffers || Object.keys(window._dispoBuyerOffers).length === 0) {
-      const raw = localStorage.getItem('dispoBuyerOffers');
-      if (raw) window._dispoBuyerOffers = JSON.parse(raw) || {};
-    }
-  } catch (e) {}
-
-  const lOut = window._dispoOutreach    || {};
-  const lOff = window._dispoBuyerOffers || {};
-  const rows = [];
-  const seen = new Set();
-  Object.keys(lOut).forEach(dealId => {
-    Object.keys(lOut[dealId] || {}).forEach(buyerId => {
-      const key = dealId + '|' + buyerId;
-      seen.add(key);
-      rows.push({
-        deal_id: dealId,
-        buyer_id: buyerId,
-        outreach: lOut[dealId][buyerId] || null,
-        offer_amount: (lOff[dealId] && lOff[dealId][buyerId]) ? Number(lOff[dealId][buyerId]) : null
-      });
-    });
-  });
-  Object.keys(lOff).forEach(dealId => {
-    Object.keys(lOff[dealId] || {}).forEach(buyerId => {
-      const key = dealId + '|' + buyerId;
-      if (seen.has(key)) return;
-      seen.add(key);
-      rows.push({
-        deal_id: dealId,
-        buyer_id: buyerId,
-        outreach: null,
-        offer_amount: Number(lOff[dealId][buyerId]) || null
-      });
-    });
-  });
-  if (rows.length === 0) {
-    if (typeof toast === 'function') toast('Nothing to sync — no local engagement data found.', 'warn');
-    return;
-  }
-
-  const btn = document.getElementById('dispo-perdeal-sync-btn');
-  let prev = '';
-  if (btn) { prev = btn.innerHTML; btn.disabled = true; btn.innerHTML = '⏳ Syncing…'; }
-
-  try {
-    const { error } = await sb.from('dispo_buyer_engagement').upsert(rows, { onConflict: 'deal_id,buyer_id' });
-    if (error) throw error;
-    // Hydrate cache with synced rows.
-    if (typeof cache !== 'undefined') {
-      cache.dispoEngagement = cache.dispoEngagement || {};
-      rows.forEach(r => {
-        if (!cache.dispoEngagement[r.deal_id]) cache.dispoEngagement[r.deal_id] = {};
-        cache.dispoEngagement[r.deal_id][r.buyer_id] = { outreach: r.outreach || null, offer_amount: Number(r.offer_amount) || 0 };
-      });
-    }
-    if (typeof toast === 'function') toast('✅ Synced ' + rows.length + ' engagement record' + (rows.length === 1 ? '' : 's') + ' to cloud. localStorage kept as backup.', 'ok');
-    if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
-  } catch (e) {
-    console.warn('[_dispoForceSyncToCloud]', e);
-    const msg = (e && e.message) || String(e);
-    if (typeof toast === 'function') {
-      if (/row-level security|RLS|permission denied/i.test(msg)) {
-        toast('Sync failed: RLS blocking writes. Run in Supabase: ALTER TABLE dispo_buyer_engagement DISABLE ROW LEVEL SECURITY;', 'err');
-      } else {
-        toast('Sync failed: ' + msg, 'err');
-      }
-    }
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = prev || '☁ Sync Local → Cloud'; }
-  }
-}
-window._dispoForceSyncToCloud = _dispoForceSyncToCloud;
 
 // Refresh just the save-status pill in the filter bar without re-rendering
 // the whole panel (preserves input focus during a typing session).
@@ -24261,7 +24146,11 @@ function buyerRenderPerDealPanel() {
       const renderOfferInput = (buyerId) => {
         const cur = _dispoGetBuyerOffer(ctx.deal.id, buyerId);
         const val = cur ? cur.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '';
-        return '<div style="display:inline-flex;align-items:center;height:30px;background:var(--panel);border:1px solid var(--border);border-radius:6px;overflow:hidden">'
+        // Audit tooltip: look up the engagement row for this deal+buyer and surface who last touched it
+        const _engRow = (cache && cache.dispoEngagement && cache.dispoEngagement[ctx.deal.id]) ? cache.dispoEngagement[ctx.deal.id][buyerId] : null;
+        const _engAudit = (typeof _fmtUpdatedBy === 'function') ? _fmtUpdatedBy(_engRow) : '';
+        const _engTitle = _engAudit ? ' title="' + ctx.esc(_engAudit) + '"' : '';
+        return '<div' + _engTitle + ' style="display:inline-flex;align-items:center;height:30px;background:var(--panel);border:1px solid var(--border);border-radius:6px;overflow:hidden">'
           + '<span style="padding:0 6px 0 9px;color:var(--text-dim);font-size:12px;font-weight:600">$</span>'
           + '<input type="text" inputmode="numeric" placeholder="—" value="' + ctx.esc(val) + '" '
           +   'oninput="(function(el){var raw=el.value.replace(/[^0-9.]/g,\'\');var n=parseFloat(raw);el.value=isFinite(n)&&raw!==\'\'?n.toLocaleString(\'en-US\',{maximumFractionDigits:0}):raw;})(this);_dispoSetBuyerOffer(\'' + ctx.esc(ctx.deal.id) + '\',\'' + ctx.esc(buyerId) + '\',this.value);" '
@@ -24571,20 +24460,6 @@ function buyerRenderPerDealPanel() {
     +   '<button type="button" onclick="_dispoTestCloudWrite()" '
     +     'style="height:32px;padding:0 10px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;cursor:pointer;white-space:nowrap;font-weight:600" '
     +     'title="Run a test write to Supabase to verify the cloud save path is working. Safe \u2014 it inserts then deletes a test row.">\u{1F9EA} Test</button>'
-    +   (function () {
-            // Show "Sync Local \u2192 Cloud" only when there's untracked local data.
-            let n = 0;
-            try {
-              const o = window._dispoBuyerOffers || {};
-              const r = window._dispoOutreach    || {};
-              Object.keys(o).forEach(d => { n += Object.keys(o[d] || {}).length; });
-              Object.keys(r).forEach(d => { n += Object.keys(r[d] || {}).length; });
-            } catch (e) {}
-            if (n === 0) return '';
-            return '<button id="dispo-perdeal-sync-btn" type="button" onclick="_dispoForceSyncToCloud()" '
-              + 'style="height:32px;padding:0 12px;background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.5);border-radius:6px;color:#fbbf24;font-size:12px;cursor:pointer;white-space:nowrap;font-weight:600" '
-              + 'title="' + n + ' offer/outreach record' + (n === 1 ? '' : 's') + ' in localStorage haven\'t synced to cloud. Click to push them up now.">\u2601 Sync Local \u2192 Cloud (' + n + ')</button>';
-          })()
     +   '<button type="button" onclick="if(typeof buyerRenderPerDealPanel===\'function\') buyerRenderPerDealPanel();" '
     +     'style="height:32px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;cursor:pointer;white-space:nowrap;font-weight:600" '
     +     'title="Rescore + redraw using the latest buyer + deal data.">\u{1F501} Refresh</button>'
@@ -24632,14 +24507,6 @@ function buyerRenderPerDealPanel() {
     Object.keys(_engRows).forEach(bid => {
       const amt = Number((_engRows[bid] || {}).offer_amount) || 0;
       if (amt > 0) offers[bid] = amt;
-    });
-    // Legacy shadow fallback (in case cache hasn't loaded yet).
-    const _legacy = (window._dispoBuyerOffers || {})[deal.id] || {};
-    Object.keys(_legacy).forEach(bid => {
-      if (offers[bid] == null) {
-        const amt = Number(_legacy[bid]) || 0;
-        if (amt > 0) offers[bid] = amt;
-      }
     });
     const offerEntries = Object.keys(offers)
       .map(bid => ({ buyer: (cache.buyers || {})[bid] || null, amount: Number(offers[bid]) || 0 }))
@@ -27317,6 +27184,621 @@ function buyerPurchasesRowHTML(buyer) {
 }
 window.buyerPurchasesRowHTML = buyerPurchasesRowHTML;
 
+// Compact "time ago" formatter — '2m', '3h', '5d', etc.
+function _fmtTimeAgo(ts) {
+  if (!ts) return '';
+  const t = new Date(ts).getTime();
+  if (!isFinite(t)) return '';
+  const sec = Math.max(0, (Date.now() - t) / 1000);
+  if (sec < 60)      return Math.round(sec) + 's ago';
+  if (sec < 3600)    return Math.round(sec / 60) + 'm ago';
+  if (sec < 86400)   return Math.round(sec / 3600) + 'h ago';
+  if (sec < 86400*30)  return Math.round(sec / 86400) + 'd ago';
+  return new Date(ts).toLocaleDateString();
+}
+window._fmtTimeAgo = _fmtTimeAgo;
+
+// "Updated by mike@labbllc.com, 2h ago" — shows blank if no audit data yet.
+function _fmtUpdatedBy(row) {
+  if (!row) return '';
+  const who = row.updated_by || row.created_by || null;
+  const when = row.updated_at || row.created_at || null;
+  if (!who && !when) return '';
+  const parts = [];
+  if (who)  parts.push('Updated by ' + who);
+  if (when) parts.push(_fmtTimeAgo(when));
+  return parts.join(' · ');
+}
+window._fmtUpdatedBy = _fmtUpdatedBy;
+
+// ============================================================
+// Phase 3: Activity Feed
+// Queries the 12 audit-tracked tables for recent updates, merges
+// them into a single stream sorted by updated_at DESC.
+// ============================================================
+const _ACTIVITY_TABLES = [
+  { table: 'buyers',                icon: '🏢', label: 'buyer',          nameCol: 'name',    type: 'buyer'   },
+  { table: 'results',               icon: '📞', label: 'result',         nameCol: null,      type: 'result'  },
+  { table: 'properties',            icon: '🏠', label: 'property',       nameCol: 'address', type: 'prop'    },
+  { table: 'underwrites',           icon: '🧮', label: 'deal',           nameCol: 'address', type: 'uw'      },
+  { table: 'notebook_notes',        icon: '📓', label: 'note',           nameCol: 'title',   type: 'note'    },
+  { table: 'dispo_buyer_engagement',icon: '📤', label: 'offer',          nameCol: null,      type: 'eng'     },
+  { table: 'lists',                 icon: '📋', label: 'list',           nameCol: 'name',    type: 'list'    },
+  { table: 'vendors',               icon: '🔧', label: 'vendor',         nameCol: 'name',    type: 'vendor'  },
+  { table: 'agents',                icon: '👤', label: 'agent',          nameCol: 'name',    type: 'agent'   },
+  { table: 'contractors',           icon: '🛠', label: 'contractor',     nameCol: 'name',    type: 'contr'   },
+  { table: 'lenders',               icon: '💰', label: 'lender',         nameCol: 'name',    type: 'lender'  },
+  { table: 'attorneys',             icon: '⚖️', label: 'attorney',       nameCol: 'name',    type: 'atty'    },
+];
+
+const _activityState = {
+  items:       [],
+  windowFilter:'all',     // all | today | week | me
+  lastFetch:   0,
+  open:        false,
+  intervalId:  null,
+  lastSeen:    Number(localStorage.getItem('activityLastSeen') || 0),
+  loading:     false,
+};
+
+function _activityWindowEpochCutoff() {
+  const now = Date.now();
+  switch (_activityState.windowFilter) {
+    case 'today': {
+      const d = new Date(); d.setHours(0,0,0,0);
+      return d.getTime();
+    }
+    case 'week': return now - 7*86400*1000;
+    default:     return 0;
+  }
+}
+
+function _activityCurrentUserEmail() {
+  try {
+    return (window.session && window.session.user && window.session.user.email)
+        || (typeof currentUserEmail === 'function' ? currentUserEmail() : null)
+        || null;
+  } catch (e) { return null; }
+}
+
+async function loadActivityFeed(forceRefresh) {
+  if (_activityState.loading && !forceRefresh) return;
+  _activityState.loading = true;
+  const statusEl = document.getElementById('activity-feed-status');
+  if (statusEl) statusEl.textContent = 'Refreshing…';
+
+  try {
+    const cutoffMs = _activityWindowEpochCutoff();
+    const cutoffIso = cutoffMs > 0 ? new Date(cutoffMs).toISOString() : null;
+
+    const perTableLimit = 25;
+    const queries = _ACTIVITY_TABLES.map(async (def) => {
+      const cols = ['id','updated_at','updated_by','created_at','created_by'];
+      if (def.nameCol) cols.push(def.nameCol);
+      // include a couple of common reference cols for richer labels
+      if (def.table === 'results')                cols.push('buyer_id','deal_id','status','disposition');
+      if (def.table === 'dispo_buyer_engagement') cols.push('buyer_id','deal_id','offer','status');
+      try {
+        let q = sb.from(def.table).select(cols.join(','))
+                  .order('updated_at', { ascending: false, nullsFirst: false })
+                  .limit(perTableLimit);
+        if (cutoffIso) q = q.gte('updated_at', cutoffIso);
+        const { data, error } = await q;
+        if (error || !data) return [];
+        return data.map(row => ({
+          _table: def.table,
+          _def:   def,
+          id:     row.id,
+          who:    row.updated_by || row.created_by || null,
+          when:   row.updated_at || row.created_at || null,
+          isNew:  (row.updated_at && row.created_at && row.updated_at === row.created_at),
+          row,
+        }));
+      } catch (e) {
+        return [];
+      }
+    });
+
+    const buckets = await Promise.all(queries);
+    let merged = [].concat.apply([], buckets);
+
+    // drop items with no when / no who (existing rows pre-trigger)
+    merged = merged.filter(it => it.when || it.who);
+
+    // sort newest first
+    merged.sort((a,b) => {
+      const ta = a.when ? new Date(a.when).getTime() : 0;
+      const tb = b.when ? new Date(b.when).getTime() : 0;
+      return tb - ta;
+    });
+
+    // apply "just me" filter
+    if (_activityState.windowFilter === 'me') {
+      const me = (_activityCurrentUserEmail() || '').toLowerCase();
+      merged = merged.filter(it => (it.who || '').toLowerCase() === me);
+    }
+
+    // cap to last 120 to keep DOM cheap
+    _activityState.items = merged.slice(0, 120);
+    _activityState.lastFetch = Date.now();
+    renderActivityFeed();
+    updateActivityBadge();
+  } catch (e) {
+    console.warn('[activity] load failed', e);
+    if (statusEl) statusEl.textContent = 'Failed to load — try refreshing';
+  } finally {
+    _activityState.loading = false;
+  }
+}
+
+function _activityItemLabel(it) {
+  const def = it._def;
+  const r = it.row || {};
+  let name = '';
+  if (def.nameCol && r[def.nameCol]) {
+    name = String(r[def.nameCol]).trim();
+  }
+  // table-specific phrasing
+  switch (def.type) {
+    case 'result': {
+      const verb = it.isNew ? 'logged' : 'updated';
+      const status = r.disposition || r.status || '';
+      return verb + ' result' + (status ? ' (' + status + ')' : '');
+    }
+    case 'eng': {
+      const verb = it.isNew ? 'sent offer' : 'updated offer';
+      const offer = r.offer ? ' $' + r.offer : '';
+      return verb + offer;
+    }
+    case 'prop':
+    case 'uw': {
+      const verb = it.isNew ? 'added' : 'updated';
+      return verb + ' ' + def.label + (name ? ' ' + name : '');
+    }
+    default: {
+      const verb = it.isNew ? 'added' : 'updated';
+      return verb + ' ' + def.label + (name ? ' "' + name + '"' : '');
+    }
+  }
+}
+
+function _activityWhoShort(who) {
+  if (!who) return 'Someone';
+  // turn mike@labbllc.com -> Mike
+  const local = String(who).split('@')[0] || who;
+  if (!local) return who;
+  return local.charAt(0).toUpperCase() + local.slice(1);
+}
+
+function renderActivityFeed() {
+  const listEl = document.getElementById('activity-feed-list');
+  const statusEl = document.getElementById('activity-feed-status');
+  if (!listEl) return;
+
+  const items = _activityState.items;
+  if (!items.length) {
+    listEl.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-dim);font-size:12px">'
+      + 'No recent activity in this window.'
+      + '<div style="margin-top:8px;font-size:10px;opacity:0.7">Activity only shows for records edited after May 2026 — older rows won\'t appear until someone touches them.</div>'
+      + '</div>';
+    if (statusEl) statusEl.textContent = 'No activity · ' + _fmtTimeAgo(new Date(_activityState.lastFetch).toISOString());
+    return;
+  }
+
+  const html = items.map(it => {
+    const who = _activityWhoShort(it.who);
+    const ago = it.when ? _fmtTimeAgo(it.when) : '';
+    const label = _activityItemLabel(it);
+    const safeWho = escapeHtml(who);
+    const safeLabel = escapeHtml(label);
+    const safeAgo = escapeHtml(ago);
+    const safeFullWho = escapeHtml(it.who || '');
+    return '<div class="activity-feed-item" '
+      + 'style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;cursor:default" '
+      + 'title="' + safeFullWho + (it.when ? (' · ' + escapeHtml(new Date(it.when).toLocaleString())) : '') + '">'
+      + '<div style="font-size:16px;line-height:1.2;flex-shrink:0;width:22px;text-align:center">' + it._def.icon + '</div>'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:12px;color:var(--text);line-height:1.35">'
+      +     '<b>' + safeWho + '</b> ' + safeLabel
+      +   '</div>'
+      +   '<div style="font-size:10px;color:var(--text-dim);margin-top:2px">' + safeAgo + '</div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+  listEl.innerHTML = html;
+  if (statusEl) {
+    statusEl.textContent = items.length + ' event' + (items.length===1?'':'s') + ' · refreshed ' + _fmtTimeAgo(new Date(_activityState.lastFetch).toISOString());
+  }
+}
+
+function setActivityWindow(w) {
+  _activityState.windowFilter = w;
+  // visually mark active chip
+  document.querySelectorAll('.activity-filter-chip').forEach(btn => {
+    const active = btn.getAttribute('data-window') === w;
+    btn.style.background = active ? 'var(--brand)' : 'var(--panel-2)';
+    btn.style.color = active ? '#fff' : 'var(--text)';
+    btn.style.borderColor = active ? 'var(--brand)' : 'var(--border)';
+  });
+  loadActivityFeed(true);
+}
+
+function openActivityFeed() {
+  const panel = document.getElementById('activity-feed-panel');
+  const backdrop = document.getElementById('activity-feed-backdrop');
+  if (!panel) return;
+  panel.style.right = '0';
+  if (backdrop) backdrop.style.display = 'block';
+  _activityState.open = true;
+  // mark all as seen
+  _activityState.lastSeen = Date.now();
+  localStorage.setItem('activityLastSeen', String(_activityState.lastSeen));
+  updateActivityBadge();
+  // ensure a chip is highlighted
+  setActivityWindow(_activityState.windowFilter);
+  // refresh interval
+  if (_activityState.intervalId) clearInterval(_activityState.intervalId);
+  _activityState.intervalId = setInterval(() => {
+    if (_activityState.open) loadActivityFeed(false);
+  }, 30000);
+}
+
+function closeActivityFeed() {
+  const panel = document.getElementById('activity-feed-panel');
+  const backdrop = document.getElementById('activity-feed-backdrop');
+  if (panel) panel.style.right = '-440px';
+  if (backdrop) backdrop.style.display = 'none';
+  _activityState.open = false;
+  if (_activityState.intervalId) {
+    clearInterval(_activityState.intervalId);
+    _activityState.intervalId = null;
+  }
+}
+
+function updateActivityBadge() {
+  const badge = document.getElementById('activity-badge');
+  if (!badge) return;
+  const items = _activityState.items || [];
+  const me = (_activityCurrentUserEmail() || '').toLowerCase();
+  // count items newer than lastSeen AND not by me
+  let unseen = 0;
+  for (const it of items) {
+    if (!it.when) continue;
+    const t = new Date(it.when).getTime();
+    if (!isFinite(t)) continue;
+    if (t <= _activityState.lastSeen) continue;
+    if ((it.who || '').toLowerCase() === me) continue;
+    unseen++;
+  }
+  if (unseen > 0) {
+    badge.textContent = unseen > 99 ? '99+' : String(unseen);
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// Background poll for unseen badge — runs every 60s regardless of panel state.
+// Lightweight: same query, just feeds the badge counter.
+setTimeout(() => {
+  loadActivityFeed(false);
+  setInterval(() => {
+    if (!_activityState.open) loadActivityFeed(false);
+  }, 60000);
+}, 5000);
+
+window.openActivityFeed = openActivityFeed;
+window.closeActivityFeed = closeActivityFeed;
+window.loadActivityFeed = loadActivityFeed;
+window.setActivityWindow = setActivityWindow;
+
+// ============================================================
+// Phase 4: Realtime collaboration
+//   - Supabase Presence  -> who's currently online
+//   - Broadcast events   -> who's editing what right now
+//   - postgres_changes   -> push live updates into Activity Feed
+// ============================================================
+const _collabState = {
+  channel:      null,
+  myEmail:      null,
+  onlineUsers:  {},   // email -> { last_seen, joined_at }
+  editing:      {},   // "table:id" -> { email, at }
+  initialized:  false,
+};
+
+async function _collabResolveEmail() {
+  if (_collabState.myEmail) return _collabState.myEmail;
+  try {
+    const r = await sb.auth.getUser();
+    const e = r && r.data && r.data.user && r.data.user.email;
+    if (e) { _collabState.myEmail = e; return e; }
+  } catch (_) {}
+  return null;
+}
+
+function _collabPresenceShort(email) {
+  if (!email) return 'Someone';
+  const local = String(email).split('@')[0] || email;
+  return local.charAt(0).toUpperCase() + local.slice(1);
+}
+
+function _collabRenderPresence() {
+  const users = _collabState.onlineUsers || {};
+  const emails = Object.keys(users);
+  const chip = document.getElementById('header-presence-chip');
+  const countEl = document.getElementById('presence-count');
+  if (chip) chip.style.display = emails.length > 0 ? 'inline-block' : 'none';
+  if (countEl) countEl.textContent = String(emails.length);
+
+  const listEl = document.getElementById('presence-list');
+  if (listEl) {
+    if (!emails.length) {
+      listEl.innerHTML = '<div style="padding:14px;text-align:center;font-size:11px;color:var(--text-dim)">Nobody else online</div>';
+    } else {
+      const me = (_collabState.myEmail || '').toLowerCase();
+      emails.sort((a,b) => {
+        if (a.toLowerCase() === me) return -1;
+        if (b.toLowerCase() === me) return 1;
+        return a.localeCompare(b);
+      });
+      listEl.innerHTML = emails.map(e => {
+        const isMe = e.toLowerCase() === me;
+        return '<div style="padding:7px 14px;display:flex;align-items:center;gap:9px;font-size:12px">'
+             + '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 0 2px rgba(16,185,129,0.25);flex-shrink:0"></span>'
+             + '<span style="color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(_collabPresenceShort(e))
+             + (isMe ? ' <span style="color:var(--text-dim);font-size:10px">(you)</span>' : '')
+             + '</span>'
+             + '</div>';
+      }).join('');
+    }
+  }
+}
+
+function togglePresencePopover(ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  const pop = document.getElementById('presence-popover');
+  if (!pop) return;
+  const open = pop.style.display !== 'none' && pop.style.display !== '';
+  pop.style.display = open ? 'none' : 'block';
+  if (!open) {
+    // close on outside click (one-shot)
+    setTimeout(() => {
+      const off = (e) => {
+        if (!pop.contains(e.target)) {
+          pop.style.display = 'none';
+          document.removeEventListener('click', off, true);
+        }
+      };
+      document.addEventListener('click', off, true);
+    }, 0);
+  }
+}
+window.togglePresencePopover = togglePresencePopover;
+
+// ---------- Editing badges (which row someone else is in) ----------
+function _collabApplyEditingBadges() {
+  // For now: only buyers list. Lookup all buyer rows by data-buyer-id
+  // and inject/remove a small ".collab-editing-badge" span based on _collabState.editing.
+  const rows = document.querySelectorAll('[data-buyer-id]');
+  rows.forEach(row => {
+    const id = row.getAttribute('data-buyer-id');
+    const key = 'buyers:' + id;
+    const e = _collabState.editing[key];
+    // remove any stale badge first
+    const old = row.querySelector('.collab-editing-badge');
+    if (old) old.remove();
+    if (e && e.email && e.email.toLowerCase() !== (_collabState.myEmail || '').toLowerCase()) {
+      // find the cell with the buyer name (first <td> usually) to attach badge
+      const firstCell = row.querySelector('td');
+      if (firstCell) {
+        const badge = document.createElement('span');
+        badge.className = 'collab-editing-badge';
+        badge.style.cssText = 'display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:rgba(59,130,246,0.18);color:#60a5fa;font-size:9px;font-weight:700;border:1px solid rgba(59,130,246,0.4);vertical-align:1px';
+        badge.textContent = _collabPresenceShort(e.email) + ' editing…';
+        badge.title = e.email + ' is editing this row right now';
+        firstCell.appendChild(badge);
+      }
+    }
+  });
+}
+
+function _collabStartEditing(table, id) {
+  if (!_collabState.channel || !id) return;
+  const key = table + ':' + id;
+  try {
+    _collabState.channel.send({
+      type: 'broadcast',
+      event: 'editing:start',
+      payload: { key, email: _collabState.myEmail, at: Date.now() }
+    });
+  } catch (e) { console.warn('[collab] start failed', e); }
+  // also reflect locally (we'd hide our own badge anyway)
+  _collabState.editing[key] = { email: _collabState.myEmail, at: Date.now() };
+}
+function _collabStopEditing(table, id) {
+  if (!_collabState.channel) return;
+  const key = table + ':' + (id || '*');
+  try {
+    _collabState.channel.send({
+      type: 'broadcast',
+      event: 'editing:stop',
+      payload: { key, email: _collabState.myEmail, at: Date.now() }
+    });
+  } catch (e) {}
+  delete _collabState.editing[key];
+  _collabApplyEditingBadges();
+}
+
+// Expire stale editing flags every 45s (heartbeat is every 20s, so 45s is safe).
+setInterval(() => {
+  const now = Date.now();
+  let changed = false;
+  Object.keys(_collabState.editing).forEach(k => {
+    const e = _collabState.editing[k];
+    if (e && (now - (e.at || 0)) > 60000) { delete _collabState.editing[k]; changed = true; }
+  });
+  if (changed) _collabApplyEditingBadges();
+}, 15000);
+
+// Heartbeat: every 20s, re-broadcast my still-active editing flags.
+setInterval(() => {
+  if (!_collabState.channel) return;
+  Object.keys(_collabState.editing).forEach(k => {
+    const e = _collabState.editing[k];
+    if (e && e.email === _collabState.myEmail) {
+      const parts = k.split(':');
+      const table = parts[0];
+      const id = parts.slice(1).join(':');
+      _collabStartEditing(table, id);
+    }
+  });
+}, 20000);
+
+// ---------- Live push into Activity Feed ----------
+function _collabHandleLiveChange(def, p) {
+  try {
+    if (!p || p.eventType === 'DELETE') return;
+    const row = p.new || {};
+    if (!row.id) return;
+    const item = {
+      _table: def.table,
+      _def:   def,
+      id:     row.id,
+      who:    row.updated_by || row.created_by || null,
+      when:   row.updated_at || row.created_at || new Date().toISOString(),
+      isNew:  (row.updated_at && row.created_at && row.updated_at === row.created_at) || p.eventType === 'INSERT',
+      row,
+    };
+    if (!item.who && !item.when) return;
+    // Dedupe: replace existing entry for same table+id
+    _activityState.items = _activityState.items.filter(it => !(it._table === item._table && it.id === item.id));
+    _activityState.items.unshift(item);
+    if (_activityState.items.length > 120) _activityState.items.length = 120;
+    if (_activityState.open) renderActivityFeed();
+    updateActivityBadge();
+  } catch (e) { console.warn('[collab] live push failed', e); }
+}
+
+// ---------- Channel setup ----------
+async function setupCollabChannel() {
+  if (_collabState.initialized) return;
+  if (!window.sb || !sb.channel) { console.warn('[collab] realtime not available'); return; }
+
+  const me = await _collabResolveEmail();
+  if (!me) {
+    // No session yet — retry in a few seconds.
+    setTimeout(setupCollabChannel, 3000);
+    return;
+  }
+  _collabState.initialized = true;
+
+  const ch = sb.channel('labb_collab', {
+    config: { presence: { key: me } }
+  });
+  _collabState.channel = ch;
+
+  // Presence sync
+  ch.on('presence', { event: 'sync' }, () => {
+    const state = ch.presenceState() || {};
+    const next = {};
+    Object.keys(state).forEach(k => { next[k] = { last_seen: Date.now() }; });
+    _collabState.onlineUsers = next;
+    _collabRenderPresence();
+    updateActivityBadge();
+  });
+  ch.on('presence', { event: 'join' },  () => { /* sync covers it */ });
+  ch.on('presence', { event: 'leave' }, () => { /* sync covers it */ });
+
+  // Editing broadcasts
+  ch.on('broadcast', { event: 'editing:start' }, ({ payload }) => {
+    if (!payload || !payload.key) return;
+    _collabState.editing[payload.key] = { email: payload.email, at: payload.at || Date.now() };
+    _collabApplyEditingBadges();
+  });
+  ch.on('broadcast', { event: 'editing:stop' }, ({ payload }) => {
+    if (!payload || !payload.key) return;
+    delete _collabState.editing[payload.key];
+    _collabApplyEditingBadges();
+  });
+
+  // Live activity push — postgres_changes per table (silently no-ops if a
+  // table isn't in the supabase_realtime publication yet).
+  try {
+    _ACTIVITY_TABLES.forEach(def => {
+      ch.on('postgres_changes',
+        { event: '*', schema: 'public', table: def.table },
+        (p) => _collabHandleLiveChange(def, p)
+      );
+    });
+  } catch (e) { console.warn('[collab] postgres_changes wire failed', e); }
+
+  ch.subscribe(async (status) => {
+    if (status === 'SUBSCRIBED') {
+      try {
+        await ch.track({ email: me, joined_at: Date.now() });
+      } catch (e) { console.warn('[collab] track failed', e); }
+    }
+  });
+}
+
+// Boot: wait for sb to exist + initial session check, then subscribe.
+setTimeout(setupCollabChannel, 1500);
+
+// ---------- Wrap buyer modal open/close to broadcast editing state ----------
+(function _wrapBuyerEditingHooks() {
+  // run after the page finishes its first paint so the original functions exist
+  const tryWrap = () => {
+    if (!window.buyerOpenAddModal || !window.buyerCloseAddModal) {
+      setTimeout(tryWrap, 500);
+      return;
+    }
+    if (window.buyerOpenAddModal.__collabWrapped) return;
+    const origOpen  = window.buyerOpenAddModal;
+    const origClose = window.buyerCloseAddModal;
+    window._collabCurrentBuyerEdit = null;
+    window.buyerOpenAddModal = function(editId) {
+      const r = origOpen.apply(this, arguments);
+      if (editId) {
+        window._collabCurrentBuyerEdit = editId;
+        _collabStartEditing('buyers', editId);
+      }
+      return r;
+    };
+    window.buyerOpenAddModal.__collabWrapped = true;
+    window.buyerCloseAddModal = function() {
+      const id = window._collabCurrentBuyerEdit;
+      if (id) {
+        _collabStopEditing('buyers', id);
+        window._collabCurrentBuyerEdit = null;
+      }
+      return origClose.apply(this, arguments);
+    };
+    window.buyerCloseAddModal.__collabWrapped = true;
+  };
+  setTimeout(tryWrap, 2000);
+})();
+
+// Re-apply editing badges whenever the buyers list is re-rendered.
+(function _wrapRenderBuyersForCollab() {
+  const tryWrap = () => {
+    if (typeof renderBuyersList !== 'function') { setTimeout(tryWrap, 500); return; }
+    if (renderBuyersList.__collabWrapped) return;
+    const orig = renderBuyersList;
+    window.renderBuyersList = function() {
+      const r = orig.apply(this, arguments);
+      // give the DOM a tick to settle, then paint badges
+      setTimeout(_collabApplyEditingBadges, 30);
+      return r;
+    };
+    window.renderBuyersList.__collabWrapped = true;
+  };
+  setTimeout(tryWrap, 2500);
+})();
+
+window._collabStartEditing = _collabStartEditing;
+window._collabStopEditing  = _collabStopEditing;
+window._collabState        = _collabState;
+
 function renderBuyersList() {
   if (!cache.buyers) {
     loadBuyers().then(() => renderBuyersList());
@@ -27618,7 +28100,7 @@ function renderBuyersList() {
       : `<div style="font-weight:600">${name}</div>${aliasLine}`;
 
     return `
-      <tr style="border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.12s ease" data-buyer-id="${esc(b.id)}" onclick="buyerOpenAddModal('${esc(b.id)}')" onmouseover="this.style.background='rgba(99,102,241,0.06)'" onmouseout="this.style.background=''" title="Click to edit this buyer">
+      <tr style="border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.12s ease" data-buyer-id="${esc(b.id)}" onclick="buyerOpenAddModal('${esc(b.id)}')" onmouseover="this.style.background='rgba(99,102,241,0.06)'" onmouseout="this.style.background=''" title="Click to edit this buyer${(typeof _fmtUpdatedBy === 'function' && _fmtUpdatedBy(b)) ? ' · ' + _fmtUpdatedBy(b) : ''}">
         <td style="padding:10px 12px;font-size:13px;vertical-align:top">
           ${nameBlock}
           ${b.notes ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px;max-width:240px;line-height:1.4">${esc(b.notes)}</div>` : ''}
@@ -38709,7 +39191,8 @@ function renderResults() {
       // Browser-native dropdown menu does overlap when open (unavoidable), but the
       // closed chip itself reads cleanly.
       const verified = r.verified === true;
-      return `<tr>
+      const _resultAudit = (typeof _fmtUpdatedBy === 'function') ? _fmtUpdatedBy(r) : '';
+      return `<tr title="${_resultAudit ? escapeHtml(_resultAudit) : ''}">
         <td style="text-align:center;vertical-align:middle">
           <input type="checkbox" ${verified ? 'checked' : ''} onchange="setResultVerified('${r.id}', this.checked)" title="Check when you've listened to the conversation / verified the result" style="width:18px;height:18px;cursor:pointer;accent-color:#10b981">
         </td>

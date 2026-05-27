@@ -25353,13 +25353,16 @@ window._dispoUpdateCounts = _dispoUpdateCounts;
 // to Supabase, never touches cache.underwrites[id].data, and the grid recompute
 // uses a throwaway shallow-copy of u.data — so best exits, the rehab calc, and
 // every other downstream computation are completely untouched.
+// Boot hydration — seeds the in-memory cache from localStorage so the UI has
+// something on first paint even before cache.underwrites loads. Cloud hydration
+// happens later in _dispoHydratePacketPricesFromCloud() once underwrites arrive.
 (function hydratePacketPrices() {
   try {
     if (!window._dispoPacketPrices) {
       const raw = localStorage.getItem('dispoPacketPrices');
       window._dispoPacketPrices = raw ? (JSON.parse(raw) || {}) : {};
     }
-    // One-time migration — fold any prior Assignment / ContractOverride values
+    // Legacy migration — fold any prior Assignment / ContractOverride values
     // into the new Packet store so the user doesn't lose what they typed before.
     if (window._dispoPacketPrices && Object.keys(window._dispoPacketPrices).length === 0) {
       const a = localStorage.getItem('dispoAssignmentPrices');
@@ -25377,17 +25380,98 @@ window._dispoUpdateCounts = _dispoUpdateCounts;
   }
 })();
 
+// Cloud hydration — call once underwrites have loaded. Populates the in-memory
+// cache from underwrites.packet_price (the cloud source of truth) and pushes
+// any stranded localStorage entries up to the cloud (one-time migration).
+window._dispoPacketPricesCloudHydrated = false;
+async function _dispoHydratePacketPricesFromCloud() {
+  if (window._dispoPacketPricesCloudHydrated) return;
+  if (!cache || !cache.underwrites) return;  // wait for underwrites load
+  window._dispoPacketPricesCloudHydrated = true;
+  window._dispoPacketPrices = window._dispoPacketPrices || {};
+
+  // 1. Seed from cloud — every underwrite with a non-null packet_price.
+  Object.values(cache.underwrites).forEach(u => {
+    if (u && u.id && u.packet_price != null && Number(u.packet_price) > 0) {
+      window._dispoPacketPrices[u.id] = Number(u.packet_price);
+    }
+  });
+
+  // 2. Migration — for each local entry that DOESN'T yet have a cloud value,
+  //    push it up. Skip entries for unknown / cloud-already-set deals.
+  if (typeof sb === 'undefined' || !sb) return;
+  let pushed = 0, alreadyCloud = 0, unknown = 0;
+  try {
+    const localRaw = localStorage.getItem('dispoPacketPrices');
+    const local = localRaw ? (JSON.parse(localRaw) || {}) : {};
+    const localIds = Object.keys(local);
+    for (const id of localIds) {
+      const u = cache.underwrites[id];
+      if (!u) { unknown++; continue; }
+      if (u.packet_price != null && Number(u.packet_price) > 0) { alreadyCloud++; continue; }
+      const v = Number(local[id]);
+      if (!isFinite(v) || v <= 0) continue;
+      try {
+        const { error } = await sb.from('underwrites').update({ packet_price: v }).eq('id', id);
+        if (error) throw error;
+        if (cache.underwrites[id]) cache.underwrites[id].packet_price = v;
+        window._dispoPacketPrices[id] = v;
+        pushed++;
+      } catch (e) {
+        console.warn('[_dispoHydratePacketPricesFromCloud] push failed', id, e && e.message);
+      }
+    }
+    if (pushed > 0) {
+      if (typeof toast === 'function') toast('\u2601 Migrated ' + pushed + ' packet price' + (pushed === 1 ? '' : 's') + ' to cloud' + (alreadyCloud ? ' (' + alreadyCloud + ' already in cloud)' : ''), 'ok');
+    }
+    // Clear localStorage now that migration is done.
+    try { localStorage.removeItem('dispoPacketPrices'); } catch (_) {}
+    try { localStorage.removeItem('dispoAssignmentPrices'); } catch (_) {}
+    try { localStorage.removeItem('dispoContractOverrides'); } catch (_) {}
+  } catch (e) {
+    console.warn('[_dispoHydratePacketPricesFromCloud]', e);
+  }
+  if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
+  if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+}
+window._dispoHydratePacketPricesFromCloud = _dispoHydratePacketPricesFromCloud;
+
 function buyerSetPacketPrice(id, raw) {
   if (!id) return;
   if (!window._dispoPacketPrices) window._dispoPacketPrices = {};
   const v = parseFloat(String(raw == null ? '' : raw).replace(/[^0-9.]/g, ''));
-  if (!isFinite(v) || v <= 0) {
-    delete window._dispoPacketPrices[id];
-  } else {
-    window._dispoPacketPrices[id] = v;
+  const newVal = (isFinite(v) && v > 0) ? v : null;
+  // Capture rollback BEFORE we touch anything, in case the cloud write fails.
+  const rollback = window._dispoPacketPrices[id];
+  // Optimistic UI update — instant feedback while we push to the cloud.
+  if (newVal == null) delete window._dispoPacketPrices[id];
+  else                window._dispoPacketPrices[id] = newVal;
+  // Mirror onto cache.underwrites so other readers stay consistent.
+  if (cache && cache.underwrites && cache.underwrites[id]) {
+    cache.underwrites[id].packet_price = newVal;
   }
-  try { localStorage.setItem('dispoPacketPrices', JSON.stringify(window._dispoPacketPrices)); } catch (_) {}
   if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
+  // Push to Supabase.
+  (async function () {
+    if (typeof sb === 'undefined' || !sb) {
+      if (typeof toast === 'function') toast('\u274C Packet price NOT SAVED \u2014 Supabase not ready.', 'err');
+      return;
+    }
+    try {
+      const { error } = await sb.from('underwrites').update({ packet_price: newVal }).eq('id', id);
+      if (error) throw error;
+    } catch (e) {
+      console.warn('[buyerSetPacketPrice] FAILED:', e && e.message);
+      // Roll back so the UI doesn't lie about being saved.
+      if (rollback == null) delete window._dispoPacketPrices[id];
+      else                  window._dispoPacketPrices[id] = rollback;
+      if (cache && cache.underwrites && cache.underwrites[id]) {
+        cache.underwrites[id].packet_price = (rollback == null) ? null : rollback;
+      }
+      if (typeof toast === 'function') toast('\u274C Packet price NOT SAVED to cloud: ' + (e.message || 'unknown') + '. Re-type after fixing.', 'err');
+      if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
+    }
+  })();
 }
 window.buyerSetPacketPrice = buyerSetPacketPrice;
 // Back-compat aliases — any cached row HTML still binding to the old names just no-ops onto the new one.
@@ -30978,6 +31062,11 @@ function goSection(s) {
         if (typeof renderBuyersList === 'function') renderBuyersList();
         _maybeRerenderPerDeal();
       }).catch(() => {});
+    }
+    // Hydrate packet prices from cloud (also pushes any stranded local entries
+    // up on first run, then clears localStorage). Runs once per session.
+    if (typeof _dispoHydratePacketPricesFromCloud === 'function') {
+      Promise.resolve(_dispoHydratePacketPricesFromCloud()).catch(() => {});
     }
   }
   if (s === "underwriting" && typeof renderUnderwriteList === "function") {

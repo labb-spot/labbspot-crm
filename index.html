@@ -11155,7 +11155,36 @@ function uwComputeExits(ctx) {
   const flHmTotalInt   = flHmMonthlyInt * flipMonths;
   // ===== Financed Flip Max basis — hoisted so it can override wholesaleProfit
   // BEFORE the cascade math runs. All inputs above are now defined. =====
-  const flFinBuyMaxBasis = flipSale - (flipRehabAmt + flPurchClosingTotal + flipHolding + flipSelling) - (flHmOrig + flHmTotalInt) - (typeof wsIdealProfit === 'number' ? wsIdealProfit : 0);
+  // ===== Financed Flip Max — buyPrice-INDEPENDENT (iteratively solved) =====
+  // The Max Offer ceiling shouldn't shift when you type an accepted/asking
+  // price. Two things depend on buyPrice and must be recomputed against the
+  // candidate maxOffer on each pass:
+  //   1. flPurchClosingTotal — 3% of buyPrice
+  //   2. financing cost (orig + interest) — loan basis includes buyPrice
+  // Display-side flPurchClosingTotal / flHmOrig / flHmTotalInt remain tied to
+  // the actual buyPrice (correct for the breakdown). This iteration is solely
+  // for the Max Offer ceiling.
+  const _flFixedNonBuy =
+        flipRehabAmt
+      + flipHolding
+      + flipSelling
+      + (typeof wsIdealProfit === 'number' ? wsIdealProfit : 0);
+  let _flMaxIter = Math.max(0, flipSale - _flFixedNonBuy);  // first guess: no closing or financing
+  for (let _i = 0; _i < 30; _i++) {
+    // Closing costs scale with the candidate buyPrice (3% — matches above)
+    const _purchClose = _flMaxIter * 0.03;
+    // Loan basis = candidate buyPrice + rehab + closing + holding (capped at 70% ARV)
+    const _baseCost = _flMaxIter + flipRehabAmt + _purchClose + flipHolding;
+    const _loanByLtv = _baseCost * (flHmLtvPct / 100);
+    const _loanByArv = arv * (FL_HM_ARV_CAP_PCT / 100);
+    const _loan = Math.min(_loanByLtv, _loanByArv);
+    const _orig = _loan * (flHmOrigPct / 100);
+    const _totalInt = _loan * (flHmRatePct / 100) / 12 * flipMonths;
+    const _next = flipSale - _flFixedNonBuy - _purchClose - (_orig + _totalInt);
+    if (Math.abs(_next - _flMaxIter) < 1) { _flMaxIter = _next; break; }
+    _flMaxIter = _next;
+  }
+  const flFinBuyMaxBasis = _flMaxIter;
   // Override the wholesale fee / profit so it's anchored to the Financed Flip
   // Max baseline (matches wsBuyMax + headline Max Offer cascade). The original
   // cashBuyerMAO-based number set above is replaced; downstream cascade gates

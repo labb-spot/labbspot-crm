@@ -27533,18 +27533,29 @@ function renderBuyersList() {
     const allStates = (Array.isArray(b.states) && b.states.length)
       ? b.states
       : (b.state ? [b.state] : []);
-    const primary = allStates.length ? allStates.map(esc).join(', ') : '';
-    const chipRow = (arr, icon, color, title) => {
-      if (!Array.isArray(arr) || arr.length === 0) return '';
-      return '<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;justify-content:center">' + arr.slice(0, 8).map(v =>
-        `<span style="display:inline-block;padding:1px 6px;background:${color};border-radius:4px;font-size:10px;color:var(--text)" title="${title}">${icon} ${esc(v)}</span>`
-      ).join('') + (arr.length > 8 ? `<span style="font-size:10px;color:var(--text-dim);padding:1px 4px">+${arr.length - 8}</span>` : '') + '</div>';
+    // Color-coded location pills — one wrapping row in the order States,
+    // Counties, Zips. Each type has its own subtle color (blue / green / amber).
+    // No prefixes, no emojis — color alone signals the type at a glance.
+    // Cities deliberately omitted per design — county + zip are enough geo signal.
+    const _locPill = (val, fg, bg, bd, title) => {
+      // Original chip style: small, square-ish (4px radius), subtle colored bg,
+      // normal text color. Color signals type, shape stays compact + calm.
+      return '<span style="display:inline-block;padding:1px 6px;background:' + bg + ';border-radius:4px;font-size:10px;color:var(--text);white-space:nowrap" title="' + title + '">'
+        + esc(val) + '</span>';
     };
-    const locChips = chipRow(allCities, '🏙', 'rgba(99,102,241,0.18)', 'City') +
-                     chipRow(b.counties, '📍', 'rgba(16,185,129,0.18)', 'County') +
-                     chipRow(b.zips,     '📮', 'rgba(251,191,36,0.18)', 'Zip code');
-    const loc = (primary || locChips)
-      ? '<div style="font-size:12px">' + (primary || '') + locChips + '</div>'
+    const _locOverflowPill = (n) => '<span style="display:inline-flex;align-items:center;padding:2px 6px;font-size:10px;color:var(--text-dim)">+' + n + '</span>';
+    const _locBucket = (arr, fg, bg, bd, title) => {
+      if (!Array.isArray(arr) || arr.length === 0) return [];
+      const shown = arr.slice(0, 8).map(v => _locPill(v, fg, bg, bd, title));
+      if (arr.length > 8) shown.push(_locOverflowPill(arr.length - 8));
+      return shown;
+    };
+    const _locPills = []
+      .concat(_locBucket(allStates,  '#60a5fa', 'rgba(96,165,250,0.12)',  'rgba(96,165,250,0.45)',  'State'))
+      .concat(_locBucket(b.counties, '#34d399', 'rgba(52,211,153,0.12)',  'rgba(52,211,153,0.45)',  'County'))
+      .concat(_locBucket(b.zips,     '#fbbf24', 'rgba(251,191,36,0.12)',  'rgba(251,191,36,0.45)',  'Zip code'));
+    const loc = _locPills.length
+      ? '<div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;font-size:11px">' + _locPills.join('') + '</div>'
       : '<span style="color:var(--text-dim);font-size:11px">—</span>';
 
     // Status icon + title for the Status column (column added after Name).

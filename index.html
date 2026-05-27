@@ -24595,9 +24595,23 @@ function buyerRenderPerDealPanel() {
       return (isFinite(n) && n > 0) ? n : 0;
     })();
     // Compute the TOP 3 buyer offers for this deal + how many buyers in
-    // total have given an offer. Pulls from localStorage-backed
-    // window._dispoBuyerOffers[dealId] = {buyerId: $}.
-    const offers = (window._dispoBuyerOffers || {})[deal.id] || {};
+    // total have given an offer. Reads from cache.dispoEngagement (cloud
+    // source of truth) — falls back to legacy localStorage shadow only if
+    // the cache hasn't populated yet on first paint.
+    const _engRows = (cache.dispoEngagement || {})[deal.id] || {};
+    const offers = {};
+    Object.keys(_engRows).forEach(bid => {
+      const amt = Number((_engRows[bid] || {}).offer_amount) || 0;
+      if (amt > 0) offers[bid] = amt;
+    });
+    // Legacy shadow fallback (in case cache hasn't loaded yet).
+    const _legacy = (window._dispoBuyerOffers || {})[deal.id] || {};
+    Object.keys(_legacy).forEach(bid => {
+      if (offers[bid] == null) {
+        const amt = Number(_legacy[bid]) || 0;
+        if (amt > 0) offers[bid] = amt;
+      }
+    });
     const offerEntries = Object.keys(offers)
       .map(bid => ({ buyer: (cache.buyers || {})[bid] || null, amount: Number(offers[bid]) || 0 }))
       .filter(e => e.amount > 0)

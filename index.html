@@ -436,6 +436,23 @@
       max-width: none !important;
     }
 
+
+    /* ---- Slice 1b: zoom out section content so desktop tables/grids fit ----
+       Only .section-content divs are scaled; the header + tabs stay full size
+       so touch targets remain tappable. Tune the zoom value to taste. */
+    .section-content {
+      zoom: 0.55;
+      -moz-transform: scale(0.55);
+      -moz-transform-origin: top left;
+    }
+    /* Firefox lacks `zoom` historically — fall back to transform.
+       Width compensation so transformed element still occupies full row width. */
+    @-moz-document url-prefix() {
+      .section-content {
+        width: 181.8%; /* 1 / 0.55 */
+      }
+    }
+
   } /* end @media (max-width: 768px) */
 </style>
 </head>

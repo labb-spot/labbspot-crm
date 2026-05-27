@@ -375,6 +375,68 @@
   /* Header row stays on a SINGLE line. No overflow:hidden so the sort arrow on
      "Imported" never gets clipped — short header text never overflows anyway. */
   table:has(> tbody[id^="uw-"][id$="-tbody"]) th { white-space: nowrap; }
+
+  /* ============================================================
+     PHASE 6 — MOBILE RESPONSIVE
+     Slice 1: Header + nav
+     All rules scoped to viewports <= 768px. Desktop view untouched.
+     ============================================================ */
+  @media (max-width: 768px) {
+
+    /* ---- Top bar ---- */
+    #top-bar { padding: 6px 10px !important; gap: 6px !important; }
+
+    /* Hide admin/metric elements that don't belong on a phone */
+    #top-bar #lazy-load-banner-global,
+    #top-bar #sop-save-status,
+    #top-bar #storage-bar-wrapper,
+    #top-bar #geo-cost-badge,
+    #top-bar button[onclick*="diagnoseLists"] { display: none !important; }
+
+    /* Hide the "Data Management" subtitle — keep just the LAB chip+name */
+    #top-bar > div:first-child > div:last-child > div:last-child { display: none; }
+    #top-bar > div:first-child > div:last-child > div:first-child { font-size: 14px !important; }
+
+    /* Compact the remaining header buttons a touch more for thumb-sized targets */
+    #top-bar .btn { padding: 5px 9px !important; font-size: 12px !important; gap: 4px !important; min-height: 32px; }
+
+    /* ---- Section tabs row ---- */
+    /* Switch from wrapping to horizontal scroll so all 9 tabs stay reachable.
+       Hide the scrollbar visually; keep momentum scrolling on iOS. */
+    #section-tabs-row {
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      flex-wrap: nowrap !important;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-left: 10px !important;
+      padding-right: 10px !important;
+    }
+    #section-tabs-row::-webkit-scrollbar { display: none; }
+    #section-tabs-row .tab {
+      padding: 8px 12px !important;
+      font-size: 13px !important;
+      white-space: nowrap !important;
+      flex-shrink: 0;
+    }
+
+    /* ---- Activity Feed panel ---- */
+    /* Full-width on phone (was fixed at 420px). The existing JS still
+       slides right:0 / right:-440px to open/close; -440px stays fully
+       off-screen on every phone width, so the open/close animation works
+       unchanged. */
+    #activity-feed-panel { width: 100vw !important; box-shadow: none !important; }
+
+    /* ---- Presence popover ---- */
+    /* Fit comfortably in narrow viewport */
+    #presence-popover {
+      right: 8px !important;
+      left: 8px !important;
+      width: auto !important;
+      max-width: none !important;
+    }
+
+  } /* end @media (max-width: 768px) */
 </style>
 </head>
 <body class="min-h-screen">

@@ -42683,9 +42683,13 @@ async function _sopLoadFromSupabase() {
       user = r && r.data && r.data.user;
     } catch (_) { return false; }
     if (!user || !user.id) return false;
+    // SHARED SOP — everyone loads from the row tagged with admin email,
+    // not their own user_id. So all employees see the same SOP that the
+    // admin (Logan) maintains.
+    const SOP_ADMIN_EMAIL = 'admin@labbllc.com';
     const { data, error } = await sb.from('sop_state')
       .select('canvas_html, state_json')
-      .eq('user_id', user.id)
+      .eq('owner_email', SOP_ADMIN_EMAIL)
       .maybeSingle();
     if (error || !data) return false;
     if (data.state_json && typeof data.state_json === 'object') {
@@ -42715,6 +42719,18 @@ async function _sopSaveToSupabase() {
       user = r && r.data && r.data.user;
     } catch (_) { return; }
     if (!user || !user.id) return;
+    // SHARED SOP — only the admin email can save. Non-admins see the SOP
+    // as read-only. We show a one-time toast so they're not confused.
+    const SOP_ADMIN_EMAIL = 'admin@labbllc.com';
+    if (!user.email || user.email.toLowerCase() !== SOP_ADMIN_EMAIL) {
+      if (!window._sopReadOnlyToasted) {
+        window._sopReadOnlyToasted = true;
+        if (typeof toast === 'function') {
+          toast('\u{1F512} SOP is read-only \u2014 only the admin can edit. Your changes are not saved.', 'warn');
+        }
+      }
+      return;
+    }
     // Split: canvas_html goes in its own text column, everything else
     // (mode, snap, deletedIds, boxes meta, etc.) goes into state_json.
     const stateJson = {};
@@ -42725,6 +42741,7 @@ async function _sopSaveToSupabase() {
     const canvasHtml = _sopState.canvasHtml || '';
     await sb.from('sop_state').upsert({
       user_id: user.id,
+      owner_email: SOP_ADMIN_EMAIL,
       canvas_html: canvasHtml,
       state_json: stateJson
     }, { onConflict: 'user_id' });
@@ -42817,14 +42834,20 @@ function _sopQueueSupabaseSave() {
   if (typeof sopResetDefault !== 'function') return;
   const orig = sopResetDefault;
   window.sopResetDefault = async function () {
-    if (!confirm('Reset the SOP to its original layout? All your edits will be lost (locally AND in Supabase).')) return;
-    try { localStorage.removeItem(_SOP_LS_KEY); } catch (_) {}
+    const SOP_ADMIN_EMAIL = 'admin@labbllc.com';
     try {
       const r = await sb.auth.getUser();
       const user = r && r.data && r.data.user;
-      if (user && user.id) {
-        await sb.from('sop_state').delete().eq('user_id', user.id);
+      if (!user || !user.email || user.email.toLowerCase() !== SOP_ADMIN_EMAIL) {
+        if (typeof toast === 'function') {
+          toast('\u{1F512} Only the admin can reset the SOP.', 'warn');
+        }
+        return;
       }
+      if (!confirm('Reset the SOP to its original layout? All your edits will be lost (locally AND in Supabase).')) return;
+      try { localStorage.removeItem(_SOP_LS_KEY); } catch (_) {}
+      // Delete by owner_email so we wipe the shared row, not just the local user_id row.
+      await sb.from('sop_state').delete().eq('owner_email', SOP_ADMIN_EMAIL);
     } catch (_) {}
     location.reload();
   };

@@ -33850,6 +33850,10 @@ async function loadAllFromDB() {
   // Pull the global Rehab Calculator $/SF price book from the cloud so the
   // calculator starts in sync on any device. Safe no-op if cloud is empty.
   if (typeof _uwRehabPriceBookHydrateFromCloud === 'function') _uwRehabPriceBookHydrateFromCloud();
+  // Same for LAB Custom Rates — overrides on default rates flow cloud->local.
+  if (typeof _labRatesHydrateFromCloud === 'function') _labRatesHydrateFromCloud();
+  // Custom rehab items / groups / auto rules — same cloud->local pattern.
+  if (typeof _rcUserCustomHydrateFromCloud === 'function') _rcUserCustomHydrateFromCloud();
 }
 
 // --------- Rendering ---------
@@ -43206,6 +43210,8 @@ function saveLabRates(){
     });
   });
   try{ localStorage.setItem(LAB_STORAGE_KEY, JSON.stringify(rates)); }catch(e){}
+  // Mirror to cloud so other devices / employees see the same custom rates.
+  if (typeof _labRatesSyncToCloud === 'function') _labRatesSyncToCloud(rates);
 }
 function loadLabRates(){
   try{
@@ -43226,8 +43232,57 @@ function resetLabRates(){
     });
   });
   try{ localStorage.removeItem(LAB_STORAGE_KEY); }catch(e){}
+  // Wipe the cloud copy too so other devices revert on next load.
+  if (typeof _labRatesSyncToCloud === 'function') _labRatesSyncToCloud({});
   recalc();
 }
+
+// ===== LAB Custom Rates — cloud sync (app_config.column_mappings.lab_rates) =====
+// Reuses the same pattern as _uwRehabPriceBookSyncToCloud. Debounced push so
+// rapid edits coalesce into one network call.
+let _labRatesCloudTimer = null;
+function _labRatesSyncToCloud(rates) {
+  if (typeof sb === 'undefined' || !sb) return;
+  if (_labRatesCloudTimer) clearTimeout(_labRatesCloudTimer);
+  _labRatesCloudTimer = setTimeout(async () => {
+    _labRatesCloudTimer = null;
+    try {
+      const mappings = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings) || {};
+      mappings.lab_rates = rates || {};
+      const { error } = await sb.from('app_config')
+        .update({ column_mappings: mappings, updated_at: new Date().toISOString() })
+        .eq('id', 1);
+      if (!error && typeof cache !== 'undefined' && cache && cache.config) {
+        cache.config.column_mappings = mappings;
+      }
+    } catch (_) {}
+  }, 600);
+}
+window._labRatesSyncToCloud = _labRatesSyncToCloud;
+
+// Pull from cloud on boot — overwrites localStorage so this device starts on
+// the same custom-rate page as every other device. Safe no-op if cloud is empty.
+function _labRatesHydrateFromCloud() {
+  try {
+    const cloud = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings && cache.config.column_mappings.lab_rates) || null;
+    if (!cloud || typeof cloud !== 'object') return;
+    // Push cloud values into localStorage so loadLabRates() picks them up.
+    try { localStorage.setItem(LAB_STORAGE_KEY, JSON.stringify(cloud)); } catch (_) {}
+    // If items already loaded, re-apply the cloud rates directly so the
+    // calculator updates without needing a reload.
+    if (typeof items === 'object' && items) {
+      Object.keys(items).forEach(k => {
+        items[k].forEach(it => {
+          if (it._origR === undefined) it._origR = it.r;
+          const key = k + ':' + it.n;
+          if (cloud[key] !== undefined) it.r = cloud[key];
+        });
+      });
+      if (typeof recalc === 'function') recalc();
+    }
+  } catch (_) {}
+}
+window._labRatesHydrateFromCloud = _labRatesHydrateFromCloud;
 // ===== USER-ADDED CUSTOM ITEMS =====
 // Items the user creates in Edit Mode. Stored separately from rate-edits so
 // they survive code updates (built-in items + features can change without
@@ -43269,6 +43324,7 @@ function _rcSaveUserItems(){
     });
   });
   try{ localStorage.setItem(USER_ITEMS_KEY, JSON.stringify(out)); }catch(e){}
+  if (typeof _rcUserItemsSyncToCloud === 'function') _rcUserItemsSyncToCloud(out);
 }
 function _rcSaveUserGroups(){
   // Save which extra item names live in each basic group beyond the built-ins.
@@ -43280,6 +43336,7 @@ function _rcSaveUserGroups(){
     if(userExtras.length) out[g.n] = userExtras;
   });
   try{ localStorage.setItem(USER_GROUPS_KEY, JSON.stringify(out)); }catch(e){}
+  if (typeof _rcUserGroupsSyncToCloud === 'function') _rcUserGroupsSyncToCloud(out);
 }
 // Snapshot the original built-in items list per basic group on first run,
 // so we can detect user-added items even after merging from localStorage.
@@ -43394,7 +43451,74 @@ function _rcSaveUserAuto(){
     }
   });
   try{ localStorage.setItem(USER_AUTO_KEY, JSON.stringify(out)); }catch(e){}
+  if (typeof _rcUserAutoSyncToCloud === 'function') _rcUserAutoSyncToCloud(out);
 }
+
+// ===== Custom Rehab (Items + Groups + Auto) — cloud sync =====
+// Three separate sub-keys inside app_config.column_mappings so we can update
+// them independently. Each push is debounced 600ms so rapid edits coalesce.
+function _rcPushToAppConfig(subKey, payload) {
+  if (typeof sb === 'undefined' || !sb) return;
+  try {
+    const mappings = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings) || {};
+    mappings[subKey] = payload || {};
+    sb.from('app_config')
+      .update({ column_mappings: mappings, updated_at: new Date().toISOString() })
+      .eq('id', 1)
+      .then(({ error }) => {
+        if (!error && typeof cache !== 'undefined' && cache && cache.config) {
+          cache.config.column_mappings = mappings;
+        }
+      });
+  } catch (_) {}
+}
+
+let _rcUserItemsCloudTimer = null;
+function _rcUserItemsSyncToCloud(payload) {
+  if (_rcUserItemsCloudTimer) clearTimeout(_rcUserItemsCloudTimer);
+  _rcUserItemsCloudTimer = setTimeout(() => { _rcUserItemsCloudTimer = null; _rcPushToAppConfig('rehab_user_items', payload); }, 600);
+}
+window._rcUserItemsSyncToCloud = _rcUserItemsSyncToCloud;
+
+let _rcUserGroupsCloudTimer = null;
+function _rcUserGroupsSyncToCloud(payload) {
+  if (_rcUserGroupsCloudTimer) clearTimeout(_rcUserGroupsCloudTimer);
+  _rcUserGroupsCloudTimer = setTimeout(() => { _rcUserGroupsCloudTimer = null; _rcPushToAppConfig('rehab_user_groups', payload); }, 600);
+}
+window._rcUserGroupsSyncToCloud = _rcUserGroupsSyncToCloud;
+
+let _rcUserAutoCloudTimer = null;
+function _rcUserAutoSyncToCloud(payload) {
+  if (_rcUserAutoCloudTimer) clearTimeout(_rcUserAutoCloudTimer);
+  _rcUserAutoCloudTimer = setTimeout(() => { _rcUserAutoCloudTimer = null; _rcPushToAppConfig('rehab_user_auto', payload); }, 600);
+}
+window._rcUserAutoSyncToCloud = _rcUserAutoSyncToCloud;
+
+// Pull all three from cloud on boot. Mirrors values into localStorage so the
+// existing load functions (_rcLoadUserItems etc.) pick them up. If the calc
+// is already initialized, re-runs the load functions so customizations apply
+// without a page reload.
+function _rcUserCustomHydrateFromCloud() {
+  try {
+    const map = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings) || {};
+    const cloudItems  = map.rehab_user_items  || null;
+    const cloudGroups = map.rehab_user_groups || null;
+    const cloudAuto   = map.rehab_user_auto   || null;
+    if (cloudItems  && typeof cloudItems  === 'object') try { localStorage.setItem(USER_ITEMS_KEY,  JSON.stringify(cloudItems));  } catch (_) {}
+    if (cloudGroups && typeof cloudGroups === 'object') try { localStorage.setItem(USER_GROUPS_KEY, JSON.stringify(cloudGroups)); } catch (_) {}
+    if (cloudAuto   && typeof cloudAuto   === 'object') try { localStorage.setItem(USER_AUTO_KEY,   JSON.stringify(cloudAuto));   } catch (_) {}
+    // If the rehab calc has already initialized, re-apply now so the UI updates
+    // without a reload. Load functions are idempotent (dedupe checks inside).
+    if (typeof items === 'object' && items && typeof basicGroups !== 'undefined') {
+      if (typeof _rcLoadUserItems  === 'function') _rcLoadUserItems();
+      if (typeof _rcLoadUserGroups === 'function') _rcLoadUserGroups();
+      if (typeof _rcLoadUserAuto   === 'function') _rcLoadUserAuto();
+      if (typeof renderCategoryRows === 'function') renderCategoryRows();
+      if (typeof recalc === 'function') recalc();
+    }
+  } catch (_) {}
+}
+window._rcUserCustomHydrateFromCloud = _rcUserCustomHydrateFromCloud;
 window._rcToggleAutoForItem = function(groupIdx, itemName){
   const g = basicGroups[groupIdx];
   if(!g || !g.items.includes(itemName)) return;

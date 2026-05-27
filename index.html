@@ -438,19 +438,43 @@
 
 
     /* ---- Slice 1b: zoom out section content so desktop tables/grids fit ----
-       Only .section-content divs are scaled; the header + tabs stay full size
-       so touch targets remain tappable. Tune the zoom value to taste. */
+       The actual zoom value lives in --labb-mobile-zoom on :root, updated
+       live by the mobile zoom tuner pill (bottom-right of screen). The
+       --labb-mobile-zoom-inv var stores the inverse, used by the Firefox
+       fallback width compensation. */
     .section-content {
-      zoom: 0.55;
-      -moz-transform: scale(0.55);
+      zoom: var(--labb-mobile-zoom, 0.55);
+      -moz-transform: scale(var(--labb-mobile-zoom, 0.55));
       -moz-transform-origin: top left;
     }
-    /* Firefox lacks `zoom` historically — fall back to transform.
-       Width compensation so transformed element still occupies full row width. */
     @-moz-document url-prefix() {
       .section-content {
-        width: 181.8%; /* 1 / 0.55 */
+        width: calc(100% * var(--labb-mobile-zoom-inv, 1.818));
       }
+    }
+    /* The zoom tuner pill — fixed bottom-right corner, low-profile until tapped. */
+    #labb-mobile-zoom-tuner {
+      position: fixed;
+      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      right:  calc(12px + env(safe-area-inset-right, 0px));
+      z-index: 9800;
+      display: flex; align-items: center; gap: 4px;
+      background: rgba(20, 20, 28, 0.92); border: 1px solid var(--border);
+      border-radius: 999px; padding: 4px 6px;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+      font-size: 11px; color: var(--text);
+    }
+    #labb-mobile-zoom-tuner button {
+      background: var(--panel-2); border: 1px solid var(--border);
+      color: var(--text); width: 28px; height: 28px; border-radius: 50%;
+      font-size: 16px; font-weight: 700; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: manipulation;
+    }
+    #labb-mobile-zoom-tuner button:active { background: var(--brand); }
+    #labb-mobile-zoom-tuner .zoom-pct {
+      min-width: 38px; text-align: center; font-weight: 600;
     }
 
   } /* end @media (max-width: 768px) */
@@ -45095,6 +45119,72 @@ if (_rcRoot && document.getElementById('basicGroups')) {
   recalc();
   _rcApplyRecsCollapse();
 }
+})();
+</script>
+<!-- Phase 6: Mobile-only zoom tuner. Hidden on desktop via inline check. -->
+<div id="labb-mobile-zoom-tuner" style="display:none">
+  <button type="button" onclick="labbZoomBump(-0.05)" title="Zoom out further">−</button>
+  <span class="zoom-pct" id="labb-zoom-pct">55%</span>
+  <button type="button" onclick="labbZoomBump(+0.05)" title="Zoom in">+</button>
+</div>
+<script>
+(function(){
+  // Mobile-only: detect narrow viewport. Don't touch desktop.
+  const MOBILE_BREAK = 768;
+  const STORAGE_KEY  = 'labbMobileZoom';
+  const MIN = 0.20, MAX = 1.00, STEP = 0.05;
+
+  function isMobile() { return window.innerWidth <= MOBILE_BREAK; }
+
+  // Default zoom for any phone is 30%. User can dial up or down with
+  // the +/- buttons on the tuner pill, and their choice is saved per
+  // device in localStorage so they only set it once.
+  function smartDefault() {
+    return 0.30;
+  }
+
+  function readSaved() {
+    try {
+      const v = parseFloat(localStorage.getItem(STORAGE_KEY) || '');
+      if (isFinite(v) && v >= MIN && v <= MAX) return v;
+    } catch (e) {}
+    return smartDefault();
+  }
+
+  function apply(v) {
+    v = Math.max(MIN, Math.min(MAX, Math.round(v * 100) / 100));
+    document.documentElement.style.setProperty('--labb-mobile-zoom', v);
+    document.documentElement.style.setProperty('--labb-mobile-zoom-inv', (1/v).toFixed(4));
+    const pct = document.getElementById('labb-zoom-pct');
+    if (pct) pct.textContent = Math.round(v * 100) + '%';
+    try { localStorage.setItem(STORAGE_KEY, String(v)); } catch (e) {}
+    window._labbMobileZoom = v;
+  }
+
+  // Public API used by the +/- buttons
+  window.labbZoomBump = function(delta) {
+    if (!isMobile()) return;
+    apply((window._labbMobileZoom || readSaved()) + delta);
+  };
+
+  // Initial apply + show/hide pill based on viewport
+  function init() {
+    const v = readSaved();
+    apply(v);
+    const pill = document.getElementById('labb-mobile-zoom-tuner');
+    if (pill) pill.style.display = isMobile() ? 'flex' : 'none';
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+  // Re-evaluate on orientation/resize so tablet rotation works
+  window.addEventListener('resize', () => {
+    const pill = document.getElementById('labb-mobile-zoom-tuner');
+    if (pill) pill.style.display = isMobile() ? 'flex' : 'none';
+  });
 })();
 </script>
 </body>

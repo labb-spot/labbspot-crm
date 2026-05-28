@@ -498,24 +498,43 @@
        Targets the underwriting + dispositions panels that hold tables. The
        New Contract table already works because its container scrolls; this
        extends the same treatment to the Underwriting tabs (Analyzing, Hot,
-       Priority, etc.) where the column count crushes everything. */
-    #section-underwriting .panel,
-    #section-dispositions .panel {
-      max-width: 100%;
-      overflow-x: auto;
+       Priority, etc.) where the column count crushes everything.
+       High-specificity selectors (html#... prefix) to beat the existing
+       desktop :has() table rules in cascade order. */
+    html body #section-underwriting .panel,
+    html body #section-dispositions .panel {
+      max-width: 100% !important;
+      overflow-x: auto !important;
       -webkit-overflow-scrolling: touch;
     }
-    #section-underwriting .panel::-webkit-scrollbar,
-    #section-dispositions .panel::-webkit-scrollbar { height: 3px; }
-    #section-underwriting .panel::-webkit-scrollbar-thumb,
-    #section-dispositions .panel::-webkit-scrollbar-thumb {
+    html body #section-underwriting .panel::-webkit-scrollbar,
+    html body #section-dispositions .panel::-webkit-scrollbar { height: 3px; }
+    html body #section-underwriting .panel::-webkit-scrollbar-thumb,
+    html body #section-dispositions .panel::-webkit-scrollbar-thumb {
       background: rgba(148,163,184,0.45); border-radius: 4px;
     }
-    /* Let tables keep their natural width so columns stay readable
-       instead of being squeezed; the panel above provides the scroll. */
-    #section-underwriting .panel table,
-    #section-dispositions .panel table {
-      min-width: max-content;
+    /* Force underwriting tables to a wider fixed width so they extend
+       beyond the viewport and the panel-level overflow-x scrolls them.
+       Without this, the desktop rule `table:has(> tbody[id^="uw-"])
+       { table-layout:fixed; width:100% }` keeps crushing them to fit. */
+    html body table:has(> tbody[id^="uw-"][id$="-tbody"]) {
+      width: 1400px !important;
+      min-width: 1400px !important;
+      table-layout: fixed !important;
+    }
+    /* Generic catch — any table inside underwriting/dispositions that
+       isn't covered above still gets a natural-width scroll. */
+    html body #section-underwriting .panel table:not(:has(> tbody[id^="uw-"])),
+    html body #section-dispositions .panel table {
+      min-width: max-content !important;
+    }
+
+    /* ---- Bump subtab wrap rules' specificity so they win on iOS Safari ---- */
+    html body #uw-subtabs-row,
+    html body #uw-dispo-subtabs-row,
+    html body #dispo-subtabs,
+    html body #reno-top-nav {
+      flex-wrap: wrap !important;
     }
 
     /* Imports subtabs (Upload/Unverified/Properties/Vendors/No Mailing/etc)

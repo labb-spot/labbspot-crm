@@ -393,12 +393,15 @@
     #top-bar #geo-cost-badge,
     #top-bar button[onclick*="diagnoseLists"] { display: none !important; }
 
-    /* Hide the "Data Management" subtitle — keep just the LAB chip+name */
-    #top-bar > div:first-child > div:last-child > div:last-child { display: none; }
-    #top-bar > div:first-child > div:last-child > div:first-child { font-size: 14px !important; }
+    /* Compact the LAB title block but keep "Data Management" visible */
+    #top-bar > div:first-child > div:last-child > div:first-child { font-size: 13px !important; line-height: 1.1; }
+    #top-bar > div:first-child > div:last-child > div:last-child { font-size: 9px !important; line-height: 1.1; }
 
-    /* Compact the remaining header buttons a touch more for thumb-sized targets */
-    #top-bar .btn { padding: 5px 9px !important; font-size: 12px !important; gap: 4px !important; min-height: 32px; }
+    /* Shrink header action buttons (Activity, SOP, Settings, logout, presence) */
+    #top-bar .btn { padding: 3px 7px !important; font-size: 10px !important; gap: 3px !important; min-height: 26px; border-radius: 5px; }
+    #top-bar .btn #activity-badge { font-size: 8px !important; padding: 0 4px !important; }
+    #top-bar #header-presence-chip b { font-size: 10px !important; }
+    #top-bar #header-presence-chip span:last-child { font-size: 9px !important; }
 
     /* ---- Section tabs row ---- */
     /* Switch from wrapping to horizontal scroll so all 9 tabs stay reachable.
@@ -444,9 +447,9 @@
        compensation so the scaled element still occupies the full row.
        The inverse var (--labb-mobile-zoom-inv) handles the width math. */
     .section-content {
-      transform: scale(var(--labb-mobile-zoom, 0.30));
+      transform: scale(var(--labb-mobile-zoom, 0.50));
       transform-origin: top left;
-      width: calc(100% * var(--labb-mobile-zoom-inv, 3.333));
+      width: calc(100% * var(--labb-mobile-zoom-inv, 2.000));
       /* Prevent the scaled overflow from leaking horizontal scroll */
       overflow-x: hidden;
     }
@@ -45136,11 +45139,11 @@ if (_rcRoot && document.getElementById('basicGroups')) {
 
   function isMobile() { return window.innerWidth <= MOBILE_BREAK; }
 
-  // Default zoom for any phone is 30%. User can dial up or down with
+  // Default zoom for any phone is 50%. User can dial up or down with
   // the +/- buttons on the tuner pill, and their choice is saved per
   // device in localStorage so they only set it once.
   function smartDefault() {
-    return 0.30;
+    return 0.50;
   }
 
   function readSaved() {

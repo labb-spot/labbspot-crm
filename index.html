@@ -5368,7 +5368,10 @@
        placeholder until you wire it to the underwrites/contracts table; the
        title + helper text are swapped per active subtab. -->
   <div id="dispo-contracts-panel" class="panel p-5 mb-3" style="display:none">
-    <div id="dispo-contracts-title" style="font-size:18px;font-weight:700">📜 New Contract</div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div id="dispo-contracts-title" style="font-size:18px;font-weight:700;flex:1;min-width:0">📜 New Contract</div>
+      <input type="search" id="dispo-contracts-search" placeholder="🔎 Search address / city / state / zip\u2026" oninput="if(typeof buyerRenderContractsPanel===\'function\') buyerRenderContractsPanel();" style="flex:0 0 280px;max-width:40%;height:32px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;outline:none" />
+    </div>
     <div id="dispo-contracts-help"  style="font-size:13px;color:var(--text-dim);margin-top:6px">Contracts that have just been signed but haven\'t moved to assignment yet.</div>
     <div id="dispo-contracts-body"  style="margin-top:16px;padding:24px;text-align:center;color:var(--text-dim);background:var(--panel-2);border:1px dashed var(--border);border-radius:8px">
       <div style="font-size:36px;margin-bottom:8px">📜</div>
@@ -25210,12 +25213,27 @@ function buyerRenderContractsPanel() {
   // Filter by the top-level dispo_contract column. Fallback to the legacy
   // u.data._dispoContract so any rows that were assigned BEFORE the column
   // existed still surface in the right bucket.
-  const all = Object.values(cache.underwrites || {}).filter(u => {
+  let all = Object.values(cache.underwrites || {}).filter(u => {
     if (!u) return false;
     const top = u.dispo_contract;
     const legacy = u.data && u.data._dispoContract;
     return (top || legacy) === statusKey;
   });
+  // ---- Inline search filter (header search input) ----
+  const _searchEl = document.getElementById('dispo-contracts-search');
+  const _q = _searchEl ? String(_searchEl.value || '').trim().toLowerCase() : '';
+  if (_q) {
+    all = all.filter(u => {
+      const d = u.data || {};
+      const haystack = [
+        u.address || d.address || d._address || '',
+        d.city || u.city || '',
+        d.state || u.state || '',
+        d.zip || u.zip || ''
+      ].join(' ').toLowerCase();
+      return haystack.includes(_q);
+    });
+  }
   if (all.length === 0) {
     bodyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-dim);background:var(--panel-2);border:1px dashed var(--border);border-radius:8px">' +
       '<div style="font-size:36px;margin-bottom:8px">📜</div>' +

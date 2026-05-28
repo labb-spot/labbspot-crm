@@ -24386,11 +24386,48 @@ function buyerRenderPerDealPanel() {
     // falls back to zip-match-only for buyers without any imports yet.
     const _dealCoords = _dispoGetDealCoords(opened);
     const _dealAttrs  = _dispoGetDealAttrs(opened);
-    const rankedAll = buyers
-      .map(b => Object.assign({ b }, _dispoScoreBuyerWithPurchases(b, deal, _dealCoords, _dealAttrs, opened)))
-      .filter(r => r.score > 0)
-      .sort((a, b) => b.score - a.score);
+    // ===== LOCALITY HARD FILTER =====
+    // Rule: only include a buyer if EITHER
+    //   (a) they have a geocoded purchase within 50 miles of the subject, OR
+    //   (b) they have no usable purchase distance data BUT their city/county/zip
+    //       chips overlap with the subject's city/county/zip (state alone doesn't count).
+    // If subject is not geocoded, distance can't be evaluated — render the
+    // panel with a geocode prompt instead of the buyer list.
+    const _subjectGeocoded = !!(_dealCoords && _dealCoords.lat != null && _dealCoords.lng != null);
+    const _normLoc = s => String(s == null ? '' : s).toLowerCase().trim();
+    const _dealCityN   = _normLoc(deal.city);
+    const _dealCountyN = _normLoc(deal.county);
+    const _dealZipN    = String(deal.zip || '').trim();
+    function _buyerLocOverlapsSubject(b) {
+      // Pure chip-level check (no purchases involved). Used for the fallback
+      // path when buyer has no geocoded purchases to measure distance from.
+      if (!b) return false;
+      const cities   = Array.isArray(b.cities)   ? b.cities.map(_normLoc)   : [];
+      const counties = Array.isArray(b.counties) ? b.counties.map(_normLoc) : [];
+      const zips     = Array.isArray(b.zips)     ? b.zips.map(s => String(s).trim()) : [];
+      if (_dealCityN   && cities.includes(_dealCityN))     return true;
+      if (_dealCountyN && counties.includes(_dealCountyN)) return true;
+      if (_dealZipN    && zips.includes(_dealZipN))        return true;
+      return false;
+    }
+    function _passesLocalityFilter(r) {
+      // r.miles is set only when the buyer has at least one geocoded purchase
+      // AND the subject is geocoded (the distance-block in _dispoScoreBuyerWithPurchases).
+      if (r.miles != null && isFinite(r.miles)) {
+        return r.miles <= 50;
+      }
+      // No distance available: fall back to city/county/zip chip overlap.
+      return _buyerLocOverlapsSubject(r.b);
+    }
+    const rankedAll = _subjectGeocoded
+      ? buyers
+          .map(b => Object.assign({ b }, _dispoScoreBuyerWithPurchases(b, deal, _dealCoords, _dealAttrs, opened)))
+          .filter(r => r.score > 0 && _passesLocalityFilter(r))
+          .sort((a, b) => b.score - a.score)
+      : [];
     const totalMatchCount = rankedAll.length;
+    // Stash the "needs geocode" flag so the inner renderer can show the prompt.
+    window._dispoSubjectNeedsGeocode = !_subjectGeocoded;
 
     // Stash everything the inner re-renderer needs so it can run without
     // rebuilding the filter bar (which would steal search-input focus).
@@ -24477,8 +24514,20 @@ function buyerRenderPerDealPanel() {
 
       const countLine = '<div style="font-size:11px;color:var(--text-dim);margin-bottom:10px">' + ranked.length + ' of ' + ctx.rankedAll.length + ' buyer' + (ctx.rankedAll.length === 1 ? '' : 's') + ' shown</div>';
 
+      // Special empty state: subject property has no lat/lng yet, so the
+      // 50-mile filter can't run. Prompt the user to geocode before showing
+      // any matches (per the locality filter rule).
+      if (window._dispoSubjectNeedsGeocode) {
+        innerEl.innerHTML = countLine + '<div style="padding:28px 20px;text-align:center;color:var(--text-dim);font-size:13px;background:var(--panel);border:1px dashed var(--border);border-radius:8px">'
+          + '<div style="font-size:30px;margin-bottom:10px">📍</div>'
+          + '<div style="color:var(--text);font-weight:600;font-size:14px;margin-bottom:6px">Geocode this property to see matching buyers</div>'
+          + '<div style="margin-bottom:14px;line-height:1.5">Buyer matching requires the subject property\'s coordinates so we can apply the 50-mile rule. Click <b>📍 Geocode now</b> above (or in the Per Deal banner) to enable matching.</div>'
+          + '</div>';
+        return;
+      }
+
       if (ranked.length === 0) {
-        innerEl.innerHTML = countLine + '<div style="padding:24px;text-align:center;color:var(--text-dim);font-size:13px;background:var(--panel);border:1px dashed var(--border);border-radius:8px">' + (ctx.rankedAll.length === 0 ? 'No buyer in your rolodex has zip ' + ctx.esc(ctx.deal.zip || '?') + ' in their list yet.' : 'No buyers match the current filters.') + '</div>';
+        innerEl.innerHTML = countLine + '<div style="padding:24px;text-align:center;color:var(--text-dim);font-size:13px;background:var(--panel);border:1px dashed var(--border);border-radius:8px">' + (ctx.rankedAll.length === 0 ? 'No buyers have purchased within 50 miles of this property, and no buyer\'s city/county/zip targets overlap with the subject. Try expanding buyer chips or importing more purchase history.' : 'No buyers match the current filters.') + '</div>';
         return;
       }
       innerEl.innerHTML = countLine + '<div style="display:flex;flex-direction:column;gap:10px">' + ranked.map((r, idx) => {
@@ -45328,72 +45377,6 @@ if (_rcRoot && document.getElementById('basicGroups')) {
   recalc();
   _rcApplyRecsCollapse();
 }
-})();
-</script>
-<!-- Phase 6: Mobile-only zoom tuner. Hidden on desktop via inline check. -->
-<div id="labb-mobile-zoom-tuner" style="display:none">
-  <button type="button" onclick="labbZoomBump(-0.05)" title="Zoom out further">−</button>
-  <span class="zoom-pct" id="labb-zoom-pct">55%</span>
-  <button type="button" onclick="labbZoomBump(+0.05)" title="Zoom in">+</button>
-</div>
-<script>
-(function(){
-  // Mobile-only: detect narrow viewport. Don't touch desktop.
-  const MOBILE_BREAK = 768;
-  const STORAGE_KEY  = 'labbMobileZoom';
-  const MIN = 0.20, MAX = 1.00, STEP = 0.05;
-
-  function isMobile() { return window.innerWidth <= MOBILE_BREAK; }
-
-  // Default zoom for any phone is 50%. User can dial up or down with
-  // the +/- buttons on the tuner pill, and their choice is saved per
-  // device in localStorage so they only set it once.
-  function smartDefault() {
-    return 0.50;
-  }
-
-  function readSaved() {
-    try {
-      const v = parseFloat(localStorage.getItem(STORAGE_KEY) || '');
-      if (isFinite(v) && v >= MIN && v <= MAX) return v;
-    } catch (e) {}
-    return smartDefault();
-  }
-
-  function apply(v) {
-    v = Math.max(MIN, Math.min(MAX, Math.round(v * 100) / 100));
-    document.documentElement.style.setProperty('--labb-mobile-zoom', v);
-    document.documentElement.style.setProperty('--labb-mobile-zoom-inv', (1/v).toFixed(4));
-    const pct = document.getElementById('labb-zoom-pct');
-    if (pct) pct.textContent = Math.round(v * 100) + '%';
-    try { localStorage.setItem(STORAGE_KEY, String(v)); } catch (e) {}
-    window._labbMobileZoom = v;
-  }
-
-  // Public API used by the +/- buttons
-  window.labbZoomBump = function(delta) {
-    if (!isMobile()) return;
-    apply((window._labbMobileZoom || readSaved()) + delta);
-  };
-
-  // Initial apply + show/hide pill based on viewport
-  function init() {
-    const v = readSaved();
-    apply(v);
-    const pill = document.getElementById('labb-mobile-zoom-tuner');
-    if (pill) pill.style.display = isMobile() ? 'flex' : 'none';
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-  // Re-evaluate on orientation/resize so tablet rotation works
-  window.addEventListener('resize', () => {
-    const pill = document.getElementById('labb-mobile-zoom-tuner');
-    if (pill) pill.style.display = isMobile() ? 'flex' : 'none';
-  });
 })();
 </script>
 </body>

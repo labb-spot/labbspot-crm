@@ -16677,22 +16677,39 @@ async function uwSave(manual) {
       if (_uwLoadedAt) {
         const { data: live, error: lockErr } = await sb
           .from('underwrites')
-          .select('updated_at')
+          .select('updated_at, updated_by')
           .eq('id', _uwCurrentId)
           .maybeSingle();
         if (!lockErr && live && live.updated_at && live.updated_at !== _uwLoadedAt) {
-          _uwAutosaveInflight = false;
-          _uwSetSaveStatus('error', 'Conflict');
-          const editTimeFmt = (() => {
-            try { return new Date(live.updated_at).toLocaleString(); }
-            catch (_) { return 'a moment ago'; }
-          })();
-          const msg = '⚠️ Another user edited this deal at ' + editTimeFmt +
-            '. Save was BLOCKED to protect their work. Reload the deal to see ' +
-            'the latest version, then re-apply your changes.';
-          if (manual) alert(msg);
-          else if (typeof toast === 'function') toast(msg, 'warn');
-          return;
+          // Resolve the current user email so we can tell "someone else
+          // changed it" from "I changed it through a different code path
+          // (geocode / dispo stage / packet price / etc.)".
+          let myEmail = null;
+          try {
+            const r = await sb.auth.getUser();
+            myEmail = (r && r.data && r.data.user && r.data.user.email) || null;
+          } catch (_) {}
+          const liveBy = (live.updated_by || '').toLowerCase();
+          const meLow  = (myEmail || '').toLowerCase();
+          if (meLow && liveBy && liveBy === meLow) {
+            // It was us via a side-channel update — silently refresh the
+            // baseline and proceed with the save.
+            _uwLoadedAt = live.updated_at;
+          } else {
+            _uwAutosaveInflight = false;
+            _uwSetSaveStatus('error', 'Conflict');
+            const editTimeFmt = (() => {
+              try { return new Date(live.updated_at).toLocaleString(); }
+              catch (_) { return 'a moment ago'; }
+            })();
+            const whoFmt = liveBy ? (' by ' + live.updated_by) : '';
+            const msg = '⚠️ Another user edited this deal' + whoFmt + ' at ' + editTimeFmt +
+              '. Save was BLOCKED to protect their work. Reload the deal to see ' +
+              'the latest version, then re-apply your changes.';
+            if (manual) alert(msg);
+            else if (typeof toast === 'function') toast(msg, 'warn');
+            return;
+          }
         }
       }
       result = await sb.from('underwrites').update(payload).eq('id', _uwCurrentId).select().maybeSingle();
@@ -17941,17 +17958,31 @@ async function uwSetHoldingStatus(id, status) {
     // deals being routed from the list, we trust the cache.
     if (id === _uwCurrentId && _uwLoadedAt) {
       const { data: live } = await sb.from('underwrites')
-        .select('updated_at').eq('id', id).maybeSingle();
+        .select('updated_at, updated_by').eq('id', id).maybeSingle();
       if (live && live.updated_at && live.updated_at !== _uwLoadedAt) {
-        const editTimeFmt = (() => {
-          try { return new Date(live.updated_at).toLocaleString(); }
-          catch (_) { return 'a moment ago'; }
-        })();
-        if (typeof toast === 'function') {
-          toast('⚠️ Another user edited this deal at ' + editTimeFmt +
-            '. Reload before routing it.', 'warn');
+        // Same fix as uwSave: if the side-channel edit was the current user,
+        // silently refresh the baseline instead of blocking.
+        let myEmail = null;
+        try {
+          const r = await sb.auth.getUser();
+          myEmail = (r && r.data && r.data.user && r.data.user.email) || null;
+        } catch (_) {}
+        const liveBy = (live.updated_by || '').toLowerCase();
+        const meLow  = (myEmail || '').toLowerCase();
+        if (meLow && liveBy && liveBy === meLow) {
+          _uwLoadedAt = live.updated_at;
+        } else {
+          const editTimeFmt = (() => {
+            try { return new Date(live.updated_at).toLocaleString(); }
+            catch (_) { return 'a moment ago'; }
+          })();
+          const whoFmt = liveBy ? (' by ' + live.updated_by) : '';
+          if (typeof toast === 'function') {
+            toast('⚠️ Another user edited this deal' + whoFmt + ' at ' + editTimeFmt +
+              '. Reload before routing it.', 'warn');
+          }
+          return;
         }
-        return;
       }
     }
     const { data: saved, error } = await sb.from('underwrites')

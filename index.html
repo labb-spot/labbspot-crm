@@ -16018,7 +16018,12 @@ function _uwCollect() {
       if (k.indexOf('_source') === 0 || k === '_priorityHandled' || k === '_holdingStatus' ||
           k === '_budgetActuals' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
           k === '_reno_phase_override' || k === '_compsMode' ||
-          k === '_scopePhaseBudgets' || k === '_customRehabPreset') {
+          k === '_scopePhaseBudgets' || k === '_customRehabPreset' ||
+          // Geocode coordinates — written by _dispoGeocodeSubject directly
+          // into u.data.lat/lng/geocoded_address (not form fields). Without
+          // this preservation, the next autosave wipes them and the user
+          // has to re-geocode the same property again. Bug reported May 27 2026.
+          k === 'lat' || k === 'lng' || k === 'geocoded_address') {
         data[k] = prev[k];
       }
     });

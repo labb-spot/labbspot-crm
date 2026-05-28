@@ -403,9 +403,9 @@
     #top-bar #header-presence-chip b { font-size: 10px !important; }
     #top-bar #header-presence-chip span:last-child { font-size: 9px !important; }
 
-    /* ---- Section tabs row ---- */
-    /* Horizontal scroll for all 9 tabs. THIN visible scrollbar so users
-       know there's more off-screen to swipe to. */
+    /* ---- Section tabs row (main top tabs: Imports/Marketing/Logs/...) ----
+       Horizontal scroll with a thin visible scrollbar so users know there's
+       more to swipe to. Tabs themselves stay compact. */
     #section-tabs-row {
       overflow-x: auto !important;
       overflow-y: hidden !important;
@@ -413,49 +413,79 @@
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
       scrollbar-color: rgba(148,163,184,0.45) transparent;
-      padding-left: 10px !important;
-      padding-right: 10px !important;
-      padding-bottom: 4px !important;
+      padding-left: 8px !important;
+      padding-right: 8px !important;
     }
-    #section-tabs-row::-webkit-scrollbar { display: block; height: 4px; }
+    #section-tabs-row::-webkit-scrollbar { height: 3px; }
     #section-tabs-row::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.45); border-radius: 4px; }
     #section-tabs-row::-webkit-scrollbar-track { background: transparent; }
     #section-tabs-row .tab {
-      padding: 8px 12px !important;
-      font-size: 13px !important;
+      padding: 5px 9px !important;
+      font-size: 11px !important;
       white-space: nowrap !important;
-      flex-shrink: 0;
+      flex-shrink: 0 !important;
     }
 
-    /* ---- All subtab rows ---- */
-    /* Any flex container holding .subtab children becomes horizontally
-       scrollable with the same thin visible scrollbar. This covers:
-       Underwriting (#uw-subtabs-row), Dispositions (#dispo-subtabs),
-       Imports subtabs (Upload/Unverified/Properties/Vendors/No Mailing/etc),
-       Marketing, Results, Renovation, and any other subtab row. */
-    div:has(> .subtab),
-    div:has(> .subtab-compact) {
+    /* ---- Specific subtab rows that need horizontal scroll ----
+       Targeted by ID so nothing else on the page is affected. Each row
+       gets the same thin visible scrollbar pattern as the main tabs.
+       Underwriting, Dispositions, the in-deal dispo subtab strip, and
+       Renovation's top nav are all covered. */
+    #uw-subtabs-row,
+    #uw-dispo-subtabs-row,
+    #dispo-subtabs,
+    #reno-top-nav {
       overflow-x: auto !important;
       overflow-y: hidden !important;
       flex-wrap: nowrap !important;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
       scrollbar-color: rgba(148,163,184,0.45) transparent;
-      padding-bottom: 4px;
-      max-width: 100%;
+      max-width: 100% !important;
       min-width: 0 !important;
     }
-    div:has(> .subtab)::-webkit-scrollbar,
-    div:has(> .subtab-compact)::-webkit-scrollbar { display: block; height: 4px; }
-    div:has(> .subtab)::-webkit-scrollbar-thumb,
-    div:has(> .subtab-compact)::-webkit-scrollbar-thumb {
+    #uw-subtabs-row::-webkit-scrollbar,
+    #uw-dispo-subtabs-row::-webkit-scrollbar,
+    #dispo-subtabs::-webkit-scrollbar,
+    #reno-top-nav::-webkit-scrollbar { height: 3px; }
+    #uw-subtabs-row::-webkit-scrollbar-thumb,
+    #uw-dispo-subtabs-row::-webkit-scrollbar-thumb,
+    #dispo-subtabs::-webkit-scrollbar-thumb,
+    #reno-top-nav::-webkit-scrollbar-thumb {
       background: rgba(148,163,184,0.45); border-radius: 4px;
     }
-    div:has(> .subtab)::-webkit-scrollbar-track,
-    div:has(> .subtab-compact)::-webkit-scrollbar-track { background: transparent; }
-    div:has(> .subtab) > .subtab,
-    div:has(> .subtab-compact) > .subtab,
-    div:has(> .subtab-compact) > .subtab-compact {
+    /* Children of those rows: keep natural size, just don't shrink. */
+    #uw-subtabs-row > .subtab,
+    #uw-subtabs-row > .subtab-compact,
+    #uw-subtabs-row > div,
+    #uw-dispo-subtabs-row > .subtab,
+    #uw-dispo-subtabs-row > .subtab-compact,
+    #uw-dispo-subtabs-row > div,
+    #dispo-subtabs > .subtab,
+    #dispo-subtabs > .subtab-compact,
+    #dispo-subtabs > div,
+    #reno-top-nav > div {
+      flex-shrink: 0 !important;
+      white-space: nowrap !important;
+    }
+
+    /* Imports subtabs (Upload/Unverified/Properties/Vendors/No Mailing/etc)
+       — no ID, so target via section-data + the panel pill wrapper class. */
+    #section-data > .flex.panel.p-1.w-fit {
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      flex-wrap: nowrap !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(148,163,184,0.45) transparent;
+    }
+    #section-data > .flex.panel.p-1.w-fit::-webkit-scrollbar { height: 3px; }
+    #section-data > .flex.panel.p-1.w-fit::-webkit-scrollbar-thumb {
+      background: rgba(148,163,184,0.45); border-radius: 4px;
+    }
+    #section-data > .flex.panel.p-1.w-fit > .subtab {
       flex-shrink: 0 !important;
       white-space: nowrap !important;
     }

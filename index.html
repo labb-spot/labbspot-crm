@@ -398,8 +398,22 @@
     #top-bar > div:first-child > div:last-child > div:last-child { font-size: 9px !important; line-height: 1.1; }
 
     /* Shrink header action buttons (Activity, SOP, Settings, logout, presence) */
-    #top-bar .btn { padding: 3px 7px !important; font-size: 10px !important; gap: 3px !important; min-height: 26px; border-radius: 5px; }
-    #top-bar .btn #activity-badge { font-size: 8px !important; padding: 0 4px !important; }
+    #top-bar .btn { padding: 3px 7px !important; font-size: 10px !important; gap: 3px !important; min-height: 26px; border-radius: 5px; position: relative; }
+    /* Float the activity badge as a corner dot so it doesn't widen the button
+       (which was pushing the row taller when the badge appeared). */
+    #top-bar #header-activity-btn { position: relative; padding-right: 9px !important; }
+    #top-bar #activity-badge {
+      position: absolute !important;
+      top: -4px !important;
+      right: -4px !important;
+      font-size: 8px !important;
+      padding: 0 4px !important;
+      margin: 0 !important;
+      min-width: 14px;
+      height: 14px;
+      line-height: 14px !important;
+      text-align: center;
+    }
     #top-bar #header-presence-chip b { font-size: 10px !important; }
     #top-bar #header-presence-chip span:last-child { font-size: 9px !important; }
 
@@ -426,47 +440,82 @@
       flex-shrink: 0 !important;
     }
 
-    /* ---- Specific subtab rows that need horizontal scroll ----
-       Targeted by ID so nothing else on the page is affected. Each row
-       gets the same thin visible scrollbar pattern as the main tabs.
-       Underwriting, Dispositions, the in-deal dispo subtab strip, and
-       Renovation's top nav are all covered. */
+    /* ---- Subtab rows: OUTER wraps to multiple rows, INNER pills scroll ----
+       The outer container (#uw-subtabs-row, #dispo-subtabs, #reno-top-nav)
+       allows its child panel pills to wrap onto a new row when they don't
+       all fit. Each grouped pill stays together. If a single pill is wider
+       than the screen on its own, it scrolls horizontally with a thin bar. */
     #uw-subtabs-row,
     #uw-dispo-subtabs-row,
     #dispo-subtabs,
     #reno-top-nav {
+      flex-wrap: wrap !important;
+      overflow: visible !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      row-gap: 6px;
+    }
+    /* Each direct child of those rows (the .panel pills) — these are the
+       "groups" the user wants kept together on their own row. Scrolls
+       internally if the group itself is too wide for the screen. */
+    #uw-subtabs-row > div,
+    #uw-dispo-subtabs-row > div,
+    #dispo-subtabs > div,
+    #reno-top-nav > div {
       overflow-x: auto !important;
       overflow-y: hidden !important;
-      flex-wrap: nowrap !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
       scrollbar-color: rgba(148,163,184,0.45) transparent;
-      max-width: 100% !important;
-      min-width: 0 !important;
+      flex-wrap: nowrap !important;
     }
-    #uw-subtabs-row::-webkit-scrollbar,
-    #uw-dispo-subtabs-row::-webkit-scrollbar,
-    #dispo-subtabs::-webkit-scrollbar,
-    #reno-top-nav::-webkit-scrollbar { height: 3px; }
-    #uw-subtabs-row::-webkit-scrollbar-thumb,
-    #uw-dispo-subtabs-row::-webkit-scrollbar-thumb,
-    #dispo-subtabs::-webkit-scrollbar-thumb,
-    #reno-top-nav::-webkit-scrollbar-thumb {
+    #uw-subtabs-row > div::-webkit-scrollbar,
+    #uw-dispo-subtabs-row > div::-webkit-scrollbar,
+    #dispo-subtabs > div::-webkit-scrollbar,
+    #reno-top-nav > div::-webkit-scrollbar { height: 3px; }
+    #uw-subtabs-row > div::-webkit-scrollbar-thumb,
+    #uw-dispo-subtabs-row > div::-webkit-scrollbar-thumb,
+    #dispo-subtabs > div::-webkit-scrollbar-thumb,
+    #reno-top-nav > div::-webkit-scrollbar-thumb {
       background: rgba(148,163,184,0.45); border-radius: 4px;
     }
-    /* Children of those rows: keep natural size, just don't shrink. */
-    #uw-subtabs-row > .subtab,
-    #uw-subtabs-row > .subtab-compact,
-    #uw-subtabs-row > div,
-    #uw-dispo-subtabs-row > .subtab,
-    #uw-dispo-subtabs-row > .subtab-compact,
-    #uw-dispo-subtabs-row > div,
-    #dispo-subtabs > .subtab,
-    #dispo-subtabs > .subtab-compact,
-    #dispo-subtabs > div,
-    #reno-top-nav > div {
+    /* Subtabs inside those panel pills — don't shrink, don't wrap text. */
+    #uw-subtabs-row .subtab,
+    #uw-subtabs-row .subtab-compact,
+    #uw-dispo-subtabs-row .subtab,
+    #uw-dispo-subtabs-row .subtab-compact,
+    #dispo-subtabs .subtab,
+    #dispo-subtabs .subtab-compact,
+    #reno-top-nav .subtab,
+    #reno-top-nav .subtab-compact {
       flex-shrink: 0 !important;
       white-space: nowrap !important;
+    }
+
+    /* ---- Wide tables inside sections become horizontally scrollable ----
+       Targets the underwriting + dispositions panels that hold tables. The
+       New Contract table already works because its container scrolls; this
+       extends the same treatment to the Underwriting tabs (Analyzing, Hot,
+       Priority, etc.) where the column count crushes everything. */
+    #section-underwriting .panel,
+    #section-dispositions .panel {
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #section-underwriting .panel::-webkit-scrollbar,
+    #section-dispositions .panel::-webkit-scrollbar { height: 3px; }
+    #section-underwriting .panel::-webkit-scrollbar-thumb,
+    #section-dispositions .panel::-webkit-scrollbar-thumb {
+      background: rgba(148,163,184,0.45); border-radius: 4px;
+    }
+    /* Let tables keep their natural width so columns stay readable
+       instead of being squeezed; the panel above provides the scroll. */
+    #section-underwriting .panel table,
+    #section-dispositions .panel table {
+      min-width: max-content;
     }
 
     /* Imports subtabs (Upload/Unverified/Properties/Vendors/No Mailing/etc)

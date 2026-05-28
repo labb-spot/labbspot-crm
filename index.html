@@ -404,23 +404,60 @@
     #top-bar #header-presence-chip span:last-child { font-size: 9px !important; }
 
     /* ---- Section tabs row ---- */
-    /* Switch from wrapping to horizontal scroll so all 9 tabs stay reachable.
-       Hide the scrollbar visually; keep momentum scrolling on iOS. */
+    /* Horizontal scroll for all 9 tabs. THIN visible scrollbar so users
+       know there's more off-screen to swipe to. */
     #section-tabs-row {
       overflow-x: auto !important;
       overflow-y: hidden !important;
       flex-wrap: nowrap !important;
       -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(148,163,184,0.45) transparent;
       padding-left: 10px !important;
       padding-right: 10px !important;
+      padding-bottom: 4px !important;
     }
-    #section-tabs-row::-webkit-scrollbar { display: none; }
+    #section-tabs-row::-webkit-scrollbar { display: block; height: 4px; }
+    #section-tabs-row::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.45); border-radius: 4px; }
+    #section-tabs-row::-webkit-scrollbar-track { background: transparent; }
     #section-tabs-row .tab {
       padding: 8px 12px !important;
       font-size: 13px !important;
       white-space: nowrap !important;
       flex-shrink: 0;
+    }
+
+    /* ---- All subtab rows ---- */
+    /* Any flex container holding .subtab children becomes horizontally
+       scrollable with the same thin visible scrollbar. This covers:
+       Underwriting (#uw-subtabs-row), Dispositions (#dispo-subtabs),
+       Imports subtabs (Upload/Unverified/Properties/Vendors/No Mailing/etc),
+       Marketing, Results, Renovation, and any other subtab row. */
+    div:has(> .subtab),
+    div:has(> .subtab-compact) {
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      flex-wrap: nowrap !important;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(148,163,184,0.45) transparent;
+      padding-bottom: 4px;
+      max-width: 100%;
+      min-width: 0 !important;
+    }
+    div:has(> .subtab)::-webkit-scrollbar,
+    div:has(> .subtab-compact)::-webkit-scrollbar { display: block; height: 4px; }
+    div:has(> .subtab)::-webkit-scrollbar-thumb,
+    div:has(> .subtab-compact)::-webkit-scrollbar-thumb {
+      background: rgba(148,163,184,0.45); border-radius: 4px;
+    }
+    div:has(> .subtab)::-webkit-scrollbar-track,
+    div:has(> .subtab-compact)::-webkit-scrollbar-track { background: transparent; }
+    div:has(> .subtab) > .subtab,
+    div:has(> .subtab-compact) > .subtab,
+    div:has(> .subtab-compact) > .subtab-compact {
+      flex-shrink: 0 !important;
+      white-space: nowrap !important;
     }
 
     /* ---- Activity Feed panel ---- */

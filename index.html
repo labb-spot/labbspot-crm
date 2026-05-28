@@ -437,21 +437,21 @@
     }
 
 
-    /* ---- Slice 1b: zoom out section content so desktop tables/grids fit ----
-       The actual zoom value lives in --labb-mobile-zoom on :root, updated
-       live by the mobile zoom tuner pill (bottom-right of screen). The
-       --labb-mobile-zoom-inv var stores the inverse, used by the Firefox
-       fallback width compensation. */
+    /* ---- Slice 1b: scale section content so desktop tables/grids fit ----
+       The scale value lives in --labb-mobile-zoom on :root, updated live
+       by the mobile zoom tuner pill. We use `transform: scale()` (standard,
+       works on iOS Safari + Chrome Android + Firefox) plus a width
+       compensation so the scaled element still occupies the full row.
+       The inverse var (--labb-mobile-zoom-inv) handles the width math. */
     .section-content {
-      zoom: var(--labb-mobile-zoom, 0.55);
-      -moz-transform: scale(var(--labb-mobile-zoom, 0.55));
-      -moz-transform-origin: top left;
+      transform: scale(var(--labb-mobile-zoom, 0.30));
+      transform-origin: top left;
+      width: calc(100% * var(--labb-mobile-zoom-inv, 3.333));
+      /* Prevent the scaled overflow from leaking horizontal scroll */
+      overflow-x: hidden;
     }
-    @-moz-document url-prefix() {
-      .section-content {
-        width: calc(100% * var(--labb-mobile-zoom-inv, 1.818));
-      }
-    }
+    /* Body shouldn't grow horizontally because of the scaled content. */
+    body { overflow-x: hidden; }
     /* The zoom tuner pill — fixed bottom-right corner, low-profile until tapped. */
     #labb-mobile-zoom-tuner {
       position: fixed;

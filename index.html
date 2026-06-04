@@ -30435,7 +30435,7 @@ function renderUnderwriteList() {
       <td style="padding:8px 10px;text-align:left">${fmtImported(u.created_at)}</td>
       <td style="padding:8px 10px;white-space:nowrap" onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%">
-          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:right">${(function(){
+          <span style="flex:1;min-width:0;overflow:visible;text-align:right;padding-right:4px">${(function(){
             // Closed-only routing UI. Flow: Closed → Renovation → Holdings.
             // Accept Closed status from EITHER source — packet_status (workflow
             // stage) or uw-offer-status (live offer state). These can fall out
@@ -30448,16 +30448,22 @@ function renderUnderwriteList() {
             if (_packetSt !== 'Closed' && _offerSt !== 'Closed') return '';
             const hs = (u.data && u.data._holdingStatus) || null;
             if (hs === 'holding') {
-              return `<span class="badge ok" style="display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;font-size:13px;line-height:1;height:22px;box-sizing:border-box" title="In Holdings — to remove, open the Holdings tab and click ✕ Remove on this row.">🔑</span>`;
+              return `<span class="badge ok" style="display:inline-flex;align-items:center;justify-content:center;padding:3px 6px;font-size:11px;line-height:1.4;box-sizing:border-box;border-radius:8px;overflow:visible;margin-right:6px" title="In Holdings — to remove, open the Holdings tab and click ✕ Remove on this row.">🔑</span>`;
             }
             if (hs === 'renovation') {
-              return `<span class="badge warn" style="display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;font-size:13px;line-height:1;height:22px;box-sizing:border-box" title="In Renovation — to remove, open the Renovation tab and click ✕ Remove on this row.">🔨</span>`;
+              return `<span class="badge warn" style="display:inline-flex;align-items:center;justify-content:center;padding:3px 6px;font-size:11px;line-height:1.4;box-sizing:border-box;border-radius:8px;overflow:visible;margin-right:6px" title="In Renovation — to remove, open the Renovation tab and click ✕ Remove on this row.">🔨</span>`;
             }
             // Only show the hammer/key badge for routed deals. Otherwise nothing.
             return '';
           })()}</span>
-          <button class="btn btn-ghost text-xs" style="flex-shrink:0;padding:3px 8px;font-size:11px" onclick="_hrOpenDeal('${u.id}')" title="Open this deal in the Deal Calculator">📂 Open</button>
-          <button class="btn btn-ghost text-xs" style="flex-shrink:0;padding:3px 8px;font-size:11px;color:#f87171" onclick="uwDelete('${u.id}')" title="Delete">🗑</button>
+          ${(() => {
+            const _picsUrl = String((u.data && u.data['uw-pics']) || '').trim();
+            if (!_picsUrl) return '';
+            const _safe = _picsUrl.replace(/'/g, '%27').replace(/"/g, '&quot;');
+            return `<button class="btn btn-ghost text-xs" style="flex-shrink:0;padding:1px 7px 5px 7px;font-size:13px;color:#a78bfa;line-height:1" onclick="event.stopPropagation(); window.open('${_safe}', '_blank', 'noopener,noreferrer');" title="Open picture folder in a new tab"><span style="display:inline-block;transform:translateY(-1px)">📷</span></button>`;
+          })()}
+          <button class="btn btn-ghost text-xs" style="flex-shrink:0;padding:3px 7px;font-size:13px" onclick="_hrOpenDeal('${u.id}')" title="Open this deal in the Deal Calculator">📂</button>
+          <button class="btn btn-ghost text-xs" style="flex-shrink:0;padding:3px 7px;font-size:13px;color:#f87171" onclick="uwDelete('${u.id}')" title="Delete">🗑</button>
         </div>
       </td>
     </tr>`;

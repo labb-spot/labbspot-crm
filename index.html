@@ -24678,7 +24678,28 @@ function buyerRenderPerDealPanel() {
                   { k: 'ppsf',     m: 10, ic: '\u{1F4B5}', l: '$/sf' },
                   { k: 'price',    m: 5,  ic: '\u{1F4B0}', l: 'Price' }
                 ];
-                return '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)" onclick="event.stopPropagation()">'
+                // Contact channels — synced from the buyer's saved Contact
+                // Channels chips on their Edit Buyer modal. Color-coded per
+                // channel so the user can scan at a glance how the buyer prefers
+                // to be contacted.
+                const _channelDefs = {
+                  phone:     { ic: '\u{1F4DE}',   l: 'Phone',     c: '#34d399' },
+                  email:     { ic: '\u2709\uFE0F', l: 'Email',     c: '#a78bfa' },
+                  sms:       { ic: '\u{1F4AC}',   l: 'SMS',       c: '#fbbf24' },
+                  messenger: { ic: '\u{1F48C}',   l: 'Messenger', c: '#60a5fa' },
+                  other:     { ic: '\u22EF',      l: 'Other',     c: '#9ca3af' }
+                };
+                const _bChans = Array.isArray(b.channels) ? b.channels : [];
+                const _chanChips = _bChans
+                  .map(function (raw) {
+                    const key = String(raw || '').toLowerCase().trim();
+                    const def = _channelDefs[key];
+                    if (!def) return '';
+                    return '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;background:' + def.c + '22;color:' + def.c + ';border:1px solid ' + def.c + '55" title="Buyer accepts ' + def.l + '">'
+                      + def.ic + ' ' + def.l + '</span>';
+                  })
+                  .join('');
+                return '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);align-items:center" onclick="event.stopPropagation()">'
                   + items.map(function (it) {
                       const v = Math.round(_comps[it.k] || 0);
                       const pct = it.m > 0 ? v / it.m : 0;
@@ -24690,6 +24711,7 @@ function buyerRenderPerDealPanel() {
                       return '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;background:' + c + '22;color:' + c + ';border:1px solid ' + c + '55;opacity:' + op + ';font-variant-numeric:tabular-nums" title="' + it.l + ' (max ' + it.m + ')">'
                         + it.ic + ' ' + it.l + ' ' + v + '/' + it.m + '</span>';
                     }).join('')
+                  + (_chanChips ? '<span style="margin-left:auto;display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center">' + _chanChips + '</span>' : '')
                   + '</div>';
               })()
           +   '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)" onclick="event.stopPropagation()">'

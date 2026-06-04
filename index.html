@@ -23968,7 +23968,7 @@ function _dispoOpenDeal(dealId) {
   // Reset filter state on deal change so a leftover filter from a previous
   // deal doesn't hide buyers on the new one. Users almost never want
   // cross-deal filter persistence.
-  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '', maxMiles: 5 };
+  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 50, active: '12mo', maxMiles: 5 };
   if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
 }
@@ -23989,9 +23989,9 @@ function _dispoGetBuyerOffer(dealId, buyerId) {
 // Per-deal detail-view filter state. Session-only (not persisted) — resets
 // when the user navigates away from the deal. Updated via _dispoSetFilter,
 // which re-renders ONLY the buyer list (preserving search-input focus).
-window._dispoFilter = window._dispoFilter || { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '', maxMiles: 5 };
+window._dispoFilter = window._dispoFilter || { search: '', outreach: '', qual: '', acqMin: 0, minScore: 50, active: '12mo', maxMiles: 5 };
 function _dispoSetFilter(key, value) {
-  if (!window._dispoFilter) window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '', maxMiles: 5 };
+  if (!window._dispoFilter) window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 50, active: '12mo', maxMiles: 5 };
   window._dispoFilter[key] = value;
   // maxMiles changes the qualifying pool itself (not just the displayed
   // subset), so a full Per Deal re-render is needed to refresh the count.
@@ -24003,7 +24003,7 @@ function _dispoSetFilter(key, value) {
 }
 window._dispoSetFilter = _dispoSetFilter;
 function _dispoClearFilters() {
-  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '', maxMiles: 5 };
+  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 50, active: '12mo', maxMiles: 5 };
   // Reset the live inputs in the DOM (we only re-render the buyer list, so
   // they'd otherwise still display the old values).
   const s = document.getElementById('dispo-deal-search');     if (s) s.value = '';

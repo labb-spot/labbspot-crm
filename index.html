@@ -25533,7 +25533,7 @@ function buyerRenderContractsPanel() {
         var pktBd       = hasOv ? 'rgba(251,191,36,0.55)' : 'var(--border)';
         return ''
           // Packet Price — EDITABLE. Default to the auto-computed MAO×1.20; override sticks per row.
-          + '<td style="padding:6px 8px;text-align:center" onclick="event.stopPropagation()">'
+          + '<td style="padding:6px 4px;text-align:center" onclick="event.stopPropagation()">'
             + '<span style="display:inline-flex;align-items:center;height:28px;background:' + pktBg + ';border:1px solid ' + pktBd + ';border-radius:6px;overflow:hidden">'
               + '<span style="padding:0 4px 0 8px;color:' + pktColor + ';font-size:13px;font-weight:600">$</span>'
               + '<input type="number" min="0" step="500" value="' + (hasOv ? ov : (defaultPkt ? Math.round(defaultPkt) : '')) + '" '
@@ -25542,7 +25542,7 @@ function buyerRenderContractsPanel() {
                 + 'onchange="event.stopPropagation();buyerSetPacketPrice(\'' + esc(u.id) + '\', this.value)" '
                 + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" '
                 + 'title="What you\'re pitching the deal at. Drives buyer-side cost + profit estimates in this grid. Local-only — never touches your underwriting data, best exits, or rehab calc. Clear the input to reset to the auto-computed Packet Price (MAO × 1.20)." '
-                + 'style="width:92px;height:26px;padding:0 8px 0 0;background:transparent;border:none;outline:none;color:' + pktColor + ';font-size:13px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums">'
+                + 'style="width:72px;height:26px;padding:0 6px 0 0;background:transparent;border:none;outline:none;color:' + pktColor + ';font-size:13px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums">'
             + '</span>'
           + '</td>'
           // Contract Price — READ-ONLY (your accepted price).
@@ -25589,16 +25589,39 @@ function buyerRenderContractsPanel() {
           + '</td>'
           + '<td style="padding:8px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px;color:' + (_annualIncome > 0 ? '#10b981' : 'var(--text-dim)') + '">'
             + (_annualIncome > 0
-                ? ('<div style="font-weight:600">' + fmt$(_annualIncome) + '/yr</div>' + (annualCF > 0 ? '<div style="font-size:10px;color:var(--text-dim);margin-top:2px;font-weight:500">net ' + fmt$(annualCF) + '/yr</div>' : ''))
+                ? ('<div style="font-weight:600">' + fmt$(_annualIncome) + '/yr</div>' + (annualCF > 0 ? '<div style="font-size:10px;color:var(--text-dim);margin-top:2px;font-weight:500;white-space:nowrap">net ' + fmt$(annualCF) + '/yr</div>' : ''))
                 : '—')
           + '</td>'
           + '<td style="padding:8px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px;color:' + cocColor + '">'
-            + (cocPct > 0 ? ('<div style="font-weight:600">' + cocPct.toFixed(1) + '%</div>' + (netYieldPct > 0 ? '<div style="font-size:10px;color:var(--text-dim);margin-top:2px;font-weight:500">net ' + netYieldPct.toFixed(1) + '%</div>' : '')) : '—')
+            + (cocPct > 0 ? ('<div style="font-weight:600">' + cocPct.toFixed(1) + '%</div>' + (netYieldPct > 0 ? '<div style="font-size:10px;color:var(--text-dim);margin-top:2px;font-weight:500;white-space:nowrap">net ' + netYieldPct.toFixed(1) + '%</div>' : '')) : '—')
           + '</td>'
           + '<td style="padding:10px 12px;text-align:center;font-size:13px;color:var(--text-dim)">' + (built || '<span style="color:var(--text-dim)">—</span>') + '</td>'
           + '<td style="padding:10px 12px;text-align:center;font-size:13px">' + (beds  != null ? beds  : '<span style="color:var(--text-dim)">—</span>') + '</td>' +
       '<td style="padding:10px 12px;text-align:center;font-size:13px">' + (baths != null ? baths : '<span style="color:var(--text-dim)">—</span>') + '</td>'
-          + '<td style="padding:10px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px">' + (sqftRaw ? sqftRaw.toLocaleString() : '<span style="color:var(--text-dim)">—</span>') + '</td>';
+          + '<td style="padding:10px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px">' + (sqftRaw ? sqftRaw.toLocaleString() : '<span style="color:var(--text-dim)">—</span>') + '</td>'
+          // Class — crime grade A/B/C/D/F as a color-coded badge.
+          + (function(){
+              var raw = String((u.data && u.data['uw-crime']) || '').trim().toUpperCase();
+              if (!raw) return '<td style="padding:8px 6px;text-align:center;font-size:13px;color:var(--text-dim)">—</td>';
+              var col = raw === 'A' ? '#10b981'
+                      : raw === 'B' ? '#84cc16'
+                      : raw === 'C' ? '#facc15'
+                      : raw === 'D' ? '#fb923c'
+                      : raw === 'F' ? '#ef4444'
+                      :               '#9ca3af';
+              return '<td style="padding:8px 6px;text-align:center"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700;background:' + col + '22;color:' + col + ';border:1px solid ' + col + '55" title="Crime Class ' + raw + '">' + raw + '</span></td>';
+            })()
+          // Zone — FEMA flood zone (compact label) as a color-coded badge.
+          + (function(){
+              var raw = String((u.data && u.data['uw-flood']) || '').trim().toUpperCase();
+              if (!raw) return '<td style="padding:8px 6px;text-align:center;font-size:13px;color:var(--text-dim)">—</td>';
+              var label = raw.replace(/^ZONE\s+/, '');
+              var col;
+              if (label === 'X') col = '#10b981';
+              else if (label === 'VE') col = '#ef4444';
+              else col = '#facc15';
+              return '<td style="padding:8px 6px;text-align:center"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700;background:' + col + '22;color:' + col + ';border:1px solid ' + col + '55" title="FEMA Flood ' + raw + '">' + label + '</span></td>';
+            })();
       })() +
     '</tr>';
   }).join('');
@@ -25623,6 +25646,8 @@ function buyerRenderContractsPanel() {
           '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:60px">Beds</th>' +
           '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:60px">Baths</th>' +
           '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">SqFt</th>' +
+          '<th style="padding:10px 8px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:56px" title="Crime Grade — A (safest) through F (highest crime).">Class</th>' +
+          '<th style="padding:10px 8px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:60px" title="FEMA flood zone — X = low risk, A/AE/AH/AO = 1% annual flood risk, VE = high coastal velocity risk.">Zone</th>' +
         '</tr>' +
       '</thead>' +
       '<tbody>' + rows + '</tbody>' +

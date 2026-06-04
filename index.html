@@ -23968,7 +23968,7 @@ function _dispoOpenDeal(dealId) {
   // Reset filter state on deal change so a leftover filter from a previous
   // deal doesn't hide buyers on the new one. Users almost never want
   // cross-deal filter persistence.
-  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '' };
+  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '', maxMiles: 5 };
   if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
 }
@@ -23989,21 +23989,33 @@ function _dispoGetBuyerOffer(dealId, buyerId) {
 // Per-deal detail-view filter state. Session-only (not persisted) — resets
 // when the user navigates away from the deal. Updated via _dispoSetFilter,
 // which re-renders ONLY the buyer list (preserving search-input focus).
-window._dispoFilter = window._dispoFilter || { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '' };
+window._dispoFilter = window._dispoFilter || { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '', maxMiles: 5 };
 function _dispoSetFilter(key, value) {
-  if (!window._dispoFilter) window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '' };
+  if (!window._dispoFilter) window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '', maxMiles: 5 };
   window._dispoFilter[key] = value;
+  // maxMiles changes the qualifying pool itself (not just the displayed
+  // subset), so a full Per Deal re-render is needed to refresh the count.
+  if (key === 'maxMiles' && typeof buyerRenderPerDealPanel === 'function') {
+    buyerRenderPerDealPanel();
+    return;
+  }
   if (typeof _dispoRenderDealBuyers === 'function') _dispoRenderDealBuyers();
 }
 window._dispoSetFilter = _dispoSetFilter;
 function _dispoClearFilters() {
-  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '' };
+  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '', maxMiles: 5 };
   // Reset the live inputs in the DOM (we only re-render the buyer list, so
   // they'd otherwise still display the old values).
   const s = document.getElementById('dispo-deal-search');     if (s) s.value = '';
   const o = document.getElementById('dispo-deal-outreach');   if (o) o.value = '';
   const q = document.getElementById('dispo-deal-qual');       if (q) q.value = '';
   const a = document.getElementById('dispo-deal-acq');        if (a) a.value = '0';
+  const m = document.getElementById('dispo-deal-maxmiles');   if (m) m.value = '0';
+  // maxMiles being reset affects the qualifying pool — full re-render needed.
+  if (typeof buyerRenderPerDealPanel === 'function') {
+    buyerRenderPerDealPanel();
+    return;
+  }
   if (typeof _dispoRenderDealBuyers === 'function') _dispoRenderDealBuyers();
 }
 window._dispoClearFilters = _dispoClearFilters;
@@ -24472,8 +24484,12 @@ function buyerRenderPerDealPanel() {
     function _passesLocalityFilter(r) {
       // r.miles is set only when the buyer has at least one geocoded purchase
       // AND the subject is geocoded (the distance-block in _dispoScoreBuyerWithPurchases).
+      // Cap defaults to 0 = "All" (no distance restriction); the Nearest
+      // Property Range dropdown lets the user tighten it (0.5/1/5/20/40/100).
       if (r.miles != null && isFinite(r.miles)) {
-        return r.miles <= 50;
+        const _cap = Number((window._dispoFilter || {}).maxMiles) || 0;
+        if (_cap > 0) return r.miles <= _cap;
+        return true;
       }
       // No distance available: fall back to city/county/zip chip overlap.
       return _buyerLocOverlapsSubject(r.b);
@@ -24512,6 +24528,7 @@ function buyerRenderPerDealPanel() {
         if (active) {
           const bb = r.buyBox || (typeof getBuyerDerivedBuyBox === 'function' ? getBuyerDerivedBuyBox(b.id) : null);
           const m  = bb ? bb.monthsSinceLast : null;
+          if (active === '6mo'  && (m == null || m > 6))   return false;
           if (active === '12mo' && (m == null || m > 12))  return false;
           if (active === '24mo' && (m == null || m > 24))  return false;
         }
@@ -24736,8 +24753,18 @@ function buyerRenderPerDealPanel() {
       +     '<option value="75"' + (Number(flt.minScore) === 75 ? ' selected' : '') + '>75+</option>'
       +     '<option value="90"' + (Number(flt.minScore) === 90 ? ' selected' : '') + '>90+</option>'
       +   '</select>'
+      +   '<select id="dispo-deal-maxmiles" onchange="_dispoSetFilter(\'maxMiles\', Number(this.value)||0)" style="flex:0 0 auto;width:150px;height:30px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;box-sizing:border-box" title="Hide buyers whose nearest geocoded purchase is farther than the chosen distance. Buyers without geocoded purchases stay visible via city/county/zip chip match.">'
+      +     '<option value="0"'    + (Number(flt.maxMiles) === 0    ? ' selected' : '') + '>Range: All</option>'
+      +     '<option value="0.5"'  + (Number(flt.maxMiles) === 0.5  ? ' selected' : '') + '>\u2264 0.5 mile</option>'
+      +     '<option value="1"'    + (Number(flt.maxMiles) === 1    ? ' selected' : '') + '>\u2264 1 mile</option>'
+      +     '<option value="5"'    + (Number(flt.maxMiles) === 5    ? ' selected' : '') + '>\u2264 5 miles</option>'
+      +     '<option value="20"'   + (Number(flt.maxMiles) === 20   ? ' selected' : '') + '>\u2264 20 miles</option>'
+      +     '<option value="40"'   + (Number(flt.maxMiles) === 40   ? ' selected' : '') + '>\u2264 40 miles</option>'
+      +     '<option value="100"'  + (Number(flt.maxMiles) === 100  ? ' selected' : '') + '>\u2264 100 miles</option>'
+      +   '</select>'
       +   '<select id="dispo-deal-active" onchange="_dispoSetFilter(\'active\', this.value)" style="flex:0 0 auto;width:130px;height:30px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;box-sizing:border-box" title="Only show buyers with a recent purchase">'
       +     '<option value=""'      + (flt.active === ''      ? ' selected' : '') + '>Active: All</option>'
+      +     '<option value="6mo"'   + (flt.active === '6mo'   ? ' selected' : '') + '>Active 6mo</option>'
       +     '<option value="12mo"'  + (flt.active === '12mo'  ? ' selected' : '') + '>Active 12mo</option>'
       +     '<option value="24mo"'  + (flt.active === '24mo'  ? ' selected' : '') + '>Active 24mo</option>'
       +   '</select>'
@@ -27588,6 +27615,21 @@ function buyerPurchasesRowHTML(buyer) {
     };
     return cv(b) + '/' + cv(ba);
   };
+  // If the Edit Buyer modal was opened with a Per Deal context, pull the
+  // subject property's coords so we can flag nearby purchases. Range threshold
+  // mirrors the user's Nearest Property Range dropdown (fallback 5 miles).
+  let _subjCoords = null;
+  let _nearThreshold = 5;
+  try {
+    const openedId = window._dispoOpenedDealId;
+    if (openedId && typeof cache !== 'undefined' && cache.underwrites && cache.underwrites[openedId]
+        && typeof _dispoGetDealCoords === 'function') {
+      const dc = _dispoGetDealCoords(cache.underwrites[openedId]);
+      if (dc && dc.lat != null && dc.lng != null) _subjCoords = dc;
+    }
+    const f = window._dispoFilter;
+    if (f && f.maxMiles && Number(f.maxMiles) > 0) _nearThreshold = Number(f.maxMiles);
+  } catch (e) {}
   const rows = purchases.slice(0, 10).map(p => {
     const addrFull = [p.address, p.city, p.state, p.zip].filter(Boolean).join(', ');
     const mapsUrl = 'https://maps.google.com/?q=' + encodeURIComponent(addrFull);
@@ -27606,15 +27648,31 @@ function buyerPurchasesRowHTML(buyer) {
     const priceCell = isZero
       ? '<span style="color:var(--text-dim)" title="$0 \u2014 likely seller financing or family transfer, excluded from market math">\u{1F3E0} non-market</span>'
       : fmtMoney(p.sale_amount);
-    const addrLabel = esc(p.address) + (p.zip ? ' ' + esc(p.zip) : (p.city ? ', ' + esc(p.city) : ''));
-    return '<div style="display:flex;flex-wrap:wrap;gap:10px;padding:6px 10px;border-bottom:1px dashed var(--border);align-items:baseline;font-size:12px">'
-      + '<span style="color:var(--text-dim);min-width:96px">' + esc(fmtDate(p.sale_date || p.recording_date)) + '</span>'
-      + '<a href="' + mapsUrl + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--text);text-decoration:underline;text-decoration-color:rgba(165,180,252,0.3);min-width:220px" title="Open in Google Maps">' + addrLabel + '</a>'
-      + '<span style="color:var(--text);font-weight:600;min-width:80px">' + priceCell + '</span>'
-      + (p.sqft ? '<span style="color:var(--text-dim);min-width:60px">' + esc(fmtSqft(p.sqft)) + '</span>' : '')
-      + ((p.bedrooms != null || p.bathrooms != null) ? '<span style="color:var(--text-dim);min-width:40px">' + esc(fmtBedBath(p.bedrooms, p.bathrooms)) + '</span>' : '')
-      + (p.property_type ? '<span style="color:var(--text-dim);min-width:90px">' + esc(p.property_type) + '</span>' : '')
-      + (flags.length ? '<span style="margin-left:auto;display:flex;gap:8px;align-items:baseline">' + flags.join(' ') + '</span>' : '')
+    // Two-line address: street on top, city/state/zip below.
+    const streetLine = esc(p.address || '\u2014');
+    const cityZipBits = [p.city, p.state, p.zip].filter(Boolean).map(s => esc(s)).join(', ');
+    const addrBlock = '<a href="' + mapsUrl + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:inline-block;min-width:220px;color:var(--text);text-decoration:none" title="Open in Google Maps">'
+      + '<div style="text-decoration:underline;text-decoration-color:rgba(165,180,252,0.3)">' + streetLine + '</div>'
+      + (cityZipBits ? '<div style="color:var(--text-dim);font-size:11px;margin-top:1px">' + cityZipBits + '</div>' : '')
+      + '</a>';
+    // Proximity marker — only when we have a subject and a geocoded purchase.
+    let nearBadge = '';
+    if (_subjCoords && p.lat != null && p.lng != null && typeof _buyerHaversineMi === 'function') {
+      const _mi = _buyerHaversineMi(Number(p.lat), Number(p.lng), _subjCoords.lat, _subjCoords.lng);
+      if (isFinite(_mi) && _mi <= _nearThreshold) {
+        const _miStr = _mi < 1 ? _mi.toFixed(2) : _mi.toFixed(1);
+        nearBadge = '<span style="background:rgba(16,185,129,0.18);color:#34d399;border:1px solid rgba(16,185,129,0.4);padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap" title="Within ' + _nearThreshold + ' mile' + (_nearThreshold === 1 ? '' : 's') + ' of subject property">\u{1F4CD} ' + _miStr + 'mi</span>';
+      }
+    }
+    return '<div style="display:flex;flex-wrap:wrap;gap:10px;padding:6px 10px;border-bottom:1px dashed var(--border);align-items:flex-start;font-size:12px">'
+      + '<span style="color:var(--text-dim);min-width:96px;padding-top:2px">' + esc(fmtDate(p.sale_date || p.recording_date)) + '</span>'
+      + addrBlock
+      + '<span style="color:var(--text);font-weight:600;min-width:80px;padding-top:2px">' + priceCell + '</span>'
+      + (p.sqft ? '<span style="color:var(--text-dim);min-width:60px;padding-top:2px">' + esc(fmtSqft(p.sqft)) + '</span>' : '')
+      + ((p.bedrooms != null || p.bathrooms != null) ? '<span style="color:var(--text-dim);min-width:40px;padding-top:2px">' + esc(fmtBedBath(p.bedrooms, p.bathrooms)) + '</span>' : '')
+      + (p.property_type ? '<span style="color:var(--text-dim);min-width:90px;padding-top:2px">' + esc(p.property_type) + '</span>' : '')
+      + (nearBadge ? '<span style="padding-top:2px">' + nearBadge + '</span>' : '')
+      + (flags.length ? '<span style="margin-left:auto;display:flex;gap:8px;align-items:baseline;padding-top:2px">' + flags.join(' ') + '</span>' : '')
       + '</div>';
   }).join('');
   const more = purchases.length > 10

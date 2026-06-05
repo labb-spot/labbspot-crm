@@ -3892,16 +3892,13 @@
       <div id="uw-best-thresholds" style="margin-top:14px"></div>
     </div>
 
-    <!-- ===== 14. External Links ===== -->
-    <div class="panel p-5 mb-4" data-uw-section="external-links" data-uw-section-label="🔗 External Links">
-      <div class="font-semibold text-base mb-3">🔗 External Links</div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <label class="text-xs">Days on Market<input type="number" id="uw-dom" style="width:100%;margin-top:4px"></label>
-        <label class="text-xs">Appreciation %<input type="number" id="uw-appr" step="0.1" style="width:100%;margin-top:4px"></label>
-        <label class="text-xs">Population<input type="number" id="uw-pop" style="width:100%;margin-top:4px"></label>
-        <label class="text-xs">Job Growth %<input type="number" id="uw-jobs" step="0.1" style="width:100%;margin-top:4px"></label>
-        <div class="text-xs col-span-2 md:col-span-4" id="uw-quick-links" style="margin-top:8px"></div>
+    <!-- ===== 14. Deal Notes (replaces External Links — free-form notes per deal) ===== -->
+    <div class="panel p-5 mb-4" data-uw-section="deal-notes" data-uw-section-label="📝 Notes">
+      <div class="flex items-center justify-between mb-3">
+        <div class="font-semibold text-base">📝 Notes</div>
+        <div class="text-xs" style="color:var(--text-dim)">Free-form notes for this deal. Auto-saves with the rest of the underwrite.</div>
       </div>
+      <textarea id="uw-deal-notes" placeholder="Add notes about this deal — seller history, neighbor feedback, contractor quotes, anything an employee needs to remember…" rows="6" style="width:100%;min-height:120px;padding:10px 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;line-height:1.5;resize:vertical;font-family:inherit"></textarea>
     </div>
 
     <!-- ===== Budget & Scope (folder subtab: 💰 Budget & Scope) =====
@@ -13439,7 +13436,7 @@ function uwExportCsv() {
     ['RCP3 Addr', 'uw-rcp3-addr'], ['RCP3 Link', 'uw-rcp3-link'], ['RCP3 Rent', 'uw-rcp3-rent'],
     ['Loan Rate %', 'uw-loan-rate'], ['Loan Yrs', 'uw-loan-yrs'],
     ['Tenant Elec', 'uw-tenant-elec'], ['Tenant Water', 'uw-tenant-water'], ['Tenant Trash', 'uw-tenant-trash'], ['Tenant Net', 'uw-tenant-net'], ['Tenant Pest', 'uw-tenant-pest'], ['Tenant Ins', 'uw-tenant-ins'],
-    ['Property Type', 'uw-prop-type'], ['Units', 'uw-units'], ['Days on Market', 'uw-dom'], ['Appreciation', 'uw-appr'], ['Population', 'uw-pop'], ['Job Growth', 'uw-jobs'],
+    ['Property Type', 'uw-prop-type'], ['Units', 'uw-units'],
     ['Picture Folder', 'uw-pics'],
   ];
   const computed = [
@@ -14735,7 +14732,7 @@ const UW_FIELDS = [
   'uw-rt-br-ltv','uw-rt-br-rate','uw-rt-br-yrs',
   'uw-rt-rf-hm-ltv','uw-rt-rf-hm-rate','uw-rt-rf-hm-orig','uw-rt-rf-stab-mo','uw-rt-rf-close-pct',
   'uw-rt-reno-mo','uw-rt-rent-mo',
-  'uw-prop-type','uw-units','uw-dom','uw-appr','uw-pop','uw-jobs','uw-pics','uw-main-pic','uw-offer-status',
+  'uw-prop-type','uw-units','uw-pics','uw-main-pic','uw-offer-status','uw-deal-notes',
   'uw-ifp-slider', // Ideal Flip Profit slider position (0–120)
   'uw-tl-slider',  // Timeline (rehab scope) slider position (0–120)
   'uw-reno-start',  // Renovation start date (Budget tab — Holdings/Reno only)
@@ -17334,7 +17331,7 @@ const _UW_SECTION_TAB = {
   'sold-comps':           'evaluation',
   'listed-comps':         'evaluation',
   'rental-comps':         'evaluation',
-  'external-links':       'evaluation',
+  'deal-notes':           'evaluation',
   'condition-checklist':  'renovation',
   'rehab-calc':           'renovation',
   'ideal-flip-profit':    'strategy',
@@ -32023,18 +32020,37 @@ function renderCampaigns() {
   list.innerHTML = campaigns.map(c => {
     const created = c.created_at ? new Date(c.created_at).toLocaleString() : '';
     const propCount = (c.property_ids || []).length;
-    const availableVendors = _campaignAvailableVendors(c);
+    const vendorsWithData = new Set(_campaignAvailableVendors(c));
+    // Pull every known vendor from cache.vendors so we can also render chips
+    // for vendors that have NO data on this campaign's properties (in red).
+    const _allKnownVendors = Object.values(cache.vendors || {})
+      .map(v => v && v.name).filter(Boolean);
+    const _vendorSet = new Set(_allKnownVendors);
+    // Include any vendors that have data but aren't in cache.vendors (safety).
+    vendorsWithData.forEach(v => _vendorSet.add(v));
+    const allVendorChipNames = Array.from(_vendorSet).sort();
     const selectedVendors = new Set(Array.isArray(c.vendor_names) ? c.vendor_names : []);
     const allSelected = selectedVendors.size === 0;
-    const vendorChips = availableVendors.length === 0
-      ? '<span class="text-xs" style="color:var(--text-dim)">No vendor data on these properties yet.</span>'
-      : availableVendors.map(v => {
-          const on = allSelected || selectedVendors.has(v);
-          const bg = on
-            ? 'background:rgba(16,185,129,0.22);border-color:#10b981;color:var(--text)'
-            : 'background:var(--panel-2);border-color:var(--border);color:var(--text-dim)';
-          return '<span onclick="toggleCampaignVendor(\'' + c.id + '\', \'' + String(v).replace(/\'/g,"\\\\'") + '\')" '
-            + 'style="cursor:pointer;padding:3px 10px;border-radius:999px;border:1px solid;font-size:11px;' + bg + '">'
+    const vendorChips = allVendorChipNames.length === 0
+      ? '<span class="text-xs" style="color:var(--text-dim)">No vendors imported yet.</span>'
+      : allVendorChipNames.map(v => {
+          const hasData = vendorsWithData.has(v);
+          const on = hasData && (allSelected || selectedVendors.has(v));
+          let bg;
+          if (!hasData) {
+            // Light-red tint = no skiptrace data for this campaign.
+            bg = 'background:rgba(239,68,68,0.14);border-color:rgba(239,68,68,0.55);color:#f87171;cursor:not-allowed;opacity:0.85';
+          } else if (on) {
+            bg = 'background:rgba(16,185,129,0.22);border-color:#10b981;color:var(--text)';
+          } else {
+            bg = 'background:var(--panel-2);border-color:var(--border);color:var(--text-dim)';
+          }
+          const click = hasData
+            ? ' onclick="toggleCampaignVendor(\'' + c.id + '\', \'' + String(v).replace(/\'/g,"\\\\'") + '\')"'
+            : '';
+          const title = hasData ? '' : ' title="No skiptrace data from ' + escapeHtml(v) + ' on this campaign\'s properties"';
+          return '<span' + click + title
+            + ' style="padding:3px 10px;border-radius:999px;border:1px solid;font-size:11px;' + bg + (hasData ? ';cursor:pointer' : '') + '">'
             + (on ? '✓ ' : '') + escapeHtml(v) + '</span>';
         }).join(' ');
     const modeNote = allSelected

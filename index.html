@@ -228,6 +228,40 @@
   /* Filled — normal text color, same as other locked readonly fields. */
   .rcp-rent-psf-cell.is-filled { color: var(--text); }
   .rcp-rent-psf-cell.is-filled::after { color: var(--text-dim); }
+  /* Comp ARV suffix cell — matches the rent $/sf cell pattern but with
+     an 'ARV' label and slightly wider since the value is dollar-formatted. */
+  .uw-money.uw-comp-arv-group > input {
+    flex: 1; min-width: 0;
+    border-top-right-radius: 0; border-bottom-right-radius: 0;
+    border-right: 1px solid var(--border) !important;
+  }
+  .uw-comp-arv-cell {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 4px;
+    background: rgba(148, 163, 184, 0.10);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+    padding: 0 10px;
+    min-width: 110px;
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    line-height: 1;
+    cursor: not-allowed;
+  }
+  .uw-comp-arv-cell::after {
+    content: "ARV";
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-dim);
+    letter-spacing: 0.3px;
+  }
+  .uw-comp-arv-cell.is-empty { color: var(--text-dim); }
+  .uw-comp-arv-cell.is-empty::after { display: none; }
   /* Lot-size suffix wrappers — show "ac" or "sqft" inside the input, right-aligned.
      Matches the .uw-money pattern but as a suffix instead of a prefix. */
   .uw-suffix-ac, .uw-suffix-sqft { position: relative; display: block; }
@@ -2125,6 +2159,14 @@
     #results-upload-strip .kpi-sub   { font-size: 11px; margin-top: 1px; }
     #results-upload-strip .dropzone  { padding: 10px 14px; display:flex; align-items:center; justify-content:center; gap:10px; }
     #results-upload-strip .dropzone .text-2xl { font-size: 18px; margin: 0; }
+    /* Whiten all grey text inside the lender add/edit modal — labels,
+       input values, suffix chips. Subtitles (font-weight:normal spans next
+       to section titles) stay grey because the rule does not target them. */
+    #lender-add-modal label { color: #fff !important; }
+    #lender-add-modal input, #lender-add-modal select, #lender-add-modal textarea { color: #fff !important; }
+    #lender-add-modal input::placeholder, #lender-add-modal textarea::placeholder { color: rgba(255,255,255,0.4) !important; }
+    /* Suffix chips inside inputs (%, $, business days, mo, x, etc.) */
+    #lender-add-modal span[style*="pointer-events:none"] { color: #fff !important; }
   </style>
   <div id="results-upload-strip" class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
     <div class="panel lg:col-span-1">
@@ -3033,12 +3075,12 @@
             <a id="uw-scp1-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
             <a id="uw-scp1-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
           </div>
-          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-scp1-psf" oninput="uwRecalc()" placeholder="0/SqFt" style="width:100%"></span>
+          <span class="uw-money uw-comp-arv-group" style="margin-top:4px;display:flex"><input type="number" id="uw-scp1-psf" oninput="uwRecalc();uwUpdateCompArv()" placeholder="0/SqFt"><span id="uw-scp1-arv" class="uw-comp-arv-cell is-empty" title="Implied ARV = $/SqFt × Comp SqFt, rounded to nearest $500">—</span></span>
           <input type="text" id="uw-scp1-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
           <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
             <input type="number" id="uw-scp1-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
             <input type="number" id="uw-scp1-bath" step="0.5" placeholder="Bath" title="Bathrooms" style="width:100%;font-size:12px">
-            <input type="number" id="uw-scp1-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
+            <input type="number" id="uw-scp1-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px" oninput="uwUpdateCompArv()">
             <input type="number" id="uw-scp1-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
           <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
@@ -3055,12 +3097,12 @@
             <a id="uw-scp2-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
             <a id="uw-scp2-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
           </div>
-          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-scp2-psf" oninput="uwRecalc()" placeholder="0/SqFt" style="width:100%"></span>
+          <span class="uw-money uw-comp-arv-group" style="margin-top:4px;display:flex"><input type="number" id="uw-scp2-psf" oninput="uwRecalc();uwUpdateCompArv()" placeholder="0/SqFt"><span id="uw-scp2-arv" class="uw-comp-arv-cell is-empty" title="Implied ARV = $/SqFt × Comp SqFt, rounded to nearest $500">—</span></span>
           <input type="text" id="uw-scp2-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
           <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
             <input type="number" id="uw-scp2-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
             <input type="number" id="uw-scp2-bath" step="0.5" placeholder="Bath" title="Bathrooms" style="width:100%;font-size:12px">
-            <input type="number" id="uw-scp2-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
+            <input type="number" id="uw-scp2-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px" oninput="uwUpdateCompArv()">
             <input type="number" id="uw-scp2-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
           <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
@@ -3077,12 +3119,12 @@
             <a id="uw-scp3-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
             <a id="uw-scp3-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
           </div>
-          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-scp3-psf" oninput="uwRecalc()" placeholder="0/SqFt" style="width:100%"></span>
+          <span class="uw-money uw-comp-arv-group" style="margin-top:4px;display:flex"><input type="number" id="uw-scp3-psf" oninput="uwRecalc();uwUpdateCompArv()" placeholder="0/SqFt"><span id="uw-scp3-arv" class="uw-comp-arv-cell is-empty" title="Implied ARV = $/SqFt × Comp SqFt, rounded to nearest $500">—</span></span>
           <input type="text" id="uw-scp3-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
           <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
             <input type="number" id="uw-scp3-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
             <input type="number" id="uw-scp3-bath" step="0.5" placeholder="Bath" title="Bathrooms" style="width:100%;font-size:12px">
-            <input type="number" id="uw-scp3-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
+            <input type="number" id="uw-scp3-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px" oninput="uwUpdateCompArv()">
             <input type="number" id="uw-scp3-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
           <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
@@ -3138,12 +3180,12 @@
             <a id="uw-lcp1-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
             <a id="uw-lcp1-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
           </div>
-          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-lcp1-psf" oninput="uwRecalc()" placeholder="0/SqFt" title="Listed price per SqFt. Direct entry — averaged with the other two listings to drive Estimated Listed Value." style="width:100%"></span>
+          <span class="uw-money uw-comp-arv-group" style="margin-top:4px;display:flex"><input type="number" id="uw-lcp1-psf" oninput="uwRecalc();uwUpdateCompArv()" placeholder="0/SqFt" title="Listed price per SqFt. Direct entry — averaged with the other two listings to drive Estimated Listed Value."><span id="uw-lcp1-arv" class="uw-comp-arv-cell is-empty" title="Implied ARV = $/SqFt × Comp SqFt, rounded to nearest $500">—</span></span>
           <input type="text" id="uw-lcp1-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
           <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
             <input type="number" id="uw-lcp1-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
             <input type="number" id="uw-lcp1-bath" step="0.5" placeholder="Bath" title="Bathrooms" style="width:100%;font-size:12px">
-            <input type="number" id="uw-lcp1-sqft" oninput="uwRecalc()" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
+            <input type="number" id="uw-lcp1-sqft" oninput="uwRecalc();uwUpdateCompArv()" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
             <input type="number" id="uw-lcp1-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
           <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
@@ -3160,12 +3202,12 @@
             <a id="uw-lcp2-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
             <a id="uw-lcp2-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
           </div>
-          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-lcp2-psf" oninput="uwRecalc()" placeholder="0/SqFt" title="Listed price per SqFt. Direct entry — averaged with the other two listings to drive Estimated Listed Value." style="width:100%"></span>
+          <span class="uw-money uw-comp-arv-group" style="margin-top:4px;display:flex"><input type="number" id="uw-lcp2-psf" oninput="uwRecalc();uwUpdateCompArv()" placeholder="0/SqFt" title="Listed price per SqFt. Direct entry — averaged with the other two listings to drive Estimated Listed Value."><span id="uw-lcp2-arv" class="uw-comp-arv-cell is-empty" title="Implied ARV = $/SqFt × Comp SqFt, rounded to nearest $500">—</span></span>
           <input type="text" id="uw-lcp2-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
           <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
             <input type="number" id="uw-lcp2-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
             <input type="number" id="uw-lcp2-bath" step="0.5" placeholder="Bath" title="Bathrooms" style="width:100%;font-size:12px">
-            <input type="number" id="uw-lcp2-sqft" oninput="uwRecalc()" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
+            <input type="number" id="uw-lcp2-sqft" oninput="uwRecalc();uwUpdateCompArv()" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
             <input type="number" id="uw-lcp2-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
           <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
@@ -3182,12 +3224,12 @@
             <a id="uw-lcp3-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
             <a id="uw-lcp3-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
           </div>
-          <span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-lcp3-psf" oninput="uwRecalc()" placeholder="0/SqFt" title="Listed price per SqFt. Direct entry — averaged with the other two listings to drive Estimated Listed Value." style="width:100%"></span>
+          <span class="uw-money uw-comp-arv-group" style="margin-top:4px;display:flex"><input type="number" id="uw-lcp3-psf" oninput="uwRecalc();uwUpdateCompArv()" placeholder="0/SqFt" title="Listed price per SqFt. Direct entry — averaged with the other two listings to drive Estimated Listed Value."><span id="uw-lcp3-arv" class="uw-comp-arv-cell is-empty" title="Implied ARV = $/SqFt × Comp SqFt, rounded to nearest $500">—</span></span>
           <input type="text" id="uw-lcp3-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
           <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
             <input type="number" id="uw-lcp3-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
             <input type="number" id="uw-lcp3-bath" step="0.5" placeholder="Bath" title="Bathrooms" style="width:100%;font-size:12px">
-            <input type="number" id="uw-lcp3-sqft" oninput="uwRecalc()" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
+            <input type="number" id="uw-lcp3-sqft" oninput="uwRecalc();uwUpdateCompArv()" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px">
             <input type="number" id="uw-lcp3-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
           </div>
           <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
@@ -5087,7 +5129,7 @@
             <tr style="border-bottom:1px solid var(--border)">
               <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Name</th>
               <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Contact</th>
-              <th style="padding:10px 12px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;width:820px" title="Bridge / DSCR / Same-Co Refi rates, points, fees + LTV caps at a glance."><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><span style="text-align:center;color:#f59e0b">BRIDGE</span><span style="text-align:center;color:#10b981">DSCR</span><span style="text-align:center;color:#a855f7">REFI</span></div></th>
+              <th style="padding:10px 12px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;width:880px" title="Bridge on top, DSCR + Cashout + Internal Refi side-by-side below."><div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap"><span style="color:#f59e0b">BRIDGE</span><span style="color:var(--text-dim);font-weight:400;font-size:10px">·</span><span style="color:#10b981">DSCR</span><span style="color:var(--text-dim);font-weight:400;font-size:10px">·</span><span style="color:#3b82f6">CASHOUT</span><span style="color:var(--text-dim);font-weight:400;font-size:10px">·</span><span style="color:#a855f7">INTERNAL REFI</span></div></th>
               <th style="padding:10px 12px;text-align:right;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:100px">Actions</th>
             </tr>
           </thead>
@@ -5137,10 +5179,10 @@
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">State
           <input type="text" id="lender-add-state" maxlength="2" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase;letter-spacing:1px">
         </label>
-        <div style="grid-column:span 2;margin-top:8px;padding:16px;background:var(--panel-2);border-left:3px solid #f59e0b;border-radius:8px"><div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#f59e0b">🔨 Bridge / Fix &amp; Flip Loan <span style="color:var(--text-dim);font-weight:normal;font-size:12px">— short-term acquisition + rehab</span></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px"><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Purchase Coverage<div style="position:relative;margin-top:4px"><input type="number" step="0.5" min="0" id="lender-add-bridge-purchase-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Renovation Coverage<div style="position:relative;margin-top:4px"><input type="number" step="0.5" min="0" id="lender-add-bridge-reno-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">LTV Cap<div style="position:relative;margin-top:4px"><input type="number" step="0.5" min="0" id="lender-add-bridge-ltv-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">FICO Min<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-bridge-fico" style="width:100%;height:36px;font-size:13px;padding:0 10px 0 10px"></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Reserves Required<div style="position:relative;margin-top:4px"><input type="number" step="0.5" min="0" id="lender-add-bridge-reserve-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Annualized Rate<div style="position:relative;margin-top:4px"><input type="number" step="0.125" min="0" id="lender-add-bridge-rate-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Origination<div style="position:relative;margin-top:4px"><input type="number" step="0.25" min="0" id="lender-add-bridge-orig-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Processing Fee<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-bridge-proc-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Junk Fees<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-bridge-junk-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Inspection Fee<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-bridge-insp-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label></div></div>
-        <div style="grid-column:span 2;margin-top:8px;padding:16px;background:var(--panel-2);border-left:3px solid #10b981;border-radius:8px"><div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#10b981">🏠 DSCR Purchase Loan <span style="color:var(--text-dim);font-weight:normal;font-size:12px">— long-term rental purchase</span></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px"><label style="font-size:12px;font-weight:600;color:var(--text-dim)">LTV Cap<div style="position:relative;margin-top:4px"><input type="number" step="0.5" min="0" id="lender-add-dscr-ltv-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">30-Yr Fixed Rate<div style="position:relative;margin-top:4px"><input type="number" step="0.125" min="0" id="lender-add-dscr-rate-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Origination<div style="position:relative;margin-top:4px"><input type="number" step="0.25" min="0" id="lender-add-dscr-orig-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Minimum Loan<div style="position:relative;margin-top:4px"><input type="number" step="1000" min="0" id="lender-add-dscr-min-loan" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Processing Fee<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-dscr-proc-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Junk Fees<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-dscr-junk-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label></div></div>
-        <div style="grid-column:span 2;margin-top:8px;padding:16px;background:var(--panel-2);border-left:3px solid #3b82f6;border-radius:8px"><div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#3b82f6">💵 DSCR Cash-Out Refinance <span style="color:var(--text-dim);font-weight:normal;font-size:12px">— pull equity out of rental</span></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px"><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Cash-Out Rate<div style="position:relative;margin-top:4px"><input type="number" step="0.125" min="0" id="lender-add-dscrco-rate-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Origination<div style="position:relative;margin-top:4px"><input type="number" step="0.25" min="0" id="lender-add-dscrco-orig-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Seasoning — Loan Unlock<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-dscrco-loan-season" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">mo</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Seasoning — Equity Unlock<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-dscrco-equity-season" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">mo</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Seasoning — Ownership<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-dscrco-own-season" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">mo</span></div></label></div></div>
-        <div style="grid-column:span 2;margin-top:8px;padding:16px;background:var(--panel-2);border-left:3px solid #a855f7;border-radius:8px"><div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#a855f7">🔁 Same-Company Refinance <span style="color:var(--text-dim);font-weight:normal;font-size:12px">— BRRRR refi inside the same lender</span></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px"><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Same-Company Refi Rate<div style="position:relative;margin-top:4px"><input type="number" step="0.125" min="0" id="lender-add-samerefi-rate-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Origination<div style="position:relative;margin-top:4px"><input type="number" step="0.25" min="0" id="lender-add-samerefi-orig-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Processing Fee<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-samerefi-proc-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Junk Fees<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-samerefi-junk-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label></div></div>
+        <div style="grid-column:span 2;margin-top:8px;padding:16px;background:var(--panel-2);border-left:3px solid #f59e0b;border-radius:8px"><div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#f59e0b">🔨 Bridge / Fix &amp; Flip Loan <span style="color:var(--text-dim);font-weight:normal;font-size:12px">— short-term acquisition + rehab</span></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px 12px"><label style="font-size:12px;font-weight:600;color:var(--text-dim)">FICO Min<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-bridge-fico" style="width:100%;height:36px;font-size:13px;padding:0 10px 0 10px"></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Reserves Required<div style="position:relative;margin-top:4px"><input type="number" step="0.5" min="0" id="lender-add-bridge-reserve-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Funding Timeline<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-bridge-funding-days" style="width:100%;height:36px;font-size:13px;padding:0 96px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">business days</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Minimum Loan<div style="position:relative;margin-top:4px"><input type="number" step="1000" min="0" id="lender-add-bridge-min-loan" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">LTV Cap<div style="position:relative;margin-top:4px"><input type="number" step="0.5" min="0" id="lender-add-bridge-ltv-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Purchase Coverage<div style="position:relative;margin-top:4px"><input type="number" step="0.5" min="0" id="lender-add-bridge-purchase-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Renovation Coverage<div style="position:relative;margin-top:4px"><input type="number" step="0.5" min="0" id="lender-add-bridge-reno-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Pre-Pay Penalty<select id="lender-add-bridge-prepay-penalty" style="width:100%;margin-top:4px;height:36px;font-size:13px;padding:0 10px"><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Annualized Rate<div style="position:relative;margin-top:4px"><input type="number" step="0.125" min="0" id="lender-add-bridge-rate-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Origination<div style="position:relative;margin-top:4px"><input type="number" step="0.25" min="0" id="lender-add-bridge-orig-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Processing Fee<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-bridge-proc-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Junk Fees<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-bridge-junk-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Inspection Fee<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-bridge-insp-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Reimbursement Timeline<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-bridge-reimb-days" style="width:100%;height:36px;font-size:13px;padding:0 96px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">business days</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Draw Type<select id="lender-add-bridge-draw-type" style="width:100%;margin-top:4px;height:36px;font-size:13px;padding:0 10px"><option value="">—</option><option value="title_company">Title Company</option><option value="in_house">In House</option></select></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Appraisal Type<select id="lender-add-bridge-appraisal-type" style="width:100%;margin-top:4px;height:36px;font-size:13px;padding:0 10px"><option value="">—</option><option value="third_party">3rd Party</option><option value="in_house">In House</option></select></label></div></div>
+        <div style="grid-column:span 2;margin-top:8px;padding:16px;background:var(--panel-2);border-left:3px solid #10b981;border-radius:8px"><div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#10b981">🏠 DSCR Purchase Loan <span style="color:var(--text-dim);font-weight:normal;font-size:12px">— long-term rental purchase</span></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px 12px"><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Debt Service Ratio<div style="position:relative;margin-top:4px"><input type="number" step="0.01" min="0" id="lender-add-dscr-dsr" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">x</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">LTV Cap<div style="position:relative;margin-top:4px"><input type="number" step="0.5" min="0" id="lender-add-dscr-ltv-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Minimum Loan<div style="position:relative;margin-top:4px"><input type="number" step="1000" min="0" id="lender-add-dscr-min-loan" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Appraisal Type<select id="lender-add-dscr-appraisal-type" style="width:100%;margin-top:4px;height:36px;font-size:13px;padding:0 10px"><option value="">—</option><option value="third_party">3rd Party</option><option value="in_house">In House</option></select></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">30-Yr Fixed Rate<div style="position:relative;margin-top:4px"><input type="number" step="0.125" min="0" id="lender-add-dscr-rate-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Origination<div style="position:relative;margin-top:4px"><input type="number" step="0.25" min="0" id="lender-add-dscr-orig-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Processing Fee<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-dscr-proc-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Junk Fees<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-dscr-junk-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label></div></div>
+        <div style="grid-column:span 2;margin-top:8px;padding:16px;background:var(--panel-2);border-left:3px solid #3b82f6;border-radius:8px"><div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#3b82f6">💵 DSCR Cash-Out Refinance <span style="color:var(--text-dim);font-weight:normal;font-size:12px">— pull equity out of rental</span></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px 12px"><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Debt Service Ratio<div style="position:relative;margin-top:4px"><input type="number" step="0.01" min="0" id="lender-add-dscrco-dsr" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">x</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">LTV Cap<div style="position:relative;margin-top:4px"><input type="number" step="0.5" min="0" id="lender-add-dscrco-ltv-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Minimum Loan<div style="position:relative;margin-top:4px"><input type="number" step="1000" min="0" id="lender-add-dscrco-min-loan" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Appraisal Type<select id="lender-add-dscrco-appraisal-type" style="width:100%;margin-top:4px;height:36px;font-size:13px;padding:0 10px"><option value="">—</option><option value="third_party">3rd Party</option><option value="in_house">In House</option></select></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">30-Yr Fixed Rate<div style="position:relative;margin-top:4px"><input type="number" step="0.125" min="0" id="lender-add-dscrco-rate-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Origination<div style="position:relative;margin-top:4px"><input type="number" step="0.25" min="0" id="lender-add-dscrco-orig-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Processing Fee<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-dscrco-proc-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Junk Fees<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-dscrco-junk-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Seasoning — Ownership<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-dscrco-own-season" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">mo</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Seasoning — Loan Unlock<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-dscrco-loan-season" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">mo</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Seasoning — Equity Unlock<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-dscrco-equity-season" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">mo</span></div></label></div></div>
+        <div style="grid-column:span 2;margin-top:8px;padding:16px;background:var(--panel-2);border-left:3px solid #a855f7;border-radius:8px"><div style="font-weight:700;font-size:14px;margin-bottom:12px;color:#a855f7">🔁 Same-Company Refinance <span style="color:var(--text-dim);font-weight:normal;font-size:12px">— BRRRR refi inside the same lender</span></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px 12px"><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Debt Service Ratio<div style="position:relative;margin-top:4px"><input type="number" step="0.01" min="0" id="lender-add-samerefi-dsr" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">x</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">LTV Cap<div style="position:relative;margin-top:4px"><input type="number" step="0.5" min="0" id="lender-add-samerefi-ltv-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Minimum Loan<div style="position:relative;margin-top:4px"><input type="number" step="1000" min="0" id="lender-add-samerefi-min-loan" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Appraisal Type<select id="lender-add-samerefi-appraisal-type" style="width:100%;margin-top:4px;height:36px;font-size:13px;padding:0 10px"><option value="">—</option><option value="third_party">3rd Party</option><option value="in_house">In House</option></select></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">30-Yr Fixed Rate<div style="position:relative;margin-top:4px"><input type="number" step="0.125" min="0" id="lender-add-samerefi-rate-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Origination<div style="position:relative;margin-top:4px"><input type="number" step="0.25" min="0" id="lender-add-samerefi-orig-pct" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">%</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Processing Fee<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-samerefi-proc-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label><label style="font-size:12px;font-weight:600;color:var(--text-dim)">Junk Fees<div style="position:relative;margin-top:4px"><input type="number" step="1" min="0" id="lender-add-samerefi-junk-fee" style="width:100%;height:36px;font-size:13px;padding:0 32px 0 10px"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none">$</span></div></label></div></div>
         <label class="col-span-2" style="font-size:14px;font-weight:600">Rates &amp; Terms (free text)<span style="color:var(--text-dim);font-weight:normal;font-size:13px"> — any extra terms not captured above</span>
           <textarea id="lender-add-rates" rows="3" style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
         </label>
@@ -9854,6 +9896,31 @@ function uwReset() {
   uwRecalc();
 }
 
+// Per-comp implied ARV display = $/SqFt × Comp SqFt, rounded to the
+// nearest $500. Updates the small green box next to each comp's psf
+// input. Called whenever a psf or sqft input changes.
+function uwUpdateCompArv() {
+  const round500 = (n) => Math.round(n / 500) * 500;
+  const getN = (id) => { const el = document.getElementById(id); if (!el) return 0; const v = parseFloat(String(el.value || '').replace(/,/g,'')); return isFinite(v) ? v : 0; };
+  const fmt = (n) => '$' + Math.round(n).toLocaleString();
+  ['scp1','scp2','scp3','lcp1','lcp2','lcp3'].forEach(k => {
+    const psf  = getN('uw-' + k + '-psf');
+    const sqft = getN('uw-' + k + '-sqft');
+    const box  = document.getElementById('uw-' + k + '-arv');
+    if (!box) return;
+    if (psf > 0 && sqft > 0) {
+      box.textContent = fmt(round500(psf * sqft));
+      box.classList.remove('is-empty');
+      box.classList.add('is-filled');
+    } else {
+      box.textContent = '\u2014';
+      box.classList.remove('is-filled');
+      box.classList.add('is-empty');
+    }
+  });
+}
+window.uwUpdateCompArv = uwUpdateCompArv;
+
 function uwRecalc() {
   // Make sure comp icons are in the right state (grey vs active)
   if (typeof uwInitCompLinks === 'function') uwInitCompLinks();
@@ -13659,6 +13726,12 @@ async function uwGenerateWholesalePacket() {
       const slot = prefix + i;
       const cAddr = get('uw-' + slot + '-addr');
       if (!cAddr) continue;
+      // Implied ARV = $/SqFt × Comp SqFt, rounded to nearest $500.
+      const _psf  = priceField ? parseFloat(String(get('uw-' + slot + '-' + priceField) || '').replace(/,/g,'')) : 0;
+      const _sqft = parseFloat(String(get('uw-' + slot + '-sqft') || '').replace(/,/g,''));
+      const _arvCell = (isFinite(_psf) && _psf > 0 && isFinite(_sqft) && _sqft > 0)
+        ? '$' + (Math.round((_psf * _sqft) / 500) * 500).toLocaleString()
+        : '—';
       rows.push([
         cAddr,
         get('uw-' + slot + '-bed') || '—',
@@ -13667,6 +13740,7 @@ async function uwGenerateWholesalePacket() {
         get('uw-' + slot + '-year') || '—',
         get('uw-' + slot + '-dist') || '—',
         priceField ? (get('uw-' + slot + '-' + priceField) ? '$' + Number(get('uw-' + slot + '-' + priceField)).toLocaleString() : '—') : '',
+        _arvCell,
       ]);
     }
     return rows;
@@ -14275,12 +14349,18 @@ async function uwGenerateWholesalePacket() {
   // all present.
   const compTableOpts = {
     theme: 'striped',
-    headStyles: { fillColor: C_BRAND, textColor: 255, fontSize: 9, fontStyle: 'bold', cellPadding: 4 },
+    headStyles: { fillColor: C_BRAND, textColor: 255, fontSize: 9, fontStyle: 'bold', cellPadding: 4, halign: 'center' },
     bodyStyles: { fontSize: 9, textColor: C_TEXT, cellPadding: 4 },
     alternateRowStyles: { fillColor: C_BG },
     columnStyles: {
-      0: { fontStyle: 'bold' },         // Address bolded (link-styled via _compLinkHooks)
-      6: { halign: 'right', fontStyle: 'bold' },  // $/SqFt right-aligned
+      0: { fontStyle: 'bold' },                          // Address — link-styled left
+      1: { halign: 'center' },                            // Bed
+      2: { halign: 'center' },                            // Bath
+      3: { halign: 'center' },                            // SqFt
+      4: { halign: 'center' },                            // Year
+      5: { halign: 'center' },                            // Distance
+      6: { halign: 'center', fontStyle: 'bold' },         // $/SqFt
+      7: { halign: 'center', fontStyle: 'bold' },         // ARV
     },
     margin: { left: MARGIN, right: MARGIN },
     ..._compLinkHooks,
@@ -14292,7 +14372,7 @@ async function uwGenerateWholesalePacket() {
     section('SOLD COMPARABLES');
     doc.autoTable({
       startY: y,
-      head: [['Address', 'Bed', 'Bath', 'SqFt', 'Year', 'Distance', '$/SqFt']],
+      head: [['Address', 'Bed', 'Bath', 'SqFt', 'Year', 'Distance', '$/SqFt', 'ARV']],
       body: soldRows,
       ...compTableOpts,
     });
@@ -14305,7 +14385,7 @@ async function uwGenerateWholesalePacket() {
     section('LISTED COMPARABLES  (still on market)');
     doc.autoTable({
       startY: y,
-      head: [['Address', 'Bed', 'Bath', 'SqFt', 'Year', 'Distance', 'List $/SqFt']],
+      head: [['Address', 'Bed', 'Bath', 'SqFt', 'Year', 'Distance', '$/SqFt', 'ARV']],
       body: listedRows,
       ...compTableOpts,
     });
@@ -14317,12 +14397,19 @@ async function uwGenerateWholesalePacket() {
   for (let i = 1; i <= 3; i++) {
     const cAddr = get('uw-rcp' + i + '-addr');
     if (!cAddr) continue;
+    // $/SqFt for rental = monthly rent / sqft, 2-decimal display ($1.10).
+    const _rRent = parseFloat(String(get('uw-rcp' + i + '-rent') || '').replace(/,/g,''));
+    const _rSqft = parseFloat(String(get('uw-rcp' + i + '-sqft') || '').replace(/,/g,''));
+    const _rPsf  = (isFinite(_rRent) && _rRent > 0 && isFinite(_rSqft) && _rSqft > 0)
+      ? '$' + (_rRent / _rSqft).toFixed(2)
+      : '—';
     rentalRows.push([
       cAddr,
       get('uw-rcp' + i + '-bed') || '—',
       get('uw-rcp' + i + '-bath') || '—',
       get('uw-rcp' + i + '-sqft') ? Number(get('uw-rcp' + i + '-sqft')).toLocaleString() : '—',
       get('uw-rcp' + i + '-dist') || '—',
+      _rPsf,
       get('uw-rcp' + i + '-rent') ? '$' + Number(get('uw-rcp' + i + '-rent')).toLocaleString() + '/mo' : '—',
     ]);
   }
@@ -14330,16 +14417,21 @@ async function uwGenerateWholesalePacket() {
     section('RENTAL COMPARABLES');
     doc.autoTable({
       startY: y,
-      head: [['Address', 'Bed', 'Bath', 'SqFt', 'Distance', 'Rent']],
+      head: [['Address', 'Bed', 'Bath', 'SqFt', 'Distance', '$/SqFt', 'Rent']],
       body: rentalRows,
       theme: 'striped',
-      headStyles: { fillColor: C_AMBER, textColor: 255, fontSize: 9, fontStyle: 'bold', cellPadding: 4 },
+      columnStyles: {
+        0: { fontStyle: 'bold' },
+        1: { halign: 'center' },
+        2: { halign: 'center' },
+        3: { halign: 'center' },
+        4: { halign: 'center' },
+        5: { halign: 'center', fontStyle: 'bold' },
+        6: { halign: 'center', fontStyle: 'bold' },
+      },
+      headStyles: { fillColor: C_AMBER, textColor: 255, fontSize: 9, fontStyle: 'bold', cellPadding: 4, halign: 'center' },
       bodyStyles: { fontSize: 9, textColor: C_TEXT, cellPadding: 4 },
       alternateRowStyles: { fillColor: C_BG },
-      columnStyles: {
-        0: { fontStyle: 'bold' },        // Address — link-styled via _compLinkHooks
-        5: { halign: 'right', fontStyle: 'bold' },
-      },
       margin: { left: MARGIN, right: MARGIN },
       ..._compLinkHooks,
     });
@@ -17806,6 +17898,8 @@ async function uwLoadById(id) {
   goUwView('calculator');
   _uwApply(u.data);
   _uwCurrentId = id;
+  // Refresh per-comp implied ARV displays after data loads.
+  if (typeof uwUpdateCompArv === 'function') uwUpdateCompArv();
   // Per-deal comps mode (Sold vs. Listed). The default for EVERY deal is
   // 'sold' — only deals where the user explicitly switched to Listed
   // remember Listed (saved as data._compsMode). This way loading a fresh
@@ -26363,10 +26457,19 @@ function lenderOpenAddModal(editId) {
     'lender-add-dscrco-loan-season',
     'lender-add-dscrco-equity-season',
     'lender-add-dscrco-own-season',
+    'lender-add-dscrco-ltv-pct',
+    'lender-add-dscrco-min-loan',
+    'lender-add-dscrco-appraisal-type',
+    'lender-add-dscrco-proc-fee',
+    'lender-add-dscrco-junk-fee',
+    'lender-add-samerefi-ltv-pct',
     'lender-add-samerefi-rate-pct',
     'lender-add-samerefi-orig-pct',
     'lender-add-samerefi-proc-fee',
-    'lender-add-samerefi-junk-fee'
+    'lender-add-samerefi-junk-fee',
+    'lender-add-samerefi-dsr',
+    'lender-add-samerefi-min-loan',
+    'lender-add-samerefi-appraisal-type'
   ];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const verResetEl = document.getElementById('lender-add-verified');
@@ -26401,21 +26504,44 @@ function lenderOpenAddModal(editId) {
     setVal('lender-add-bridge-proc-fee', l.bridge_proc_fee);
     setVal('lender-add-bridge-junk-fee', l.bridge_junk_fee);
     setVal('lender-add-bridge-insp-fee', l.bridge_insp_fee);
+    setVal('lender-add-bridge-funding-days', l.bridge_funding_days);
+    setVal('lender-add-bridge-reimb-days', l.bridge_reimb_days);
+    setVal('lender-add-bridge-min-loan', l.bridge_min_loan);
+    setVal('lender-add-bridge-draw-type',
+    'lender-add-bridge-appraisal-type', l.bridge_draw_type);
+    setVal('lender-add-dscr-dsr',
+    'lender-add-dscr-appraisal-type', l.dscr_dsr);
+    setVal('lender-add-dscrco-dsr', l.dscrco_dsr);
+    setVal('lender-add-bridge-prepay-penalty', l.bridge_prepay_penalty);
+    setVal('lender-add-bridge-draw-type', l.bridge_draw_type);
+    setVal('lender-add-bridge-appraisal-type', l.bridge_appraisal_type);
     setVal('lender-add-dscr-ltv-pct', l.dscr_ltv_pct);
     setVal('lender-add-dscr-rate-pct', l.dscr_rate_pct);
     setVal('lender-add-dscr-orig-pct', l.dscr_orig_pct);
     setVal('lender-add-dscr-min-loan', l.dscr_min_loan);
     setVal('lender-add-dscr-proc-fee', l.dscr_proc_fee);
     setVal('lender-add-dscr-junk-fee', l.dscr_junk_fee);
+    setVal('lender-add-dscr-dsr', l.dscr_dsr);
+    setVal('lender-add-dscr-appraisal-type', l.dscr_appraisal_type);
     setVal('lender-add-dscrco-rate-pct', l.dscrco_rate_pct);
     setVal('lender-add-dscrco-orig-pct', l.dscrco_orig_pct);
     setVal('lender-add-dscrco-loan-season', l.dscrco_loan_season);
     setVal('lender-add-dscrco-equity-season', l.dscrco_equity_season);
     setVal('lender-add-dscrco-own-season', l.dscrco_own_season);
+    setVal('lender-add-dscrco-dsr', l.dscrco_dsr);
+    setVal('lender-add-dscrco-ltv-pct', l.dscrco_ltv_pct);
+    setVal('lender-add-dscrco-min-loan', l.dscrco_min_loan);
+    setVal('lender-add-dscrco-appraisal-type', l.dscrco_appraisal_type);
+    setVal('lender-add-dscrco-proc-fee', l.dscrco_proc_fee);
+    setVal('lender-add-dscrco-junk-fee', l.dscrco_junk_fee);
+    setVal('lender-add-samerefi-ltv-pct', l.samerefi_ltv_pct);
     setVal('lender-add-samerefi-rate-pct', l.samerefi_rate_pct);
     setVal('lender-add-samerefi-orig-pct', l.samerefi_orig_pct);
     setVal('lender-add-samerefi-proc-fee', l.samerefi_proc_fee);
     setVal('lender-add-samerefi-junk-fee', l.samerefi_junk_fee);
+    setVal('lender-add-samerefi-dsr', l.samerefi_dsr);
+    setVal('lender-add-samerefi-min-loan', l.samerefi_min_loan);
+    setVal('lender-add-samerefi-appraisal-type', l.samerefi_appraisal_type);
     if (verResetEl) verResetEl.checked = !!l.verified;
     if (typeof _setVerifiedHeaderBtnState === 'function') _setVerifiedHeaderBtnState('lender', !!l.verified);
   } else {
@@ -26493,21 +26619,39 @@ async function lenderSaveNew() {
       bridge_proc_fee: _num('lender-add-bridge-proc-fee'),
       bridge_junk_fee: _num('lender-add-bridge-junk-fee'),
       bridge_insp_fee: _num('lender-add-bridge-insp-fee'),
+      bridge_funding_days: _num('lender-add-bridge-funding-days'),
+      bridge_reimb_days: _num('lender-add-bridge-reimb-days'),
+      bridge_min_loan: _num('lender-add-bridge-min-loan'),
+      bridge_draw_type: _str('lender-add-bridge-draw-type'),
+      bridge_appraisal_type: _str('lender-add-bridge-appraisal-type'),
+      bridge_prepay_penalty: _str('lender-add-bridge-prepay-penalty'),
       dscr_ltv_pct: _num('lender-add-dscr-ltv-pct'),
       dscr_rate_pct: _num('lender-add-dscr-rate-pct'),
       dscr_orig_pct: _num('lender-add-dscr-orig-pct'),
       dscr_min_loan: _num('lender-add-dscr-min-loan'),
       dscr_proc_fee: _num('lender-add-dscr-proc-fee'),
       dscr_junk_fee: _num('lender-add-dscr-junk-fee'),
+      dscr_dsr: _num('lender-add-dscr-dsr'),
+      dscr_appraisal_type: _str('lender-add-dscr-appraisal-type'),
       dscrco_rate_pct: _num('lender-add-dscrco-rate-pct'),
       dscrco_orig_pct: _num('lender-add-dscrco-orig-pct'),
       dscrco_loan_season: _num('lender-add-dscrco-loan-season'),
       dscrco_equity_season: _num('lender-add-dscrco-equity-season'),
       dscrco_own_season: _num('lender-add-dscrco-own-season'),
+      dscrco_dsr: _num('lender-add-dscrco-dsr'),
+      dscrco_ltv_pct: _num('lender-add-dscrco-ltv-pct'),
+      dscrco_min_loan: _num('lender-add-dscrco-min-loan'),
+      dscrco_appraisal_type: _str('lender-add-dscrco-appraisal-type'),
+      dscrco_proc_fee: _num('lender-add-dscrco-proc-fee'),
+      dscrco_junk_fee: _num('lender-add-dscrco-junk-fee'),
+      samerefi_ltv_pct: _num('lender-add-samerefi-ltv-pct'),
       samerefi_rate_pct: _num('lender-add-samerefi-rate-pct'),
       samerefi_orig_pct: _num('lender-add-samerefi-orig-pct'),
       samerefi_proc_fee: _num('lender-add-samerefi-proc-fee'),
       samerefi_junk_fee: _num('lender-add-samerefi-junk-fee'),
+      samerefi_dsr: _num('lender-add-samerefi-dsr'),
+      samerefi_min_loan: _num('lender-add-samerefi-min-loan'),
+      samerefi_appraisal_type: _str('lender-add-samerefi-appraisal-type'),
     };
     const payload = Object.assign({ name, phone, email, loan_types: types, city, state, rating, rate_notes: rates, notes, verified }, extPayload);
     let data, error;
@@ -26696,7 +26840,42 @@ function renderLendersList() {
       +   '<div style="font-size:13px;color:' + color + ';font-weight:700;font-variant-numeric:tabular-nums;height:14px;line-height:14px">' + value + '</div>'
       +   '<div style="font-size:9px;color:var(--text-dim);font-variant-numeric:tabular-nums;height:11px;line-height:11px;margin-top:2px;font-weight:600">' + (sub || '') + '</div>'
       + '</div>';
-    const _loanRow = (label, color, rate, points, fees, ltv, extra) =>
+    // Compact values-only row — shares sub-headers with sibling rows.
+    // Used inside the stacked DSCR / REFI column so we only render the
+    // RATE / POINTS / FEES / LTV labels once across both cards.
+    // Each stat cell renders a main value AND a sub-line slot — even when
+    // empty — so the bottom row of every cell shares the same baseline.
+    // FEES gets the actual '+ $X insp' text; other cells get a hidden
+    // placeholder of the same height. The card auto-grows to enclose the
+    // sub-line so it never escapes the box.
+    const _valStat = (value, color, sub) =>
+      '<div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px">'
+      +   '<div style="font-size:12px;color:' + color + ';font-weight:700;font-variant-numeric:tabular-nums;line-height:1">' + value + '</div>'
+      +   '<div style="font-size:8px;color:var(--text-dim);font-variant-numeric:tabular-nums;line-height:1;font-weight:600;letter-spacing:0.2px;' + (sub ? '' : 'visibility:hidden') + '">' + (sub || '\u00A0') + '</div>'
+      + '</div>';
+    const _loanValRow = (color, rate, points, fees, ltv, extra) =>
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;align-items:center;padding:6px 10px;background:' + color + '0c;border:1px solid ' + color + '33;border-left:4px solid ' + color + ';border-radius:6px;width:100%;box-sizing:border-box">'
+      +   _valStat(rate,   color, '')
+      +   _valStat(points, color, '')
+      +   _valStat(fees,   color, extra || '')
+      +   _valStat(ltv,    color, '')
+      + '</div>';
+    // Secondary mini header for the BRIDGE box's bottom row (3 stats).
+    const _bridgeRow2Header = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:0 10px 1px 14px">'
+      + ['TIMELINE','PURCHASE','RENOVATION'].map(l => '<div style="text-align:center;font-size:8px;color:var(--text-dim);letter-spacing:0.5px;text-transform:uppercase;font-weight:600">' + l + '</div>').join('')
+      + '</div>';
+    // 3-col values row reusing the _valStat formatter.
+    const _bridgeRow2Values = (color) =>
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:center;padding:6px 10px;background:' + color + '08;border:1px solid ' + color + '22;border-left:4px solid ' + color + ';border-radius:6px;box-sizing:border-box">'
+      +   _valStat(bridgeTimeline,    color, '')
+      +   _valStat(bridgePurchaseCov, color, '')
+      +   _valStat(bridgeRenoCov,     color, '')
+      + '</div>';
+        // Shared sub-header strip for the stacked column (labels only).
+    const _sharedHeaderRow = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;padding:0 10px 1px 14px">'
+      + ['RATE','POINTS','FEES','LTV'].map(l => '<div style="text-align:center;font-size:8px;color:var(--text-dim);letter-spacing:0.5px;text-transform:uppercase;font-weight:600">' + l + '</div>').join('')
+      + '</div>';
+        const _loanRow = (label, color, rate, points, fees, ltv, extra) =>
       '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;align-items:start;padding:8px 12px;background:' + color + '0c;border:1px solid ' + color + '33;border-left:4px solid ' + color + ';border-radius:8px">'
       +   _statCol('RATE',   rate,   color, '')
       +   _statCol('POINTS', points, color, '')
@@ -26705,14 +26884,92 @@ function renderLendersList() {
       + '</div>';
     // Side-by-side layout: Bridge card | DSCR card, equal-width.
     // REFI (Same-Company Refinance) — no LTV in schema, show em-dash.
-    const refiRate   = _fmtPct(l.samerefi_rate_pct);
+    // Cash-Out Refi (dscrco_*) — separate product from Same-Co refi.
+    const cashoutRate   = _fmtPct(l.dscrco_rate_pct);
+    const cashoutPoints = _fmtPct(l.dscrco_orig_pct);
+    // Display value pulled from the 'Seasoning — Equity Unlock' field but
+    // labeled 'TIMELINE' in the preview, per user request.
+    const cashoutSeason = (l.dscrco_equity_season != null && l.dscrco_equity_season !== '' && isFinite(Number(l.dscrco_equity_season)))
+      ? Math.round(Number(l.dscrco_equity_season)) + ' mo'
+      : '\u2014';
+    const cashoutDsr    = (l.dscrco_dsr != null && l.dscrco_dsr !== '' && isFinite(Number(l.dscrco_dsr)))
+      ? Number(l.dscrco_dsr).toFixed(2) + 'x'
+      : '\u2014';
+        // Bridge extras — Funding Timeline (days), Purchase Coverage %,
+    // Renovation Coverage %. Rendered as a secondary row inside the
+    // BRIDGE card so they don't take up another separate column.
+    const bridgeMinLoan = (l.bridge_min_loan != null && l.bridge_min_loan !== '' && isFinite(Number(l.bridge_min_loan)) && Number(l.bridge_min_loan) > 0)
+      ? '$' + Math.round(Number(l.bridge_min_loan) / 1000) + 'k'
+      : '\u2014';
+    // BRIDGE 4-row preview — additional fields not previously derived.
+    const bridgeFicoMin = (l.bridge_fico_min != null && l.bridge_fico_min !== '' && isFinite(Number(l.bridge_fico_min)))
+      ? String(Math.round(Number(l.bridge_fico_min))) : '\u2014';
+    const bridgeReserves = _fmtPct(l.bridge_reserve_pct);
+    const bridgePrepay = (l.bridge_prepay_penalty != null && String(l.bridge_prepay_penalty).trim())
+      ? String(l.bridge_prepay_penalty).trim() : '\u2014';
+    const bridgeProcFee = (l.bridge_proc_fee != null && l.bridge_proc_fee !== '' && isFinite(Number(l.bridge_proc_fee)) && Number(l.bridge_proc_fee) > 0)
+      ? _fmtMoney(l.bridge_proc_fee) : '\u2014';
+    const bridgeJunkFees = (l.bridge_junk_fee != null && l.bridge_junk_fee !== '' && isFinite(Number(l.bridge_junk_fee)) && Number(l.bridge_junk_fee) > 0)
+      ? _fmtMoney(l.bridge_junk_fee) : '\u2014';
+    const bridgeInspFee = (l.bridge_insp_fee != null && l.bridge_insp_fee !== '' && isFinite(Number(l.bridge_insp_fee)) && Number(l.bridge_insp_fee) > 0)
+      ? _fmtMoney(l.bridge_insp_fee) : '\u2014';
+    const bridgeReimb = (l.bridge_reimb_days != null && l.bridge_reimb_days !== '' && isFinite(Number(l.bridge_reimb_days)))
+      ? Math.round(Number(l.bridge_reimb_days)) + ' d' : '\u2014';
+    const bridgeDrawType = (l.bridge_draw_type != null && String(l.bridge_draw_type).trim())
+      ? String(l.bridge_draw_type).trim() : '\u2014';
+        const bridgeTimeline = (l.bridge_funding_days != null && l.bridge_funding_days !== '' && isFinite(Number(l.bridge_funding_days)))
+      ? Math.round(Number(l.bridge_funding_days)) + ' d'
+      : '\u2014';
+    const bridgePurchaseCov = _fmtPct(l.bridge_purchase_pct);
+    const bridgeRenoCov     = _fmtPct(l.bridge_reno_pct);
+        const refiRate   = _fmtPct(l.samerefi_rate_pct);
     const refiPoints = _fmtPct(l.samerefi_orig_pct);
     const refiFees   = _sumFees(l.samerefi_proc_fee, l.samerefi_junk_fee);
-    const rates = '<div style="min-width:760px;max-width:980px">'
+    // Self-contained card: header + values inside one box. Cleaner since
+    // every card is visually complete on its own — no floating headers.
+    const _selfCard = (color, cols, labels, values, extraFeesSub) => {
+      const colStyle = 'grid-template-columns:' + Array(cols).fill('1fr').join(' ');
+      const hdr = '<div style="display:grid;' + colStyle + ';gap:8px;padding:0 14px;opacity:0.7">'
+        + labels.map(L => '<div style="text-align:center;font-size:8px;color:var(--text-dim);letter-spacing:0.6px;text-transform:uppercase;font-weight:700">' + L + '</div>').join('')
+        + '</div>';
+      const vals = '<div style="display:grid;' + colStyle + ';gap:8px;padding:0 14px;align-items:center">'
+        + values.map((v, i) => _valStat(v, color, (extraFeesSub && i === 2) ? extraFeesSub : '')).join('')
+        + '</div>';
+      return '<div style="display:flex;flex-direction:column;gap:6px;padding:10px 0;background:' + color + '0c;border:1px solid ' + color + '33;border-left:4px solid ' + color + ';border-radius:8px;box-sizing:border-box">'
+        + hdr + vals + '</div>';
+    };
+    // Multi-row self-card — same look as _selfCard but supports stacked
+    // label/value pairs. Each row is {labels:[], values:[]}. Empty string
+    // labels render as an empty placeholder cell so a partial last row
+    // still aligns to the grid.
+    const _selfCardGrid = (color, cols, rows) => {
+      const colStyle = 'grid-template-columns:' + Array(cols).fill('1fr').join(' ');
+      const block = rows.map(row => {
+        const hdr = '<div style="display:grid;' + colStyle + ';gap:8px;padding:0 14px;opacity:0.7">'
+          + row.labels.map(L => '<div style="text-align:center;font-size:8px;color:var(--text-dim);letter-spacing:0.6px;text-transform:uppercase;font-weight:700;min-height:10px">' + (L || '\u00A0') + '</div>').join('')
+          + '</div>';
+        const vals = '<div style="display:grid;' + colStyle + ';gap:8px;padding:0 14px;align-items:center">'
+          + row.values.map(v => _valStat(v || '\u00A0', color, '')).join('')
+          + '</div>';
+        return '<div style="display:flex;flex-direction:column;gap:3px">' + hdr + vals + '</div>';
+      }).join('');
+      return '<div style="display:flex;flex-direction:column;gap:8px;padding:10px 0;background:' + color + '0c;border:1px solid ' + color + '33;border-left:4px solid ' + color + ';border-radius:8px;box-sizing:border-box">' + block + '</div>';
+    };
+    const rates = '<div style="min-width:640px;max-width:880px;display:flex;flex-direction:column;gap:8px">'
+      + _selfCard('#f59e0b', 8,
+          ['RATE','POINTS','FEES','LTV','TIMELINE','PURCHASE','RENOVATION','MIN LOAN'],
+          [bridgeRate, bridgePoints, bridgeFees, ltvBridge, bridgeTimeline, bridgePurchaseCov, bridgeRenoCov, bridgeMinLoan],
+          bridgeInsp ? '+ ' + bridgeInsp + ' insp' : '')
       + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
-      +   _loanRow('BRIDGE', '#f59e0b', bridgeRate, bridgePoints, bridgeFees, ltvBridge, bridgeInsp)
-      +   _loanRow('DSCR',   '#10b981', dscrRate,   dscrPoints,   dscrFees,   ltvDscr,   '')
-      +   _loanRow('REFI',   '#a855f7', refiRate,   refiPoints,   refiFees,   '\u2014',  '')
+      +   _selfCard('#10b981', 4,
+            ['RATE','POINTS','FEES','LTV'],
+            [dscrRate, dscrPoints, dscrFees, ltvDscr], '')
+      +   _selfCard('#3b82f6', 4,
+            ['RATE','POINTS','SEASONING','DSR'],
+            [cashoutRate, cashoutPoints, cashoutSeason, cashoutDsr], '')
+      +   _selfCard('#a855f7', 4,
+            ['RATE','POINTS','FEES','LTV'],
+            [refiRate, refiPoints, refiFees, _fmtPct(l.samerefi_ltv_pct)], '')
       + '</div>'
       + '</div>';
     const contactParts = [];
@@ -31158,7 +31415,7 @@ function clearVendorDownloadListFilter() {
 function _refreshAllVendorViews() {
   if (typeof renderVendorDownloadTable === 'function') renderVendorDownloadTable();
   if (typeof renderVendors === 'function') renderVendors();
-  if (typeof renderCompare === 'function') renderCompare();
+  if (typeof renderCompare === 'function') renderCompare(); if (typeof uwUpdateCompArv === 'function') uwUpdateCompArv();
   _renderListScopeChips();
 }
 

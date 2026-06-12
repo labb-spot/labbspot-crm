@@ -3553,8 +3553,8 @@
             </select>
           </label>
           <label class="text-xs">Crew Size<input type="number" id="crew" value="3" min="1" max="20" style="margin-top:4px"></label>
-          <label class="text-xs">Cost Cont %<input type="number" id="costContingency" value="10" min="0" max="50" style="margin-top:4px"></label>
-          <label class="text-xs">Time Cont %<input type="number" id="timeContingency" value="25" min="0" max="100" step="5" style="margin-top:4px"></label>
+          <label class="text-xs" style="display:none"><input type="number" id="costContingency" value="20" min="0" max="50" readonly></label>
+          <label class="text-xs" style="display:none"><input type="number" id="timeContingency" value="25" min="0" max="100" step="5" readonly></label>
         </div>
       </div>
 
@@ -3653,7 +3653,7 @@
                  days" and "+60 Day Repossession". Width is locked at 220px
                  (wide enough for the longest possible text) and font-size
                  reduced slightly so the long label still fits cleanly. -->
-            <div class="text-xs" style="color:var(--text-dim);text-align:right;line-height:1.3;width:220px;flex-shrink:0;flex-grow:0">
+            <div class="text-xs" style="color:var(--text-dim);text-align:right;line-height:1.3;width:340px;flex-shrink:0;flex-grow:0">
               <div>Timeline Adjustment</div>
               <div id="rc-occ-adjust" style="font-family:monospace;font-weight:700;font-size:15px;color:#fdba74;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">+0 days</div>
             </div>
@@ -3687,11 +3687,13 @@
 
       <!-- ===== Totals ===== -->
       <div class="panel p-5 mb-3">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
           <div class="stat"><div class="stat-label">Material Cost</div><div class="stat-value" style="color:var(--good)" id="t-mat">$0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="t-mat-pct">—</div></div>
           <div class="stat"><div class="stat-label">Labor Cost</div><div class="stat-value" style="color:var(--warn)" id="t-lab">$0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="t-lab-pct">—</div></div>
           <div class="stat"><div class="stat-label">Total Labor Hours</div><div class="stat-value" style="color:#c4b5fd" id="t-hrs">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="t-days">~0 days</div></div>
           <div class="stat"><div class="stat-label">Project Total</div><div class="stat-value" style="color:var(--text)" id="t-tot">$0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px">before contingency</div></div>
+          <div class="stat"><div class="stat-label">Budget Contingency</div><div class="stat-value" style="color:#a5b4fc" id="t-cont-budget">$0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="t-cont-budget-sub">20% standard</div></div>
+          <div class="stat"><div class="stat-label">Occupancy Contingency</div><div class="stat-value" style="color:#fdba74" id="t-cont-occ">$0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="t-cont-occ-sub">+0% · vacant</div></div>
         </div>
         <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-bottom:8px">
           <div id="bar-mat" style="background:var(--good);width:50%"></div>
@@ -46955,14 +46957,33 @@ function recalc(){
     _basicTotalEl.textContent = fmt(_combined);
     _basicPsfEl.textContent   = sqft > 0 ? '$' + (_combined / sqft).toFixed(2) : '$0.00';
   }
-  const costCont = parseFloat(document.getElementById('costContingency').value)||10;
+  const costContBase = parseFloat(document.getElementById('costContingency').value)||20;
   const timeCont = parseFloat(document.getElementById('timeContingency').value)||25;
   const crew = parseFloat(document.getElementById('crew').value)||3;
+  // Occupancy bump — detected up front so the cost contingency adopts the +10%
+  // adjustment whenever the property triggers the 60-day repossession. (The
+  // user types their base in the input; we silently bump the math when the
+  // property isn't vacant, and surface the bump in the Occupancy readout below.)
+  const _occElEarly = document.getElementById('rc-occupancy');
+  const _occValEarly = _occElEarly ? _occElEarly.value : 'vacant';
+  const _occBumpsContingency = _occValEarly && _occValEarly !== 'vacant';
+  const costCont = costContBase + (_occBumpsContingency ? 10 : 0);
   document.getElementById('t-mat').textContent = fmt(mat);
   document.getElementById('t-lab').textContent = fmt(lab);
   document.getElementById('t-hrs').textContent = Math.round(hrs).toLocaleString();
   document.getElementById('t-tot').textContent = fmt(total);
   document.getElementById('t-grand').textContent = fmt(total*(1+costCont/100));
+  // Itemized contingency amounts shown next to Project Total.
+  const _contBudgetAmt = total * (costContBase/100);
+  const _contOccAmt    = _occBumpsContingency ? (total * 0.10) : 0;
+  const _budgetEl  = document.getElementById('t-cont-budget');
+  const _budgetSub = document.getElementById('t-cont-budget-sub');
+  if (_budgetEl)  _budgetEl.textContent  = fmt(_contBudgetAmt);
+  if (_budgetSub) _budgetSub.textContent = costContBase + '% standard';
+  const _occContEl  = document.getElementById('t-cont-occ');
+  const _occContSub = document.getElementById('t-cont-occ-sub');
+  if (_occContEl)  _occContEl.textContent  = fmt(_contOccAmt);
+  if (_occContSub) _occContSub.textContent = _occBumpsContingency ? '+10% · ' + (_occValEarly || 'occupied') : '+0% · vacant';
   document.getElementById('t-mat-pct').textContent = total?Math.round(mat/total*100)+'% of total':'—';
   document.getElementById('t-lab-pct').textContent = total?Math.round(lab/total*100)+'% of total':'—';
   document.getElementById('t-days').textContent = '~'+Math.round(hrs/8).toLocaleString()+' days @ 8hr/day';
@@ -47001,7 +47022,7 @@ function recalc(){
   const finDays = finDaysBase + occDays;
   // Update the visible timeline-adjustment readout in the Occupancy panel
   const _occAdjust = document.getElementById('rc-occ-adjust');
-  if (_occAdjust) _occAdjust.textContent = occDays > 0 ? '+'+occDays+' Day Repossession' : '+0 days';
+  if (_occAdjust) _occAdjust.textContent = occDays > 0 ? '+'+occDays+' Day Repossession · +10% Cost Cont' : '+0 days';
   document.getElementById('s-raw').textContent = Math.round(rawDays).toLocaleString();
   document.getElementById('s-crew').textContent = Math.round(crewDays).toLocaleString();
   document.getElementById('s-crew-sub').textContent = 'w/ '+crew+' workers';
@@ -47417,7 +47438,16 @@ window._rcLoadState = function(state){
       if (fl) fl.value = state.finishLevel;
     }
     if (state.crew != null) { const el = document.getElementById('crew'); if (el) el.value = state.crew; }
-    if (state.costContingency != null) { const el = document.getElementById('costContingency'); if (el) el.value = state.costContingency; }
+    // Cost Cont % is now locked at the standard 20%. Auto-migrate any saved
+    // value of 10 (the legacy default) up to 20 so existing deals reflect
+    // the new standard. Other saved values are preserved.
+    if (state.costContingency != null) {
+      const el = document.getElementById('costContingency');
+      if (el) {
+        const _saved = parseFloat(state.costContingency);
+        el.value = (isFinite(_saved) && _saved === 10) ? '20' : state.costContingency;
+      }
+    }
     if (state.timeContingency != null) { const el = document.getElementById('timeContingency'); if (el) el.value = state.timeContingency; }
     if (state.occupancy != null) { const el = document.getElementById('rc-occupancy'); if (el) el.value = state.occupancy; }
     if (state.tenancy != null) { const el = document.getElementById('rc-tenancy'); if (el) el.value = state.tenancy; }

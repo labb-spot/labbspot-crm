@@ -517,6 +517,13 @@
     }
     /* Subtabs inside those panel pills — don't shrink, don't wrap text. */
     #uw-subtabs-row .subtab,
+    /* Slightly smaller padding/font on the underwriting subtab row
+       so GIS Maps + workflow strip + post-offer + Dupes/Trash all
+       fit on a single line at typical desktop widths. */
+    #uw-subtabs-row .subtab-compact { padding: 3px 5px; font-size: 10px; }
+    #uw-subtabs-row .subtab-compact .badge { font-size: 7.5px; padding: 1px 3px; margin-left: 2px !important; }
+    /* Tighten the icon-to-label gap inside each pill so labels sit closer to their emoji. */
+    #uw-subtabs-row .subtab-compact { letter-spacing: -0.1px; }
     #uw-subtabs-row .subtab-compact,
     #uw-dispo-subtabs-row .subtab,
     #uw-dispo-subtabs-row .subtab-compact,
@@ -2561,16 +2568,16 @@
        Both panels stay in ONE row that fits the viewport. The workflow
        strip uses tighter padding + a font-size tweak so all 10 tabs +
        GIS Maps fit on standard widescreens without scrolling. -->
-  <div id="uw-subtabs-row" class="flex items-center gap-2 mb-4" style="flex-wrap:nowrap;min-width:0">
+  <div id="uw-subtabs-row" class="flex items-center gap-1 mb-4" style="flex-wrap:nowrap;min-width:0">
     <!-- GIS Maps panel — its own pill, visually disconnected from the workflow tabs -->
     <div class="flex items-center gap-1 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
-      <div class="subtab subtab-compact" data-uwview="gis-maps" onclick="goUwView('gis-maps'); renderUnderwriteList();" title="GIS Maps — county assessor / GIS portal links you've collected, organized in one place.">🗺 GIS Maps</div>
+      <div class="subtab subtab-compact" data-uwview="gis-maps" onclick="goUwView('gis-maps'); renderUnderwriteList();" title="GIS Maps — county assessor / GIS portal links you've collected, organized in one place.">🗺 GIS</div>
     </div>
     <!-- Workflow subtab bar — workflow order: Help → Analyzing → Check → Analyzed -->
     <!-- gap-0 (no gap) so the active pill's background sits flush against its
          neighbors. With gap-1 the transparent strip on the inactive side
          visually exaggerated the spacing around the active pill. -->
-    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:1;min-width:0;width:fit-content;font-size:13px">
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
     <div class="subtab subtab-compact" data-uwview="all" onclick="goUwView('all'); renderUnderwriteList();" title="All deals across every workflow stage — searchable.">📋 All <span id="uw-all-count" class="badge brand" style="margin-left:3px;font-size:9px">—</span></div>
     <div class="subtab subtab-compact" data-uwview="help" onclick="goUwView('help'); renderUnderwriteList();">❓ Help <span id="uw-help-count" class="badge warn" style="margin-left:3px;font-size:9px">—</span></div>
     <div class="subtab subtab-compact active" data-uwview="analyzing" onclick="goUwView('analyzing'); renderUnderwriteList();">🔍 Analyzing <span id="uw-analyzing-count" class="badge bad" style="margin-left:3px;font-size:9px">—</span></div>
@@ -2588,6 +2595,12 @@
       <div class="subtab subtab-compact" data-uwview="inspection" onclick="goUwView('inspection'); renderUnderwriteList();"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection <span id="uw-inspection-count" class="badge warn" style="margin-left:3px;font-size:9px">—</span></div>
       <div class="subtab subtab-compact" data-uwview="contracted" onclick="goUwView('contracted'); renderUnderwriteList();">📝 Contracted <span id="uw-contracted-count" class="badge warn" style="margin-left:3px;font-size:9px">—</span></div>
       <div class="subtab subtab-compact" data-uwview="closed" onclick="goUwView('closed'); renderUnderwriteList();" title="Finalized — deals that closed successfully or were dropped. Set the Offer Status to Closed or Dropped to land a deal here.">🏁 Finalized <span id="uw-closed-count" class="badge ok" style="margin-left:3px;font-size:9px">—</span></div>
+    </div>
+    <!-- Cleanup / soft-delete pill — its own group, visually disconnected from
+         the workflow strip. 🔍 Dupes is temporary (remove after the one-time
+         cleanup is done); 🗑️ Trash is permanent. -->
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
+      <div class="subtab subtab-compact" data-uwview="trash" onclick="goUwView('trash'); renderUwTrash();" title="Soft-deleted underwrites. Restore them or permanently delete from here. Nothing is hard-deleted from anywhere else in the app.">🗑️ Trash <span id="uw-trash-count" class="badge" style="margin-left:3px;font-size:9px;background:rgba(148,163,184,0.2);color:#94a3b8">—</span></div>
     </div>
   </div>
 
@@ -4114,7 +4127,6 @@
           <input id="uw-analyzing-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="To (imported on or before)">
           <input id="uw-analyzing-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
           <button class="btn btn-ghost text-sm" onclick="uwRefreshUnderwriting(this)" title="Re-fetch the underwrites table from Supabase. Useful if a deal was added/edited from another browser tab or device and you don't see it here yet.">🔁 Refresh</button>
-          <button class="btn btn-ghost text-sm" onclick="_uwSyncMotivatedLeads()" title="Pull any motivated leads from your Results tab into ⭐ Priority. Runs automatically when leads arrive — this button just forces a re-scan.">🔄 Sync motivated</button>
           <button class="btn btn-ghost text-sm" onclick="document.getElementById('uw-import-file').click()" title="Bulk-import properties from a CSV exported from your Property Submission sheet. Existing addresses are updated; new ones are created.">📥 Import CSV</button>
           <input type="file" id="uw-import-file" accept=".csv,text/csv" style="display:none" onchange="uwImportCsv(this.files[0])">
         </div>
@@ -4569,6 +4581,38 @@
     </div>
   </div><!-- /uwview-closed -->
 
+
+  <!-- ============ Underwriting: 🗑️ Trash subview ============
+       Soft-deleted underwrites. Restore puts them back in the active list;
+       Permanent Delete is the ONLY path that actually hard-deletes a row from
+       the database, and it requires explicit confirmation. -->
+  <div id="uwview-trash" class="uwview" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div>
+          <div class="font-semibold text-lg">🗑️ Trash</div>
+          <div class="text-xs text-[var(--text-dim)]">Soft-deleted underwrites. Anything you delete from the rest of the app lands here. Restore brings it back; Permanent Delete is the only way to actually erase a row — and it asks twice.</div>
+        </div>
+        <button class="btn btn-ghost text-sm" onclick="renderUwTrash()">🔁 Refresh</button>
+      </div>
+      <div id="uw-trash-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">Trash is empty.</div>
+      <div class="overflow-auto" style="max-height:600px">
+        <table style="width:100%;font-size:13px">
+          <thead>
+            <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
+              <th style="padding:8px 10px;text-align:left">Address</th>
+              <th style="padding:8px 10px;text-align:center">Deleted</th>
+              <th style="padding:8px 10px;text-align:center">Results</th>
+              <th style="padding:8px 10px;text-align:center">Disposition</th>
+              <th style="padding:8px 10px;text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="uw-trash-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /uwview-trash -->
+
   <!-- ============ Underwriting: Checking subview ============
        Properties marked by their underwriter as ready for verification.
        Reviewer opens, walks through, and clicks "✓ Verify & Move to Analyzed"
@@ -4633,19 +4677,19 @@
        stage it lives in. ============ -->
   <div id="uwview-all" class="uwview" style="display:none">
     <div class="panel p-5">
-      <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
-        <div>
+      <div class="flex items-center justify-between mb-3 gap-3" style="flex-wrap:nowrap">
+        <div style="flex-shrink:0">
           <div class="font-semibold text-lg">📋 All Deals — Search Everything</div>
           <div class="text-sm text-[var(--text-dim)]">Every deal across every workflow stage in one searchable list. Click any row to open the property.</div>
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <select id="uw-all-source-filter" onchange="renderUnderwriteList()" style="width:130px" title="Filter by where the deal came from">
+        <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end">
+          <select id="uw-all-source-filter" onchange="renderUnderwriteList()" style="width:110px" title="Filter by where the deal came from">
             <option value="">All sources</option>
             <option value="ghl_webhook">📥 Submission</option>
             <option value="motivated_lead">📞 Result</option>
             <option value="manual">✏️ Manual</option>
           </select>
-          <select id="uw-all-date-filter" onchange="_uwToggleCustomDates('all'); renderUnderwriteList()" style="width:120px" title="Filter deals by import date">
+          <select id="uw-all-date-filter" onchange="_uwToggleCustomDates('all'); renderUnderwriteList()" style="width:100px" title="Filter deals by import date">
             <option value="">All time</option>
             <option value="today">Imported today</option>
             <option value="7">Last 7 days</option>
@@ -4656,11 +4700,13 @@
           </select>
           <input id="uw-all-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none">
           <input id="uw-all-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none">
-          <input id="uw-all-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <input id="uw-all-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:180px;min-width:140px">
           <!-- Rescan All Profits — loops every cached deal through the live
                calculator cascade and re-saves the corrected Flip / Wholetail /
                Refi profits back to Supabase. Useful when the math has changed
                and you want to refresh stale numbers all at once. -->
+          <button class="btn btn-ghost text-sm" onclick="_uwSyncMotivatedLeads()" title="Sync motivated leads — pulls any motivated leads from your Results tab into ⭐ Priority. Runs automatically when leads arrive; this just forces a re-scan." style="padding:6px 10px">🔄</button>
+          <button class="btn btn-ghost text-sm" onclick="uwGeocodeAllOpen()" title="Geocode All — one-time batch: geocode every underwrite missing a place_id and save uw_lat / uw_lng / uw_place_id. Pause/resume safe. Required before the 🔍 Dupes panel can detect duplicates." style="padding:6px 10px">🌐</button>
           <button class="btn btn-ghost text-sm" onclick="uwRescanAllProfits()" title="Open each deal in the calculator one-by-one, recompute Flip / Wholetail / Refi profits with the current math, and save the corrected values to Supabase. Use this once after big formula changes to refresh stale numbers app-wide." style="white-space:nowrap;border:1px solid rgba(99,102,241,0.4);color:#a5b4fc">🔄 Rescan All Profits</button>
         </div>
       </div>
@@ -7823,11 +7869,18 @@ async function safeInsert(table, row) {
 }
 // Back-compat alias
 const safeInsertList = (row) => safeInsert('lists', row);
+let _toastHideTimer = null;
 const toast = (msg, kind='') => {
   const el = document.getElementById('toast');
+  if (!el) return;
   el.textContent = msg;
   el.className = 'toast show ' + kind;
-  setTimeout(() => el.className = 'toast', 4000);
+  // Cancel any pending hide from a previous toast — otherwise an older
+  // setTimeout will fire and hide the new toast prematurely.
+  if (_toastHideTimer) { clearTimeout(_toastHideTimer); _toastHideTimer = null; }
+  // Error toasts stay on screen longer so users have time to actually read them.
+  const dur = kind === 'err' ? 7000 : 4000;
+  _toastHideTimer = setTimeout(() => { el.className = 'toast'; _toastHideTimer = null; }, dur);
 };
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const formatPhone = p => { const d=String(p||'').replace(/\D/g,''); return d.length===10?`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`:p; };
@@ -8403,9 +8456,9 @@ function goUwView(v) {
   // List/workflow views all toggle the subtab bar. The calculator is a
   // per-property detail view (no subtab). 'hot' is a cross-cutting computed
   // view — eligible for active-tab styling and Back-button restoration.
-  if (v === 'all' || v === 'analyzing' || v === 'analyzed' || v === 'help' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps') {
+  if (v === 'all' || v === 'analyzing' || v === 'analyzed' || v === 'help' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps' || v === 'trash') {
     document.querySelectorAll('#section-underwriting .subtab').forEach(t => t.classList.toggle('active', t.dataset.uwview === v));
-    if (v === 'all' || v === 'analyzing' || v === 'analyzed' || v === 'priority' || v === 'checking' || v === 'help' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps') _uwLastListView = v;
+    if (v === 'all' || v === 'analyzing' || v === 'analyzed' || v === 'priority' || v === 'checking' || v === 'help' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps' || v === 'trash') _uwLastListView = v;
   }
   document.querySelectorAll('#section-underwriting .uwview').forEach(el => el.style.display = 'none');
   const target = document.getElementById('uwview-' + v);
@@ -8432,6 +8485,71 @@ function goUwView(v) {
 //     so they sit at the top of the queue waiting for an underwrite.
 //   • Source metadata (disposition, phone, owner name) is preserved in the
 //     deal's data blob under _source* keys for traceability.
+// Global address normalizer — single source of truth for dedupe matching.
+// Used by both the motivated-lead sync (Step 5) and the manual-save hard-gate.
+// Lowercases + collapses whitespace + maps common street suffixes (Street→St,
+// Avenue→Ave, etc.) + compound compass directions (Southeast→SE).
+function _uwNormalizeAddress(s) {
+  if (!s) return '';
+  let n = String(s).trim().toLowerCase().replace(/\s+/g, ' ');
+  n = n.replace(/([a-z])\.(\s|$)/g, '$1$2');
+  const map = [
+    [/\bstreet\b/g, 'st'],     [/\bavenue\b/g, 'ave'],
+    [/\bboulevard\b/g, 'blvd'],[/\bdrive\b/g, 'dr'],
+    [/\broad\b/g, 'rd'],       [/\bcourt\b/g, 'ct'],
+    [/\bcircle\b/g, 'cir'],    [/\blane\b/g, 'ln'],
+    [/\bplace\b/g, 'pl'],      [/\bparkway\b/g, 'pkwy'],
+    [/\bhighway\b/g, 'hwy'],   [/\btrail\b/g, 'trl'],
+    [/\bterrace\b/g, 'ter'],   [/\bsquare\b/g, 'sq'],
+    [/\bsoutheast\b/g, 'se'], [/\bsouthwest\b/g, 'sw'],
+    [/\bnortheast\b/g, 'ne'], [/\bnorthwest\b/g, 'nw'],
+    [/\bnorth\b/g, 'n'],       [/\bsouth\b/g, 's'],
+    [/\beast\b/g, 'e'],        [/\bwest\b/g, 'w'],
+  ];
+  for (const [re, rep] of map) n = n.replace(re, rep);
+  return n.replace(/\s+/g, ' ').trim();
+}
+window._uwNormalizeAddress = _uwNormalizeAddress;
+
+// Scan cache.underwrites for duplicates by normalized address AND uw_place_id.
+// Returns a Set of IDs that are flagged as duplicates — the oldest row in each
+// group (earliest created_at) is the keeper and stays unflagged.
+function _uwBuildDupeFlags() {
+  const flagged = new Set();
+  if (typeof cache === 'undefined' || !cache || !cache.underwrites) return flagged;
+  const sortOldestFirst = (a, b) => {
+    const ta = new Date(a.created_at || 0).getTime();
+    const tb = new Date(b.created_at || 0).getTime();
+    return ta - tb;
+  };
+  const byAddr = {};
+  Object.values(cache.underwrites).forEach(u => {
+    if (!u || u.deleted_at) return;
+    const k = (typeof _uwNormalizeAddress === 'function') ? _uwNormalizeAddress(u.address || '') : '';
+    if (!k) return;
+    if (!byAddr[k]) byAddr[k] = [];
+    byAddr[k].push(u);
+  });
+  Object.values(byAddr).forEach(group => {
+    if (group.length < 2) return;
+    group.sort(sortOldestFirst);
+    for (let i = 1; i < group.length; i++) flagged.add(group[i].id);
+  });
+  const byPid = {};
+  Object.values(cache.underwrites).forEach(u => {
+    if (!u || u.deleted_at || !u.uw_place_id) return;
+    if (!byPid[u.uw_place_id]) byPid[u.uw_place_id] = [];
+    byPid[u.uw_place_id].push(u);
+  });
+  Object.values(byPid).forEach(group => {
+    if (group.length < 2) return;
+    group.sort(sortOldestFirst);
+    for (let i = 1; i < group.length; i++) flagged.add(group[i].id);
+  });
+  return flagged;
+}
+window._uwBuildDupeFlags = _uwBuildDupeFlags;
+
 async function _uwSyncMotivatedLeads(opts) {
   const silent = opts && opts.silent;
   // Single-flight lock — prevents two concurrent calls (e.g. two
@@ -8474,6 +8592,9 @@ async function _uwSyncMotivatedLeads(opts) {
       [/\bplace\b/g, 'pl'],      [/\bparkway\b/g, 'pkwy'],
       [/\bhighway\b/g, 'hwy'],   [/\btrail\b/g, 'trl'],
       [/\bterrace\b/g, 'ter'],   [/\bsquare\b/g, 'sq'],
+      // Compound directions FIRST so they collapse before single-word rules touch them.
+      [/\bsoutheast\b/g, 'se'], [/\bsouthwest\b/g, 'sw'],
+      [/\bnortheast\b/g, 'ne'], [/\bnorthwest\b/g, 'nw'],
       [/\bnorth\b/g, 'n'],       [/\bsouth\b/g, 's'],
       [/\beast\b/g, 'e'],        [/\bwest\b/g, 'w'],
     ];
@@ -8481,8 +8602,14 @@ async function _uwSyncMotivatedLeads(opts) {
     return n.replace(/\s+/g, ' ').trim();
   };
   const existing = new Set();
+  // Step 5 — also build a uw_place_id → underwrite-id map so we can catch
+  // duplicates whose address strings differ ("123 Main St" vs "123 Main
+  // Street") but resolve to the same geocoded place_id.
+  const existingByPid = {};
   Object.values(cache.underwrites).forEach(u => {
-    if (u && u.address) existing.add(norm(u.address));
+    if (!u) return;
+    if (u.address) existing.add(norm(u.address));
+    if (u.uw_place_id) existingByPid[u.uw_place_id] = u.id;
   });
   const motivated = Object.values(cache.results).filter(r => {
     if (!r || !r.address || !r.address.trim()) return false;
@@ -8493,8 +8620,46 @@ async function _uwSyncMotivatedLeads(opts) {
     if (!silent && typeof toast === 'function') toast('No new motivated leads to sync.', 'info');
     return 0;
   }
-  let created = 0, failed = 0;
+  // Step 5 — pre-approve enough geocodes for the batch in one confirm so the
+  // per-call gate doesn't spam the user. Skipped silently when running on
+  // page-load (silent=true) — silent mode never prompts and falls back to
+  // string-only matching if no approval pool is left.
+  let canGeocode = (typeof geocodeAddress === 'function');
+  if (canGeocode && typeof geoSettings !== 'undefined') {
+    if (silent) {
+      // Silent (auto) sync — pre-approve the batch WITHOUT prompting so
+      // dedupe-by-place_id works on page load. The cost per motivated lead
+      // is ~$0.005, so this is intentional even with require-confirm on.
+      if (typeof geoSettings.approvedCalls === 'number') {
+        geoSettings.approvedCalls += motivated.length;
+      }
+    } else if (typeof geoSettings.requestApproval === 'function') {
+      // Visible (manual click) — show one combined confirm for the whole batch.
+      if (!geoSettings.requestApproval(motivated.length)) canGeocode = false;
+    }
+  }
+  let created = 0, failed = 0, mergedByPid = 0;
   for (const r of motivated) {
+    // Step 5 — geocode the incoming address. If Google returns a place_id we
+    // already know about, the motivated lead is a duplicate of an existing
+    // underwrite (with a different address string). Skip insert + count it.
+    let geo = null;
+    if (canGeocode) {
+      try {
+        geo = await geocodeAddress(r.address, r.city || '', r.state || '', r.zip || '');
+      } catch (e) {
+        console.warn('[motivated sync] geocode error for', r.address, e);
+      }
+    }
+    if (geo && geo.geocode_status === 'ok' && geo.place_id && existingByPid[geo.place_id]) {
+      // This place is already an underwrite under a different address string.
+      // Don't create a duplicate row.
+      mergedByPid++;
+      // Add the normalized address to the existing set so the next pass also
+      // sees it as a known address.
+      existing.add(norm(r.address));
+      continue;
+    }
     const newId = (typeof uid === 'function') ? uid() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
     const fields = {
       'uw-address': r.address,
@@ -8518,7 +8683,10 @@ async function _uwSyncMotivatedLeads(opts) {
       _priorityHandled:    true,
     };
     const nowIso = new Date().toISOString();
-    const { data: inserted, error } = await sb.from('underwrites').insert({
+    // Step 5 — bake geocode results onto the new row when we have them, so
+    // the next sync sees this address as already-geocoded and dedupes via
+    // uw_place_id without spending another Google call.
+    const insertPayload = {
       id:            newId,
       address:       r.address,
       city:          r.city  || null,
@@ -8528,17 +8696,27 @@ async function _uwSyncMotivatedLeads(opts) {
       data:          fields,
       created_at:    nowIso,
       updated_at:    nowIso,
-    }).select().maybeSingle();
+    };
+    if (geo && geo.geocode_status === 'ok' && geo.place_id) {
+      insertPayload.uw_lat = geo.lat;
+      insertPayload.uw_lng = geo.lng;
+      insertPayload.uw_place_id = geo.place_id;
+    }
+    const { data: inserted, error } = await sb.from('underwrites').insert(insertPayload).select().maybeSingle();
     if (error) { failed++; if (failed <= 3) console.warn('Sync failed for', r.address, error); continue; }
-    const row = inserted || { id: newId, address: r.address, city: r.city, state: r.state, zip: r.zip, data: fields, created_at: nowIso, updated_at: nowIso };
+    const row = inserted || Object.assign({ data: fields }, insertPayload);
     cache.underwrites[row.id] = row;
     existing.add(norm(r.address));
+    if (row.uw_place_id) existingByPid[row.uw_place_id] = row.id;
     created++;
   }
-  if (created > 0) {
+  if (created > 0 || mergedByPid > 0) {
     if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
     if (!silent && typeof toast === 'function') {
-      toast('Synced ' + created + ' motivated lead' + (created === 1 ? '' : 's') + ' to ⭐ Priority.', 'ok');
+      const bits = [];
+      if (created > 0) bits.push('Synced ' + created + ' motivated lead' + (created === 1 ? '' : 's') + ' to ⭐ Priority');
+      if (mergedByPid > 0) bits.push(mergedByPid + ' matched existing place — no duplicate created');
+      toast(bits.join('. ') + '.', 'ok');
     }
   }
   if (failed && !silent && typeof toast === 'function') {
@@ -9141,7 +9319,41 @@ function uwNewDeal() {
 // If they came from the Holdings or Renovation main section, the calculator
 // DOM was moved into that section. Move it back and restore the H/R table
 // panel without leaving the section.
+// Fire-and-forget background geocode for a single underwrite. Used when the
+// user backs out of a fresh new deal so it gets its uw_lat / uw_lng /
+// uw_place_id without requiring a separate Geocode All run. Only fires if
+// the row is missing uw_place_id — never re-geocodes one that's already done.
+async function _uwGeocodeOnExit(id) {
+  try {
+    if (!id || !cache.underwrites || !cache.underwrites[id]) return;
+    const u = cache.underwrites[id];
+    if (u.deleted_at) return;
+    if (u.uw_place_id) return;            // already geocoded — skip
+    const addr = u.address || '';
+    if (!addr.trim()) return;
+    if (typeof geocodeAddress !== 'function') return;
+    // Pre-approve a single call so geoSettings.consumeApproval doesn't prompt.
+    if (typeof geoSettings !== 'undefined' && typeof geoSettings.approvedCalls === 'number') {
+      geoSettings.approvedCalls += 1;
+    }
+    const res = await geocodeAddress(addr, u.city || '', u.state || '', u.zip || '');
+    if (!res || res.geocode_status !== 'ok' || !res.place_id) return;
+    const patch = { uw_lat: res.lat, uw_lng: res.lng, uw_place_id: res.place_id };
+    const { error } = await sb.from('underwrites').update(patch).eq('id', id);
+    if (error) { console.warn('[geocode-on-exit] persist failed:', error); return; }
+    Object.assign(cache.underwrites[id], patch);
+    // Re-render so the dupe-flag scan picks up the new place_id.
+    if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
+  } catch (e) {
+    console.warn('[geocode-on-exit] error:', e);
+  }
+}
+window._uwGeocodeOnExit = _uwGeocodeOnExit;
+
 function uwBackToList() {
+  // Background-geocode the deal we're leaving if it doesn't have a place_id
+  // yet (typical case: a brand-new deal the user just created).
+  if (_uwCurrentId) _uwGeocodeOnExit(_uwCurrentId);
   // If the user came in from the Dispositions contracts grid, send them back
   // there instead of the underwriting list.
   if (window._dispoReturnTo === 'dispositions') {
@@ -9157,7 +9369,17 @@ function uwBackToList() {
     if (typeof renderRenovationList === 'function') renderRenovationList();
     return;
   }
-  goUwView(_uwLastListView || 'analyzing');
+  // Route to the deal's ACTUAL home subtab based on its flags + packet_status
+  // so a fresh "+ New Deal" save (which is flagged Priority) lands in
+  // ⭐ Priority instead of bouncing back to whichever list they came from.
+  let _backView = _uwLastListView || 'analyzing';
+  try {
+    if (typeof _uwGetCurrentStage === 'function') {
+      const _stage = _uwGetCurrentStage();
+      if (_stage) _backView = _stage;
+    }
+  } catch (e) { console.warn('[uwBackToList] stage lookup failed:', e); }
+  goUwView(_backView);
   renderUnderwriteList();
 }
 
@@ -9512,13 +9734,11 @@ async function _uwGeocodeOne(addr) {
       return null;
     }
   };
-  // 1st attempt: Google (reliable, CORS-friendly)
-  let coords = await tryProvider('google');
-  // 2nd attempt: Census fallback (rarely needed — only if Google is down)
-  if (!coords) {
-    console.log('[uwGeocode] Google missed "' + addr + '" — trying Census fallback');
-    coords = await tryProvider('census');
-  }
+  // Google only — Census fallback intentionally removed. If Google fails
+  // (quota / billing / rate-limit), the comp distance just stays blank and
+  // we surface a clear toast to the user instead of silently bouncing to a
+  // free-but-unreliable provider.
+  const coords = await tryProvider('google');
   if (!coords) return null;
   _uwGeoCache[key] = coords;
   return coords;
@@ -9540,10 +9760,10 @@ async function uwRefreshDistances() {
   try {
     const subj = await _uwGeocodeOne(subjFull);
     if (!subj) {
-      // Both Census (free, US-only) and Google (paid, broader coverage)
-      // failed for the subject address. Most likely the address itself
-      // is incomplete or malformed.
-      toast('Could not geocode the subject address — tried Census + Google. Verify street/city/state/zip are correct.', 'err');
+      // Google failed for the subject address. Either the address is
+      // malformed, or your Google quota / billing cap was hit. (Census
+      // fallback is intentionally disabled.)
+      toast('Could not geocode the subject address with Google. Either the address is incomplete/malformed, or your Google geocoding limit was reached.', 'err');
       return;
     }
     const prefixes = ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3'];
@@ -9561,7 +9781,8 @@ async function uwRefreshDistances() {
       }
       const comp = await _uwGeocodeOne(compAddr);
       if (!comp) {
-        distEl.value = '?';
+        // Leave the distance blank when geocoding fails — '?' was noisy.
+        distEl.value = '';
         _uwColorDistance(distEl, NaN);
         failed++;
         continue;
@@ -9573,11 +9794,11 @@ async function uwRefreshDistances() {
       distEl.dispatchEvent(new Event('input', { bubbles: true }));
       filled++;
     }
-    const parts = [];
-    parts.push(`✅ Filled ${filled}`);
-    if (skipped) parts.push(`${skipped} blank`);
-    if (failed) parts.push(`${failed} failed to geocode`);
-    toast('📍 ' + parts.join(' · '), failed ? 'warn' : 'ok');
+    if (failed) {
+      toast(`${failed} failed`, 'warn');
+    } else {
+      toast(`✅ Filled ${filled}`, 'ok');
+    }
   } finally {
     _uwDistanceInflight = false;
   }
@@ -18080,17 +18301,26 @@ async function uwLoadById(id) {
 
 async function uwDelete(id) {
   const u = (cache.underwrites || {})[id];
-  if (!confirm('Delete underwrite for "' + (u?.address || 'this deal') + '"? Cannot be undone.')) return;
-  const { error } = await sb.from('underwrites').delete().eq('id', id);
+  if (!confirm('Move "' + (u?.address || 'this deal') + '" to 🗑️ Trash?\n\nIt will be soft-deleted — you can restore it from the Trash subtab any time. Nothing is permanently removed.')) return;
+  const now = new Date().toISOString();
+  const { error } = await sb.from('underwrites').update({ deleted_at: now }).eq('id', id);
   if (error) { alert('Delete failed: ' + error.message); return; }
-  if (cache.underwrites) delete cache.underwrites[id];
+  // Move from active cache to deleted cache so it shows up in 🗑️ Trash without a reload.
+  if (cache.underwrites && cache.underwrites[id]) {
+    const row = cache.underwrites[id];
+    row.deleted_at = now;
+    if (!cache.underwritesDeleted) cache.underwritesDeleted = {};
+    cache.underwritesDeleted[id] = row;
+    delete cache.underwrites[id];
+  }
   if (_uwCurrentId === id) {
     _uwCurrentId = null;
     const idEl = document.getElementById('uw-current-id');
     if (idEl) idEl.textContent = '';
   }
-  renderUnderwriteList();
-  toast('Deleted', 'ok');
+  if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
+  if (typeof renderUwTrash === 'function') renderUwTrash();
+  toast('Moved to Trash', 'ok');
 }
 
 // ---------- Holdings / Renovation routing ----------
@@ -23077,8 +23307,14 @@ window.renderRenovationList = renderRenovationList;
 async function loadUnderwrites() {
   try {
     const data = await fetchAll('underwrites', '*', { col: 'updated_at', asc: false });
+    // Split into two caches so the main app sees only active rows while the
+    // 🗑️ Trash subtab can render soft-deleted ones without an extra round-trip.
     cache.underwrites = {};
-    (data || []).forEach(u => cache.underwrites[u.id] = u);
+    cache.underwritesDeleted = {};
+    (data || []).forEach(u => {
+      if (u && u.deleted_at) cache.underwritesDeleted[u.id] = u;
+      else if (u) cache.underwrites[u.id] = u;
+    });
   } catch (e) {
     // Table may not exist yet — silently skip on initial load
     console.warn('underwrites table not available:', e.message);
@@ -23104,6 +23340,316 @@ async function uwRefreshUnderwriting(btn) {
   }
 }
 window.uwRefreshUnderwriting = uwRefreshUnderwriting;
+
+// ============================================================================
+// UW DUPES — Step 2: Geocode All Backfill
+// ============================================================================
+// One-time button that walks every underwrite missing uw_place_id, calls
+// geocodeAddress() once per row, and persists uw_lat / uw_lng / uw_place_id
+// onto the row. Safe to close mid-run (state lives in a module-level object
+// so resume just re-clicks the button). Pause button halts the loop after the
+// current row finishes. Bypasses the per-call geoSettings confirm via the
+// upfront requestApproval(N) flow so the user is prompted ONCE for cost.
+// ============================================================================
+const _uwGeoState = {
+  running: false,
+  paused: false,
+  cancelled: false,
+  total: 0,
+  done: 0,
+  ok: 0,
+  failed: 0,
+  current: '',
+};
+
+function _uwGeoMissingList() {
+  if (!cache.underwrites) return [];
+  const out = [];
+  Object.values(cache.underwrites).forEach(u => {
+    if (!u) return;
+    if (u.deleted_at) return;            // skip soft-deleted
+    if (u.uw_place_id) return;           // already geocoded
+    if (!u.address || !String(u.address).trim()) return; // nothing to geocode
+    out.push(u);
+  });
+  return out;
+}
+
+function _uwGeoEnsureModal() {
+  let host = document.getElementById('uw-geo-modal');
+  if (host) return host;
+  host = document.createElement('div');
+  host.id = 'uw-geo-modal';
+  host.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px';
+  host.innerHTML = `
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:560px;width:100%;color:var(--text);box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:20px;font-weight:700">🌐 Geocode All Underwriting</div>
+        <button id="uw-geo-close" onclick="_uwGeoCloseModal()" style="background:transparent;border:none;color:var(--text-dim);font-size:22px;cursor:pointer;line-height:1">×</button>
+      </div>
+      <div id="uw-geo-pre" style="display:block">
+        <div id="uw-geo-summary" style="font-size:14px;line-height:1.5;color:var(--text-dim);margin-bottom:18px"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="_uwGeoCloseModal()" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px">Cancel</button>
+          <button id="uw-geo-start" onclick="_uwGeoStart()" style="background:#10b981;border:1px solid #10b981;color:#fff;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">Start Geocoding</button>
+        </div>
+      </div>
+      <div id="uw-geo-progress" style="display:none">
+        <div style="height:12px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;margin-bottom:10px">
+          <div id="uw-geo-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#10b981,#06b6d4);transition:width 0.3s"></div>
+        </div>
+        <div id="uw-geo-status" style="font-size:13px;color:var(--text-dim);margin-bottom:6px"></div>
+        <div id="uw-geo-current" style="font-size:11px;color:var(--text-dim);opacity:0.7;margin-bottom:16px;font-family:ui-monospace,monospace"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button id="uw-geo-pause" onclick="_uwGeoTogglePause()" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px">⏸ Pause</button>
+          <button onclick="_uwGeoCancel()" style="background:transparent;border:1px solid #ef4444;color:#ef4444;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px">Stop</button>
+        </div>
+      </div>
+      <div id="uw-geo-done" style="display:none">
+        <div id="uw-geo-result" style="font-size:14px;line-height:1.6;margin-bottom:18px"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="_uwGeoCloseModal()" style="background:#10b981;border:1px solid #10b981;color:#fff;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">Close</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(host);
+  return host;
+}
+
+function uwGeocodeAllOpen() {
+  const missing = _uwGeoMissingList();
+  const host = _uwGeoEnsureModal();
+  const cost = (missing.length * 0.005).toFixed(2);
+  const sumEl = host.querySelector('#uw-geo-summary');
+  sumEl.innerHTML = missing.length === 0
+    ? 'All underwrites already have a <code>uw_place_id</code>. Nothing to geocode. 🎉'
+    : '<b>' + missing.length.toLocaleString() + '</b> underwrites are missing a geocode.<br>'
+      + 'Estimated cost: <b>$' + cost + '</b> at $0.005 per Google call.<br><br>'
+      + 'This is safe to close mid-run — the next click picks up where you left off. Failures are skipped and counted; nothing is deleted.';
+  host.querySelector('#uw-geo-pre').style.display = 'block';
+  host.querySelector('#uw-geo-progress').style.display = 'none';
+  host.querySelector('#uw-geo-done').style.display = 'none';
+  const startBtn = host.querySelector('#uw-geo-start');
+  startBtn.disabled = missing.length === 0;
+  startBtn.style.opacity = missing.length === 0 ? '0.4' : '1';
+  startBtn.style.cursor = missing.length === 0 ? 'not-allowed' : 'pointer';
+  host.style.display = 'flex';
+}
+window.uwGeocodeAllOpen = uwGeocodeAllOpen;
+
+function _uwGeoCloseModal() {
+  const host = document.getElementById('uw-geo-modal');
+  if (host) host.style.display = 'none';
+}
+window._uwGeoCloseModal = _uwGeoCloseModal;
+
+function _uwGeoTogglePause() {
+  _uwGeoState.paused = !_uwGeoState.paused;
+  const btn = document.getElementById('uw-geo-pause');
+  if (btn) btn.textContent = _uwGeoState.paused ? '▶ Resume' : '⏸ Pause';
+}
+window._uwGeoTogglePause = _uwGeoTogglePause;
+
+function _uwGeoCancel() {
+  if (!confirm('Stop the backfill? Already-geocoded rows are saved — you can resume later.')) return;
+  _uwGeoState.cancelled = true;
+}
+window._uwGeoCancel = _uwGeoCancel;
+
+function _uwGeoRenderProgress() {
+  const host = document.getElementById('uw-geo-modal');
+  if (!host) return;
+  const pct = _uwGeoState.total ? Math.round((_uwGeoState.done / _uwGeoState.total) * 100) : 0;
+  const bar = host.querySelector('#uw-geo-bar');
+  if (bar) bar.style.width = pct + '%';
+  const st = host.querySelector('#uw-geo-status');
+  if (st) {
+    st.innerHTML = '<b>' + _uwGeoState.done + '</b> / ' + _uwGeoState.total
+      + '   •   ✓ ' + _uwGeoState.ok + '   •   ⚠ ' + _uwGeoState.failed
+      + (_uwGeoState.paused ? '   •   <span style="color:#f59e0b">PAUSED</span>' : '');
+  }
+  const cur = host.querySelector('#uw-geo-current');
+  if (cur) cur.textContent = _uwGeoState.current ? '→ ' + _uwGeoState.current : '';
+}
+
+async function _uwGeoStart() {
+  if (_uwGeoState.running) return;
+  const list = _uwGeoMissingList();
+  if (!list.length) { _uwGeoCloseModal(); return; }
+  // Pre-approve the whole batch in one confirm so geocodeAddress doesn't prompt per call.
+  if (typeof geoSettings !== 'undefined' && geoSettings.requestApproval) {
+    if (!geoSettings.requestApproval(list.length)) return;
+  }
+  const host = _uwGeoEnsureModal();
+  host.querySelector('#uw-geo-pre').style.display = 'none';
+  host.querySelector('#uw-geo-progress').style.display = 'block';
+  host.querySelector('#uw-geo-done').style.display = 'none';
+  _uwGeoState.running = true;
+  _uwGeoState.paused = false;
+  _uwGeoState.cancelled = false;
+  _uwGeoState.total = list.length;
+  _uwGeoState.done = 0;
+  _uwGeoState.ok = 0;
+  _uwGeoState.failed = 0;
+  _uwGeoState.current = '';
+  _uwGeoRenderProgress();
+
+  for (let i = 0; i < list.length; i++) {
+    if (_uwGeoState.cancelled) break;
+    // Pause-aware sleep — checks every 250ms.
+    while (_uwGeoState.paused && !_uwGeoState.cancelled) {
+      await new Promise(r => setTimeout(r, 250));
+    }
+    if (_uwGeoState.cancelled) break;
+
+    const u = list[i];
+    _uwGeoState.current = u.address || ('#' + u.id);
+    _uwGeoRenderProgress();
+
+    try {
+      const res = await geocodeAddress(u.address, u.city || '', u.state || '', u.zip || '');
+      if (res && res.geocode_status === 'ok' && res.place_id) {
+        const patch = { uw_lat: res.lat, uw_lng: res.lng, uw_place_id: res.place_id };
+        const { error } = await sb.from('underwrites').update(patch).eq('id', u.id);
+        if (error) throw error;
+        // Update local cache so subsequent dupe scans see the new place_id.
+        if (cache.underwrites[u.id]) Object.assign(cache.underwrites[u.id], patch);
+        _uwGeoState.ok++;
+      } else {
+        _uwGeoState.failed++;
+      }
+    } catch (e) {
+      console.warn('[uw geocode]', u.id, e);
+      _uwGeoState.failed++;
+    }
+    _uwGeoState.done++;
+    _uwGeoRenderProgress();
+    // Small breather so we don't burst the API.
+    await new Promise(r => setTimeout(r, 50));
+  }
+
+  _uwGeoState.running = false;
+  // Show done panel.
+  const host2 = document.getElementById('uw-geo-modal');
+  if (host2) {
+    host2.querySelector('#uw-geo-progress').style.display = 'none';
+    host2.querySelector('#uw-geo-done').style.display = 'block';
+    const r = host2.querySelector('#uw-geo-result');
+    if (r) {
+      r.innerHTML = (_uwGeoState.cancelled ? '<b style="color:#f59e0b">Stopped early.</b><br>' : '<b style="color:#10b981">Done!</b><br>')
+        + '✓ Geocoded: <b>' + _uwGeoState.ok + '</b><br>'
+        + '⚠ Failed: <b>' + _uwGeoState.failed + '</b>'
+        + (_uwGeoState.failed ? ' <span style="color:var(--text-dim);font-size:12px">(usually bad addresses — re-open this dialog to retry)</span>' : '')
+        + '<br>Processed: <b>' + _uwGeoState.done + '</b> / ' + _uwGeoState.total;
+    }
+  }
+}
+window._uwGeoStart = _uwGeoStart;
+
+// ============================================================================
+// UW DUPES — Step 3: 🔍 Dupes panel + 🗑️ Trash panel
+// ============================================================================
+function _uwEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+function _uwResultsCountFor(uw) {
+  // Best-effort: count results in the cache that share this underwrite's address.
+  try {
+    if (!cache.results) return 0;
+    const a = String(uw.address || '').toLowerCase().trim();
+    if (!a) return 0;
+    let n = 0;
+    Object.values(cache.results).forEach(r => {
+      if (r && String(r.address || '').toLowerCase().trim() === a) n++;
+    });
+    return n;
+  } catch (_) { return 0; }
+}
+
+function _uwDispositionFor(uw) {
+  // Surface the most-meaningful status: packet_status > offer status > '—'
+  const ps = (uw.packet_status || '').trim();
+  if (ps) return ps;
+  const data = uw.data || {};
+  return data.offer_status || '—';
+}
+
+function _uwAddedDate(uw) {
+  const d = uw.created_at || uw.updated_at;
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}); }
+  catch (_) { return String(d).slice(0, 10); }
+}
+
+
+function renderUwTrash() {
+  const tbody = document.getElementById('uw-trash-tbody');
+  const empty = document.getElementById('uw-trash-empty');
+  if (!tbody || !empty) return;
+  const rows = Object.values(cache.underwritesDeleted || {})
+    .filter(u => u && u.deleted_at)
+    .sort((a, b) => new Date(b.deleted_at || 0).getTime() - new Date(a.deleted_at || 0).getTime());
+  const badge = document.getElementById('uw-trash-count');
+  if (badge) { badge.textContent = rows.length.toLocaleString(); badge.style.display = rows.length ? '' : 'none'; }
+
+  if (!rows.length) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = rows.map(u => {
+    const addr = u.address || '—';
+    const cityLine = [u.city, u.state, u.zip].filter(Boolean).join(', ');
+    let deletedAt = '—';
+    try { deletedAt = new Date(u.deleted_at).toLocaleString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'}); } catch (_) {}
+    const results = _uwResultsCountFor(u);
+    const dispo = _uwDispositionFor(u);
+    return '<tr style="border-bottom:1px solid var(--border)">'
+      + '<td style="padding:10px;text-align:left">'
+      +   '<div style="font-weight:600">' + _uwEsc(addr) + '</div>'
+      +   (cityLine ? '<div style="font-size:11px;color:var(--text-dim);margin-top:2px">' + _uwEsc(cityLine) + '</div>' : '')
+      + '</td>'
+      + '<td style="padding:10px;text-align:center;font-size:12px;color:var(--text-dim)">' + deletedAt + '</td>'
+      + '<td style="padding:10px;text-align:center">' + results + '</td>'
+      + '<td style="padding:10px;text-align:center">' + _uwEsc(dispo) + '</td>'
+      + '<td style="padding:10px;text-align:right;white-space:nowrap">'
+      +   '<button onclick="uwRestore(\'' + u.id + '\')" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.4);color:#10b981;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;margin-right:6px">↩ Restore</button>'
+      +   '<button onclick="uwHardDelete(\'' + u.id + '\')" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.4);color:#ef4444;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600" title="Permanently delete this row. Cannot be undone.">✕ Permanent</button>'
+      + '</td>'
+      + '</tr>';
+  }).join('');
+}
+window.renderUwTrash = renderUwTrash;
+
+async function uwRestore(id) {
+  const u = (cache.underwritesDeleted || {})[id];
+  if (!u) return;
+  const { error } = await sb.from('underwrites').update({ deleted_at: null }).eq('id', id);
+  if (error) { alert('Restore failed: ' + error.message); return; }
+  // Move back from deleted cache → active cache.
+  u.deleted_at = null;
+  if (!cache.underwrites) cache.underwrites = {};
+  cache.underwrites[id] = u;
+  delete cache.underwritesDeleted[id];
+  if (typeof renderUwTrash === 'function') renderUwTrash();
+  if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
+  if (typeof toast === 'function') toast('Restored "' + (u.address || ('#' + id)) + '"', 'ok');
+}
+window.uwRestore = uwRestore;
+
+async function uwHardDelete(id) {
+  const u = (cache.underwritesDeleted || {})[id];
+  if (!u) return;
+  // Double confirm — this is the ONLY hard-delete path in the app.
+  if (!confirm('⚠ Permanently delete "' + (u.address || ('#' + id)) + '"?\n\nThis row will be erased from the database and cannot be recovered.')) return;
+  if (!confirm('Really permanently delete? This is your last chance.\n\n"' + (u.address || ('#' + id)) + '"')) return;
+  const { error } = await sb.from('underwrites').delete().eq('id', id);
+  if (error) { alert('Permanent delete failed: ' + error.message); return; }
+  delete cache.underwritesDeleted[id];
+  if (typeof renderUwTrash === 'function') renderUwTrash();
+  if (typeof toast === 'function') toast('Permanently deleted.', 'ok');
+}
+window.uwHardDelete = uwHardDelete;
 
 // "Analyzing" = packet_status empty OR "Evaluating"
 // "Analyzed" = anything else (Submitted / Offered / Accepted / Closed / Dead)
@@ -24275,27 +24821,17 @@ async function _dispoGeocodeSubject(dealId, ev) {
   let prev = '';
   if (btn) { prev = btn.innerHTML; btn.disabled = true; btn.innerHTML = '\u23F3 Geocoding\u2026'; }
   try {
-    let res = await geocodeAddress(addr, city, state, zip);
-    // If Google hit a quota / rate-limit / billing error, fall back to the
-    // free US Census geocoder. Census is U.S.-only and a touch less accurate
-    // on rural / apt addresses, but it has no rate limit and costs nothing.
-    const shouldFallback = res && res.geocode_status !== 'ok' && res.error_reason && (
-      /rate limit/i.test(res.error_reason) ||
-      /query limit/i.test(res.error_reason) ||
-      /request denied/i.test(res.error_reason) ||
-      /billing/i.test(res.error_reason) ||
-      /quota/i.test(res.error_reason)
-    );
-    if (shouldFallback && typeof geocodeAddressCensus === 'function') {
-      if (btn) btn.innerHTML = '\u23F3 Trying Census fallback\u2026';
-      const censusRes = await geocodeAddressCensus(addr, city, state, zip);
-      if (censusRes && censusRes.geocode_status === 'ok' && typeof censusRes.lat === 'number' && typeof censusRes.lng === 'number') {
-        res = censusRes;
-        if (typeof toast === 'function') toast('Google was rate-limited \u2014 used free US Census geocoder instead.', 'ok');
-      }
-    }
+    const res = await geocodeAddress(addr, city, state, zip);
+    // Google only — no Census fallback. If Google failed (quota / billing /
+    // rate-limit), show a clear message explaining the situation instead of
+    // silently routing through a less-accurate free provider.
     if (!res || res.geocode_status !== 'ok' || typeof res.lat !== 'number' || typeof res.lng !== 'number') {
-      if (typeof toast === 'function') toast('Geocode failed: ' + (res && res.error_reason ? res.error_reason : 'unknown') + ' \u2014 likely Google daily quota exceeded. Check Google Cloud Console \u2192 APIs & Services \u2192 Geocoding API.', 'err');
+      const reason = res && res.error_reason ? res.error_reason : 'unknown';
+      const isQuota = /rate limit|query limit|request denied|billing|quota/i.test(reason);
+      const msg = isQuota
+        ? 'Google geocoding limit reached \u2014 ' + reason + '. Your Google quota or billing cap has been hit. No fallback will run.'
+        : 'Geocode failed: ' + reason;
+      if (typeof toast === 'function') toast(msg, 'err');
       if (btn) { btn.disabled = false; btn.innerHTML = prev || '\u{1F4CD} Geocode now'; }
       return;
     }
@@ -30945,6 +31481,17 @@ function renderUnderwriteList() {
     hotCount.style.display = '';
   }
 
+  // Dupes badge — count of place_id groups with 2+ active rows.
+  // Trash badge — count of soft-deleted rows.
+  try {
+    const trashBadge = document.getElementById('uw-trash-count');
+    if (trashBadge) {
+      const _trashCount = Object.values(cache.underwritesDeleted || {}).filter(u => u && u.deleted_at).length;
+      trashBadge.textContent = _trashCount.toLocaleString();
+      trashBadge.style.display = _trashCount ? '' : 'none';
+    }
+  } catch (e) { console.warn('[dupes/trash badge]', e); }
+
   const fmt$ = (n) => n ? '$' + Math.round(Number(n)).toLocaleString() : '—';
   // Format the import date + a colored "X days ago" badge below it.
   // Green ≤ 7 days, amber ≤ 30, red > 30 (matches the deal-age badge in the calculator).
@@ -30959,6 +31506,8 @@ function renderUnderwriteList() {
     const color = days <= 7 ? '#10b981' : days <= 30 ? '#f59e0b' : '#ef4444';
     return `<div style="font-size:12px;color:var(--text-dim)">${dateStr}</div><div style="font-size:11px;color:${color};font-weight:600">${ageStr}</div>`;
   };
+  // Flag duplicates — keeper is the oldest row by created_at; newer copies wear a 🪞 DUPE chip.
+  const _dupeFlags = (typeof _uwBuildDupeFlags === 'function') ? _uwBuildDupeFlags() : new Set();
   const renderRow = (u) => {
     // Best Profit colors: green > 0, red ≤ 0 OR missing (so "no profit on
     // this deal" reads as a clear red $0 instead of a wishy-washy em-dash).
@@ -30986,7 +31535,7 @@ function renderUnderwriteList() {
       _displayStatus === 'Dropped'                               ? 'dropped' :
                                                                    'brand';
     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="_hrOpenDeal('${u.id}')" onmouseover="this.style.background='rgba(99,102,241,0.05)'" onmouseout="this.style.background=''">
-      <td style="padding:8px 10px"><div style="font-weight:500">${escapeHtml(u.address || '—')}</div><div class="text-xs" style="color:var(--text-dim)">${escapeHtml([u.city, u.state, u.zip].filter(Boolean).join(', '))}</div></td>
+      <td style="padding:8px 10px"><div style="font-weight:500">${_dupeFlags.has(u.id) ? '<span style="background:rgba(239,68,68,0.15);color:#ef4444;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:0.5px;margin-right:6px;vertical-align:middle" title="Duplicate of an older underwrite — open the older one and delete this newer copy.">🪞 DUPE</span>' : ''}${escapeHtml(u.address || '—')}</div><div class="text-xs" style="color:var(--text-dim)">${escapeHtml([u.city, u.state, u.zip].filter(Boolean).join(', '))}</div></td>
       <td style="padding:8px 10px"><span class="badge ${statusBadgeClass}" style="font-size:11px">${escapeHtml(typeof _uwOfferStatusLabel === 'function' ? _uwOfferStatusLabel(_displayStatus) : _displayStatus)}</span></td>
       <td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums">${fmt$(_uwComputeRentFromData(u.data))}</td>
       <td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums">${fmt$(_uwComputeArvFromData(u.data) || u.arv)}</td>

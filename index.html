@@ -5065,7 +5065,7 @@
         </div>
         <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
           <button class="btn btn-primary text-sm" onclick="contractorOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new contractor to your rolodex.">+ Add Contractor</button>
-          <button type="button" id="contractors-verified-filter" data-active="false" onclick="toggleVerifiedFilter('contractors-verified-filter', 'renderContractorsList')" title="Click to show only verified contractors. Click again to show all. Mark a contractor verified via the ✏ Edit modal once you've worked with them and confirmed they're legit." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
+          <button type="button" id="contractors-verified-filter" data-state="all" onclick="contractorsCycleListFilter()" title="Click to cycle: All → ✓ Verified → ✗ Unverified → ? Unknown" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">All Status</button>
           <select id="contractors-service-filter" onchange="renderContractorsList()" title="Filter by trade / service offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
             <option value="">All services</option>
           </select>
@@ -5081,10 +5081,11 @@
               <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Name</th>
               
               <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Services</th>
-              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Prices</th>
-              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Contact</th>
-              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:140px">Location</th>
-              <th style="padding:10px 12px;text-align:right;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:100px">Actions</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:120px" title="Verification status — set via the modal cycle button.">Status</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:130px">Type</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:120px">License</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Contact</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:140px">Location</th>
             </tr>
           </thead>
           <tbody id="contractors-tbody"></tbody>
@@ -5101,7 +5102,7 @@
       <div class="flex items-center justify-between" style="margin-bottom:18px;gap:12px;flex-wrap:wrap">
         <div style="font-weight:700;font-size:24px" id="contractor-modal-title">👷 Add Contractor</div>
         <div class="flex items-center" style="gap:10px;flex-wrap:wrap">
-          <button type="button" id="contractor-verified-btn" onclick="_toggleVerifiedHeaderBtn('contractor')" style="height:34px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-dim);box-sizing:border-box;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease" title="Toggle Verified status">○ Unverified</button>
+          <button type="button" id="contractor-verified-btn" data-state="unknown" onclick="contractorCycleVerifiedBtn()" style="height:34px;padding:0 14px;background:rgba(156,163,175,0.15);border:1px solid rgba(156,163,175,0.5);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:#9ca3af;box-sizing:border-box;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease" title="Click to cycle: ? Unknown → ✓ Verified → ✗ Unverified">? Unknown</button>
           <button class="btn btn-ghost" onclick="contractorDeleteFromModal()" id="contractor-delete-btn" style="height:34px;padding:0 14px;font-size:13px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none;box-sizing:border-box;line-height:1" title="Delete this entry">🗑 Delete</button>
           <button class="btn btn-ghost" onclick="contractorCloseAddModal()" style="height:34px;padding:0 14px;font-size:13px;box-sizing:border-box;line-height:1" title="Discard changes and close">Cancel</button>
           <button class="btn btn-primary" onclick="contractorSaveNew()" id="contractor-add-save-btn" style="height:34px;padding:0 18px;font-size:13px;font-weight:600;box-sizing:border-box;line-height:1" title="Save">💾 Save Contractor</button>
@@ -5110,21 +5111,36 @@
       <div style="font-size:14px;color:var(--text-dim);margin-bottom:22px;line-height:1.5">Fill in whatever info you have. Only Name is required — everything else is optional.</div>
       <input type="hidden" id="contractor-edit-id" value="">
       <div class="grid grid-cols-2 gap-4">
+        <!-- Row 1 — Company + Contact Name -->
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Company <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
           <input type="text" id="contractor-add-company" placeholder="e.g. Joe's HVAC LLC" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Contact Name *
           <input type="text" id="contractor-add-name" placeholder="e.g. Joe Bloggs" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Rating <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(0 – 5)</span>
-          <input type="number" id="contractor-add-rating" min="0" max="5" step="0.5" placeholder="e.g. 4.5" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
-        </label>
+        <!-- Row 2 — Phone + Email -->
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Phone
           <input type="tel" id="contractor-add-phone" placeholder="e.g. (812) 555-1234" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Email
           <input type="email" id="contractor-add-email" placeholder="e.g. joe@joeshvac.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
+        <!-- Row 3 — Type + License Status -->
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Type
+          <select id="contractor-add-type" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+            <option value="">—</option>
+            <option value="general">General Contractor</option>
+            <option value="sub">Sub Contractor</option>
+          </select>
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">License Status
+          <select id="contractor-add-licensed" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+            <option value="">—</option>
+            <option value="licensed">Licensed</option>
+            <option value="unlicensed">Not Licensed</option>
+          </select>
+        </label>
+        <!-- Row 4 — City + State -->
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">City
           <input type="text" id="contractor-add-city" placeholder="e.g. Evansville" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
@@ -5133,6 +5149,9 @@
         </label>
         <label class="col-span-2" style="font-size:14px;font-weight:600">Services <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
           <input type="text" id="contractor-add-services" placeholder="e.g. HVAC, Plumbing, Electrical" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Specialized Services <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated — licensed / specialty work, shows as cyan chips)</span>
+          <input type="text" id="contractor-add-specialized" placeholder="e.g. Asbestos Abatement, Septic Install, Mold Remediation" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;border-color:rgba(34,211,238,0.4)">
         </label>
         <label class="col-span-2" style="font-size:14px;font-weight:600">Prices <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(free text)</span>
           <textarea id="contractor-add-prices" rows="3" placeholder="e.g. $85/hr labor • $2,500 whole-house repipe • $4k furnace install" style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
@@ -26696,19 +26715,97 @@ function _setVerifiedHeaderBtnState(prefix, on) {
 window._toggleVerifiedHeaderBtn = _toggleVerifiedHeaderBtn;
 window._setVerifiedHeaderBtnState = _setVerifiedHeaderBtnState;
 
+// 3-state verified button on the contractor Add/Edit modal.
+// States cycle: unknown → true (Verified) → false (Unverified) → unknown.
+function contractorSetVerifiedButton(state) {
+  const btn = document.getElementById('contractor-verified-btn');
+  if (!btn) return;
+  const valid = ['true','false','unknown'];
+  const st = valid.indexOf(state) >= 0 ? state : 'unknown';
+  btn.setAttribute('data-state', st);
+  if (st === 'true') {
+    btn.style.background  = 'rgba(16,185,129,0.15)';
+    btn.style.borderColor = 'rgba(16,185,129,0.5)';
+    btn.style.color       = '#10b981';
+    btn.textContent       = '✓ Verified';
+  } else if (st === 'false') {
+    btn.style.background  = 'rgba(239,68,68,0.15)';
+    btn.style.borderColor = 'rgba(239,68,68,0.5)';
+    btn.style.color       = '#f87171';
+    btn.textContent       = '✗ Unverified';
+  } else {
+    btn.style.background  = 'rgba(156,163,175,0.15)';
+    btn.style.borderColor = 'rgba(156,163,175,0.5)';
+    btn.style.color       = '#9ca3af';
+    btn.textContent       = '? Unknown';
+  }
+  // Keep the legacy hidden checkbox in sync so any other code that still reads
+  // it sees a sensible value (checked only when explicitly verified).
+  const cb = document.getElementById('contractor-add-verified');
+  if (cb) cb.checked = (st === 'true');
+}
+window.contractorSetVerifiedButton = contractorSetVerifiedButton;
+
+function contractorCycleVerifiedBtn() {
+  const btn = document.getElementById('contractor-verified-btn');
+  const cur = btn ? (btn.getAttribute('data-state') || 'unknown') : 'unknown';
+  const next = cur === 'unknown' ? 'true'
+            : cur === 'true'    ? 'false'
+            :                     'unknown';
+  contractorSetVerifiedButton(next);
+}
+window.contractorCycleVerifiedBtn = contractorCycleVerifiedBtn;
+
+// 4-state filter on the Contractors list header — cycles through
+// All → Verified → Unverified → Unknown and re-renders.
+function contractorsCycleListFilter() {
+  const btn = document.getElementById('contractors-verified-filter');
+  if (!btn) return;
+  const cur = btn.getAttribute('data-state') || 'all';
+  const next = cur === 'all'     ? 'true'
+            : cur === 'true'    ? 'false'
+            : cur === 'false'   ? 'unknown'
+            :                     'all';
+  btn.setAttribute('data-state', next);
+  if (next === 'true') {
+    btn.style.background  = 'rgba(16,185,129,0.15)';
+    btn.style.borderColor = 'rgba(16,185,129,0.5)';
+    btn.style.color       = '#10b981';
+    btn.textContent       = '✓ Verified';
+  } else if (next === 'false') {
+    btn.style.background  = 'rgba(239,68,68,0.15)';
+    btn.style.borderColor = 'rgba(239,68,68,0.5)';
+    btn.style.color       = '#f87171';
+    btn.textContent       = '✗ Unverified';
+  } else if (next === 'unknown') {
+    btn.style.background  = 'rgba(156,163,175,0.15)';
+    btn.style.borderColor = 'rgba(156,163,175,0.5)';
+    btn.style.color       = '#9ca3af';
+    btn.textContent       = '? Unknown';
+  } else {
+    btn.style.background  = 'var(--panel-2)';
+    btn.style.borderColor = 'var(--border)';
+    btn.style.color       = 'var(--text)';
+    btn.textContent       = 'All Status';
+  }
+  if (typeof renderContractorsList === 'function') renderContractorsList();
+}
+window.contractorsCycleListFilter = contractorsCycleListFilter;
+
 function contractorOpenAddModal(editId) {
   const modal = document.getElementById('contractor-add-modal');
   if (!modal) return;
   const ids = [
     'contractor-add-company','contractor-add-name','contractor-add-phone','contractor-add-email',
-    'contractor-add-services','contractor-add-city','contractor-add-state',
-    'contractor-add-rating','contractor-add-prices','contractor-add-notes'
+    'contractor-add-services','contractor-add-specialized','contractor-add-city','contractor-add-state',
+    'contractor-add-prices','contractor-add-notes',
+    'contractor-add-type','contractor-add-licensed'
   ];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   // Checkboxes need .checked reset separately (setting .value doesn't toggle them).
   const verResetEl = document.getElementById('contractor-add-verified');
   if (verResetEl) verResetEl.checked = false;
-  if (typeof _setVerifiedHeaderBtnState === 'function') _setVerifiedHeaderBtnState('contractor', false);
+  if (typeof contractorSetVerifiedButton === 'function') contractorSetVerifiedButton('unknown');
   const hiddenId = document.getElementById('contractor-edit-id');
   const title    = document.getElementById('contractor-modal-title');
   const delBtn   = document.getElementById('contractor-delete-btn');
@@ -26723,13 +26820,18 @@ function contractorOpenAddModal(editId) {
     setVal('contractor-add-phone',    c.phone);
     setVal('contractor-add-email',    c.email);
     setVal('contractor-add-services', c.services);
+    setVal('contractor-add-specialized', c.specialized_services);
     setVal('contractor-add-city',     c.city);
     setVal('contractor-add-state',    c.state);
-    setVal('contractor-add-rating',   c.rating);
     setVal('contractor-add-prices',   c.price_notes);
     setVal('contractor-add-notes',    c.notes);
+    setVal('contractor-add-type',     c.contractor_type);
+    setVal('contractor-add-licensed', c.licensed);
     if (verResetEl) verResetEl.checked = !!c.verified;
-    if (typeof _setVerifiedHeaderBtnState === 'function') _setVerifiedHeaderBtnState('contractor', !!c.verified);
+    if (typeof contractorSetVerifiedButton === 'function') {
+      const _vs = c.verified === true ? 'true' : (c.verified === false ? 'false' : 'unknown');
+      contractorSetVerifiedButton(_vs);
+    }
   } else {
     if (hiddenId) hiddenId.value = '';
     if (title)    title.textContent = '👷 Add Contractor';
@@ -26759,12 +26861,15 @@ async function contractorSaveNew() {
   const phone   = ($('contractor-add-phone')?.value    || '').trim();
   const email   = ($('contractor-add-email')?.value    || '').trim();
   const services= ($('contractor-add-services')?.value || '').trim();
+  const specialized_services = ($('contractor-add-specialized')?.value || '').trim();
   const city    = ($('contractor-add-city')?.value     || '').trim();
   const state   = ($('contractor-add-state')?.value    || '').trim().toUpperCase();
-  const ratingS = ($('contractor-add-rating')?.value   || '').trim();
   const prices  = ($('contractor-add-prices')?.value   || '').trim();
   const notes   = ($('contractor-add-notes')?.value    || '').trim();
-  const verified= !!($('contractor-add-verified')?.checked);
+  const ctype   = ($('contractor-add-type')?.value     || '').trim();
+  const licensed= ($('contractor-add-licensed')?.value || '').trim();
+  const _vSt = ($('contractor-verified-btn')?.getAttribute('data-state') || 'unknown');
+  const verified = _vSt === 'true' ? true : (_vSt === 'false' ? false : null);
   if (!name) {
     if (typeof toast === 'function') toast('Contact Name is required.', 'warn');
     const n = $('contractor-add-name'); if (n) n.focus();
@@ -26775,22 +26880,12 @@ async function contractorSaveNew() {
     const s = $('contractor-add-state'); if (s) s.focus();
     return;
   }
-  let rating = null;
-  if (ratingS !== '') {
-    const r = parseFloat(ratingS);
-    if (isNaN(r) || r < 0 || r > 5) {
-      if (typeof toast === 'function') toast('Rating must be between 0 and 5.', 'warn');
-      const rEl = $('contractor-add-rating'); if (rEl) rEl.focus();
-      return;
-    }
-    rating = r;
-  }
   const btn = $('contractor-add-save-btn');
   let prevLabel = '';
   if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
   try {
     if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
-    const payload = { name, company, phone, email, services, city, state, rating, price_notes: prices, notes, verified };
+    const payload = { name, company, phone, email, services, specialized_services: specialized_services || null, city, state, price_notes: prices, notes, verified, contractor_type: ctype || null, licensed: licensed || null };
     let data, error;
     if (editId) {
       ({ data, error } = await sb.from('contractors').update(payload).eq('id', editId).select().single());
@@ -26882,14 +26977,17 @@ function renderContractorsList() {
   }
 
   const verBtn = document.getElementById('contractors-verified-filter');
-  const verFilter = !!(verBtn && verBtn.getAttribute('data-active') === 'true');
-  if (verFilter) rows = rows.filter(c => c.verified === true);
+  const verState = verBtn ? (verBtn.getAttribute('data-state') || 'all') : 'all';
+  if      (verState === 'true')     rows = rows.filter(c => c.verified === true);
+  else if (verState === 'false')    rows = rows.filter(c => c.verified === false);
+  else if (verState === 'unknown')  rows = rows.filter(c => c.verified == null);
+  const verFilter = verState !== 'all';
 
   const searchEl = document.getElementById('contractors-search');
   const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
   if (q) {
     rows = rows.filter(c => {
-      const haystack = [c.name, c.company, c.services, c.city, c.state, c.phone, c.email, c.notes, c.price_notes]
+      const haystack = [c.name, c.company, c.services, c.specialized_services, c.city, c.state, c.phone, c.email, c.notes, c.price_notes]
         .map(v => String(v || '').toLowerCase()).join(' | ');
       return haystack.includes(q);
     });
@@ -26939,12 +27037,37 @@ function renderContractorsList() {
     const name      = esc(c.name || '');
     const company   = esc(c.company || '');
     const stars     = renderStars(c.rating);
-    const services  = c.services
-      ? String(c.services).split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="display:inline-block;padding:2px 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;font-size:11px;margin:1px 3px 1px 0;color:var(--text)">${esc(s)}</span>`).join('')
+    // Regular services → muted grey chips. Specialized services → cyan chips
+    // so licensed / specialty work jumps out at a glance.
+    const _regServ = String(c.services || '').split(',').map(s => s.trim()).filter(Boolean);
+    const _spcServ = String(c.specialized_services || '').split(',').map(s => s.trim()).filter(Boolean);
+    const _regChips = _regServ.map(s => `<span style="display:inline-block;padding:2px 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;font-size:11px;margin:1px 3px 1px 0;color:var(--text)">${esc(s)}</span>`).join('');
+    const _spcChips = _spcServ.map(s => `<span style="display:inline-block;padding:2px 8px;background:rgba(34,211,238,0.15);border:1px solid rgba(34,211,238,0.5);border-radius:6px;font-size:11px;margin:1px 3px 1px 0;color:#22d3ee;font-weight:600" title="Specialized / licensed service">${esc(s)}</span>`).join('');
+    const services = (_regChips || _spcChips)
+      ? (_regChips + _spcChips)
       : '<span style="color:var(--text-dim);font-size:11px">—</span>';
-    const prices    = c.price_notes
-      ? `<div style="font-size:12px;max-width:280px;color:var(--text);white-space:pre-wrap;line-height:1.4">${esc(c.price_notes)}</div>`
+    // Verification status display: c.verified can be true / false / null|undefined
+    const verSt = c.verified === true ? 'verified'
+                : c.verified === false ? 'unverified'
+                :                        'unknown';
+    const statusCell = verSt === 'verified'
+      ? '<span style="display:inline-block;padding:3px 9px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap" title="Marked verified — you\'ve worked with them and they\'re proven reliable.">✓ Verified</span>'
+      : verSt === 'unverified'
+        ? '<span style="display:inline-block;padding:3px 9px;background:rgba(239,68,68,0.15);color:#f87171;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap" title="Marked unverified — explicitly ruled out or had a bad experience.">✗ Unverified</span>'
+        : '<span style="display:inline-block;padding:3px 9px;background:rgba(156,163,175,0.15);color:#9ca3af;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap" title="No verification status set yet.">? Unknown</span>';
+    // Type display: contractor_type can be 'general' or 'sub'
+    const typeMap = { general: 'General Contractor', sub: 'Sub Contractor' };
+    const typeVal = typeMap[String(c.contractor_type || '').toLowerCase()] || '';
+    const typeCell = typeVal
+      ? `<span style="display:inline-block;padding:3px 9px;background:${String(c.contractor_type).toLowerCase()==='general' ? 'rgba(99,102,241,0.15)' : 'rgba(168,85,247,0.15)'};color:${String(c.contractor_type).toLowerCase()==='general' ? '#818cf8' : '#c084fc'};border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap">${esc(typeVal)}</span>`
       : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    // License display: licensed can be 'licensed' or 'unlicensed'
+    const licVal = String(c.licensed || '').toLowerCase();
+    const licCell = licVal === 'licensed'
+      ? '<span style="display:inline-block;padding:3px 9px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap">✓ Licensed</span>'
+      : (licVal === 'unlicensed'
+          ? '<span style="display:inline-block;padding:3px 9px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap">✗ Not Licensed</span>'
+          : '<span style="color:var(--text-dim);font-size:11px">—</span>');
     const contactParts = [];
     if (c.phone) contactParts.push(renderPhone(c.phone));
     if (c.email) contactParts.push(renderEmail(c.email));
@@ -26956,28 +27079,26 @@ function renderContractorsList() {
     // name moves to the top so the row still has a clear title. A green
     // "✓ VERIFIED" badge appears inline next to the bold title when the
     // contractor has been marked verified via the edit modal.
-    const verBadge = c.verified
-      ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;vertical-align:middle;margin-left:6px" title="Verified — you\'ve worked with them and they\'re proven reliable">✓ Verified</span>'
-      : '';
+    // Verified badge moved to dedicated Status column; keep variable for compatibility.
+    const verBadge = '';
     const nameBlock = company
       ? `<div style="font-weight:600">${company}${verBadge}</div>
          <div style="color:var(--text-dim);font-size:11px;margin-top:2px">${name}</div>`
       : `<div style="font-weight:600">${name}${verBadge}</div>`;
 
     return `
-      <tr style="border-bottom:1px solid var(--border)" data-contractor-id="${esc(c.id)}">
+      <tr style="border-bottom:1px solid var(--border);cursor:pointer" data-contractor-id="${esc(c.id)}" onclick="contractorOpenAddModal('${esc(c.id)}')" onmouseover="this.style.background='rgba(99,102,241,0.05)'" onmouseout="this.style.background=''" title="Click to edit this contractor">
         <td style="padding:10px 12px;font-size:13px;vertical-align:top">
           ${nameBlock}
           ${c.notes ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px;max-width:240px;line-height:1.4">${esc(c.notes)}</div>` : ''}
         </td>
         
         <td style="padding:10px 12px;vertical-align:top;max-width:260px">${services}</td>
-        <td style="padding:10px 12px;vertical-align:top">${prices}</td>
-        <td style="padding:10px 12px;vertical-align:top;text-align:center">${contact}</td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:center">${statusCell}</td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:center">${typeCell}</td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:center">${licCell}</td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:center" onclick="event.stopPropagation()">${contact}</td>
         <td style="padding:10px 12px;vertical-align:top;font-size:12px;text-align:center">${loc}</td>
-        <td style="padding:10px 12px;vertical-align:top;text-align:right">
-          <button class="btn btn-ghost text-xs" onclick="contractorOpenAddModal('${esc(c.id)}')" style="padding:5px 10px;white-space:nowrap" title="Edit this contractor">✏ Edit</button>
-        </td>
       </tr>`;
   }).join('');
 }

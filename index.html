@@ -22120,7 +22120,18 @@ function uwScopeUpdatePhase(id, field, value) {
   }
   else if (field === 'name') p.name = String(value || '');
   else if (field === 'parallel') p.parallel = !!value;
+  else if (field === 'realSpent') {
+    // Real dollars spent so far on this phase. Empty/zero clears the
+    // field so the SPENT column shows the dash instead of $0.
+    const n = parseFloat(String(value).replace(/[^0-9.\-]/g, ''));
+    if (!isFinite(n) || n <= 0) delete p.realSpent;
+    else p.realSpent = Math.max(0, n);
+  }
   _uwSaveScopePhases();
+  // SPENT changes → recompute the "💵 $X real" burn-down on every row.
+  if (field === 'realSpent') {
+    if (typeof _uwRefreshScopeRealBudget === 'function') _uwRefreshScopeRealBudget();
+  }
   // Refresh the gantt + the per-row "ends on" dates without re-rendering
   // the whole list (which would steal focus from the input being typed in).
   _uwRenderScopePhaseGantt();
@@ -22244,6 +22255,36 @@ window.uwScopeToggleItemDone = uwScopeToggleItemDone;
 
 // Update the per-row "→ Mon DD, YYYY" end-date spans without re-rendering
 // the entire list (re-render would steal focus from the input being typed in).
+// Update the "💵 $X real" lines on every phase row without re-rendering the
+// whole list. Called from uwScopeUpdatePhase when SPENT changes so the user
+// can see the burn-down move while typing — without losing input focus.
+function _uwRefreshScopeRealBudget() {
+  const phases = (typeof _uwGetScopePhases === 'function') ? _uwGetScopePhases() : null;
+  if (!phases || !phases.length) return;
+  const grandTotal = (typeof window._uwGetRehabFinal === 'function')
+    ? window._uwGetRehabFinal()
+    : 0;
+  if (!(grandTotal > 0)) return;
+  let runningRealSpent = 0;
+  phases.forEach(p => {
+    // Include THIS phase's realSpent before computing the badge — mirrors
+    // the initial render so the current phase reflects its own spend right
+    // away. All subsequent phases stay correct because we keep accumulating.
+    const realSpentThis = (Number.isFinite(Number(p.realSpent)) && Number(p.realSpent) > 0) ? Number(p.realSpent) : 0;
+    runningRealSpent += realSpentThis;
+    const realLeft = Math.round(grandTotal - runningRealSpent);
+    const safeId = String(p.id || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const el = document.querySelector('[data-scope-realremaining="' + safeId + '"]');
+    if (el) {
+      const color = realLeft < 0 ? '#f87171' : '#fbbf24';
+      const prefix = realLeft < 0 ? '-$' : '$';
+      el.style.color = color;
+      el.textContent = '💵 ' + prefix + Math.abs(realLeft).toLocaleString() + ' real';
+    }
+  });
+}
+window._uwRefreshScopeRealBudget = _uwRefreshScopeRealBudget;
+
 function _uwRefreshScopePhaseEndDates() {
   const phases = _uwGetScopePhases();
   if (!phases) return;
@@ -22601,10 +22642,23 @@ function uwRenderScopeOfWork() {
       : ((typeof _uwRehabLastActual === 'number' && _uwRehabLastActual > 0) ? _uwRehabLastActual : 0);
     const _phaseBudgetsSaved = (u2 && u2.data && u2.data._scopePhaseBudgets) || {};
     const remainingAtStart = {};
+    // Parallel burn-down using ACTUAL dollars entered in the SPENT field.
+    // grand total minus sum of p.realSpent for all PRIOR phases. This is the
+    // "real" money left in the kitty (estimated burn-down stays separate).
+    const realRemainingAtStart = {};
     {
       let runningSpent = 0;
+      let runningRealSpent = 0;
       phases.forEach(p => {
-        remainingAtStart[p.id] = Math.max(0, _grandTotal - runningSpent);
+        remainingAtStart[p.id]     = Math.max(0, _grandTotal - runningSpent);
+        // REAL burn-down is "what's left AFTER spending THIS phase". Add the
+        // current phase's realSpent into the running total FIRST, then assign.
+        // That way phase 1 reflects its own spend immediately and all later
+        // phases stay correct (running tally includes everything up to + incl.
+        // current).
+        const realSpentThis = (Number.isFinite(Number(p.realSpent)) && Number(p.realSpent) > 0) ? Number(p.realSpent) : 0;
+        runningRealSpent += realSpentThis;
+        realRemainingAtStart[p.id] = _grandTotal - runningRealSpent; // can go negative — over-budget visible
         // Add THIS phase's budget to the running total so the NEXT phase
         // shows the burn-down. Phases without a saved budget (repossession,
         // marketing/listing, custom user phases) contribute 0.
@@ -22695,13 +22749,42 @@ function uwRenderScopeOfWork() {
             '<div style="font-size:18px;padding:2px 8px;color:#10b981;font-weight:700;text-align:right;font-variant-numeric:tabular-nums">' + (Number.isFinite(Number(p.realDays)) && Number(p.realDays) > 0 ? Number(p.realDays) + 'd' : '—') + '</div>' +
           '</div>' +
           '<span class="text-xs" style="color:var(--text-dim)">days</span>' +
+          // SPENT — manual $ entry per phase, persisted on p.realSpent. Mirrors
+          // the Done-On / Took pattern but for dollars. The small subtitle
+          // shows the phase's budgeted amount so over/under is obvious.
+          (function() {
+            var phaseBudget = (_phaseBudgetsSaved && _phaseBudgetsSaved[p.id]) || 0;
+            var spent = Number.isFinite(Number(p.realSpent)) && Number(p.realSpent) > 0 ? Number(p.realSpent) : 0;
+            var over = phaseBudget > 0 && spent > phaseBudget;
+            var col = over ? '#f87171' : '#fbbf24';
+            var budgetSub = phaseBudget > 0
+              ? '<div style="font-size:9px;color:var(--text-dim);text-align:right;margin-top:1px;font-variant-numeric:tabular-nums">of $' + Math.round(phaseBudget).toLocaleString() + '</div>'
+              : '';
+            return '<div style="display:flex;flex-direction:column;align-items:flex-end;line-height:1;min-width:110px">' +
+              '<span style="font-size:9px;color:' + col + ';text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Spent</span>' +
+              '<div style="position:relative;width:110px;margin-top:1px">' +
+                '<span style="position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:13px;color:' + col + ';font-weight:700;pointer-events:none">$</span>' +
+                '<input type="text" inputmode="decimal" value="' + (spent > 0 ? Math.round(spent).toLocaleString() : '') + '" data-scope-phase-spent="' + safeId + '" oninput="uwScopeUpdatePhase(\'' + safeId + '\',\'realSpent\',this.value)" placeholder="0" style="width:100%;font-size:14px;padding:3px 6px 3px 16px;background:var(--panel);border:1px solid ' + col + ';color:' + col + ';border-radius:5px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700" title="How much you\'ve actually spent on this phase so far. Color turns red if it goes over the phase\'s budget.">' +
+              '</div>' +
+              budgetSub +
+            '</div>';
+          })() +
           endLabel +
           // Remaining renovation budget at the START of this phase. Useful
           // for spotting when you'll run low on cash — if $58k remains at
           // demo but only $4k at cabinetry, you can see the burn-down.
           // Only shown when the grand-total is set (skip on $0 / unknown).
           (_grandTotal > 0
-            ? '<span class="text-xs" data-scope-remaining="' + safeId + '" style="color:#6ee7b7;min-width:140px;text-align:right;white-space:nowrap;flex-shrink:0" title="Estimated renovation budget remaining at the START of this phase (total − paid items in earlier phases)">💰 $' + Math.round(remainingAtStart[p.id]).toLocaleString() + ' left</span>'
+            ? (function() {
+                var estLeft  = Math.round(remainingAtStart[p.id]);
+                var realLeft = Math.round(realRemainingAtStart[p.id]);
+                var realColor = realLeft < 0 ? '#f87171' : '#fbbf24';
+                var realPrefix = realLeft < 0 ? '-$' : '$';
+                return '<div data-scope-remaining-wrap="' + safeId + '" style="display:flex;flex-direction:column;align-items:flex-end;min-width:140px;flex-shrink:0;line-height:1.15">' +
+                  '<span class="text-xs" data-scope-remaining="' + safeId + '" style="color:#6ee7b7;text-align:right;white-space:nowrap" title="Estimated budget remaining at the START of this phase (total − BUDGETED items in earlier phases)">💰 $' + estLeft.toLocaleString() + ' left</span>' +
+                  '<span class="text-xs" data-scope-realremaining="' + safeId + '" style="color:' + realColor + ';text-align:right;white-space:nowrap;font-size:11px;margin-top:2px" title="Real budget remaining at the START of this phase (total − ACTUAL Spent values from earlier phases). Turns red if you\'ve already gone over.">💵 ' + realPrefix + Math.abs(realLeft).toLocaleString() + ' real</span>' +
+                '</div>';
+              })()
             : ''
           ) +
           // Remove (✕) button — hidden for stock phases so they can't be

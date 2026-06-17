@@ -4096,6 +4096,17 @@
             <textarea id="uw-scope-notes" rows="6" placeholder="Contractor name, permit numbers, materials notes, sequencing, anything else worth tracking…" style="width:100%;padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;resize:vertical;font-family:inherit"></textarea>
           </label>
         </div>
+
+        <!-- Contractor Quotes — file uploads saved per deal (data._scopeQuotes) -->
+        <div style="padding-top:14px;border-top:1px solid var(--border)">
+          <span style="display:block;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px">📎 Contractor Quotes</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+            <input id="uw-scope-quote-name" type="text" placeholder="Name this quote (e.g. Jaidon — Junk Removal)" style="flex:1;min-width:200px;padding:9px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit">
+            <input id="uw-scope-quote-file" type="file" style="display:none" onchange="uwScopeUploadQuote()">
+            <button class="btn btn-primary text-sm" id="uw-scope-quote-btn" onclick="document.getElementById('uw-scope-quote-file').click()" title="Upload a contractor quote (PDF, image, doc) — saved to this property.">⬆ Upload Quote</button>
+          </div>
+          <div id="uw-scope-quotes-list" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
       </div>
     </div>
 
@@ -16458,7 +16469,7 @@ function _uwCollect() {
       if (k.indexOf('_source') === 0 || k === '_priorityHandled' || k === '_holdingStatus' ||
           k === '_budgetActuals' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
           k === '_reno_phase_override' || k === '_compsMode' ||
-          k === '_scopePhaseBudgets' || k === '_customRehabPreset' ||
+          k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_scopeQuotes' ||
           // Geocode coordinates — written by _dispoGeocodeSubject directly
           // into u.data.lat/lng/geocoded_address (not form fields). Without
           // this preservation, the next autosave wipes them and the user
@@ -22512,6 +22523,8 @@ function uwRenderScopeOfWork() {
     const stored = u && u.data && u.data['uw-scope-notes'];
     if (typeof stored === 'string' && notesEl.value !== stored) notesEl.value = stored;
   }
+  // Contractor quotes list (per-deal file uploads)
+  if (typeof _uwRenderScopeQuotes === 'function') _uwRenderScopeQuotes();
   // Build item-to-phase map: walk every rehab item the user marked "needed"
   // and classify it into one of the standard phases.
   const itemsByPhaseId = { demo: [], planning: [], restructure: [], mechanicals: [], cosmetics: [], cabinetry: [], 'punch-list': [], marketing: [], repossession: [] };
@@ -22814,6 +22827,120 @@ document.addEventListener('input', (e) => {
   if (typeof _uwScheduleAutosave === 'function') _uwScheduleAutosave();
   else if (typeof uwSave === 'function') uwSave(false);
 });
+
+// ===== Contractor Quotes — per-deal file uploads to Supabase Storage =====
+// Files live in the 'contractor-quotes' bucket under <dealId>/<ts>_<name>.
+// Metadata persists on u.data._scopeQuotes (array of {name,fileName,path,url,size,uploadedAt}).
+const _SCOPE_QUOTES_BUCKET = 'contractor-quotes';
+
+function _uwQuotePublicUrl(path) {
+  try { return sb.storage.from(_SCOPE_QUOTES_BUCKET).getPublicUrl(path).data.publicUrl; }
+  catch (e) { return '#'; }
+}
+
+function _uwRenderScopeQuotes() {
+  const listEl = document.getElementById('uw-scope-quotes-list');
+  if (!listEl) return;
+  const u = _uwCurrentId ? ((cache.underwrites || {})[_uwCurrentId]) : null;
+  const quotes = (u && u.data && Array.isArray(u.data._scopeQuotes)) ? u.data._scopeQuotes : [];
+  if (!quotes.length) {
+    listEl.innerHTML = '<span class="text-xs" style="color:var(--text-dim)">No quotes uploaded yet.</span>';
+    return;
+  }
+  listEl.innerHTML = quotes.map(function(q, i) {
+    const url = q.url || (q.path ? _uwQuotePublicUrl(q.path) : '#');
+    const when = q.uploadedAt ? new Date(q.uploadedAt).toLocaleDateString() : '';
+    const kb = q.size ? (q.size < 1024*1024 ? Math.max(1, Math.round(q.size/1024)) + ' KB' : (q.size/1048576).toFixed(1) + ' MB') : '';
+    const meta = [escapeHtml(q.fileName || ''), kb, when].filter(Boolean).join(' · ');
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">' +
+      '<span style="font-size:15px">📄</span>' +
+      '<div style="flex:1;min-width:0">' +
+        '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" style="color:#60a5fa;font-size:13px;font-weight:600;text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(q.name || q.fileName || 'Quote') + '</a>' +
+        '<span style="font-size:11px;color:var(--text-dim);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + meta + '</span>' +
+      '</div>' +
+      '<button class="btn btn-ghost text-xs" title="Rename this quote" onclick="uwScopeRenameQuote(' + i + ')">✎</button>' +
+      '<button class="btn btn-ghost text-xs" style="color:#f87171" title="Delete this quote" onclick="uwScopeDeleteQuote(' + i + ')">✕</button>' +
+    '</div>';
+  }).join('');
+}
+window._uwRenderScopeQuotes = _uwRenderScopeQuotes;
+
+async function uwScopeUploadQuote() {
+  const fileEl = document.getElementById('uw-scope-quote-file');
+  const nameEl = document.getElementById('uw-scope-quote-name');
+  const btn = document.getElementById('uw-scope-quote-btn');
+  if (!fileEl || !fileEl.files || !fileEl.files[0]) return;
+  if (!_uwCurrentId) { if (typeof toast === 'function') toast('Open a deal first.', 'warn'); fileEl.value = ''; return; }
+  const u = (cache.underwrites || {})[_uwCurrentId];
+  if (!u) { fileEl.value = ''; return; }
+  const file = fileEl.files[0];
+  const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, '_');
+  const path = _uwCurrentId + '/' + Date.now() + '_' + safeName;
+  const oldLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⬆ Uploading…'; }
+  try {
+    const up = await sb.storage.from(_SCOPE_QUOTES_BUCKET).upload(path, file, { cacheControl: '3600', upsert: false });
+    if (up.error) throw up.error;
+    u.data = u.data || {};
+    if (!Array.isArray(u.data._scopeQuotes)) u.data._scopeQuotes = [];
+    u.data._scopeQuotes.push({
+      name: (nameEl && nameEl.value.trim()) || file.name,
+      fileName: file.name,
+      path: path,
+      url: _uwQuotePublicUrl(path),
+      size: file.size,
+      uploadedAt: new Date().toISOString()
+    });
+    if (nameEl) nameEl.value = '';
+    if (typeof _uwScheduleAutosave === 'function') _uwScheduleAutosave();
+    else if (typeof uwSave === 'function') uwSave(false);
+    _uwRenderScopeQuotes();
+    if (typeof toast === 'function') toast('Quote uploaded.', 'ok');
+  } catch (err) {
+    console.error('[quotes] upload failed', err);
+    const msg = (err && err.message) ? err.message : String(err);
+    if (typeof toast === 'function') toast('Upload failed: ' + msg, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = oldLabel || '⬆ Upload Quote'; }
+    fileEl.value = '';
+  }
+}
+window.uwScopeUploadQuote = uwScopeUploadQuote;
+
+function uwScopeRenameQuote(idx) {
+  if (!_uwCurrentId) return;
+  const u = (cache.underwrites || {})[_uwCurrentId];
+  if (!u || !u.data || !Array.isArray(u.data._scopeQuotes)) return;
+  const q = u.data._scopeQuotes[idx];
+  if (!q) return;
+  const next = prompt('Rename quote:', q.name || q.fileName || '');
+  if (next === null) return;
+  const trimmed = next.trim();
+  q.name = trimmed || q.fileName || 'Quote';
+  if (typeof _uwScheduleAutosave === 'function') _uwScheduleAutosave();
+  else if (typeof uwSave === 'function') uwSave(false);
+  _uwRenderScopeQuotes();
+  if (typeof toast === 'function') toast('Quote renamed.', 'ok');
+}
+window.uwScopeRenameQuote = uwScopeRenameQuote;
+
+async function uwScopeDeleteQuote(idx) {
+  if (!_uwCurrentId) return;
+  const u = (cache.underwrites || {})[_uwCurrentId];
+  if (!u || !u.data || !Array.isArray(u.data._scopeQuotes)) return;
+  const q = u.data._scopeQuotes[idx];
+  if (!q) return;
+  if (!confirm('Delete quote "' + (q.name || q.fileName || '') + '"?\n\nThis permanently removes the uploaded file.')) return;
+  try {
+    if (q.path) await sb.storage.from(_SCOPE_QUOTES_BUCKET).remove([q.path]);
+  } catch (err) { console.warn('[quotes] storage remove failed (continuing to drop metadata)', err); }
+  u.data._scopeQuotes.splice(idx, 1);
+  if (typeof _uwScheduleAutosave === 'function') _uwScheduleAutosave();
+  else if (typeof uwSave === 'function') uwSave(false);
+  _uwRenderScopeQuotes();
+  if (typeof toast === 'function') toast('Quote deleted.', 'ok');
+}
+window.uwScopeDeleteQuote = uwScopeDeleteQuote;
 
 // Remove the currently-loaded deal from Renovation/Holdings, returning it
 // to plain Closed. Triggered from the calculator header button.

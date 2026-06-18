@@ -2607,6 +2607,12 @@
   <!-- GIS Maps subview — collected county assessor / GIS portal links per
        deal. Hidden by default; goUwView('gis-maps') flips its display. -->
   <div id="uwview-gis-maps" class="uwview" style="display:none">
+    <!-- Sub-tab toggle: Maps | Contacts -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button id="gis-subtab-maps" class="btn btn-primary text-sm" onclick="gisSwitchSub('maps')" style="height:36px;padding:0 18px" title="County assessor / GIS portal links">🗺 Maps</button>
+      <button id="gis-subtab-contacts" class="btn btn-ghost text-sm" onclick="gisSwitchSub('contacts')" style="height:36px;padding:0 18px" title="County office contacts — assessor, recorder, permits, etc.">📇 Contacts</button>
+    </div>
+    <div id="gis-sub-maps">
     <div class="panel p-5">
       <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
         <div>
@@ -2637,6 +2643,26 @@
           </thead>
           <tbody id="gis-maps-tbody"></tbody>
         </table>
+      </div>
+    </div>
+    </div><!-- /#gis-sub-maps -->
+
+    <!-- ===== Contacts sub-tab: County Contacts ===== -->
+    <div id="gis-sub-contacts" style="display:none">
+      <div class="panel p-5">
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+          <div>
+            <div class="font-semibold text-lg">📇 County Contacts</div>
+            <div class="text-xs text-[var(--text-dim)]">County offices and the people you work with — assessor, recorder, building/permits, and more. Add as many department contacts per county as you need.</div>
+          </div>
+          <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
+            <button class="btn btn-primary text-sm" onclick="countyContactOpenModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new county with its contacts.">+ Add County</button>
+            <input id="county-contacts-search" type="text" placeholder="🔍 Search county, city, name..." oninput="renderCountyContactsList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" />
+            <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('county-contacts-search');if(i){i.value='';renderCountyContactsList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear search">✕</button>
+          </div>
+        </div>
+        <div id="county-contacts-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No county contacts yet — click "+ Add County" to add one.</div>
+        <div id="county-contacts-list" style="display:flex;flex-direction:column;gap:12px"></div>
       </div>
     </div>
   </div>
@@ -2672,6 +2698,47 @@
       <div class="flex items-center justify-end gap-3" style="margin-top:28px">
         <button class="btn btn-ghost" onclick="gisMapCloseAddModal()" style="padding:11px 22px;font-size:15px">Cancel</button>
         <button class="btn btn-primary" onclick="gisMapSaveNew()" id="gis-add-save-btn" style="padding:11px 26px;font-size:15px;font-weight:600">💾 Save Site</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / Edit County Contact modal — opened by "+ Add County" / Edit. -->
+  <div id="county-contact-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
+    <div class="panel" style="max-width:860px;width:100%;max-height:90vh;overflow:auto;padding:32px;box-shadow:0 14px 50px rgba(0,0,0,0.6)">
+      <div class="flex items-center justify-between" style="margin-bottom:18px">
+        <div style="font-weight:700;font-size:24px" id="cc-modal-title">📇 Add County</div>
+        <button class="btn btn-ghost" onclick="countyContactCloseModal()" style="padding:8px 14px;font-size:16px" title="Close without saving">✕</button>
+      </div>
+      <input type="hidden" id="cc-edit-id" value="">
+      <div style="display:grid;grid-template-columns:2fr 2fr 1fr;gap:16px">
+        <label style="font-size:14px;font-weight:600">County
+          <input type="text" id="cc-county" placeholder="e.g. Vanderburgh County" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label style="font-size:14px;font-weight:600">Main City <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <input type="text" id="cc-city" placeholder="e.g. Evansville" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label style="font-size:14px;font-weight:600">State
+          <input type="text" id="cc-state" placeholder="IN" maxlength="2" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase;letter-spacing:1px">
+        </label>
+      </div>
+      <div style="margin-top:24px">
+        <div class="flex items-center justify-between" style="margin-bottom:10px">
+          <div style="font-size:15px;font-weight:700">Department Contacts</div>
+          <button class="btn btn-ghost text-sm" onclick="ccAddDeptRow()" style="padding:6px 14px" title="Add another department contact">+ Add contact</button>
+        </div>
+        <div id="cc-dept-rows" style="display:flex;flex-direction:column;gap:10px"></div>
+      </div>
+
+      <div style="margin-top:24px">
+        <div class="flex items-center justify-between" style="margin-bottom:10px">
+          <div style="font-size:15px;font-weight:700">Websites</div>
+          <button class="btn btn-ghost text-sm" onclick="ccAddSiteRow()" style="padding:6px 14px" title="Add another website">+ Add website</button>
+        </div>
+        <div id="cc-site-rows" style="display:flex;flex-direction:column;gap:10px"></div>
+      </div>
+      <div class="flex items-center justify-end gap-3" style="margin-top:28px">
+        <button class="btn btn-ghost" onclick="countyContactCloseModal()" style="padding:11px 22px;font-size:15px">Cancel</button>
+        <button class="btn btn-primary" onclick="countyContactSave()" id="cc-save-btn" style="padding:11px 26px;font-size:15px;font-weight:600">💾 Save County</button>
       </div>
     </div>
   </div>
@@ -8500,9 +8567,11 @@ function goUwView(v) {
   if (v === 'calculator' && typeof uwSetFolderSubtab === 'function') {
     uwSetFolderSubtab(_uwFolderSubtab || 'evaluation');
   }
-  // Refresh the GIS Maps list whenever the user lands on that subtab.
-  if (v === 'gis-maps' && typeof renderGisMapsList === 'function') {
-    renderGisMapsList();
+  // Refresh the GIS subview (Maps or Contacts) whenever the user lands here.
+  if (v === 'gis-maps') {
+    if (typeof loadCountyContacts === 'function') loadCountyContacts();
+    if (typeof gisSwitchSub === 'function') gisSwitchSub(window._gisSubActive || 'maps');
+    else if (typeof renderGisMapsList === 'function') renderGisMapsList();
   }
 }
 
@@ -24518,6 +24587,252 @@ function renderGisMapsList() {
   }).join('');
 }
 window.renderGisMapsList = renderGisMapsList;
+
+// ===================== County Contacts (GIS -> Contacts sub-tab) =====================
+// Mirrors the GIS Maps pattern. Backed by Supabase table `county_contacts`:
+//   id, county, main_city, state, website, link,
+//   contacts jsonb [{department, name, phone, email}], created_at.
+window._gisSubActive = window._gisSubActive || 'maps';
+
+function gisSwitchSub(which) {
+  window._gisSubActive = (which === 'contacts') ? 'contacts' : 'maps';
+  const isContacts = window._gisSubActive === 'contacts';
+  const mapsPanel = document.getElementById('gis-sub-maps');
+  const contactsPanel = document.getElementById('gis-sub-contacts');
+  const mapsBtn = document.getElementById('gis-subtab-maps');
+  const contactsBtn = document.getElementById('gis-subtab-contacts');
+  if (mapsPanel) mapsPanel.style.display = isContacts ? 'none' : '';
+  if (contactsPanel) contactsPanel.style.display = isContacts ? '' : 'none';
+  if (mapsBtn) mapsBtn.className = 'btn text-sm ' + (isContacts ? 'btn-ghost' : 'btn-primary');
+  if (contactsBtn) contactsBtn.className = 'btn text-sm ' + (isContacts ? 'btn-primary' : 'btn-ghost');
+  if (isContacts) renderCountyContactsList();
+  else if (typeof renderGisMapsList === 'function') renderGisMapsList();
+}
+window.gisSwitchSub = gisSwitchSub;
+
+async function loadCountyContacts() {
+  if (cache.county_contacts) return;
+  try {
+    if (typeof fetchAll !== 'function') { cache.county_contacts = {}; return; }
+    const rows = await fetchAll('county_contacts', '*');
+    cache.county_contacts = {};
+    rows.forEach(r => { if (r && r.id) cache.county_contacts[r.id] = r; });
+  } catch (e) {
+    console.warn('loadCountyContacts:', e);
+    cache.county_contacts = {};
+  }
+}
+window.loadCountyContacts = loadCountyContacts;
+
+function renderCountyContactsList() {
+  if (!cache.county_contacts) { loadCountyContacts().then(renderCountyContactsList); return; }
+  const listEl = document.getElementById('county-contacts-list');
+  const emptyEl = document.getElementById('county-contacts-empty');
+  if (!listEl) return;
+  const q = ((document.getElementById('county-contacts-search') || {}).value || '').trim().toLowerCase();
+  let rows = Object.values(cache.county_contacts || {});
+  if (q) {
+    rows = rows.filter(r => {
+      const hay = [r.county, r.main_city, r.state, JSON.stringify(r.contacts || [])].join(' ').toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+  }
+  rows.sort((a, b) => (a.county || a.main_city || '').localeCompare(b.county || b.main_city || ''));
+  if (!rows.length) {
+    listEl.innerHTML = '';
+    if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.textContent = q ? 'No counties match your search.' : 'No county contacts yet \u2014 click "+ Add County" to add one.'; }
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+  listEl.innerHTML = rows.map(function(r) {
+    const title = escapeHtml([r.county, r.state].filter(Boolean).join(', ') || r.main_city || 'County');
+    const city = r.main_city ? '<span style="font-size:12px;color:var(--text-dim);font-weight:400"> \u00b7 ' + escapeHtml(r.main_city) + '</span>' : '';
+    let _sites = Array.isArray(r.websites) ? r.websites.slice() : [];
+    if (!_sites.length) { if (r.website) _sites.push({ title: 'Website', url: r.website }); if (r.link) _sites.push({ title: 'Link', url: r.link }); }
+    const links = _sites.filter(s => s && s.url).map(function(s) {
+      return '<a href="' + escapeHtml(s.url) + '" target="_blank" rel="noopener" style="color:#60a5fa;font-size:12px;text-decoration:none">\uD83C\uDF10 ' + escapeHtml(s.title || s.url) + '</a>';
+    });
+    const linksHtml = links.length ? '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px">' + links.join('') + '</div>' : '';
+    const contacts = Array.isArray(r.contacts) ? r.contacts : [];
+    let contactsHtml;
+    if (!contacts.length) {
+      contactsHtml = '<div style="font-size:12px;color:var(--text-dim);padding:8px 0 0">No department contacts added.</div>';
+    } else {
+      contactsHtml = '<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">' + contacts.map(function(c) {
+        const dept = c.department ? '<span style="display:inline-block;padding:2px 9px;border-radius:12px;background:var(--panel);border:1px solid var(--border);font-size:11px;color:var(--text);font-weight:600">' + escapeHtml(c.department) + '</span>' : '';
+        const nm = c.name ? '<span style="font-size:13px;color:var(--text);font-weight:600">' + escapeHtml(c.name) + '</span>' : '';
+        const ph = c.phone ? '<a href="tel:' + escapeHtml(c.phone) + '" style="font-size:12px;color:#60a5fa;text-decoration:none">\uD83D\uDCDE ' + escapeHtml(c.phone) + '</a>' : '';
+        const em = c.email ? '<a href="mailto:' + escapeHtml(c.email) + '" style="font-size:12px;color:#60a5fa;text-decoration:none">\u2709 ' + escapeHtml(c.email) + '</a>' : '';
+        return '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:7px 10px;background:var(--panel);border:1px solid var(--border);border-radius:8px">' + dept + nm + ph + em + '</div>';
+      }).join('') + '</div>';
+    }
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:14px 16px;background:var(--panel-2)">' +
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">' +
+        '<div style="min-width:0"><div style="font-size:15px;font-weight:700;color:var(--text)">' + title + city + '</div>' + linksHtml + '</div>' +
+        '<div style="display:flex;gap:6px;flex-shrink:0">' +
+          '<button class="btn btn-ghost text-xs" title="Edit county" onclick="countyContactOpenModal(\'' + r.id + '\')">\u270E Edit</button>' +
+          '<button class="btn btn-ghost text-xs" style="color:#f87171" title="Delete county" onclick="countyContactDelete(\'' + r.id + '\')">\u2715</button>' +
+        '</div>' +
+      '</div>' + contactsHtml +
+    '</div>';
+  }).join('');
+}
+window.renderCountyContactsList = renderCountyContactsList;
+
+function ccAddDeptRow(prefill) {
+  const wrap = document.getElementById('cc-dept-rows');
+  if (!wrap) return;
+  const p = prefill || {};
+  const row = document.createElement('div');
+  row.className = 'cc-dept-row';
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:center';
+  row.innerHTML =
+    '<input type="text" class="cc-dept-department" placeholder="Department" value="' + escapeHtml(p.department || '') + '" style="height:40px;font-size:13px;padding:0 10px">' +
+    '<input type="text" class="cc-dept-name" placeholder="Contact name" value="' + escapeHtml(p.name || '') + '" style="height:40px;font-size:13px;padding:0 10px">' +
+    '<input type="text" class="cc-dept-phone" placeholder="Phone" value="' + escapeHtml(p.phone || '') + '" style="height:40px;font-size:13px;padding:0 10px">' +
+    '<input type="text" class="cc-dept-email" placeholder="Email" value="' + escapeHtml(p.email || '') + '" style="height:40px;font-size:13px;padding:0 10px">' +
+    '<button class="btn btn-ghost text-xs" style="color:#f87171;height:40px" title="Remove this contact" onclick="ccRemoveDeptRow(this)">\u2715</button>';
+  wrap.appendChild(row);
+}
+window.ccAddDeptRow = ccAddDeptRow;
+
+function ccRemoveDeptRow(btn) {
+  const row = btn && btn.closest ? btn.closest('.cc-dept-row') : null;
+  if (row) row.remove();
+}
+window.ccRemoveDeptRow = ccRemoveDeptRow;
+
+function ccAddSiteRow(prefill) {
+  const wrap = document.getElementById('cc-site-rows');
+  if (!wrap) return;
+  const p = prefill || {};
+  const row = document.createElement('div');
+  row.className = 'cc-site-row';
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 2fr auto;gap:8px;align-items:center';
+  row.innerHTML =
+    '<input type="text" class="cc-site-title" placeholder="Website title" value="' + escapeHtml(p.title || '') + '" style="height:40px;font-size:13px;padding:0 10px">' +
+    '<input type="text" class="cc-site-url" placeholder="https://..." value="' + escapeHtml(p.url || '') + '" style="height:40px;font-size:13px;padding:0 10px;font-family:monospace">' +
+    '<button class="btn btn-ghost text-xs" style="color:#f87171;height:40px" title="Remove this website" onclick="ccRemoveSiteRow(this)">\u2715</button>';
+  wrap.appendChild(row);
+}
+window.ccAddSiteRow = ccAddSiteRow;
+
+function ccRemoveSiteRow(btn) {
+  const row = btn && btn.closest ? btn.closest('.cc-site-row') : null;
+  if (row) row.remove();
+}
+window.ccRemoveSiteRow = ccRemoveSiteRow;
+
+function countyContactOpenModal(editId) {
+  const modal = document.getElementById('county-contact-modal');
+  if (!modal) return;
+  const $ = (id) => document.getElementById(id);
+  ['cc-county','cc-state','cc-city'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+  if ($('cc-edit-id')) $('cc-edit-id').value = '';
+  const wrap = $('cc-dept-rows'); if (wrap) wrap.innerHTML = '';
+  const swrap = $('cc-site-rows'); if (swrap) swrap.innerHTML = '';
+  const titleEl = $('cc-modal-title');
+  if (editId && cache.county_contacts && cache.county_contacts[editId]) {
+    const r = cache.county_contacts[editId];
+    if ($('cc-edit-id')) $('cc-edit-id').value = editId;
+    if ($('cc-county')) $('cc-county').value = r.county || '';
+    if ($('cc-state')) $('cc-state').value = r.state || '';
+    if ($('cc-city')) $('cc-city').value = r.main_city || '';
+    (Array.isArray(r.contacts) ? r.contacts : []).forEach(c => ccAddDeptRow(c));
+    let _sites = Array.isArray(r.websites) ? r.websites.slice() : [];
+    if (!_sites.length) { if (r.website) _sites.push({ title: 'Website', url: r.website }); if (r.link) _sites.push({ title: 'Link', url: r.link }); }
+    _sites.forEach(s => ccAddSiteRow(s));
+    if (titleEl) titleEl.textContent = '\uD83D\uDCC7 Edit County';
+  } else {
+    if (titleEl) titleEl.textContent = '\uD83D\uDCC7 Add County';
+  }
+  if (!$('cc-dept-rows').children.length) ccAddDeptRow();
+  if (!$('cc-site-rows').children.length) ccAddSiteRow();
+  modal.style.display = 'flex';
+  setTimeout(() => { const f = $('cc-county'); if (f) f.focus(); }, 50);
+}
+window.countyContactOpenModal = countyContactOpenModal;
+
+function countyContactCloseModal() {
+  const modal = document.getElementById('county-contact-modal');
+  if (modal) modal.style.display = 'none';
+}
+window.countyContactCloseModal = countyContactCloseModal;
+
+async function countyContactSave() {
+  const $ = (id) => document.getElementById(id);
+  const county  = ($('cc-county') ? $('cc-county').value : '').trim();
+  const city    = ($('cc-city') ? $('cc-city').value : '').trim();
+  const state   = ($('cc-state') ? $('cc-state').value : '').trim().toUpperCase();
+  const editId  = ($('cc-edit-id') ? $('cc-edit-id').value : '').trim();
+  if (!county && !city) {
+    if (typeof toast === 'function') toast('Enter at least a County or Main City.', 'warn');
+    const c = $('cc-county'); if (c) c.focus();
+    return;
+  }
+  if (state && state.length !== 2) {
+    if (typeof toast === 'function') toast('State must be a 2-letter code (e.g. IN).', 'warn');
+    return;
+  }
+  const contacts = [];
+  document.querySelectorAll('#cc-dept-rows .cc-dept-row').forEach(row => {
+    const g = (sel) => { const el = row.querySelector(sel); return el ? el.value.trim() : ''; };
+    const dept = g('.cc-dept-department'), name = g('.cc-dept-name'), phone = g('.cc-dept-phone'), email = g('.cc-dept-email');
+    if (dept || name || phone || email) contacts.push({ department: dept, name: name, phone: phone, email: email });
+  });
+  const websites = [];
+  document.querySelectorAll('#cc-site-rows .cc-site-row').forEach(row => {
+    const t = row.querySelector('.cc-site-title'); const u = row.querySelector('.cc-site-url');
+    const title = t ? t.value.trim() : ''; const url = u ? u.value.trim() : '';
+    if (title || url) websites.push({ title: title, url: url });
+  });
+  const btn = $('cc-save-btn');
+  let prev = '';
+  if (btn) { prev = btn.textContent; btn.disabled = true; btn.textContent = '\u23F3 Saving\u2026'; }
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const payload = { county: county, main_city: city, state: state, websites: websites, contacts: contacts };
+    cache.county_contacts = cache.county_contacts || {};
+    if (editId) {
+      const { data, error } = await sb.from('county_contacts').update(payload).eq('id', editId).select().single();
+      if (error) throw error;
+      if (data && data.id) cache.county_contacts[data.id] = data;
+      if (typeof toast === 'function') toast('Updated ' + (county || city), 'ok');
+    } else {
+      const { data, error } = await sb.from('county_contacts').insert(payload).select().single();
+      if (error) throw error;
+      if (data && data.id) cache.county_contacts[data.id] = data;
+      if (typeof toast === 'function') toast('Added ' + (county || city), 'ok');
+    }
+    countyContactCloseModal();
+    renderCountyContactsList();
+  } catch (e) {
+    console.warn('countyContactSave:', e);
+    if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prev || '\uD83D\uDCBE Save County'; }
+  }
+}
+window.countyContactSave = countyContactSave;
+
+async function countyContactDelete(id) {
+  if (!id || !cache.county_contacts || !cache.county_contacts[id]) return;
+  const r = cache.county_contacts[id];
+  const label = [r.county, r.state].filter(Boolean).join(', ') || r.main_city || 'this county';
+  if (!confirm('Delete ' + label + ' and all its contacts?\n\nThis cannot be undone.')) return;
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const { error } = await sb.from('county_contacts').delete().eq('id', id);
+    if (error) throw error;
+    delete cache.county_contacts[id];
+    if (typeof toast === 'function') toast('Deleted ' + label, 'ok');
+    renderCountyContactsList();
+  } catch (e) {
+    console.warn('countyContactDelete:', e);
+    if (typeof toast === 'function') toast('Delete failed: ' + (e.message || 'unknown'), 'err');
+  }
+}
+window.countyContactDelete = countyContactDelete;
 
 // ============================================================
 // CONTRACTORS — Renovation → 👷 Contractors subview

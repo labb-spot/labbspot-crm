@@ -4490,7 +4490,11 @@
       <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
         <div>
           <div class="font-semibold text-lg"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection</div>
-          <div class="text-sm text-[var(--text-dim)]">Deals in the inspection / due-diligence window — packet status is Inspection. Click any row to open the full property details + calculator.</div>
+          <div id="uw-inspection-desc" class="text-sm text-[var(--text-dim)]">Deals in the inspection / due-diligence window — packet status is Inspection. Click any row to open the full property details + calculator.</div>
+          <div style="display:inline-flex;gap:4px;margin-top:8px">
+            <button id="uw-insp-mode-inspection" class="btn btn-primary text-xs" onclick="uwInspSetMode('inspection')" style="padding:6px 12px;white-space:nowrap" title="Deals whose Offer Status is Inspection (default).">📷 Inspection</button>
+            <button id="uw-insp-mode-photos" class="btn btn-ghost text-xs" onclick="uwInspSetMode('photos')" style="padding:6px 12px;white-space:nowrap" title="Any property that has a picture folder link saved, regardless of stage.">🖼 Photo Folders</button>
+          </div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
           <select id="uw-inspection-source-filter" onchange="renderUnderwriteList()" style="width:130px" title="Filter by where the deal came from">
@@ -24834,6 +24838,26 @@ async function countyContactDelete(id) {
 }
 window.countyContactDelete = countyContactDelete;
 
+// ===== Inspection tab mode toggle: Inspection (default) <-> Photo Folders =====
+// Photo Folders mode lists every deal that has a picture folder link saved
+// (data['uw-pics']), regardless of its workflow stage.
+window._uwInspMode = window._uwInspMode || 'inspection';
+function uwInspSetMode(mode) {
+  window._uwInspMode = (mode === 'photos') ? 'photos' : 'inspection';
+  if (typeof _uwPage !== 'undefined' && _uwPage) _uwPage.inspection = 1;
+  const isPhotos = window._uwInspMode === 'photos';
+  const a = document.getElementById('uw-insp-mode-inspection');
+  const b = document.getElementById('uw-insp-mode-photos');
+  if (a) a.className = 'btn text-xs ' + (isPhotos ? 'btn-ghost' : 'btn-primary');
+  if (b) b.className = 'btn text-xs ' + (isPhotos ? 'btn-primary' : 'btn-ghost');
+  const desc = document.getElementById('uw-inspection-desc');
+  if (desc) desc.textContent = isPhotos
+    ? 'Every property with a picture folder link saved \u2014 regardless of stage. Click any row to open the full property details + calculator.'
+    : 'Deals in the inspection / due-diligence window \u2014 packet status is Inspection. Click any row to open the full property details + calculator.';
+  if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
+}
+window.uwInspSetMode = uwInspSetMode;
+
 // ============================================================
 // CONTRACTORS — Renovation → 👷 Contractors subview
 // ============================================================
@@ -32421,7 +32445,11 @@ function renderUnderwriteList() {
     const inSearch = (document.getElementById('uw-inspection-search')?.value || '').toLowerCase().trim();
     const inDateOk = _uwBuildDateFilter('inspection');
     const inSrcOk  = _uwBuildSourceFilter('inspection');
-    const inFiltered = _uwApplyAllSorts(inspection.filter(u => {
+    const inMode = window._uwInspMode || 'inspection';
+    const inSource = (inMode === 'photos')
+      ? all.filter(u => String((u.data && u.data['uw-pics']) || '').trim() !== '')
+      : inspection;
+    const inFiltered = _uwApplyAllSorts(inSource.filter(u => {
       if (!inDateOk(u)) return false;
       if (!inSrcOk(u)) return false;
       if (inSearch && !((u.address || '').toLowerCase().includes(inSearch) ||
@@ -32430,7 +32458,7 @@ function renderUnderwriteList() {
     }), 'inspection');
     if (!inFiltered.length) {
       inTbody.innerHTML = '';
-      if (inEmpty) inEmpty.style.display = '';
+      if (inEmpty) { inEmpty.textContent = (inMode === 'photos') ? 'No properties have a picture folder link saved yet.' : 'Nothing in inspection. A deal moves here when you click 📷 Inspection on its workflow header.'; inEmpty.style.display = ''; }
       _uwRenderPageNav('inspection', { rows: [], page: 1, totalPages: 1, total: 0, start: 0, end: 0 });
     } else {
       if (inEmpty) inEmpty.style.display = 'none';

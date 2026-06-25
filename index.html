@@ -5070,7 +5070,7 @@
        Same pattern as the Underwriting top bar (workflow tabs + GIS Maps pill).
        Always visible at the top of the Renovation section regardless of which
        subview (phase table, contractors, or lenders) is currently active. -->
-  <div id="reno-top-nav" class="flex items-center gap-2 mb-4" style="flex-wrap:wrap;min-width:0">
+  <div id="reno-top-nav" class="flex items-center gap-2 mb-4" style="flex-wrap:nowrap;min-width:0;overflow-x:auto">
     <!-- Phase subtabs — filter the renovation phase table by phase. Clicking
          any of these also switches the view back from contractors/lenders to phases. -->
     <div class="flex items-center gap-0 panel p-1" id="reno-subtabs" style="flex-shrink:1;min-width:0;width:fit-content;font-size:12px">
@@ -5087,6 +5087,7 @@
          phase tabs so the workflow pipeline reads left-to-right and the
          rolodexes sit on the right. -->
     <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact" data-renoview="inspectors" onclick="setRenoView('inspectors')" title="Inspectors — your rolodex of property inspectors with per-service pricing and contact info.">🔍 Inspectors <span id="reno-count-inspectors" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
       <div class="subtab subtab-compact" data-renoview="contractors" onclick="setRenoView('contractors')" title="Contractors — your rolodex of trade vendors with ratings, prices, and contact info, organized in one place.">👷 Contractors <span id="reno-count-contractors" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
       <div class="subtab subtab-compact" data-renoview="lenders"     onclick="setRenoView('lenders')"     title="Lenders — your rolodex of banks, hard money sources, and private lenders with ratings, rates, and contact info.">🏦 Lenders <span id="reno-count-lenders" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
       <div class="subtab subtab-compact" data-renoview="realtors"    onclick="setRenoView('realtors')"    title="Agents — your rolodex of real estate agents with ratings, brokerages, specialties, commission terms, and contact info.">🤝 Agents <span id="reno-count-realtors" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
@@ -5135,7 +5136,93 @@
   </div>
   </div><!-- /reno-table-wrap -->
 
-  <!-- Contractors subview — your rolodex of trade vendors. Hidden by default;
+  <!-- Inspectors subview — your rolodex of property inspectors with per-service
+       pricing. Hidden by default; setRenoView('inspectors') flips its display. -->
+  <div id="reno-inspectors-wrap" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div>
+          <div class="font-semibold text-lg">🔍 Inspectors</div>
+          <div class="text-xs text-[var(--text-dim)]">Your rolodex of property inspectors — per-service pricing and contact info, all in one place. Click a row to edit.</div>
+        </div>
+        <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
+          <button class="btn btn-primary text-sm" onclick="inspectorOpenModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new inspector.">+ Add Inspector</button>
+          <input id="inspectors-search" type="text" placeholder="🔍 Search by name or company..." oninput="renderInspectorsList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" />
+          <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('inspectors-search');if(i){i.value='';renderInspectorsList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear search">✕</button>
+        </div>
+      </div>
+      <div id="inspectors-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No inspectors saved yet — click <b>+ Add Inspector</b> to start your rolodex.</div>
+      <div class="overflow-auto" style="max-height:140vh">
+        <table id="inspectors-table" style="width:100%;border-collapse:collapse">
+          <thead style="position:sticky;top:0;background:var(--panel);z-index:1">
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;white-space:nowrap">Company</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;white-space:nowrap">Name</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;white-space:nowrap">Contact</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;white-space:nowrap" title="Standard Systems inspection price">Standard</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;white-space:nowrap">Sewer Scope</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;white-space:nowrap">Radon</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;white-space:nowrap">Mold</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;white-space:nowrap">Termite</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:60px"></th>
+            </tr>
+          </thead>
+          <tbody id="inspectors-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / Edit Inspector modal -->
+  <div id="inspector-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
+    <div class="panel" style="max-width:760px;width:100%;padding:32px;box-shadow:0 14px 50px rgba(0,0,0,0.6);max-height:92vh;overflow-y:auto">
+      <div class="flex items-center justify-between" style="margin-bottom:18px;gap:12px;flex-wrap:wrap">
+        <div style="font-weight:700;font-size:24px" id="inspector-modal-title">🔍 Add Inspector</div>
+        <div class="flex items-center" style="gap:10px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="inspectorDeleteFromModal()" id="inspector-delete-btn" style="height:34px;padding:0 14px;font-size:13px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none;box-sizing:border-box;line-height:1" title="Delete this inspector">🗑 Delete</button>
+          <button class="btn btn-ghost" onclick="inspectorCloseModal()" style="height:34px;padding:0 14px;font-size:13px;box-sizing:border-box;line-height:1" title="Discard changes and close">Cancel</button>
+          <button class="btn btn-primary" onclick="inspectorSave()" id="inspector-save-btn" style="height:34px;padding:0 18px;font-size:13px;font-weight:600;box-sizing:border-box;line-height:1" title="Save">💾 Save Inspector</button>
+        </div>
+      </div>
+      <input type="hidden" id="insp-edit-id" value="">
+      <div class="grid grid-cols-2 gap-4">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Company
+          <input type="text" id="insp-company" placeholder="e.g. BlueStar Home Inspections" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Name
+          <input type="text" id="insp-name" placeholder="e.g. Joe Bloggs" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Phone
+          <input type="tel" id="insp-phone" placeholder="e.g. (812) 555-1234" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Email
+          <input type="email" id="insp-email" placeholder="e.g. joe@bluestar.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+      </div>
+      <div style="margin-top:22px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:10px">Pricing</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+          <label style="font-size:13px;font-weight:600">Standard Systems
+            <input type="text" id="insp-price-standard" placeholder="e.g. 350" style="width:100%;margin-top:6px;height:42px;font-size:14px;padding:0 12px">
+          </label>
+          <label style="font-size:13px;font-weight:600">Sewer Scope
+            <input type="text" id="insp-price-sewer" placeholder="e.g. 150" style="width:100%;margin-top:6px;height:42px;font-size:14px;padding:0 12px">
+          </label>
+          <label style="font-size:13px;font-weight:600">Radon Test
+            <input type="text" id="insp-price-radon" placeholder="e.g. 125" style="width:100%;margin-top:6px;height:42px;font-size:14px;padding:0 12px">
+          </label>
+          <label style="font-size:13px;font-weight:600">Mold Test
+            <input type="text" id="insp-price-mold" placeholder="e.g. 100" style="width:100%;margin-top:6px;height:42px;font-size:14px;padding:0 12px">
+          </label>
+          <label style="font-size:13px;font-weight:600">Termite Test
+            <input type="text" id="insp-price-termite" placeholder="e.g. 75" style="width:100%;margin-top:6px;height:42px;font-size:14px;padding:0 12px">
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- Contractors subview — your rolodex of trade vendors. Hidden by default;
        setRenoView('contractors') flips its display. Same UX pattern as the
        GIS Maps subview inside Underwriting. -->
   <div id="reno-contractors-wrap" style="display:none">
@@ -23543,6 +23630,7 @@ function _renoUpdateSubtabCounts() {
     const c = (typeof cache !== 'undefined' && cache[k]) ? cache[k] : null;
     return c ? Object.keys(c).length : null;
   };
+  counts.inspectors  = resCount('inspectors');
   counts.contractors = resCount('contractors');
   counts.lenders     = resCount('lenders');
   counts.realtors    = resCount('realtors');
@@ -24874,6 +24962,7 @@ let _renoActiveView = 'phases';
 // Keeping this as data (rather than 5 hard-coded branches) so adding the
 // next rolodex is a one-line change.
 const _RENO_VIEW_CONFIG = {
+  inspectors:  { wrap: 'reno-inspectors-wrap',  pill: 'inspectors',  load: 'loadInspectors',  render: 'renderInspectorsList' },
   contractors: { wrap: 'reno-contractors-wrap', pill: 'contractors', load: 'loadContractors', render: 'renderContractorsList' },
   lenders:     { wrap: 'reno-lenders-wrap',     pill: 'lenders',     load: 'loadLenders',     render: 'renderLendersList' },
   realtors:    { wrap: 'reno-realtors-wrap',    pill: 'realtors',    load: 'loadRealtors',    render: 'renderRealtorsList' },
@@ -24919,6 +25008,181 @@ function setRenoView(view) {
   }
 }
 window.setRenoView = setRenoView;
+
+// ============================================================
+// INSPECTORS — Renovation -> 🔍 Inspectors subview
+// ============================================================
+// Rolodex of property inspectors with per-service pricing. Stored in the
+// `inspectors` Supabase table. UX mirrors the Contractors subview.
+async function loadInspectors() {
+  if (cache.inspectors) return;
+  try {
+    if (typeof fetchAll !== 'function') { cache.inspectors = {}; return; }
+    const rows = await fetchAll('inspectors', '*');
+    cache.inspectors = {};
+    rows.forEach(r => { if (r && r.id) cache.inspectors[r.id] = r; });
+  } catch (e) {
+    console.warn('loadInspectors:', e);
+    cache.inspectors = {};
+  }
+}
+window.loadInspectors = loadInspectors;
+
+function _inspFmtPrice(v) {
+  const dash = '<span style="color:var(--text-dim)">—</span>';
+  if (v == null) return dash;
+  const s = String(v).trim();
+  if (!s) return dash;
+  if (/^[0-9][0-9.,]*$/.test(s)) return '$' + s;
+  return escapeHtml(s);
+}
+
+function renderInspectorsList() {
+  if (typeof _renoUpdateSubtabCounts === 'function') _renoUpdateSubtabCounts();
+  if (!cache.inspectors) { loadInspectors().then(renderInspectorsList); return; }
+  const tbody = document.getElementById('inspectors-tbody');
+  const empty = document.getElementById('inspectors-empty');
+  if (!tbody) return;
+  const dash = '<span style="color:var(--text-dim)">—</span>';
+  const q = ((document.getElementById('inspectors-search') || {}).value || '').trim().toLowerCase();
+  let rows = Object.values(cache.inspectors || {});
+  if (q) rows = rows.filter(r => [r.company, r.name, r.phone, r.email].join(' ').toLowerCase().indexOf(q) !== -1);
+  rows.sort((a, b) => (a.company || a.name || '').localeCompare(b.company || b.name || ''));
+  if (!rows.length) {
+    tbody.innerHTML = '';
+    if (empty) { empty.style.display = 'block'; empty.innerHTML = q ? 'No inspectors match your search.' : 'No inspectors saved yet — click <b>+ Add Inspector</b> to start your rolodex.'; }
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  const td = 'padding:10px 12px;font-size:13px;border-bottom:1px solid var(--border)';
+  const tdc = td + ';text-align:center';
+  tbody.innerHTML = rows.map(function(r) {
+    const cbits = [];
+    if (r.phone) cbits.push('<a href="tel:' + escapeHtml(r.phone) + '" onclick="event.stopPropagation()" style="color:#60a5fa;text-decoration:none">📞 ' + escapeHtml(r.phone) + '</a>');
+    if (r.email) cbits.push('<a href="mailto:' + escapeHtml(r.email) + '" onclick="event.stopPropagation()" style="color:#60a5fa;text-decoration:none">✉ ' + escapeHtml(r.email) + '</a>');
+    const contact = cbits.length ? '<div style="display:flex;flex-direction:column;gap:2px;font-size:12px">' + cbits.join('') + '</div>' : dash;
+    return '<tr style="cursor:pointer" onclick="inspectorOpenModal(\'' + r.id + '\')" title="Click to edit">' +
+      '<td style="' + td + '"><span style="font-weight:600">' + (r.company ? escapeHtml(r.company) : dash) + '</span></td>' +
+      '<td style="' + td + '">' + (r.name ? escapeHtml(r.name) : dash) + '</td>' +
+      '<td style="' + td + '">' + contact + '</td>' +
+      '<td style="' + tdc + '">' + _inspFmtPrice(r.price_standard) + '</td>' +
+      '<td style="' + tdc + '">' + _inspFmtPrice(r.price_sewer) + '</td>' +
+      '<td style="' + tdc + '">' + _inspFmtPrice(r.price_radon) + '</td>' +
+      '<td style="' + tdc + '">' + _inspFmtPrice(r.price_mold) + '</td>' +
+      '<td style="' + tdc + '">' + _inspFmtPrice(r.price_termite) + '</td>' +
+      '<td style="' + tdc + '"><button class="btn btn-ghost text-xs" style="color:#f87171" title="Delete" onclick="event.stopPropagation(); inspectorDelete(\'' + r.id + '\')">🗑</button></td>' +
+    '</tr>';
+  }).join('');
+}
+window.renderInspectorsList = renderInspectorsList;
+
+function inspectorOpenModal(editId) {
+  const modal = document.getElementById('inspector-modal');
+  if (!modal) return;
+  const $ = (id) => document.getElementById(id);
+  ['insp-company','insp-name','insp-phone','insp-email','insp-price-standard','insp-price-sewer','insp-price-radon','insp-price-mold','insp-price-termite'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+  if ($('insp-edit-id')) $('insp-edit-id').value = '';
+  const titleEl = $('inspector-modal-title');
+  const delBtn = $('inspector-delete-btn');
+  if (editId && cache.inspectors && cache.inspectors[editId]) {
+    const r = cache.inspectors[editId];
+    if ($('insp-edit-id')) $('insp-edit-id').value = editId;
+    if ($('insp-company')) $('insp-company').value = r.company || '';
+    if ($('insp-name')) $('insp-name').value = r.name || '';
+    if ($('insp-phone')) $('insp-phone').value = r.phone || '';
+    if ($('insp-email')) $('insp-email').value = r.email || '';
+    if ($('insp-price-standard')) $('insp-price-standard').value = r.price_standard || '';
+    if ($('insp-price-sewer')) $('insp-price-sewer').value = r.price_sewer || '';
+    if ($('insp-price-radon')) $('insp-price-radon').value = r.price_radon || '';
+    if ($('insp-price-mold')) $('insp-price-mold').value = r.price_mold || '';
+    if ($('insp-price-termite')) $('insp-price-termite').value = r.price_termite || '';
+    if (titleEl) titleEl.textContent = '🔍 Edit Inspector';
+    if (delBtn) delBtn.style.display = '';
+  } else {
+    if (titleEl) titleEl.textContent = '🔍 Add Inspector';
+    if (delBtn) delBtn.style.display = 'none';
+  }
+  modal.style.display = 'flex';
+  setTimeout(() => { const f = $('insp-company'); if (f) f.focus(); }, 50);
+}
+window.inspectorOpenModal = inspectorOpenModal;
+
+function inspectorCloseModal() {
+  const m = document.getElementById('inspector-modal');
+  if (m) m.style.display = 'none';
+}
+window.inspectorCloseModal = inspectorCloseModal;
+
+async function inspectorSave() {
+  const $ = (id) => document.getElementById(id);
+  const val = (id) => { const el = $(id); return el ? el.value.trim() : ''; };
+  const company = val('insp-company');
+  const name = val('insp-name');
+  if (!company && !name) {
+    if (typeof toast === 'function') toast('Enter at least a Company or Name.', 'warn');
+    const c = $('insp-company'); if (c) c.focus();
+    return;
+  }
+  const editId = val('insp-edit-id');
+  const payload = {
+    company: company, name: name, phone: val('insp-phone'), email: val('insp-email'),
+    price_standard: val('insp-price-standard'), price_sewer: val('insp-price-sewer'),
+    price_radon: val('insp-price-radon'), price_mold: val('insp-price-mold'),
+    price_termite: val('insp-price-termite')
+  };
+  const btn = $('inspector-save-btn');
+  let prev = '';
+  if (btn) { prev = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    cache.inspectors = cache.inspectors || {};
+    if (editId) {
+      const { data, error } = await sb.from('inspectors').update(payload).eq('id', editId).select().single();
+      if (error) throw error;
+      if (data && data.id) cache.inspectors[data.id] = data;
+      if (typeof toast === 'function') toast('Updated ' + (company || name), 'ok');
+    } else {
+      const { data, error } = await sb.from('inspectors').insert(payload).select().single();
+      if (error) throw error;
+      if (data && data.id) cache.inspectors[data.id] = data;
+      if (typeof toast === 'function') toast('Added ' + (company || name), 'ok');
+    }
+    inspectorCloseModal();
+    renderInspectorsList();
+  } catch (e) {
+    console.warn('inspectorSave:', e);
+    if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prev || '💾 Save Inspector'; }
+  }
+}
+window.inspectorSave = inspectorSave;
+
+function inspectorDeleteFromModal() {
+  const id = (document.getElementById('insp-edit-id') || {}).value || '';
+  if (id) inspectorDelete(id);
+}
+window.inspectorDeleteFromModal = inspectorDeleteFromModal;
+
+async function inspectorDelete(id) {
+  if (!id || !cache.inspectors || !cache.inspectors[id]) return;
+  const r = cache.inspectors[id];
+  const label = r.company || r.name || 'this inspector';
+  if (!confirm('Delete ' + label + '?\n\nThis cannot be undone.')) return;
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const { error } = await sb.from('inspectors').delete().eq('id', id);
+    if (error) throw error;
+    delete cache.inspectors[id];
+    if (typeof toast === 'function') toast('Deleted ' + label, 'ok');
+    inspectorCloseModal();
+    renderInspectorsList();
+  } catch (e) {
+    console.warn('inspectorDelete:', e);
+    if (typeof toast === 'function') toast('Delete failed: ' + (e.message || 'unknown'), 'err');
+  }
+}
+window.inspectorDelete = inspectorDelete;
 
 // Active Dispositions subview. Each subview is a SCOPE for the buyer list:
 // recent / vetting / unknown / qualified / unqualified / per-deal.
@@ -33915,7 +34179,7 @@ function goSection(s) {
     const _refreshReno = () => {
       if (typeof _renoUpdateSubtabCounts === 'function') _renoUpdateSubtabCounts();
     };
-    ['loadContractors','loadLenders','loadRealtors','loadAttorneys','loadUnderwrites'].forEach(fname => {
+    ['loadInspectors','loadContractors','loadLenders','loadRealtors','loadAttorneys','loadUnderwrites'].forEach(fname => {
       const fn = window[fname];
       if (typeof fn !== 'function') return;
       Promise.resolve(fn()).then(_refreshReno).catch(() => {});

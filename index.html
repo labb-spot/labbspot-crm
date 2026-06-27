@@ -23994,17 +23994,14 @@ function _hrComputeBudget(u) {
   const data = (u && u.data) || {};
   const sqft = parseFloat(String(data['uw-sqft'] || '0').replace(/,/g, '')) || 0;
   const cols = Array.isArray(data._rehab) ? data._rehab : [];
-  const actuals = (data._budgetActuals && typeof data._budgetActuals === 'object') ? data._budgetActuals : {};
   let baseRehab = 0, spent = 0;
   cols.forEach(col => (col.items || []).forEach(it => {
-    if (!it) return;
-    if (it.needed) baseRehab += (parseFloat(it.price) || 0) * sqft;
-    const key = (col.id || '') + '::' + (it.id || '');
-    const v = actuals[key];
-    if (v == null || v === '') return;
-    if (typeof v === 'number') spent += v;
-    else if (typeof v === 'object') spent += (parseFloat(v.material) || 0) + (parseFloat(v.labor) || 0);
+    if (it && it.needed) baseRehab += (parseFloat(it.price) || 0) * sqft;
   }));
+  // Spent comes from the Phase Timelines SPENT inputs (_scope_phases[].realSpent),
+  // matching the in-deal Budget Use bar.
+  const phases = Array.isArray(data._scope_phases) ? data._scope_phases : [];
+  phases.forEach(p => { const v = Number(p && p.realSpent); if (v > 0) spent += v; });
   // Mirror the rehab calculator's rehabFinal logic so the preview matches
   // what the user sees inside the calculator.
   const contPct  = parseFloat(String(data['uw-rehab-contingency-pct'] || '10').replace(/,/g, '')) || 0;

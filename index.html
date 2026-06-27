@@ -32868,14 +32868,22 @@ function renderUnderwriteList() {
   // when you want them but they don't inflate the headline count.
   const _showDroppedBtn = document.getElementById('uw-closed-show-dropped');
   const _showDropped    = _showDroppedBtn && _showDroppedBtn.getAttribute('data-active') === 'true';
+  // A deal routed to Renovation or Holdings is, by definition, a closed deal
+  // (you only route deals you actually closed on). Treat routing as a Closed
+  // signal so moving a property to Holdings never drops it from Finalized,
+  // even if its Offer Status field gets edited afterward.
+  const _isRouted = (u) => {
+    const hs = u && u.data && u.data._holdingStatus;
+    return hs === 'holding' || hs === 'renovation';
+  };
   const closedOnly = all.filter(u => {
     const os = _offerStatusOf(u);
-    return os === 'Closed' || (u.packet_status || '').trim() === 'Closed';
+    return os === 'Closed' || (u.packet_status || '').trim() === 'Closed' || _isRouted(u);
   });
   const closed = _showDropped
     ? all.filter(u => {
         const os = _offerStatusOf(u);
-        return os === 'Closed' || os === 'Dropped' || (u.packet_status || '').trim() === 'Closed';
+        return os === 'Closed' || os === 'Dropped' || (u.packet_status || '').trim() === 'Closed' || _isRouted(u);
       })
     : closedOnly;
   // Analyzed no longer excludes deals with an Offer Status — those deals

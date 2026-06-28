@@ -2950,19 +2950,19 @@
              aligns with whatever the tallest cell renders (Closed On's date
              input in H/R, otherwise just the displays themselves). Without
              this the displays cling to the top of a stretched row. -->
-        <!-- ARV − Asking is hidden in Holdings/Renovation; Closed On takes
-             its slot in the grid (defined right below). -->
-        <div id="uw-arv-asking-wrap" class="text-xs" style="display:flex;flex-direction:column;justify-content:center">ARV − Asking<div id="uw-arv-asking" class="font-mono mt-1" style="font-size:14px">—</div></div>
-        <!-- Closed On — only visible when the calculator is mounted in Holdings
-             or Renovation. Defaults to the date the property was added to
-             Renovation; user can change it any time. Sits in the same grid
-             slot as ARV − Asking when shown. -->
-        <label id="uw-closed-on-wrap" class="text-xs" style="display:none;flex-direction:column;justify-content:center">Closed On
-          <input type="date" id="uw-closed-on" style="width:100%;margin-top:4px;padding:5px 8px;background:var(--panel-2);border:1px solid var(--border);color:var(--text);border-radius:6px">
-        </label>
-        <div class="text-xs" style="display:flex;flex-direction:column;justify-content:center" title="Suggested opening offer — 75% of Max Offer. Leaves negotiation room while staying under your worst-case ceiling.">Suggested Offer<div id="uw-suggested" class="font-mono mt-1" style="font-size:14px;color:#3b82f6;font-weight:700">—</div></div>
-        <div class="text-xs" style="display:flex;flex-direction:column;justify-content:center" title="Highest price you can pay and still walk away with a $20,000 wholesale assignment fee (Cash Buyer's MAO − $20,000).">Max Offer<div id="uw-max" class="font-mono mt-1" style="font-size:14px;color:#10b981;font-weight:700">—</div></div>
-        <div class="text-xs" style="display:flex;flex-direction:column;justify-content:center" title="Commission = 15% × (Max Offer − Accepted Price). If Accepted Price is blank, Asking Price is used instead. Negative when accepted/asking is above max offer (deal is too expensive to assign with this fee).">Commission<div id="uw-commission" class="font-mono mt-1" style="font-size:14px;color:#3b82f6">—</div></div>
+        <!-- Closed On + ARV − Asking share one grid cell so the 4-col layout
+             stays intact. Both are always visible; Closed On comes first, ARV −
+             Asking after it. Closed On auto-fills the day a deal is set to Closed
+             (only if empty); editable anytime. -->
+        <div class="text-xs" style="display:flex;align-items:flex-start;gap:14px;min-width:0">
+          <label id="uw-closed-on-wrap" class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start;flex:0 0 auto">Closed On
+            <input type="date" id="uw-closed-on" onchange="if(typeof _uwQueueAutosave==='function')_uwQueueAutosave(true); if(typeof _uwTimelineUpdateBar==='function')_uwTimelineUpdateBar();" style="width:150px;margin-top:4px;padding:5px 8px;background:var(--panel-2);border:1px solid var(--border);color:var(--text);border-radius:6px">
+          </label>
+          <div id="uw-arv-asking-wrap" class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start;margin-left:auto;margin-right:auto">ARV − Asking<div id="uw-arv-asking" class="font-mono mt-1" style="font-size:14px">—</div></div>
+        </div>
+        <div class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start" title="Suggested opening offer — 75% of Max Offer. Leaves negotiation room while staying under your worst-case ceiling.">Suggested Offer<div id="uw-suggested" class="font-mono mt-1" style="font-size:14px;color:#3b82f6;font-weight:700">—</div></div>
+        <div class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start" title="Highest price you can pay and still walk away with a $20,000 wholesale assignment fee (Cash Buyer's MAO − $20,000).">Max Offer<div id="uw-max" class="font-mono mt-1" style="font-size:14px;color:#10b981;font-weight:700">—</div></div>
+        <div class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start" title="Commission = 15% × (Max Offer − Accepted Price). If Accepted Price is blank, Asking Price is used instead. Negative when accepted/asking is above max offer (deal is too expensive to assign with this fee).">Commission<div id="uw-commission" class="font-mono mt-1" style="font-size:14px;color:#3b82f6">—</div></div>
       </div>
     </div>
 
@@ -18152,6 +18152,17 @@ function uwSetOfferStatus(value) {
   const el = document.getElementById('uw-offer-status');
   if (!el) return;
   el.value = (el.value === value) ? '' : value;
+  // When a deal becomes Closed (added to Finalized), default Closed On to today
+  // if it isn't already set — "the date I added it" becomes the close date.
+  if (el.value === 'Closed') {
+    const cEl = document.getElementById('uw-closed-on');
+    if (cEl && !cEl.value) {
+      const d = new Date();
+      cEl.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+  }
+  // Show/hide the Closed On field for this deal based on the new status.
+  if (typeof _uwUpdateClosedOnVisibility === 'function') _uwUpdateClosedOnVisibility();
   // Fire change so the autosave / cascade listeners catch it.
   el.dispatchEvent(new Event('change', { bubbles: true }));
   _uwUpdateOfferStatusButtons();
@@ -18173,6 +18184,19 @@ function uwSetOfferStatus(value) {
   if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave(true);
 }
 window.uwSetOfferStatus = uwSetOfferStatus;
+
+// Show the "Closed On" date in place of ARV − Asking whenever the deal is
+// Closed/Finalized (or mounted in Holdings/Renovation). ARV − Asking is a
+// pre-purchase metric; once a deal is closed, the close date is what matters.
+function _uwUpdateClosedOnVisibility() {
+  // Closed On and ARV − Asking are both always visible now. This stays as a
+  // safety so neither gets left hidden by any older toggle path.
+  const arvWrap    = document.getElementById('uw-arv-asking-wrap');
+  const closedWrap = document.getElementById('uw-closed-on-wrap');
+  if (arvWrap)    arvWrap.style.display    = 'flex';
+  if (closedWrap) closedWrap.style.display = 'flex';
+}
+window._uwUpdateClosedOnVisibility = _uwUpdateClosedOnVisibility;
 
 // Rebuilds the deal header subtitle ("city, state zip · Status: X") from
 // whatever's currently in the cache + DOM. Pulled out as a helper so the
@@ -18462,6 +18486,8 @@ async function uwLoadById(id) {
   _uwCurrentId = id;
   // Update the prev/next navigator position for the section this deal is in.
   if (typeof _uwNavUpdate === 'function') _uwNavUpdate();
+  // Show Closed On for Finalized deals (replaces ARV − Asking).
+  if (typeof _uwUpdateClosedOnVisibility === 'function') _uwUpdateClosedOnVisibility();
   // Refresh per-comp implied ARV displays after data loads.
   if (typeof uwUpdateCompArv === 'function') uwUpdateCompArv();
   // Per-deal comps mode (Sold vs. Listed). The default for EVERY deal is
@@ -23982,13 +24008,7 @@ function _hrMountCalculator(targetSection) {
   // now — so showing the selector is confusing here.
   const stageSel = document.getElementById('uw-stage-selector');
   if (stageSel) stageSel.style.display = 'none';
-  // Swap ARV − Asking out for the editable Closed On date in Deal Status.
-  // Closed On is only relevant once the property is in Holdings/Renovation.
-  // Use 'flex' (not '') so the cell's vertical centering still applies.
-  const arvAskingWrap = document.getElementById('uw-arv-asking-wrap');
-  if (arvAskingWrap) arvAskingWrap.style.display = 'none';
-  const closedWrap = document.getElementById('uw-closed-on-wrap');
-  if (closedWrap) closedWrap.style.display = 'flex';
+  // Closed On + ARV − Asking are both always visible now (no swap).
   // Reveal the Renovation phase mover button group — only relevant from
   // Renovation context. The selector itself decides show vs hide based on
   // _holdingStatus, so calling it here keeps the button highlight in sync.
@@ -24019,12 +24039,7 @@ function _hrUnmountCalculator() {
   // back inside Underwriting.
   const stageSel = document.getElementById('uw-stage-selector');
   if (stageSel) stageSel.style.display = '';
-  // Hide Closed On and put ARV − Asking back in its slot for plain Underwriting.
-  // Use 'flex' (not '') so the cell's vertical centering still applies.
-  const closedWrap = document.getElementById('uw-closed-on-wrap');
-  if (closedWrap) closedWrap.style.display = 'none';
-  const arvAskingWrap = document.getElementById('uw-arv-asking-wrap');
-  if (arvAskingWrap) arvAskingWrap.style.display = 'flex';
+  // Closed On + ARV − Asking are both always visible now (no swap).
   // Hide the Renovation phase mover when leaving Holdings/Renovation context.
   const renoPhaseSel = document.getElementById('uw-reno-phase-selector');
   if (renoPhaseSel) renoPhaseSel.style.display = 'none';
@@ -24980,9 +24995,18 @@ function _uwApplyImpSort(arr, prefix) {
   const dir = _uwImpSort[prefix] || 'off';
   if (dir === 'off') return arr;
   const sign = dir === 'asc' ? 1 : -1;
+  // In the Finalized (closed) tab this column sorts by the Closed On date
+  // instead of the imported/created date — that's what matters for closed
+  // deals. Falls back to created_at when a deal has no closed date set.
+  const keyOf = (u) => {
+    if (prefix === 'closed') {
+      const c = (u && u.data && (u.data['uw-closed-on'] || u.data['uw-reno-start'])) || '';
+      if (c) return String(c);
+    }
+    return String((u && u.created_at) || '');
+  };
   return arr.slice().sort((a, b) => {
-    const av = String((a && a.created_at) || '');
-    const bv = String((b && b.created_at) || '');
+    const av = keyOf(a), bv = keyOf(b);
     if (av === bv) return 0;
     return av < bv ? -sign : sign;
   });
@@ -24994,7 +25018,8 @@ function _uwUpdateImpSortHeader(prefix) {
   const arrow = dir === 'desc' ? '↓' : dir === 'asc' ? '↑' : '';
   // Balanced layout: invisible spacer on left + text + reserved arrow on right.
   // Keeps "Imported" centered while placing the arrow right next to the text.
-  el.innerHTML = '<span style="display:inline-block;width:12px"></span>Imported<span style="display:inline-block;width:12px;text-align:left;margin-left:2px;color:#6366f1">' + arrow + '</span>';
+  const lbl = (prefix === 'closed') ? 'Closed' : 'Imported';
+  el.innerHTML = '<span style="display:inline-block;width:12px"></span>' + lbl + '<span style="display:inline-block;width:12px;text-align:left;margin-left:2px;color:#6366f1">' + arrow + '</span>';
   el.style.color = dir !== 'off' ? 'var(--text)' : '';
   el.style.fontWeight = dir !== 'off' ? '700' : '';
 }
@@ -33255,7 +33280,14 @@ function renderUnderwriteList() {
       <td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums;color:${parseFloat((u.data && u.data['uw-accepted']) || 0) > 0 ? '#10b981' : 'var(--text-dim)'};font-weight:${parseFloat((u.data && u.data['uw-accepted']) || 0) > 0 ? '600' : 'normal'}">${fmt$(parseFloat((u.data && u.data['uw-accepted']) || u.accepted || 0) || 0)}</td>
       <td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums;color:var(--text-dim)">${uwRenoBudgetCell(u)}</td>
       <td style="padding:8px 4px;vertical-align:middle;text-align:center">${uwThreePlaysHtml(u)}</td>
-      <td style="padding:8px 10px;text-align:left">${fmtImported(u.created_at)}</td>
+      <td style="padding:8px 10px;text-align:left">${(function(){
+        // For finalized (Closed) deals, show the Closed On date here instead of
+        // the imported date — matches the "Closed" column label + sort.
+        const cl = (u.data && (u.data['uw-closed-on'] || '')) || '';
+        const isFin = ((u.data && u.data['uw-offer-status']) === 'Closed') || ((u.packet_status || '').trim() === 'Closed');
+        const useCl = isFin && cl;
+        return fmtImported(useCl ? (cl.length === 10 ? cl + 'T00:00:00' : cl) : u.created_at);
+      })()}</td>
       <td style="padding:8px 10px;white-space:nowrap" onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%">
           <span style="flex:1;min-width:0;overflow:visible;text-align:right;padding-right:4px">${(function(){

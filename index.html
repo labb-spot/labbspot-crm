@@ -2765,12 +2765,15 @@
       <!-- Dispositions Remove button — only visible when this deal was opened from the Dispositions contracts grid. Clears dispo_contract + routes back. -->
       <button class="btn btn-ghost text-sm" id="uw-remove-dispo-btn" style="display:none;position:absolute;bottom:14px;right:14px;z-index:3;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromDispositions()" title="Remove this deal from Dispositions (clears the contract stage and returns you to the Dispositions section).">✕ Remove from Dispositions</button>
       <div class="flex items-start justify-between gap-3" style="flex-wrap:nowrap">
-        <div class="flex items-start gap-3" style="min-width:0;flex-shrink:1">
+        <div class="flex items-center gap-2" style="flex-shrink:0">
           <button class="btn btn-ghost text-sm" onclick="uwBackToList()" title="Back to the list" style="flex-shrink:0">← Back</button>
-          <div style="min-width:0">
-            <div class="font-semibold text-base" id="uw-detail-title">📐 Deal Calculator</div>
-            <div class="text-xs text-[var(--text-dim)]" id="uw-detail-subtitle">Single-property underwrite. Enter inputs, formulas auto-recalculate.</div>
-            <div id="uw-deal-age" class="text-xs mt-1" style="color:var(--text-dim)"></div>
+          <!-- Prev/Next navigator — sits next to Back; the address/title block
+               drops to its own line below so nothing gets squished. Hidden
+               until a captured list + position exist. -->
+          <div id="uw-deal-nav" style="display:none;align-items:center;gap:1px;flex-shrink:0;border:1px solid var(--border);border-radius:8px;overflow:hidden" title="Move through the deals in this list">
+            <button class="btn btn-ghost text-sm" id="uw-deal-nav-prev" onclick="uwNavPrev()" title="Previous deal in this list" style="padding:6px 11px;border:none;border-right:1px solid var(--border);border-radius:0;flex-shrink:0">◀</button>
+            <span id="uw-deal-nav-label" style="font-size:12px;color:var(--text-dim);white-space:nowrap;min-width:96px;text-align:center;font-variant-numeric:tabular-nums;padding:0 8px"></span>
+            <button class="btn btn-ghost text-sm" id="uw-deal-nav-next" onclick="uwNavNext()" title="Next deal in this list" style="padding:6px 11px;border:none;border-left:1px solid var(--border);border-radius:0;flex-shrink:0">▶</button>
           </div>
         </div>
         <div class="flex items-center gap-2" style="flex-wrap:nowrap;flex-shrink:0">
@@ -2813,6 +2816,13 @@
 
           <button class="btn btn-primary text-sm" onclick="uwSave(true)" style="white-space:nowrap;flex-shrink:0" title="Save now (auto-save also runs in the background a few seconds after each edit).">💾 Save Now</button>
         </div>
+      </div>
+      <!-- Address / title block — moved below the Back + navigator row so the
+           full address always has room and never gets squished by the nav. -->
+      <div style="min-width:0;margin-top:10px">
+        <div class="font-semibold text-base" id="uw-detail-title">📐 Deal Calculator</div>
+        <div class="text-xs text-[var(--text-dim)]" id="uw-detail-subtitle">Single-property underwrite. Enter inputs, formulas auto-recalculate.</div>
+        <div id="uw-deal-age" class="text-xs mt-1" style="color:var(--text-dim)"></div>
       </div>
       <!-- Row 2: Stage selector + Phase mover + Remove from Routing.
            Lives below the action buttons so the pills have room to spread out
@@ -17228,6 +17238,46 @@ async function uwSave(manual) {
     // let a check failure prevent a legitimate save from going through.
     try { console.warn('[autosave] wipe protection check failed:', e); } catch (_) {}
   }
+  // WIPE PROTECTION — GUARD 3: identity mismatch. The form's address differs
+  // from the record _uwCurrentId points to, AND that form address belongs to a
+  // DIFFERENT existing deal. That means the loaded deal id and the on-screen
+  // data are desynced (e.g. a fast prev/next navigation) — saving now would
+  // overwrite the wrong property's record (the bug that turned 824 Gibson into a
+  // duplicate 2530 S Roosevelt). Block it. Editing an address to a brand-new
+  // value that matches no other deal is unaffected.
+  try {
+    if (_uwCurrentId && cache.underwrites && cache.underwrites[_uwCurrentId]) {
+      const _norm = (s) => (typeof _uwNormalizeAddress === 'function') ? _uwNormalizeAddress(s) : String(s == null ? '' : s).trim().toLowerCase();
+      const _cachedRow  = cache.underwrites[_uwCurrentId];
+      const _cachedAddr = _norm(_cachedRow.address || (_cachedRow.data && _cachedRow.data['uw-address']) || '');
+      const _formAddr   = _norm(address);
+      if (_cachedAddr && _formAddr && _cachedAddr !== _formAddr) {
+        let _otherMatch = false;
+        for (const k in cache.underwrites) {
+          if (k === _uwCurrentId) continue;
+          const ex = cache.underwrites[k];
+          if (!ex || ex.deleted_at) continue;
+          if (_norm(ex.address || (ex.data && ex.data['uw-address']) || '') === _formAddr) { _otherMatch = true; break; }
+        }
+        if (_otherMatch) {
+          try { console.warn('[autosave] identity-mismatch guard blocked overwriting "' + _cachedAddr + '" with "' + _formAddr + '".'); } catch (_) {}
+          if (manual) {
+            const proceed = confirm(
+              'WARNING: This deal loaded as a different property than what\'s on screen now.\n\n' +
+              'Loaded record: ' + (_cachedRow.address || _cachedAddr) + '\n' +
+              'Form shows: ' + address + '\n\n' +
+              'Saving could overwrite the wrong deal. Click Cancel (recommended) and reopen the property.'
+            );
+            if (!proceed) { _uwSetSaveStatus('saved', _uwSavedAgoLabel()); return; }
+          } else {
+            if (typeof toast === 'function') toast('⚠ Auto-save blocked: deal identity mismatch — reopen the property.', 'warn');
+            _uwSetSaveStatus('saved', _uwSavedAgoLabel());
+            return;
+          }
+        }
+      }
+    }
+  } catch (e) { try { console.warn('[autosave] identity guard failed:', e); } catch (_) {} }
   // Parse profit from "$12,345" or "−$12,345"
   const cleanProfit = bestProfitText.replace(/[^\d.\-−]/g, '').replace('−', '-');
   const bestProfit = parseFloat(cleanProfit) || 0;
@@ -17346,9 +17396,31 @@ async function uwSave(manual) {
       }
       result = await sb.from('underwrites').update(payload).eq('id', _uwCurrentId).select().maybeSingle();
     } else {
-      payload.id = uid();
-      payload.created_at = new Date().toISOString();
-      result = await sb.from('underwrites').insert(payload).select().maybeSingle();
+      // Duplicate-insert guard: a save with no active deal id would normally
+      // INSERT a new row. Before doing that, check whether a non-deleted deal
+      // with the SAME normalized address already exists. If so, UPDATE it
+      // instead of spawning a duplicate property (the bug that produced 3
+      // identical rows in the Renovation list).
+      let _dupId = null;
+      try {
+        const _na = (typeof _uwNormalizeAddress === 'function') ? _uwNormalizeAddress(address) : '';
+        if (_na && cache.underwrites) {
+          for (const k in cache.underwrites) {
+            const ex = cache.underwrites[k];
+            if (!ex || ex.deleted_at) continue;
+            const exAddr = ex.address || (ex.data && ex.data['uw-address']) || '';
+            if ((typeof _uwNormalizeAddress === 'function') && _uwNormalizeAddress(exAddr) === _na) { _dupId = ex.id; break; }
+          }
+        }
+      } catch (_) {}
+      if (_dupId) {
+        _uwCurrentId = _dupId;
+        result = await sb.from('underwrites').update(payload).eq('id', _dupId).select().maybeSingle();
+      } else {
+        payload.id = uid();
+        payload.created_at = new Date().toISOString();
+        result = await sb.from('underwrites').insert(payload).select().maybeSingle();
+      }
     }
     if (result.error) {
       _uwSetSaveStatus('error', 'Save failed');
@@ -18388,6 +18460,8 @@ async function uwLoadById(id) {
   goUwView('calculator');
   _uwApply(u.data);
   _uwCurrentId = id;
+  // Update the prev/next navigator position for the section this deal is in.
+  if (typeof _uwNavUpdate === 'function') _uwNavUpdate();
   // Refresh per-comp implied ARV displays after data loads.
   if (typeof uwUpdateCompArv === 'function') uwUpdateCompArv();
   // Per-deal comps mode (Sold vs. Listed). The default for EVERY deal is
@@ -23797,6 +23871,84 @@ function _hrOpenDeal(id) {
 }
 window._hrOpenDeal = _hrOpenDeal;
 
+// ============================================================================
+// Deal navigator — prev/next within the originating subtab/section
+// ============================================================================
+// _uwNavOrder holds the full filtered+sorted deal-ID order for each list,
+// captured as each list renders (_uwPaginate for Underwriting subtabs;
+// renderRenovationList / renderHoldingsList for those sections). The navigator
+// figures out which list the open deal came from and lets the user step
+// through it without going back to the table.
+let _uwNavOrder = {};
+
+// Which captured list is the open deal browsing? Renovation/Holdings win when
+// the deal was opened from there; otherwise the last Underwriting subtab.
+function _uwNavActiveKey() {
+  // Dispositions context wins — the deal stays in Finalized, but while browsing
+  // from Dispositions the navigator should walk the dispo contracts list.
+  if (window._dispoReturnTo === 'dispositions') return 'dispo';
+  if (_hrLastSection === 'renovation') return 'renovation';
+  if (_hrLastSection === 'holdings')   return 'holding';
+  return _uwLastListView || 'all';
+}
+
+function _uwNavUpdate() {
+  const wrap  = document.getElementById('uw-deal-nav');
+  if (!wrap) return;
+  const label = document.getElementById('uw-deal-nav-label');
+  const prev  = document.getElementById('uw-deal-nav-prev');
+  const next  = document.getElementById('uw-deal-nav-next');
+  const key   = _uwNavActiveKey();
+  const list  = _uwNavOrder[key];
+  const idx   = (Array.isArray(list) && _uwCurrentId) ? list.indexOf(_uwCurrentId) : -1;
+  if (idx < 0 || !list.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'inline-flex';
+  const labels = {
+    all:'All', analyzing:'Analyzing', analyzed:'Analyzed', priority:'Priority',
+    checking:'Check', help:'Help', hot:'Hot', offered:'Offered',
+    inspection:'Inspection', contracted:'Contracted', closed:'Finalized',
+    renovation:'Renovation', holding:'Holdings', trash:'Trash'
+  };
+  let name = labels[key] || key;
+  // Dispositions: label with the active contract stage (New / Assigning / …).
+  if (key === 'dispo') {
+    const dv = (typeof _dispoActiveView !== 'undefined') ? _dispoActiveView : '';
+    const dispoLabels = { 'new-contract':'New', 'assigning-contract':'Assigning', 'hot-contract':'Hot', 'assigned-contract':'Assigned', 'dead-contract':'Dead' };
+    name = dispoLabels[dv] || 'Dispositions';
+  }
+  if (label) label.innerHTML = '<span style="color:var(--text);font-weight:600">' + name +
+    '</span> · ' + (idx + 1).toLocaleString() + ' of ' + list.length.toLocaleString();
+  if (prev) prev.disabled = (idx <= 0);
+  if (next) next.disabled = (idx >= list.length - 1);
+}
+window._uwNavUpdate = _uwNavUpdate;
+
+function _uwNavGo(delta) {
+  const key  = _uwNavActiveKey();
+  const list = _uwNavOrder[key];
+  if (!Array.isArray(list) || !list.length || !_uwCurrentId) return;
+  const idx = list.indexOf(_uwCurrentId);
+  if (idx < 0) return;
+  const ni = idx + delta;
+  if (ni < 0 || ni >= list.length) return;
+  const nextId = list[ni];
+  if (key === 'dispo') {
+    // Stay in Dispositions context: load the next contract and re-apply the
+    // dispo chrome (stage bar, subtab row) for the new deal.
+    window._dispoReturnTo = 'dispositions';
+    if (typeof uwLoadById === 'function') uwLoadById(nextId);
+    if (typeof uwToggleDispoStageBar === 'function') setTimeout(uwToggleDispoStageBar, 250);
+    return;
+  }
+  if (key === 'renovation' && typeof _hrOpenInCalculator === 'function') { _hrOpenInCalculator(nextId, 'renovation'); return; }
+  if (key === 'holding'    && typeof _hrOpenInCalculator === 'function') { _hrOpenInCalculator(nextId, 'holdings');   return; }
+  if (typeof uwLoadById === 'function') uwLoadById(nextId);
+}
+function uwNavPrev() { _uwNavGo(-1); }
+function uwNavNext() { _uwNavGo(1); }
+window.uwNavPrev = uwNavPrev;
+window.uwNavNext = uwNavNext;
+
 // ---------- Calculator mount/unmount in Holdings & Renovation ----------
 // The Underwriting calculator is a single, complex DOM subtree (#uwview-
 // calculator) with element IDs the calculator's JS depends on, so we can't
@@ -24257,6 +24409,8 @@ function renderHoldingsList() {
     if (empty) empty.style.display = 'none';
     tbody.innerHTML = rows.map(u => _hrRenderRow(u, 'holdings')).join('');
   }
+  _uwNavOrder['holding'] = rows.map(u => u && u.id).filter(Boolean);
+  if (typeof _uwNavUpdate === 'function') _uwNavUpdate();
 }
 window.renderHoldingsList = renderHoldingsList;
 
@@ -24292,6 +24446,8 @@ function renderRenovationList() {
     if (empty) empty.style.display = 'none';
     tbody.innerHTML = rows.map(u => _hrRenderRow(u, 'renovation')).join('');
   }
+  _uwNavOrder['renovation'] = rows.map(u => u && u.id).filter(Boolean);
+  if (typeof _uwNavUpdate === 'function') _uwNavUpdate();
 }
 window.renderRenovationList = renderRenovationList;
 
@@ -24667,6 +24823,9 @@ window._uwResetPage = _uwResetPage;
 // Slice a filtered+sorted array to the current page; clamps if filter
 // shrinks the result set below the current page index.
 function _uwPaginate(prefix, filtered) {
+  // Capture the FULL filtered+sorted order (pre-pagination) for this subtab so
+  // the in-deal prev/next navigator can walk every deal in the section.
+  _uwNavOrder[prefix] = filtered.map(u => u && u.id).filter(Boolean);
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / _UW_PAGE_SIZE));
   if ((_uwPage[prefix] || 1) > totalPages) _uwPage[prefix] = totalPages;
@@ -27558,6 +27717,9 @@ function buyerRenderContractsPanel() {
 
   // Sort by most-recently-updated first so the freshest contracts surface up top.
   all.sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
+  // Capture this contract list's order for the in-deal prev/next navigator.
+  _uwNavOrder['dispo'] = all.map(u => u && u.id).filter(Boolean);
+  if (typeof _uwNavUpdate === 'function') _uwNavUpdate();
 
   const rows = all.map(u => {
     const id = u.id;

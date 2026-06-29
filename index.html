@@ -4516,7 +4516,7 @@
     <div class="panel p-5">
       <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
         <div>
-          <div class="font-semibold text-lg"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection</div>
+          <div class="font-semibold text-lg"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection<span id="uw-photos-stats" style="display:none;margin-left:6px;vertical-align:3px"></span></div>
           <div id="uw-inspection-desc" class="text-sm text-[var(--text-dim)]">Deals in the inspection / due-diligence window — packet status is Inspection. Click any row to open the full property details + calculator.</div>
           <div style="display:inline-flex;gap:4px;margin-top:8px">
             <button id="uw-insp-mode-inspection" class="btn btn-primary text-xs" onclick="uwInspSetMode('inspection')" style="padding:6px 12px;white-space:nowrap" title="Deals whose Offer Status is Inspection (default).">📷 Inspection</button>
@@ -9588,35 +9588,10 @@ function uwBackToList() {
     if (typeof renderRenovationList === 'function') renderRenovationList();
     return;
   }
-  // Route to the deal's ACTUAL home subtab. Priority hierarchy:
-  //   1. Manual flags (Help / Priority / Checking) — these are mutually
-  //      exclusive workflow stages set by the user.
-  //   2. Offer status (Sent/Rejected → Offered, Inspection, Accepted/
-  //      Contracted/Pending → Contracted, Closed/Dropped → Finalized).
-  //   3. Last list view the user came from (so Back is sticky for non-
-  //      special deals).
-  //   4. Analyzing as a final fallback.
-  let _backView = _uwLastListView || 'analyzing';
-  try {
-    // First, the manual flags.
-    if (_uwNeedsHelp)       _backView = 'help';
-    else if (_uwIsPriority) _backView = 'priority';
-    else if (_uwInChecking) _backView = 'checking';
-    else {
-      // Then offer status — drives the cross-cutting Offered/Inspection/
-      // Contracted/Finalized tabs.
-      const _osEl = document.getElementById('uw-offer-status');
-      const _os   = (_osEl ? _osEl.value : '').trim();
-      if (_os === 'Sent' || _os === 'Rejected')   _backView = 'offered';
-      else if (_os === 'Inspection')              _backView = 'inspection';
-      else if (_os === 'Accepted' || _os === 'Contracted' || _os === 'Pending')
-                                                  _backView = 'contracted';
-      else if (_os === 'Closed' || _os === 'Dropped')
-                                                  _backView = 'closed';
-      // Otherwise the existing _uwLastListView fallback already set above
-      // covers Analyzing / Analyzed / All / Hot, etc.
-    }
-  } catch (e) { console.warn('[uwBackToList] route lookup failed:', e); }
+  // Return to the EXACT tab the user opened the deal from — never re-route
+  // based on the deal's status. _uwLastListView is set by goUwView every time a
+  // list tab is opened, so Back is always "go back where I was."
+  const _backView = _uwLastListView || 'analyzing';
   goUwView(_backView);
   renderUnderwriteList();
 }
@@ -33473,6 +33448,35 @@ function renderUnderwriteList() {
     const inSource = (inMode === 'photos')
       ? all.filter(u => String((u.data && u.data['uw-pics']) || '').trim() !== '')
       : inspection;
+    // Photo Folders header stats: of the photo-folder properties, how many are
+    // Offered / Contracted / Closed (mirrors the workflow-tab buckets).
+    const _pfStats = document.getElementById('uw-photos-stats');
+    if (_pfStats) {
+      if (inMode === 'photos') {
+        const total = inSource.length;
+        let nOff = 0, nCon = 0, nCl = 0;
+        // Any of these statuses means an offer was made → counts toward Offered.
+        const OFFERED_SET = new Set(['Sent', 'Rejected', 'Accepted', 'Contracted', 'Pending', 'Closed']);
+        inSource.forEach(u => {
+          const s = ((u.data && u.data['uw-offer-status']) || '').trim();
+          const isClosed     = s === 'Closed' || ((u.packet_status || '').trim() === 'Closed');
+          const isContracted = s === 'Accepted' || s === 'Contracted' || s === 'Pending';
+          if (isClosed) nCl++;
+          if (isContracted) nCon++;
+          // Offered is cumulative — Sent/Rejected/Accepted/Contracted/Pending/Closed all count.
+          if (OFFERED_SET.has(s) || isClosed) nOff++;
+        });
+        const T = total.toLocaleString();
+        const pill = (txt, bg, fg) => '<span style="font-size:12px;font-weight:600;padding:3px 11px;border-radius:999px;background:' + bg + ';color:' + fg + ';margin-left:6px">' + txt + '</span>';
+        _pfStats.innerHTML =
+          pill(nOff.toLocaleString() + '/' + T + ' Offered',     'rgba(99,102,241,0.15)', '#a5b4fc') +
+          pill(nCon.toLocaleString() + '/' + T + ' Contracted',  'rgba(245,158,11,0.15)', '#fbbf24') +
+          pill(nCl.toLocaleString()  + '/' + T + ' Closed',      'rgba(16,185,129,0.15)', '#34d399');
+        _pfStats.style.display = '';
+      } else {
+        _pfStats.style.display = 'none';
+      }
+    }
     const inFiltered = _uwApplyAllSorts(inSource.filter(u => {
       if (!inDateOk(u)) return false;
       if (!inSrcOk(u)) return false;

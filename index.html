@@ -16631,7 +16631,7 @@ function _uwCollect() {
       if (k.indexOf('_source') === 0 || k === '_priorityHandled' || k === '_holdingStatus' ||
           k === '_budgetActuals' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
           k === '_reno_phase_override' || k === '_compsMode' ||
-          k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_scopeQuotes' ||
+          k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_scopeQuotes' || k === '_taggedBuyers' ||
           // Geocode coordinates — written by _dispoGeocodeSubject directly
           // into u.data.lat/lng/geocoded_address (not form fields). Without
           // this preservation, the next autosave wipes them and the user
@@ -26674,6 +26674,34 @@ function _dispoScoreBuyerWithPurchases(buyer, deal, dealCoords, dealAttrs, opene
 }
 window._dispoScoreBuyerWithPurchases = _dispoScoreBuyerWithPurchases;
 
+// ---- Per-property buyer tagging ----------------------------------------
+// Tagged buyer IDs live on the deal's JSONB as data._taggedBuyers (an array).
+// Saved by updating ONLY this deal's row directly — never through uwSave — so
+// it can't collide with whatever deal the calculator has loaded.
+function _dispoGetTaggedSet(dealId) {
+  const u = (cache.underwrites || {})[dealId];
+  const arr = (u && u.data && Array.isArray(u.data._taggedBuyers)) ? u.data._taggedBuyers : [];
+  return new Set(arr);
+}
+function _dispoToggleTag(dealId, buyerId) {
+  const u = (cache.underwrites || {})[dealId];
+  if (!u) return;
+  if (!u.data) u.data = {};
+  const arr = Array.isArray(u.data._taggedBuyers) ? u.data._taggedBuyers.slice() : [];
+  const i = arr.indexOf(buyerId);
+  if (i >= 0) arr.splice(i, 1); else arr.push(buyerId);
+  u.data._taggedBuyers = arr;
+  // Re-render immediately for snappy feedback (cache already updated).
+  if (typeof window._dispoRenderDealBuyers === 'function') window._dispoRenderDealBuyers();
+  // Persist just this deal's data column in the background.
+  if (typeof sb !== 'undefined' && sb) {
+    sb.from('underwrites').update({ data: u.data }).eq('id', dealId).then(function (res) {
+      if (res && res.error) { console.warn('_dispoToggleTag save failed:', res.error); if (typeof toast === 'function') toast('Tag save failed: ' + (res.error.message || ''), 'err'); }
+    });
+  }
+}
+window._dispoToggleTag = _dispoToggleTag;
+
 function buyerRenderPerDealPanel() {
   const listEl = document.getElementById('dispo-perdeal-list');
   if (!listEl) return;
@@ -26785,8 +26813,10 @@ function buyerRenderPerDealPanel() {
       const offer    = String(flt.offer || '');
       const minScore = Number(flt.minScore) || 0;
       const active   = String(flt.active || '');
+      const taggedSet = _dispoGetTaggedSet(ctx.deal.id);
       const ranked = ctx.rankedAll.filter(r => {
         const b = r.b;
+        if (flt.taggedOnly && !taggedSet.has(b.id)) return false;
         if (minScore > 0 && (r.score || 0) < minScore) return false;
         if (active) {
           const bb = r.buyBox || (typeof getBuyerDerivedBuyBox === 'function' ? getBuyerDerivedBuyBox(b.id) : null);
@@ -26851,7 +26881,14 @@ function buyerRenderPerDealPanel() {
           + '</div>';
       };
 
-      const countLine = '<div style="font-size:11px;color:var(--text-dim);margin-bottom:10px">' + ranked.length + ' of ' + ctx.rankedAll.length + ' buyer' + (ctx.rankedAll.length === 1 ? '' : 's') + ' shown</div>';
+      const _taggedCount = ctx.rankedAll.filter(r => taggedSet.has(r.b.id)).length;
+      const _tgOn = !!flt.taggedOnly;
+      const countLine = '<div style="position:relative;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;min-height:28px">'
+        + '<span style="position:absolute;left:0;font-size:11px;color:var(--text-dim)">' + ranked.length + ' of ' + ctx.rankedAll.length + ' buyer' + (ctx.rankedAll.length === 1 ? '' : 's') + ' shown</span>'
+        + '<button type="button" onclick="window._dispoFilter=window._dispoFilter||{};window._dispoFilter.taggedOnly=!window._dispoFilter.taggedOnly;if(window._dispoRenderDealBuyers)window._dispoRenderDealBuyers();" '
+        +   'style="padding:5px 14px;font-size:12px;font-weight:700;border-radius:6px;cursor:pointer;white-space:nowrap;border:1px solid ' + (_tgOn ? '#10b981' : 'var(--border)') + ';background:' + (_tgOn ? 'rgba(16,185,129,0.18)' : 'transparent') + ';color:' + (_tgOn ? '#10b981' : 'var(--text-dim)') + '" '
+        +   'title="Show only buyers you\'ve tagged for this property">🏷 Tagged Buyers (' + _taggedCount + ')</button>'
+        + '</div>';
 
       // Special empty state: subject property has no lat/lng yet, so the
       // 50-mile filter can't run. Prompt the user to geocode before showing
@@ -26909,6 +26946,8 @@ function buyerRenderPerDealPanel() {
         const _milesLine = r.miles != null
           ? '<div style="font-size:11px;color:var(--text-dim);margin-top:3px">\u{1F4CD} Nearest purchase ' + r.miles.toFixed(2) + 'mi away' + (r.nearestPurchase && (r.nearestPurchase.sale_amount > 0) ? ' \u00B7 $' + Math.round(r.nearestPurchase.sale_amount).toLocaleString() : '') + '</div>'
           : '';
+        const _isTagged = taggedSet.has(b.id);
+        const tagBtn = '<button type="button" onclick="event.stopPropagation();_dispoToggleTag(\'' + ctx.esc(ctx.deal.id) + '\',\'' + ctx.esc(b.id) + '\')" title="' + (_isTagged ? 'Tagged for this property \u2014 click to untag' : 'Tag this buyer for this property') + '" style="margin-left:auto;padding:4px 9px;font-size:11px;font-weight:700;border-radius:6px;cursor:pointer;white-space:nowrap;flex-shrink:0;border:1px solid ' + (_isTagged ? '#10b981' : 'var(--border)') + ';background:' + (_isTagged ? 'rgba(16,185,129,0.18)' : 'transparent') + ';color:' + (_isTagged ? '#10b981' : 'var(--text-dim)') + '">' + (_isTagged ? '\uD83C\uDFF7 Tagged' : '\uD83C\uDFF7 Tag') + '</button>';
         return ''
           + '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px">'
           +   '<div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="buyerOpenAddModal(\'' + ctx.esc(b.id) + '\')" title="Click name to open this buyer">'
@@ -26922,6 +26961,7 @@ function buyerRenderPerDealPanel() {
           +     qChip
           +     acqChip
           +     (contactBits.length ? '<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;flex-shrink:0">' + contactBits.join(' \u00B7 ') + '</div>' : '')
+          +     tagBtn
           +   '</div>'
           // Per-component breakdown strip — 10 small pills, color-coded by % of max earned.
           // Hidden for fallback (no-purchase-data) buyers since all components would be 0.

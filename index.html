@@ -2272,11 +2272,12 @@
   <div class="panel p-5" style="border-left:3px solid #10b981;min-width:0;display:flex;flex-direction:column;height:650px">
     <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
       <div>
-        <div class="font-semibold text-lg">🎯 Best 2-Vendor Combo On Your Dials</div>
+        <div class="font-semibold text-lg" id="combo-title">🎯 Best 2-Vendor Combo On Your Dials</div>
         <div class="text-xs text-[var(--text-dim)]">For every pair of providers, how many of the phones you actually dialed at least one of the two had. "Slot 1 only" = vendor's primary guess. "Any slot" = vendor had the number anywhere in their list.</div>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         <label class="text-xs flex items-center gap-1" title="Slot-1 only = vendor's primary/first guess. Any slot = vendor had the number anywhere in their list.">Slot <select id="combo-slot-mode" style="width:140px;padding:3px 6px" onchange="renderBest2Combo()"><option value="1" selected>First phone</option><option value="2">First 2 phones</option><option value="3">First 3 phones</option><option value="any">Any slot</option></select></label>
+        <label class="text-xs flex items-center gap-1" title="How many vendors to combine in each group.">Vendors <select id="combo-size" style="width:60px;padding:3px 6px" onchange="renderBest2Combo()"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label>
         <label class="text-xs flex items-center gap-1">Top <select id="combo-top-n" style="width:70px;padding:3px 6px" onchange="renderBest2Combo()"><option value="5">5</option><option value="10">10</option><option value="20" selected>20</option><option value="0">All</option></select></label>
         <button class="btn btn-ghost text-sm" onclick="exportBest2Combo()">⬇ Export CSV</button>
       </div>
@@ -46526,33 +46527,35 @@ function computeBest2Combo() {
     }
   });
   const vendors = Object.keys(vendorSlot1Called).sort();
+  // How many vendors to combine in each group (1–5, default 2).
+  const comboSize = Math.max(1, Math.min(5, parseInt((document.getElementById('combo-size') || {}).value || '2', 10) || 2));
   const pairs = [];
-  for (let i = 0; i < vendors.length; i++) {
-    for (let j = i + 1; j < vendors.length; j++) {
-      const v1 = vendors[i], v2 = vendors[j];
-      const s1 = vendorSlot1Called[v1], s2 = vendorSlot1Called[v2];
+  // Generate every comboSize-combination of vendors; union their called-phone
+  // sets so "Combined" = unique phones at least one vendor in the group had.
+  const chosen = [];
+  const gen = (start) => {
+    if (chosen.length === comboSize) {
+      const names = chosen.slice();
+      const sets = names.map(n => vendorSlot1Called[n]);
       const union = new Set();
-      s1.forEach(n => union.add(n));
-      s2.forEach(n => union.add(n));
-      const inter = new Set();
-      s1.forEach(n => { if (s2.has(n)) inter.add(n); });
-      const motivatedHits = [...union].filter(n => motivatedCalledSet.has(n)).length;
+      sets.forEach(s => s.forEach(n => union.add(n)));
       const unionSize = union.size;
-      const pairMax = Math.max(s1.size, s2.size) || 1;
-      const diffPct = Math.round((1 - (inter.size / pairMax)) * 100);
+      const motivatedHits = [...union].filter(n => motivatedCalledSet.has(n)).length;
       pairs.push({
-        v1, v2,
+        vendorsList: names,
+        sizes: sets.map(s => s.size),
         slot1Combined: unionSize,
         motivatedHits,
         motivatedPct: unionSize ? Math.round(motivatedHits / unionSize * 100) : 0,
         coveragePct: calledSet.size ? Math.round(unionSize / calledSet.size * 100) : 0,
-        diffPct,
-        s1Size: s1.size, s2Size: s2.size, interSize: inter.size,
       });
+      return;
     }
-  }
+    for (let i = start; i < vendors.length; i++) { chosen.push(vendors[i]); gen(i + 1); chosen.pop(); }
+  };
+  if (vendors.length >= comboSize) gen(0);
   pairs.sort((a, b) => (b.slot1Combined - a.slot1Combined) || (b.motivatedHits - a.motivatedHits));
-  return { pairs, totalCalled: calledSet.size, totalMotivated: motivatedCalledSet.size, slotMode };
+  return { pairs, totalCalled: calledSet.size, totalMotivated: motivatedCalledSet.size, slotMode, comboSize };
 }
 
 function renderBest2Combo() {
@@ -46560,37 +46563,42 @@ function renderBest2Combo() {
   const summary = document.getElementById('combo-summary');
   if (!tbody) return;
   const topN = parseInt(document.getElementById('combo-top-n')?.value || '5', 10);
-  const { pairs, totalCalled, totalMotivated } = computeBest2Combo();
+  const { pairs, totalCalled, comboSize } = computeBest2Combo();
+  const K = comboSize || 2;
+  // Keep the title in sync with the selected combo size.
+  const titleEl = document.getElementById('combo-title');
+  if (titleEl) titleEl.textContent = '🎯 Best ' + K + '-Vendor Combo On Your Dials';
   if (!pairs.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-[var(--text-dim)] py-6">Need at least 2 vendors with matches on your called numbers.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-[var(--text-dim)] py-6">Need at least ' + K + ' vendor' + (K === 1 ? '' : 's') + ' with matches on your called numbers.</td></tr>';
     if (summary) summary.textContent = '—';
     return;
   }
   const effectiveN = (topN === 0) ? pairs.length : Math.min(topN, pairs.length);
-  if (summary) summary.textContent = `${pairs.length.toLocaleString()} vendor pairs evaluated across ${totalCalled.toLocaleString()} called phones — showing ${effectiveN === pairs.length ? 'all ' + effectiveN : 'top ' + effectiveN}`;
+  if (summary) summary.textContent = `${pairs.length.toLocaleString()} vendor ${K === 1 ? 'vendors' : 'combos'} evaluated across ${totalCalled.toLocaleString()} called phones — showing ${effectiveN === pairs.length ? 'all ' + effectiveN : 'top ' + effectiveN}`;
   tbody.innerHTML = pairs.slice(0, effectiveN).map((p, i) => {
-    const diffColor = p.diffPct >= 70 ? '#10b981' : p.diffPct >= 40 ? 'var(--brand)' : '#f59e0b';
-    const motColor = p.motivatedPct >= 5 ? '#10b981' : p.motivatedPct >= 2 ? 'var(--brand)' : 'var(--text-dim)';
     const rankBadge = i === 0 ? ' 🏆' : '';
+    const vendorsCell = p.vendorsList.map(v => '<span class="badge brand" style="margin:0 2px 2px 0;display:inline-block">' + escapeHtml(v) + '</span>').join('<span style="color:var(--text-dim)">+</span>');
+    const sub = p.sizes.join(' + ');
     return `<tr style="border-bottom:1px solid var(--border)${i===0?';background:rgba(16,185,129,0.06)':''}">
-      <td style="padding:6px 10px"><b>#${i+1}${rankBadge}</b></td>
-      <td style="padding:6px 10px"><span class="badge brand" style="margin-right:4px">${escapeHtml(p.v1)}</span>+<span class="badge brand" style="margin-left:4px">${escapeHtml(p.v2)}</span></td>
-      <td style="padding:6px 10px;text-align:right"><b>${p.slot1Combined.toLocaleString()}</b><div class="text-xs" style="color:var(--text-dim)">${p.s1Size}+${p.s2Size}−${p.interSize}</div></td>
-      <td style="padding:6px 10px;text-align:right"><b>${p.coveragePct}%</b></td>
+      <td style="padding:6px 10px;vertical-align:top"><b>#${i+1}${rankBadge}</b></td>
+      <td style="padding:6px 10px">${vendorsCell}</td>
+      <td style="padding:6px 10px;text-align:right;vertical-align:top"><b>${p.slot1Combined.toLocaleString()}</b><div class="text-xs" style="color:var(--text-dim)">${sub}</div></td>
+      <td style="padding:6px 10px;text-align:right;vertical-align:top"><b>${p.coveragePct}%</b></td>
     </tr>`;
   }).join('');
 }
 
 function exportBest2Combo() {
-  const { pairs } = computeBest2Combo();
+  const { pairs, comboSize } = computeBest2Combo();
   if (!pairs.length) { toast('No data', 'warn'); return; }
-  const headers = ['rank','vendor_a','vendor_b','combined','coverage_pct','a_size','b_size','overlap_size'];
-  const rows = pairs.map((p, i) => [i+1, p.v1, p.v2, p.slot1Combined, p.coveragePct + '%', p.s1Size, p.s2Size, p.interSize]);
+  const K = comboSize || 2;
+  const headers = ['rank','vendors','combined','coverage_pct','vendor_sizes'];
+  const rows = pairs.map((p, i) => [i+1, p.vendorsList.join(' + '), p.slot1Combined, p.coveragePct + '%', p.sizes.join(' / ')]);
   const csv = Papa.unparse([headers, ...rows]);
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url;
-  a.download = 'best-2-vendor-combo-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.download = 'best-' + K + '-vendor-combo-' + new Date().toISOString().slice(0,10) + '.csv';
   a.click(); URL.revokeObjectURL(url);
   toast('Exported', 'ok');
 }

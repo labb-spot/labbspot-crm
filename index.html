@@ -6052,6 +6052,7 @@
             <th style="padding:10px 12px;text-align:center">Expectations</th>
             <th style="padding:10px 12px;text-align:center" title="Have you copied the Dropbox folder to your master Dropbox?">Transferred</th>
             <th style="padding:10px 12px;text-align:center" title="Have you paid the photographer?">Paid</th>
+            <th style="padding:10px 12px;text-align:center" title="Have you paid your employee a bonus for this one?">Bonus</th>
             <th style="padding:10px 12px;text-align:left">Submitted</th>
             <th style="padding:10px 12px;text-align:center" title="Permanently delete this submission row from the database.">Delete</th>
           </tr>
@@ -35140,6 +35141,7 @@ function renderPhotoSubmissions() {
       + '</select>';
     const transToggle = '<input type="checkbox" onclick="event.stopPropagation()" onchange="togglePhotoField(\'' + rid + '\',\'transferred\',this.checked)"' + (r.transferred ? ' checked' : '') + ' style="width:18px;height:18px;accent-color:#a78bfa;cursor:pointer">';
     const paidToggle  = '<input type="checkbox" onclick="event.stopPropagation()" onchange="togglePhotoField(\'' + rid + '\',\'paid\',this.checked)"' + (r.paid ? ' checked' : '') + ' style="width:18px;height:18px;accent-color:#14b8a6;cursor:pointer">';
+    const bonusToggle = '<input type="checkbox" onclick="event.stopPropagation()" onchange="togglePhotoField(\'' + rid + '\',\'bonus\',this.checked)"' + (r.bonus ? ' checked' : '') + ' style="width:18px;height:18px;accent-color:#fbbf24;cursor:pointer">';
     return '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="openPhotoDrawer(\'' + rid + '\')" onmouseover="this.style.background=\'rgba(255,255,255,0.02)\'" onmouseout="this.style.background=\'\'">'
       + '<td style="padding:10px 12px">'
         + '<div style="display:flex;align-items:center;gap:6px">'
@@ -35159,6 +35161,7 @@ function renderPhotoSubmissions() {
       + '<td style="padding:10px 12px;text-align:center">' + expBadge + '</td>'
       + '<td style="padding:10px 12px;text-align:center">' + transToggle + '</td>'
       + '<td style="padding:10px 12px;text-align:center">' + paidToggle + '</td>'
+      + '<td style="padding:10px 12px;text-align:center">' + bonusToggle + '</td>'
       + '<td style="padding:10px 12px;font-size:12px">' + fmtDate(r.created_at || r.submitted_at) + '</td>'
       + '<td style="padding:10px 12px;text-align:center"><button onclick="event.stopPropagation();deletePhotoSubmission(\'' + rid + '\',\'' + esc(r.address).replace(/\'/g,"\\\\'") + '\')" title="Delete this submission" style="background:transparent;border:1px solid var(--border);color:#ef4444;cursor:pointer;padding:4px 9px;border-radius:6px;font-size:14px" onmouseover="this.style.background=\'rgba(239,68,68,0.15)\';this.style.borderColor=\'#ef4444\'" onmouseout="this.style.background=\'transparent\';this.style.borderColor=\'var(--border)\'">🗑</button></td>'
       + '</tr>';

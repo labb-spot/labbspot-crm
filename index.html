@@ -35117,12 +35117,12 @@ function renderPhotoSubmissions() {
     else if (days < 7)   ago = '<div style="color:#10b981;font-size:11px">' + days + ' days ago</div>';
     else if (days < 30)  ago = '<div style="color:#f59e0b;font-size:11px">' + days + ' days ago</div>';
     else                 ago = '<div style="color:#ef4444;font-size:11px">' + days + ' days ago</div>';
-    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ago;
+    return '<div style="white-space:nowrap;font-size:11px">' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</div>' + ago;
   };
 
   tbody.innerHTML = rows.map(r => {
     const rid = esc(r.id);
-    const dropbox = r.dropbox_url ? '<a href="' + esc(r.dropbox_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn btn-ghost text-xs" style="padding:4px 10px" title="Open the photographer\'s Dropbox folder in a new tab">📷 Open</a>' : '<span style="color:var(--text-dim);font-size:11px">no link</span>';
+    const dropbox = r.dropbox_url ? '<a href="' + esc(r.dropbox_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="btn btn-ghost text-xs" style="padding:4px 10px;white-space:nowrap" title="Open the photographer\'s Dropbox folder in a new tab">📷 Open</a>' : '<span style="color:var(--text-dim);font-size:11px">no link</span>';
     // Always render expectations as a select so the user can change it at
     // any time (was previously locked once a value was chosen). Background
     // tint reflects the current selection — green for Sufficient, red for

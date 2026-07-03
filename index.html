@@ -4172,25 +4172,16 @@
       <div class="font-semibold text-lg" style="display:flex;align-items:center;gap:8px">🔨 Contractor Quotes &amp; Bids</div>
       <div class="text-xs" style="color:var(--text-dim);margin-top:2px;margin-bottom:6px">Upload external quotes and send per-property bid sheets to contractors.</div>
 
-        <!-- External Contractor Quotes — file uploads saved per deal (data._scopeQuotes) -->
-        <div style="margin-top:12px">
-          <input id="uw-scope-quote-file" type="file" style="display:none" onchange="uwScopeUploadQuote()">
-          <div onclick="uwToggleQuotes(this)" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.35);border-left:4px solid #6366f1;border-radius:8px;padding:11px 14px">
-            <span style="font-size:12px;color:#a5b4fc;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">📎 External Contractor Quotes</span>
-            <div style="display:flex;align-items:center;gap:14px">
-              <button class="btn btn-primary text-sm" id="uw-scope-quote-btn" onclick="event.stopPropagation(); document.getElementById('uw-scope-quote-file').click()" title="Upload a contractor quote — you'll be asked to name it.">⬆ Upload Quote</button>
-              <span id="uw-quotes-caret" style="font-size:12px;font-weight:700;color:var(--text-dim)">▸ Show</span>
-            </div>
-          </div>
-          <div id="uw-quotes-body" style="display:none;margin-top:10px">
-            <div id="uw-scope-quotes-list" style="display:flex;flex-direction:column;gap:6px"></div>
-          </div>
+        <!-- 3-view toggle: Contractor Quote List (default) / Quote Comparisons / External Quotes -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 14px">
+          <button class="btn text-sm" id="uw-cq-tab-list" onclick="uwCqSetTab('list')" title="List of contractor quotes submitted for this property.">📋 Contractor Quote List</button>
+          <button class="btn btn-ghost text-sm" id="uw-cq-tab-compare" onclick="uwCqSetTab('compare')" title="Side-by-side comparison of the quotes, line by line.">📊 Quote Comparisons</button>
+          <button class="btn btn-ghost text-sm" id="uw-cq-tab-external" onclick="uwCqSetTab('external')" title="Upload external quote files saved to this deal.">📎 External Quotes</button>
         </div>
 
-        <!-- Contractor Bids — per-property bid sheet (bid_requests / bid_responses) -->
-        <div style="padding-top:14px;border-top:1px solid var(--border)">
-          <span style="display:block;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px">🔨 Contractor Bids</span>
-          <div id="uw-bid-hint" class="text-xs" style="color:var(--text-dim);margin-bottom:10px">Build a bid sheet from this property's rehab scope, then share a link so contractors can quote each line. Their quotes come back here side-by-side.</div>
+        <!-- Bid-sheet controls — used by the List + Comparison views (hidden on External). -->
+        <div id="uw-cq-bidcontrols">
+          <div id="uw-bid-hint" class="text-xs" style="color:var(--text-dim);margin-bottom:10px">Build a bid sheet from this property's rehab scope, then share a link so contractors can quote each line. Their quotes come back here.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
             <button class="btn btn-ghost text-sm" id="uw-bid-template-btn" onclick="uwBidManageTemplate()" title="Edit the standard line list that applies to every property (seeded from the Rehab catalog).">📋 Standard List</button>
             <button class="btn btn-ghost text-sm" id="uw-bid-status-btn" onclick="uwBidToggleStatus()" style="display:none" title="Push this bid sheet live for contractors, or take it down.">🚀 Push to Bid</button>
@@ -4201,9 +4192,39 @@
             </div>
           </div>
           <div id="uw-bid-editor" style="display:none"></div>
-          <div id="uw-bid-compare" style="display:none;margin-top:12px"></div>
         </div>
+
+        <!-- View 1: Contractor Quote List (default) -->
+        <div id="uw-cq-list-view" style="margin-top:6px"><div id="uw-bid-list"></div></div>
+        <!-- View 2: Quote Comparisons -->
+        <div id="uw-cq-compare-view" style="display:none"><div id="uw-bid-compare" style="margin-top:6px"></div></div>
+        <!-- View 3: External Quotes -->
+        <div id="uw-cq-external-view" style="display:none;margin-top:6px">
+          <input id="uw-scope-quote-file" type="file" style="display:none" onchange="uwScopeUploadQuote()">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.35);border-left:4px solid #6366f1;border-radius:8px;padding:11px 14px;margin-bottom:10px">
+            <span style="font-size:12px;color:#a5b4fc;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">📎 External Contractor Quotes</span>
+            <button class="btn btn-primary text-sm" id="uw-scope-quote-btn" onclick="document.getElementById('uw-scope-quote-file').click()" title="Upload a contractor quote — you'll be asked to name it.">⬆ Upload Quote</button>
+          </div>
+          <div id="uw-scope-quotes-list" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+
     </div><!-- /Contractor Quotes & Bids panel -->
+
+    <!-- Contractor Invoices — its OWN panel (Scope/Budget tab), a sibling of the
+         Contractor Quotes & Bids panel above. -->
+    <div class="panel p-5 mb-4" data-uw-section="contractor-invoices" data-uw-section-label="🧾 Contractor Invoices">
+      <div class="font-semibold text-lg" style="display:flex;align-items:center;gap:8px">🧾 Contractor Invoices</div>
+      <div class="text-xs" style="color:var(--text-dim);margin-top:2px;margin-bottom:6px">Send per-property invoice links to contractors and collect their submitted invoices.</div>
+      <div id="uw-inv-hint" class="text-xs" style="color:var(--text-dim);margin-bottom:10px">Push a live invoice link (built from this property's bid line items, or the standard list) so contractors can submit their invoice. Submitted invoices come back here.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <button class="btn btn-primary text-sm" id="uw-inv-status-btn" onclick="uwInvPushToggle()" title="Push this invoice sheet live for contractors, or take it down.">🚀 Push Invoice Live</button>
+        <button class="btn btn-ghost text-sm" id="uw-inv-refresh" onclick="uwInvLoadResponses(true)" style="display:none" title="Refresh contractor invoices.">🔁 Refresh Invoices</button>
+        <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost text-sm" id="uw-inv-copy-link" onclick="uwInvCopyLink()" style="display:none" title="Copy the contractor invoice link for this property.">🔗 Copy Invoice Link</button>
+        </div>
+      </div>
+      <div id="uw-inv-compare" style="display:none;margin-top:12px"></div>
+    </div><!-- /Contractor Invoices panel -->
 
   </div><!-- /uwview-calculator -->
 
@@ -5099,6 +5120,12 @@
        Always visible at the top of the Renovation section regardless of which
        subview (phase table, contractors, or lenders) is currently active. -->
   <div id="reno-top-nav" class="flex items-center gap-2 mb-4" style="flex-wrap:nowrap;min-width:0;overflow-x:auto">
+    <!-- Connections tab — far left. Opens the rolodex sub-nav and hides the
+         phase tabs so only the Connections views show. -->
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact active" id="reno-properties-pill" onclick="renoOpenProperties()" title="Properties — the renovation property table by phase.">🏠 Properties</div>
+      <div class="subtab subtab-compact" id="reno-connections-pill" data-reno-connections onclick="renoOpenConnections()" title="Connections — your rolodex of Inspectors, Contractors, Lenders, Agents, and Attorneys.">🔗 Connections</div>
+    </div>
     <!-- Phase subtabs — filter the renovation phase table by phase. Clicking
          any of these also switches the view back from contractors/lenders to phases. -->
     <div class="flex items-center gap-0 panel p-1" id="reno-subtabs" style="flex-shrink:1;min-width:0;width:fit-content;font-size:12px">
@@ -5109,12 +5136,17 @@
       <div class="subtab subtab-compact" data-reno-subtab="mechanicals"  onclick="setRenoSubtab('mechanicals')" title="Deals currently in mechanicals + exterior shell work (drain/supply/electrical, HVAC, roof, siding, windows, gutters).">⚙️ Mechanicals <span id="reno-count-mechanicals" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
       <div class="subtab subtab-compact" data-reno-subtab="cosmetics"    onclick="setRenoSubtab('cosmetics')" title="Deals currently in cosmetics (paint, flooring, fixtures, cabinets).">🎨 Cosmetics <span id="reno-count-cosmetics" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
       <div class="subtab subtab-compact" data-reno-subtab="punch-list"   onclick="setRenoSubtab('punch-list')" title="Deals currently in the final walkthrough / punch list.">✅ Punch List <span id="reno-count-punch-list" class="badge ok" style="margin-left:4px;font-size:10px">—</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="renovated"    onclick="setRenoSubtab('renovated')" title="Deals whose renovation timeline is complete — past the punch list.">🏁 Renovated <span id="reno-count-renovated" class="badge ok" style="margin-left:4px;font-size:10px">—</span></div>
     </div>
-    <!-- Resources panel — Contractors + Lenders + Agents + Attorneys + Buyers
-         pills, visually disconnected from the phase tabs. Placed AFTER the
-         phase tabs so the workflow pipeline reads left-to-right and the
-         rolodexes sit on the right. -->
-    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+    <!-- Properties sub-views — Bids + Invoices, a small distinct cluster after
+         the phase tabs. Visible in Properties mode; hidden under Connections. -->
+    <div id="reno-propviews" class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact" id="reno-bids-pill" onclick="renoOpenBids()" title="Bids across your renovation properties.">👷 Bids</div>
+      <div class="subtab subtab-compact" id="reno-invoices-pill" onclick="renoOpenInvoices()" title="Invoices across your renovation properties.">🧾 Invoices</div>
+    </div>
+    <!-- Connections sub-nav — rolodex pills, inline on THIS row after the phase
+         tabs. Shown only when Connections is active (phase tabs hide then). -->
+    <div id="reno-connections-subnav" class="flex items-center gap-0 panel p-1" style="display:none;flex-shrink:0;width:fit-content;font-size:12px">
       <div class="subtab subtab-compact" data-renoview="inspectors" onclick="setRenoView('inspectors')" title="Inspectors — your rolodex of property inspectors with per-service pricing and contact info.">🔍 Inspectors <span id="reno-count-inspectors" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
       <div class="subtab subtab-compact" data-renoview="contractors" onclick="setRenoView('contractors')" title="Contractors — your rolodex of trade vendors with ratings, prices, and contact info, organized in one place.">👷 Contractors <span id="reno-count-contractors" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
       <div class="subtab subtab-compact" data-renoview="lenders"     onclick="setRenoView('lenders')"     title="Lenders — your rolodex of banks, hard money sources, and private lenders with ratings, rates, and contact info.">🏦 Lenders <span id="reno-count-lenders" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
@@ -5163,6 +5195,90 @@
     </div>
   </div>
   </div><!-- /reno-table-wrap -->
+
+  <!-- Bids sub-view (Properties → 👷 Bids). Lists every contractor bid
+       submitted through the public bid form, with property + PDF. -->
+  <div id="reno-bids-wrap" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div>
+          <div class="font-semibold text-lg">👷 Bids</div>
+          <div class="text-sm text-[var(--text-dim)]">Every bid submitted through your contractor bid form — the property it came in for, and a printable PDF.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input id="reno-bids-search" placeholder="Search address / contractor…" oninput="renderRenoBids()" style="width:210px;min-width:150px">
+          <div class="flex items-center gap-0 panel p-1" style="width:fit-content;font-size:12px" title="Show all bids in one list, or grouped by property.">
+            <div class="subtab subtab-compact active" id="reno-bids-view-all" onclick="renoBidsSetGroup(false)">All</div>
+            <div class="subtab subtab-compact" id="reno-bids-view-prop" onclick="renoBidsSetGroup(true)">By Property</div>
+          </div>
+          <button class="btn btn-ghost text-sm" onclick="renderRenoBids(true)" title="Refresh bids from Supabase">🔁 Refresh</button>
+        </div>
+      </div>
+      <div id="reno-bids-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">No contractor bids submitted yet.</div>
+      <div class="overflow-auto" style="max-height:600px">
+        <table style="width:100%;font-size:13px">
+          <thead>
+            <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
+              <th style="padding:8px 10px;text-align:left">Address</th>
+              <th style="padding:8px 10px;text-align:left">Name</th>
+              <th style="padding:8px 10px;text-align:left">Company</th>
+              <th style="padding:8px 10px;text-align:center">Start</th>
+              <th style="padding:8px 10px;text-align:right">Total</th>
+              <th style="padding:8px 10px;text-align:center">Insured</th>
+              <th style="padding:8px 10px;text-align:center">Licensed</th>
+              <th style="padding:8px 10px;text-align:center">Submitted</th>
+              <th style="padding:8px 10px;text-align:center">Accepted</th>
+              <th style="padding:8px 10px;text-align:center">PDF</th>
+              <th style="padding:8px 10px;text-align:center">Accepting</th>
+              <th style="padding:8px 10px;text-align:center">Links</th>
+            </tr>
+          </thead>
+          <tbody id="reno-bids-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invoices sub-view (Properties → 🧾 Invoices). Lists every contractor
+       invoice submitted through the public invoice form, with property + PDF. -->
+  <div id="reno-invoices-wrap" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div>
+          <div class="font-semibold text-lg">🧾 Invoices</div>
+          <div class="text-sm text-[var(--text-dim)]">Every invoice submitted through your contractor invoice form — the property it came in for, and a printable PDF.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input id="reno-invoices-search" placeholder="Search address / contractor…" oninput="renderRenoInvoices()" style="width:210px;min-width:150px">
+          <div class="flex items-center gap-0 panel p-1" style="width:fit-content;font-size:12px" title="Show all invoices in one list, or grouped by property.">
+            <div class="subtab subtab-compact active" id="reno-invoices-view-all" onclick="renoInvoicesSetGroup(false)">All</div>
+            <div class="subtab subtab-compact" id="reno-invoices-view-prop" onclick="renoInvoicesSetGroup(true)">By Property</div>
+          </div>
+          <button class="btn btn-ghost text-sm" onclick="renderRenoInvoices(true)" title="Refresh invoices from Supabase">🔁 Refresh</button>
+        </div>
+      </div>
+      <div id="reno-invoices-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">No contractor invoices submitted yet.</div>
+      <div class="overflow-auto" style="max-height:600px">
+        <table style="width:100%;font-size:13px">
+          <thead>
+            <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
+              <th style="padding:8px 10px;text-align:left">Address</th>
+              <th style="padding:8px 10px;text-align:left">Name</th>
+              <th style="padding:8px 10px;text-align:left">Company</th>
+              <th style="padding:8px 10px;text-align:center">Status</th>
+              <th style="padding:8px 10px;text-align:right">Total</th>
+              <th style="padding:8px 10px;text-align:center">Insured</th>
+              <th style="padding:8px 10px;text-align:center">Licensed</th>
+              <th style="padding:8px 10px;text-align:center">Submitted</th>
+              <th style="padding:8px 10px;text-align:center">Paid</th>
+              <th style="padding:8px 10px;text-align:center">PDF</th>
+            </tr>
+          </thead>
+          <tbody id="reno-invoices-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
   <!-- Inspectors subview — your rolodex of property inspectors with per-service
        pricing. Hidden by default; setRenoView('inspectors') flips its display. -->
@@ -5695,6 +5811,7 @@
          zip / city / county match against an open deal (or a typed zip). -->
     <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
       <div class="subtab subtab-compact" data-dispoview="per-deal" onclick="setDispoView('per-deal')" title="Show buyers whose Cities / Counties / Zips list overlaps with a deal's zip code.">🎯 Per Deal</div>
+      <div class="subtab subtab-compact" data-dispoview="offers" onclick="setDispoView('offers')" title="Offers — coming soon.">💵 Offers</div>
     </div>
   </div>
   <!-- Per Deal panel — shown only when the 'per-deal' subview is active.
@@ -5712,6 +5829,11 @@
          auto-surface. Per Deal also auto-refreshes on buyer save/delete and
          when cache.underwrites finishes loading. -->
     <div id="dispo-perdeal-list"></div>
+  </div>
+  <!-- Offers panel — scaffold for now (blank). -->
+  <div id="dispo-offers-panel" class="panel p-5 mb-3" style="display:none">
+    <div style="font-size:18px;font-weight:700">💵 Offers</div>
+    <div class="text-sm text-[var(--text-dim)]" style="margin-top:4px">Coming soon.</div>
   </div>
   <!-- Contracts panel — shown when a contracts subview is active. Stays a
        placeholder until you wire it to the underwrites/contracts table; the
@@ -18013,6 +18135,7 @@ const _UW_SECTION_TAB = {
   'budget-overview':      'budget',
   'scope-of-work':        'budget',
   'contractor-bids':      'budget',
+  'contractor-invoices':  'budget',
   // 'scope-of-work' was merged into 'budget-overview' — no longer a separate
   // section, so it doesn't appear here.
 };
@@ -22801,6 +22924,8 @@ function uwRenderScopeOfWork() {
   if (typeof _uwRenderScopeQuotes === 'function') _uwRenderScopeQuotes();
   // Contractor bids section (per-property bid sheet + responses)
   if (typeof _uwRenderBidSection === 'function') _uwRenderBidSection();
+  // Contractor invoices section (per-property invoice sheet + responses)
+  if (typeof _uwRenderInvSection === 'function') _uwRenderInvSection();
   // Build item-to-phase map: walk every rehab item the user marked "needed"
   // and classify it into one of the standard phases.
   const itemsByPhaseId = { demo: [], planning: [], restructure: [], mechanicals: [], cosmetics: [], cabinetry: [], 'punch-list': [], marketing: [], repossession: [] };
@@ -23237,7 +23362,7 @@ const _uwBid = { byDeal: {}, draft: [], responses: {}, template: null, mode: 'de
 function _uwBidGenId(){ return 'l' + Math.random().toString(36).slice(2,9); }
 function _uwBidToken(){ return (Date.now().toString(36) + Math.random().toString(36).slice(2,10)); }
 
-const _UW_BID_FORM_URL = 'https://bidlabbllc.netlify.app/submit-bid.html';
+const _UW_BID_FORM_URL = 'https://submit.labbllc.com/bids';
 function _uwBidFormBase(){ return _UW_BID_FORM_URL; }
 
 async function _uwBidFetchForDeal(dealId){
@@ -23273,13 +23398,188 @@ async function _uwRenderBidSection(){
     if (hint) hint.innerHTML = live
       ? '<span style="color:#16a34a;font-weight:700">● Live</span> — accepting bids. Copy the contractor link to share, or take it down to stop.'
       : '<span style="color:var(--text-dim);font-weight:700">○ Down</span> — not accepting bids yet. Click 🚀 Push to Bid to make the link live.';
-    uwBidLoadResponses(false);
   } else {
     show(copyBtn,false); show(refBtn,false); show(statusBtn,false);
     if (hint) hint.textContent = "Build a bid sheet from the standard list, then push it live to share with contractors.";
   }
+  // Load responses once (renders both the List + Comparison into their
+  // containers), then apply the current view tab (default: Contractor Quote List).
+  if (typeof uwBidLoadResponses === 'function') uwBidLoadResponses(false);
+  if (typeof uwCqSetTab === 'function') uwCqSetTab(window._uwCqTab || 'list');
 }
 window._uwRenderBidSection = _uwRenderBidSection;
+
+// ============================================================================
+// Contractor Invoices — per-property, SEPARATE from bids. Uses the same line
+// items (this property's bid sheet, else the standard list) and posts to the
+// invoice_requests / invoice_responses tables via the submit-invoice form.
+// ============================================================================
+const _uwInv = { byDeal: {}, responses: {} };
+const _UW_INV_FORM_URL = 'https://submit.labbllc.com/invoices';
+
+async function _uwInvFetchForDeal(dealId){
+  if (!dealId) return null;
+  if (_uwInv.byDeal[dealId] !== undefined) return _uwInv.byDeal[dealId];
+  try {
+    const { data, error } = await sb.from('invoice_requests').select('*').eq('underwrite_id', dealId).maybeSingle();
+    if (error) throw error;
+    _uwInv.byDeal[dealId] = data || null;
+    return _uwInv.byDeal[dealId];
+  } catch(e){ console.warn('inv fetch:', e); _uwInv.byDeal[dealId] = null; return null; }
+}
+
+// Line items for the invoice = this property's bid sheet lines if built, else
+// the global standard list. Contractors can still add custom items on the form.
+async function _uwInvGetLines(dealId){
+  try {
+    const { data } = await sb.from('bid_requests').select('line_items').eq('underwrite_id', dealId).maybeSingle();
+    if (data && Array.isArray(data.line_items) && data.line_items.length) return data.line_items;
+  } catch(_){}
+  try { if (typeof loadBidTemplate === 'function'){ const t = await loadBidTemplate(); if (Array.isArray(t) && t.length) return t; } } catch(_){}
+  return [];
+}
+
+async function uwInvPushToggle(){
+  const dealId = _uwCurrentId;
+  if (!dealId){ if(typeof toast==='function') toast('Open a deal first.','warn'); return; }
+  const btn = document.getElementById('uw-inv-status-btn');
+  if (btn) btn.disabled = true;
+  try {
+    if (typeof sb==='undefined' || !sb) throw new Error('Supabase not ready');
+    let req = _uwInv.byDeal[dealId];
+    if (req === undefined) req = await _uwInvFetchForDeal(dealId);
+    if (!req){
+      const u = (cache.underwrites||{})[dealId] || {};
+      const addr = u.address || (u.data && u.data['uw-address']) || '';
+      const lines = await _uwInvGetLines(dealId);
+      let pics='', overview='';
+      const bidReq = _uwBid.byDeal[dealId] || (typeof _uwBidFetchForDeal==='function' ? await _uwBidFetchForDeal(dealId) : null);
+      if (bidReq){ pics = bidReq.pics_url||''; overview = bidReq.overview_notes||''; }
+      const payload = { underwrite_id: dealId, property_address: addr, line_items: lines, token: _uwBidToken(), status: 'open', pics_url: pics, overview_notes: overview };
+      const { data, error } = await sb.from('invoice_requests').insert(payload).select().single();
+      if (error) throw error;
+      _uwInv.byDeal[dealId] = data;
+      if (typeof toast==='function') toast('Invoice link is live — copy it to share with contractors.','ok');
+    } else {
+      const next = (req.status||'open')==='open' ? 'closed' : 'open';
+      const { data, error } = await sb.from('invoice_requests').update({ status: next }).eq('id', req.id).select().single();
+      if (error) throw error;
+      _uwInv.byDeal[dealId] = data;
+      if (typeof toast==='function') toast(next==='open' ? 'Invoice is live — copy the link to share.' : 'Invoice taken down.', 'ok');
+    }
+  } catch(e){ console.warn('uwInvPushToggle:', e); if(typeof toast==='function') toast('Failed: '+(e.message||e),'err'); }
+  finally { if (btn) btn.disabled = false; }
+  _uwRenderInvSection();
+}
+window.uwInvPushToggle = uwInvPushToggle;
+
+function uwInvCopyLink(){
+  const req = _uwInv.byDeal[_uwCurrentId];
+  if (!req || !req.token){ if(typeof toast==='function') toast('Push the invoice live first.','warn'); return; }
+  const url = _UW_INV_FORM_URL + '?token=' + encodeURIComponent(req.token);
+  const done = () => { if(typeof toast==='function') toast('Contractor invoice link copied.','ok'); };
+  if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(done).catch(()=>prompt('Copy this link:', url)); }
+  else { prompt('Copy this link:', url); }
+}
+window.uwInvCopyLink = uwInvCopyLink;
+
+async function uwInvLoadResponses(force){
+  const dealId = _uwCurrentId;
+  const req = _uwInv.byDeal[dealId];
+  const cmp = document.getElementById('uw-inv-compare');
+  if (!req){ if (cmp) cmp.style.display='none'; return; }
+  try {
+    const { data, error } = await sb.from('invoice_responses').select('*').eq('invoice_request_id', req.id).order('submitted_at', { ascending: true });
+    if (error) throw error;
+    _uwInv.responses[req.id] = data || [];
+    _uwRenderInvCompare(req, _uwInv.responses[req.id]);
+  } catch(e){ console.warn('uwInvLoadResponses:', e); }
+}
+window.uwInvLoadResponses = uwInvLoadResponses;
+
+function _uwRenderInvCompare(req, responses){
+  const cmp = document.getElementById('uw-inv-compare');
+  if (!cmp) return;
+  responses = responses || [];
+  const esc = (s)=>escapeHtml(String(s==null?'':s));
+  const money = (n)=>'$'+(Math.round(parseFloat(n)||0)).toLocaleString();
+  const yn = (v)=>{ const s=String(v||'').trim().toLowerCase(); if(s==='yes')return '<span style="color:#16a34a;font-weight:700">Yes</span>'; if(s==='no')return '<span style="color:#ef4444;font-weight:700">No</span>'; return '<span style="color:var(--text-dim)">'+esc(v||'—')+'</span>'; };
+  cmp.style.display='';
+  if (!responses.length){ cmp.innerHTML='<div class="text-xs" style="color:var(--text-dim);padding:8px 0">No invoices submitted for this property yet.</div>'; return; }
+  const rows = responses.map(resp => {
+    let tot = resp.total;
+    if (tot == null){ tot=0; const lq=resp.line_quotes||{}; Object.keys(lq).forEach(k=>{const q=lq[k]; if(q&&q.interested){const u=parseFloat(q.units)||0,la=parseFloat(q.labor)||0,m=parseFloat(q.material)||0,qy=u>0?u:1; tot+=parseFloat(q.total!=null?q.total:q.price)||(qy*(la+m));}}); }
+    let dt='—'; try { if (resp.submitted_at) dt=new Date(resp.submitted_at).toLocaleDateString(); } catch(_){}
+    return '<tr style="border-bottom:1px solid var(--border)">'
+      + '<td style="padding:6px 8px">' + esc(resp.contractor_name||'—') + '</td>'
+      + '<td style="padding:6px 8px;font-weight:600">' + esc(resp.contractor_company||resp.contractor_name||'—') + '</td>'
+      + '<td style="padding:6px 8px;text-align:center">' + (resp.contractor_start?esc(resp.contractor_start):'—') + '</td>'
+      + '<td style="padding:6px 8px;text-align:right;font-weight:700">' + money(tot) + '</td>'
+      + '<td style="padding:6px 8px;text-align:center">' + yn(resp.contractor_insured) + '</td>'
+      + '<td style="padding:6px 8px;text-align:center">' + yn(resp.contractor_licensed) + '</td>'
+      + '<td style="padding:6px 8px;text-align:center;font-size:11px;color:var(--text-dim)">' + esc(dt) + '</td>'
+      + '<td style="padding:6px 8px;text-align:center"><input type="checkbox" ' + (resp.paid?'checked ':'') + 'onchange="uwInvTogglePaid(\'' + esc(resp.id) + '\',this.checked)" style="width:16px;height:16px;accent-color:#14b8a6;cursor:pointer" title="Mark paid"></td>'
+      + '<td style="padding:6px 8px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ea580c;padding:2px 7px" onclick="uwInvPrint(\'' + esc(resp.id) + '\')" title="PDF">📄</button></td>'
+      + '<td style="padding:6px 8px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ef4444;padding:2px 7px" onclick="uwInvDeleteResponse(\'' + esc(resp.id) + '\')" title="Remove">✕</button></td>'
+      + '</tr>';
+  }).join('');
+  cmp.innerHTML = '<div style="overflow:auto"><table style="width:100%;font-size:12px"><thead><tr style="color:var(--text-dim);text-transform:uppercase;font-size:10px;border-bottom:1px solid var(--border)">'
+    + '<th style="padding:6px 8px;text-align:left">Name</th><th style="padding:6px 8px;text-align:left">Company</th><th style="padding:6px 8px;text-align:center">Status</th><th style="padding:6px 8px;text-align:right">Total</th><th style="padding:6px 8px;text-align:center">Ins</th><th style="padding:6px 8px;text-align:center">Lic</th><th style="padding:6px 8px;text-align:center">Submitted</th><th style="padding:6px 8px;text-align:center">Paid</th><th style="padding:6px 8px;text-align:center">PDF</th><th style="padding:6px 8px;text-align:center"></th>'
+    + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+
+function uwInvPrint(id){
+  const req = _uwInv.byDeal[_uwCurrentId];
+  if (!req) return;
+  const resp = ((_uwInv.responses[req.id]) || []).find(r => r.id === id);
+  if (!resp) return;
+  if (typeof _uwBidOpenPrint === 'function') _uwBidOpenPrint(req, resp, 'Invoice');
+}
+window.uwInvPrint = uwInvPrint;
+
+async function uwInvTogglePaid(id, val){
+  const req = _uwInv.byDeal[_uwCurrentId];
+  const list = req && _uwInv.responses[req.id];
+  const resp = list && list.find(r => r.id === id);
+  if (resp) resp.paid = val;
+  try { const { error } = await sb.from('invoice_responses').update({ paid: val }).eq('id', id); if (error) throw error; }
+  catch(e){ console.warn('uwInvTogglePaid:', e); if (resp) resp.paid = !val; if(typeof toast==='function') toast('Paid save failed','err'); uwInvLoadResponses(true); }
+}
+window.uwInvTogglePaid = uwInvTogglePaid;
+
+async function uwInvDeleteResponse(id){
+  if (!confirm('Remove this invoice submission?')) return;
+  try { const { error } = await sb.from('invoice_responses').delete().eq('id', id); if (error) throw error; uwInvLoadResponses(true); }
+  catch(e){ console.warn('uwInvDeleteResponse:', e); if(typeof toast==='function') toast('Delete failed','err'); }
+}
+window.uwInvDeleteResponse = uwInvDeleteResponse;
+
+async function _uwRenderInvSection(){
+  const statusBtn = document.getElementById('uw-inv-status-btn');
+  const copyBtn = document.getElementById('uw-inv-copy-link');
+  const refBtn = document.getElementById('uw-inv-refresh');
+  const hint = document.getElementById('uw-inv-hint');
+  if (!statusBtn) return;
+  const dealId = _uwCurrentId;
+  const show = (el,v)=>{ if(el) el.style.display = v?'':'none'; };
+  const cmp = document.getElementById('uw-inv-compare'); if (cmp) cmp.style.display='none';
+  if (!dealId){ show(copyBtn,false); show(refBtn,false); statusBtn.textContent='🚀 Push Invoice Live'; return; }
+  const req = await _uwInvFetchForDeal(dealId);
+  if (req){
+    const live = (req.status||'open') === 'open';
+    statusBtn.textContent = live ? '⬇ Take Down Invoice' : '🚀 Push Invoice Live';
+    show(copyBtn, live); show(refBtn, true);
+    if (hint) hint.innerHTML = live
+      ? '<span style="color:#16a34a;font-weight:700">● Live</span> — accepting invoices. Copy the contractor link to share, or take it down.'
+      : '<span style="color:var(--text-dim);font-weight:700">○ Down</span> — click 🚀 Push Invoice Live to share the link.';
+    uwInvLoadResponses(false);
+  } else {
+    show(copyBtn,false); show(refBtn,false);
+    statusBtn.textContent = '🚀 Push Invoice Live';
+    if (hint) hint.textContent = 'Push a live invoice link so contractors can submit their invoice for this property.';
+  }
+}
+window._uwRenderInvSection = _uwRenderInvSection;
 
 // ---- Standard (master) bid line template — global, reused on every property ----
 async function loadBidTemplate(force){
@@ -23304,6 +23604,9 @@ function _uwBidLinesFromCatalog(){
 }
 
 async function uwBidManageTemplate(){
+  // Toggle: if the Standard List editor is already open, clicking again closes it.
+  const _ed = document.getElementById('uw-bid-editor');
+  if (_ed && _ed.style.display !== 'none' && _uwBid.mode === 'template'){ _ed.style.display = 'none'; return; }
   await loadBidTemplate(true);
   let lines = (_uwBid.template && _uwBid.template.length) ? _uwBid.template : _uwBidLinesFromCatalog();
   _uwBid.draft = lines.map(l => ({ id: l.id||_uwBidGenId(), room: l.room||'Other', description: l.description||'' }));
@@ -23558,16 +23861,89 @@ window.uwBidToggleStatus = uwBidToggleStatus;
 async function uwBidLoadResponses(force){
   const dealId = _uwCurrentId;
   const req = _uwBid.byDeal[dealId];
-  const wrap = document.getElementById('uw-bid-compare');
-  if (!wrap || !req || !req.id){ if(wrap) wrap.style.display='none'; return; }
+  if (!req || !req.id){
+    const c = document.getElementById('uw-bid-compare'); if (c) c.style.display='none';
+    const l = document.getElementById('uw-bid-list'); if (l) l.innerHTML = '<div class="text-xs" style="color:var(--text-dim);padding:8px 0">Build a bid sheet and push it live to start collecting contractor quotes.</div>';
+    return;
+  }
   try {
     const { data, error } = await sb.from('bid_responses').select('*').eq('bid_request_id', req.id).order('submitted_at', { ascending: true });
     if (error) throw error;
     _uwBid.responses[req.id] = data || [];
     _uwRenderBidCompare(req, _uwBid.responses[req.id]);
+    if (typeof _uwRenderBidList === 'function') _uwRenderBidList(req, _uwBid.responses[req.id]);
   } catch(e){ console.warn('bid responses:', e); }
 }
 window.uwBidLoadResponses = uwBidLoadResponses;
+
+// Switch the Contractor Quotes & Bids panel between its three views.
+function uwCqSetTab(tab){
+  window._uwCqTab = (tab === 'compare' || tab === 'external') ? tab : 'list';
+  tab = window._uwCqTab;
+  const setBtn = (id, on) => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.className = 'btn text-sm';
+    b.style.border = on ? '2px solid #6366f1' : '2px solid var(--border)';
+    b.style.background = on ? 'rgba(99,102,241,0.20)' : 'transparent';
+    b.style.color = on ? '#c7d2fe' : 'var(--text-dim)';
+    b.style.fontWeight = '700'; // constant — don't resize text between states
+    b.style.boxShadow = on ? '0 0 0 3px rgba(99,102,241,0.15)' : 'none';
+  };
+  setBtn('uw-cq-tab-list', tab === 'list');
+  setBtn('uw-cq-tab-compare', tab === 'compare');
+  setBtn('uw-cq-tab-external', tab === 'external');
+  const show = (id, v) => { const e = document.getElementById(id); if (e) e.style.display = v ? '' : 'none'; };
+  show('uw-cq-bidcontrols', tab !== 'external');
+  show('uw-cq-list-view', tab === 'list');
+  show('uw-cq-compare-view', tab === 'compare');
+  show('uw-cq-external-view', tab === 'external');
+  if (tab === 'external' && typeof _uwRenderScopeQuotes === 'function') _uwRenderScopeQuotes();
+  // List + Comparison content is already rendered (on deal load / Refresh), so
+  // switching tabs just toggles visibility — no refetch, no flicker.
+}
+window.uwCqSetTab = uwCqSetTab;
+
+// Contractor Quote List — this property's submitted quotes in a compact table.
+function _uwRenderBidList(req, responses){
+  const el = document.getElementById('uw-bid-list');
+  if (!el) return;
+  responses = responses || [];
+  const esc = (s)=>escapeHtml(String(s==null?'':s));
+  const money = (n)=>'$'+(Math.round(parseFloat(n)||0)).toLocaleString();
+  const yn = (v)=>{ const s=String(v||'').trim().toLowerCase(); if(s==='yes')return '<span style="color:#16a34a;font-weight:700">Yes</span>'; if(s==='no')return '<span style="color:#ef4444;font-weight:700">No</span>'; return '<span style="color:var(--text-dim)">'+esc(v||'—')+'</span>'; };
+  if (!responses.length){ el.innerHTML = '<div class="text-xs" style="color:var(--text-dim);padding:8px 0">No contractor quotes submitted for this property yet.</div>'; return; }
+  const compTot = (resp)=>{ let t=resp.total; if(t==null){ t=0; const lq=resp.line_quotes||{}; Object.keys(lq).forEach(k=>{const q=lq[k]; if(q&&q.interested){const u=parseFloat(q.units)||0,la=parseFloat(q.labor)||0,m=parseFloat(q.material)||0,qy=u>0?u:1; t+=parseFloat(q.total!=null?q.total:q.price)||(qy*(la+m));}}); } return t; };
+  const rows = responses.map(resp => {
+    let dt='—'; try { if (resp.submitted_at) dt=new Date(resp.submitted_at).toLocaleDateString(); } catch(_){}
+    return '<tr style="border-bottom:1px solid var(--border)">'
+      + '<td style="padding:6px 8px">' + esc(resp.contractor_name||'—') + '</td>'
+      + '<td style="padding:6px 8px;font-weight:600">' + esc(resp.contractor_company||resp.contractor_name||'—') + '</td>'
+      + '<td style="padding:6px 8px;text-align:center">' + (resp.contractor_start?esc(resp.contractor_start):'—') + '</td>'
+      + '<td style="padding:6px 8px;text-align:right;font-weight:700">' + money(compTot(resp)) + '</td>'
+      + '<td style="padding:6px 8px;text-align:center">' + yn(resp.contractor_insured) + '</td>'
+      + '<td style="padding:6px 8px;text-align:center">' + yn(resp.contractor_licensed) + '</td>'
+      + '<td style="padding:6px 8px;text-align:center;font-size:11px;color:var(--text-dim)">' + esc(dt) + '</td>'
+      + '<td style="padding:6px 8px;text-align:center"><input type="checkbox" ' + (resp.accepted?'checked ':'') + 'onchange="uwBidListToggleAccepted(\'' + esc(resp.id) + '\',this.checked)" style="width:16px;height:16px;accent-color:#16a34a;cursor:pointer" title="Mark accepted"></td>'
+      + '<td style="padding:6px 8px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ea580c;padding:2px 7px" onclick="uwBidPrintResponse(\'' + esc(resp.id) + '\')" title="PDF">📄</button></td>'
+      + '<td style="padding:6px 8px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ef4444;padding:2px 7px" onclick="uwBidDeleteResponse(\'' + esc(resp.id) + '\')" title="Remove">✕</button></td>'
+      + '</tr>';
+  }).join('');
+  el.innerHTML = '<div style="overflow:auto"><table style="width:100%;font-size:12px"><thead><tr style="color:var(--text-dim);text-transform:uppercase;font-size:10px;border-bottom:1px solid var(--border)">'
+    + '<th style="padding:6px 8px;text-align:left">Name</th><th style="padding:6px 8px;text-align:left">Company</th><th style="padding:6px 8px;text-align:center">Start</th><th style="padding:6px 8px;text-align:right">Total</th><th style="padding:6px 8px;text-align:center">Ins</th><th style="padding:6px 8px;text-align:center">Lic</th><th style="padding:6px 8px;text-align:center">Submitted</th><th style="padding:6px 8px;text-align:center">Accepted</th><th style="padding:6px 8px;text-align:center">PDF</th><th style="padding:6px 8px;text-align:center"></th>'
+    + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+window._uwRenderBidList = _uwRenderBidList;
+
+async function uwBidListToggleAccepted(id, val){
+  const req = _uwBid.byDeal[_uwCurrentId];
+  const list = req && _uwBid.responses[req.id];
+  const resp = list && list.find(r => r.id === id);
+  if (resp) resp.accepted = val;
+  try { const { error } = await sb.from('bid_responses').update({ accepted: val }).eq('id', id); if (error) throw error; }
+  catch(e){ console.warn('uwBidListToggleAccepted:', e); if (resp) resp.accepted = !val; if(typeof toast==='function') toast('Save failed','err'); uwBidLoadResponses(true); }
+}
+window.uwBidListToggleAccepted = uwBidListToggleAccepted;
 
 function _uwRenderBidCompare(req, responses){
   const wrap = document.getElementById('uw-bid-compare');
@@ -23680,12 +24056,9 @@ async function uwBidDeleteResponse(id){
 }
 window.uwBidDeleteResponse = uwBidDeleteResponse;
 
-function uwBidPrintResponse(id){
-  const dealId = _uwCurrentId;
-  const req = _uwBid.byDeal[dealId];
-  if (!req) return;
-  const resp = ((_uwBid.responses[req.id]) || []).find(r => r.id === id);
-  if (!resp) return;
+function _uwBidOpenPrint(req, resp, kind){
+  if (!req || !resp) return;
+  const _kind = kind || 'Bid';
   const lines = Array.isArray(req.line_items) ? req.line_items : [];
   const lq = resp.line_quotes || {};
   const esc = (s) => escapeHtml(String(s == null ? '' : s));
@@ -23722,21 +24095,34 @@ function uwBidPrintResponse(id){
   if (resp.contractor_bidscope) info.push('Scope: ' + esc(resp.contractor_bidscope));
   if (resp.contractor_start) info.push('Start: ' + esc(resp.contractor_start));
   const overview = req.overview_notes ? '<div class="ov"><b>Property Overview</b><br>' + esc(req.overview_notes).replace(/\n/g, '<br>') + '</div>' : '';
-  const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bid — ' + esc(who) + '</title>' +
-    '<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1c1917;margin:28px;font-size:13px}h1{font-size:20px;margin:0 0 2px}.sub{color:#666;font-size:13px;margin:0 0 4px}.info{font-size:12px;color:#333;margin:6px 0 14px}.ov{background:#f6f4ef;border:1px solid #e6e2d8;border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;line-height:1.5}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border-bottom:1px solid #e6e2d8;padding:6px 8px;text-align:left;font-size:12px}th{background:#f3efe7;font-size:10px;text-transform:uppercase;letter-spacing:.4px}td.n{text-align:right}td.b{font-weight:700}.room{background:#fff7ed;color:#c2410c;font-weight:700;font-size:10px;text-transform:uppercase}.tot{margin-top:14px;display:flex;gap:22px;flex-wrap:wrap;font-size:13px}.tot b{font-size:16px}@media print{body{margin:12px}.noprint{display:none!important}}</style></head><body>' +
-    '<div class="noprint" style="margin-bottom:16px"><button onclick="window.print()" style="font-family:inherit;font-size:14px;font-weight:700;background:#ea580c;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer">📄 Download / Print this bid</button></div>' +
-    '<h1>Contractor Bid — ' + esc(who) + '</h1>' +
+  const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + _kind + ' — ' + esc(who) + '</title>' +
+    '<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1c1917;margin:28px;font-size:13px}h1{font-size:20px;margin:0 0 2px}.sub{color:#666;font-size:13px;margin:0 0 4px}.info{font-size:12px;color:#333;margin:6px 0 14px}.ov{background:#f6f4ef;border:1px solid #e6e2d8;border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;line-height:1.5}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border-bottom:1px solid #e6e2d8;padding:6px 8px;text-align:left;font-size:12px}th{background:#f3efe7;font-size:10px;text-transform:uppercase;letter-spacing:.4px}td.n{text-align:right}td.b{font-weight:700}.room{background:#fff7ed;color:#c2410c;font-weight:700;font-size:10px;text-transform:uppercase}.tot{margin-top:14px;display:flex;gap:22px;flex-wrap:wrap;font-size:13px}.tot b{font-size:16px}.sigs{display:flex;gap:48px;margin-top:46px;flex-wrap:wrap}.sig{flex:1;min-width:240px}.sig .who{font-size:12px;font-weight:700;margin-bottom:2px}.sig .ln{border-bottom:1px solid #1c1917;height:34px;margin-top:14px}.sig .lbl{font-size:11px;color:#666;margin-top:3px}@media print{body{margin:12px}.noprint{display:none!important}}</style></head><body>' +
+    '<div class="noprint" style="margin-bottom:16px"><button onclick="window.print()" style="font-family:inherit;font-size:14px;font-weight:700;background:#ea580c;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer">📄 Download / Print this ' + _kind.toLowerCase() + '</button></div>' +
+    '<h1>Contractor ' + _kind + ' — ' + esc(who) + '</h1>' +
     '<div class="sub">' + esc(req.property_address || 'Property') + '</div>' +
     '<div class="info">' + info.join(' &nbsp;·&nbsp; ') + '</div>' +
     overview +
     '<table><thead><tr><th>Line item</th><th>Units</th><th>Hours</th><th>Labor</th><th>Material</th><th>Total</th><th>Notes</th></tr></thead><tbody>' + rows + '</tbody></table>' +
     '<div class="tot"><span>Material: <b>' + money(sM) + '</b></span><span>Labor: <b>' + money(sL) + '</b></span><span>Hours: <b>' + (Math.round(sH * 10) / 10) + '</b></span><span>Timeline: <b>' + ((resp.timeline_days != null && resp.timeline_days !== '') ? resp.timeline_days : days) + ' days</b></span><span>Total: <b>' + money(resp.total != null ? resp.total : tot) + '</b></span></div>' +
+    '<div class="sigs">' +
+      '<div class="sig"><div class="who">Contractor</div><div class="ln"></div><div class="lbl">Signature</div><div class="ln"></div><div class="lbl">Print name</div><div class="ln"></div><div class="lbl">Date</div></div>' +
+      '<div class="sig"><div class="who">LABB LLC</div><div class="ln"></div><div class="lbl">Signature</div><div class="ln"></div><div class="lbl">Print name</div><div class="ln"></div><div class="lbl">Date</div></div>' +
+    '</div>' +
     '<p style="margin-top:22px;color:#999;font-size:11px">Generated from LABB Spot · ' + new Date().toLocaleDateString() + '</p>' +
     '</body></html>';
   const w = window.open('', '_blank');
   if (!w) { if (typeof toast === 'function') toast('Allow pop-ups to print/save the PDF.', 'warn'); return; }
   w.document.write(html); w.document.close(); w.focus();
   setTimeout(() => { try { w.print(); } catch(e){} }, 350);
+}
+window._uwBidOpenPrint = _uwBidOpenPrint;
+
+function uwBidPrintResponse(id){
+  const req = _uwBid.byDeal[_uwCurrentId];
+  if (!req) return;
+  const resp = ((_uwBid.responses[req.id]) || []).find(r => r.id === id);
+  if (!resp) return;
+  _uwBidOpenPrint(req, resp);
 }
 window.uwBidPrintResponse = uwBidPrintResponse;
 
@@ -24299,6 +24685,8 @@ let _renoSubtab = 'all';
 function setRenoSubtab(name) {
   if (typeof name !== 'string') return;
   _renoSubtab = name;
+  // Clicking a phase tab returns to the property table + hides Connections.
+  if (typeof setRenoView === 'function') setRenoView('phases');
   // Toggle .active class on the matching subtab — matches Underwriting style.
   document.querySelectorAll('#reno-subtabs [data-reno-subtab]').forEach(el => {
     el.classList.toggle('active', el.getAttribute('data-reno-subtab') === name);
@@ -24314,12 +24702,12 @@ function _renoUpdateSubtabCounts() {
   // Phase counts — only meaningful once underwrites have loaded. Until then
   // we leave the "—" seed in the badge so it's clear the count isn't ready.
   const uwReady = (typeof cache !== 'undefined' && cache.underwrites);
-  const counts = { all: null, repossession: null, demo: null, planning: null, mechanicals: null, cosmetics: null, 'punch-list': null };
+  const counts = { all: null, repossession: null, demo: null, planning: null, mechanicals: null, cosmetics: null, 'punch-list': null, renovated: null };
   if (uwReady) {
     const all = Object.values(cache.underwrites).filter(u => u && u.data && u.data._holdingStatus === 'renovation');
     counts.all = all.length;
     counts.repossession = counts.demo = counts.planning = 0;
-    counts.mechanicals = counts.cosmetics = counts['punch-list'] = 0;
+    counts.mechanicals = counts.cosmetics = counts['punch-list'] = counts.renovated = 0;
     all.forEach(u => {
       const phase = _renoCurrentPhaseId(u);
       if (phase && counts.hasOwnProperty(phase)) counts[phase]++;
@@ -24380,7 +24768,7 @@ function _renoCurrentPhaseId(deal) {
     cumulative += days;
     if (daysSince < cumulative) return subtabFor(p.id);
   }
-  return null; // past all phases
+  return 'renovated'; // past all phases → renovation timeline complete
 }
 window._renoCurrentPhaseId = _renoCurrentPhaseId;
 
@@ -24431,6 +24819,7 @@ function renderRenovationList() {
         mechanicals:  'No deals currently in Mechanicals &amp; Exterior.',
         cosmetics:    'No deals currently in Cosmetics.',
         'punch-list': 'No deals currently in Punch List.',
+        renovated:    'No deals have finished renovation yet.',
       };
       empty.innerHTML = labels[_renoSubtab] || labels.all;
     }
@@ -25688,45 +26077,383 @@ const _RENO_VIEW_CONFIG = {
   attorneys:   { wrap: 'reno-attorneys-wrap',   pill: 'attorneys',   load: 'loadAttorneys',   render: 'renderAttorneysList' }
 };
 
+// Remembers which rolodex was last open so clicking the Connections tab
+// re-opens it instead of always defaulting to Contractors.
+let _renoLastRolodex = 'contractors';
+// Connections tab click — opens the rolodex sub-nav and the last-used rolodex.
+function renoOpenConnections() {
+  setRenoView(_renoLastRolodex || 'contractors');
+}
+window.renoOpenConnections = renoOpenConnections;
+// Properties tab click — back to the phase property table.
+function renoOpenProperties() {
+  setRenoView('phases');
+}
+window.renoOpenProperties = renoOpenProperties;
+
 // Toggle the Renovation section's main content between the phase table and
 // any of the rolodex views above. Called by the pills at the top of the
 // section, and indirectly by setRenoSubtab (which switches back to 'phases'
 // whenever the user clicks a phase tab).
 function setRenoView(view) {
-  _renoActiveView = _RENO_VIEW_CONFIG[view] ? view : 'phases';
-  const tableWrap  = document.getElementById('reno-table-wrap');
-  const phasePills = document.querySelectorAll('#reno-subtabs [data-reno-subtab]');
-  // Hide table and ALL rolodex wraps; clear active state on every rolodex pill.
+  // If a deal's calculator is currently open in this section (mounted into
+  // reno-calc-mount), close it first — otherwise the deal screen stays on top
+  // of whatever view (bids / invoices / phase table / rolodex) you picked.
+  const _mount = document.getElementById('reno-calc-mount');
+  if (_mount && _mount.querySelector('#uwview-calculator') && typeof _hrUnmountCalculator === 'function') {
+    _hrUnmountCalculator();
+    _hrLastSection = null;
+  }
+  const isRolodex  = !!_RENO_VIEW_CONFIG[view];
+  const isPropView = (view === 'bids' || view === 'invoices'); // Properties sub-views
+  _renoActiveView  = (isRolodex || isPropView) ? view : 'phases';
+
+  const tableWrap   = document.getElementById('reno-table-wrap');
+  const phasePills  = document.querySelectorAll('#reno-subtabs [data-reno-subtab]');
+  const _connSubnav = document.getElementById('reno-connections-subnav');
+  const _connPill   = document.getElementById('reno-connections-pill');
+  const _propsPill  = document.getElementById('reno-properties-pill');
+  const _phaseTabs  = document.getElementById('reno-subtabs');
+  const _propViews  = document.getElementById('reno-propviews');
+  const _bidsWrap   = document.getElementById('reno-bids-wrap');
+  const _invWrap    = document.getElementById('reno-invoices-wrap');
+  const _bidsPill   = document.getElementById('reno-bids-pill');
+  const _invPill    = document.getElementById('reno-invoices-pill');
+
+  // Hide every main-content wrap + clear pill active states.
   if (tableWrap) tableWrap.style.display = 'none';
+  if (_bidsWrap) _bidsWrap.style.display = 'none';
+  if (_invWrap)  _invWrap.style.display  = 'none';
   Object.values(_RENO_VIEW_CONFIG).forEach(cfg => {
     const w = document.getElementById(cfg.wrap);
     if (w) w.style.display = 'none';
     const p = document.querySelector(`#section-renovation [data-renoview="${cfg.pill}"]`);
     if (p) p.classList.remove('active');
   });
+  if (_bidsPill) _bidsPill.classList.remove('active');
+  if (_invPill)  _invPill.classList.remove('active');
+
+  // Properties mode = phase table OR the Bids/Invoices sub-views. Connections
+  // mode = a rolodex view. The left toggle + which rows show follow from that.
+  const inProperties = (_renoActiveView === 'phases' || isPropView);
+  if (_propsPill)  _propsPill.classList.toggle('active', inProperties);
+  if (_connPill)   _connPill.classList.toggle('active', !inProperties);
+  if (_phaseTabs)  _phaseTabs.style.display  = inProperties ? '' : 'none';
+  if (_propViews)  _propViews.style.display  = inProperties ? '' : 'none';
+  if (_connSubnav) _connSubnav.style.display = inProperties ? 'none' : '';
+
   if (_renoActiveView === 'phases') {
     if (tableWrap) tableWrap.style.display = '';
-    // Re-apply active to whichever phase subtab is current
-    phasePills.forEach(el => {
-      el.classList.toggle('active', el.getAttribute('data-reno-subtab') === _renoSubtab);
-    });
+    phasePills.forEach(el => el.classList.toggle('active', el.getAttribute('data-reno-subtab') === _renoSubtab));
+    return;
+  }
+  if (_renoActiveView === 'bids') {
+    if (_bidsWrap) _bidsWrap.style.display = '';
+    if (_bidsPill) _bidsPill.classList.add('active');
+    phasePills.forEach(el => el.classList.remove('active'));
+    return;
+  }
+  if (_renoActiveView === 'invoices') {
+    if (_invWrap) _invWrap.style.display = '';
+    if (_invPill) _invPill.classList.add('active');
+    phasePills.forEach(el => el.classList.remove('active'));
     return;
   }
   // A rolodex view is active.
+  _renoLastRolodex = _renoActiveView;
   const cfg = _RENO_VIEW_CONFIG[_renoActiveView];
   const w = document.getElementById(cfg.wrap);
   if (w) w.style.display = '';
   const p = document.querySelector(`#section-renovation [data-renoview="${cfg.pill}"]`);
   if (p) p.classList.add('active');
   phasePills.forEach(el => el.classList.remove('active'));
-  // Lazy-load and render
   if (typeof window[cfg.load] === 'function') {
-    window[cfg.load]().then(() => {
-      if (typeof window[cfg.render] === 'function') window[cfg.render]();
-    });
+    window[cfg.load]().then(() => { if (typeof window[cfg.render] === 'function') window[cfg.render](); });
   }
 }
 window.setRenoView = setRenoView;
+function renoOpenBids()     { setRenoView('bids'); if (typeof renderRenoBids === 'function') renderRenoBids(); }
+function renoOpenInvoices() { setRenoView('invoices'); if (typeof renderRenoInvoices === 'function') renderRenoInvoices(); }
+window.renoOpenBids = renoOpenBids;
+window.renoOpenInvoices = renoOpenInvoices;
+
+// Invoices view — every contractor invoice submitted through the public form,
+// across ALL properties. Mirrors the Bids roll-up (renderRenoBids).
+async function renderRenoInvoices(force){
+  const tbody = document.getElementById('reno-invoices-tbody');
+  const empty = document.getElementById('reno-invoices-empty');
+  if (!tbody) return;
+  if (typeof sb === 'undefined' || !sb){ tbody.innerHTML=''; if(empty){ empty.style.display=''; empty.textContent='Not connected to the database.'; } return; }
+  if (!window._renoInvoicesData || force){
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center py-6 text-[var(--text-dim)]"><span class="loader"></span> Loading invoices…</td></tr>';
+    if (empty) empty.style.display='none';
+    try {
+      const [reqRes, respRes] = await Promise.all([
+        sb.from('invoice_requests').select('*'),
+        sb.from('invoice_responses').select('*').order('submitted_at', { ascending: false })
+      ]);
+      if (reqRes.error) throw reqRes.error;
+      if (respRes.error) throw respRes.error;
+      const reqMap = {};
+      (reqRes.data || []).forEach(r => { if (r && r.id) reqMap[r.id] = r; });
+      window._renoInvoicesData = { reqMap: reqMap, responses: respRes.data || [] };
+    } catch(e){
+      console.warn('renderRenoInvoices:', e);
+      tbody.innerHTML=''; if(empty){ empty.style.display=''; empty.textContent='Failed to load invoices: ' + (e.message || e); }
+      return;
+    }
+  }
+  const data = window._renoInvoicesData || { reqMap:{}, responses:[] };
+  const responses = data.responses || [];
+  if (!responses.length){ tbody.innerHTML=''; if(empty){ empty.style.display=''; empty.textContent='No contractor invoices submitted yet.'; } return; }
+  if (empty) empty.style.display='none';
+  const esc = (s)=>escapeHtml(String(s==null?'':s));
+  const money = (n)=>'$'+(Math.round(parseFloat(n)||0)).toLocaleString();
+  const yn = (v) => { const s=String(v||'').trim().toLowerCase(); if(s==='yes') return '<span style="color:#16a34a;font-weight:700">Yes</span>'; if(s==='no') return '<span style="color:#ef4444;font-weight:700">No</span>'; return '<span style="color:var(--text-dim)">' + esc(v || '—') + '</span>'; };
+  const grouped = !!window._renoInvoicesGroup;
+  const q = ((document.getElementById('reno-invoices-search') || {}).value || '').trim().toLowerCase();
+  const _addrOf = (r) => (data.reqMap[r.invoice_request_id] || {}).property_address || '—';
+  let list = responses;
+  if (q) list = list.filter(r => { const req = data.reqMap[r.invoice_request_id] || {}; return ((req.property_address||'') + ' ' + (r.contractor_company||'') + ' ' + (r.contractor_name||'') + ' ' + (r.contractor_email||'') + ' ' + (r.contractor_phone||'')).toLowerCase().includes(q); });
+  if (grouped) list = list.slice().sort((a,b) => _addrOf(a).localeCompare(_addrOf(b)) || String(b.submitted_at||'').localeCompare(String(a.submitted_at||'')));
+  if (!list.length){ tbody.innerHTML=''; if(empty){ empty.style.display=''; empty.textContent = q ? 'No invoices match your search.' : 'No contractor invoices submitted yet.'; } return; }
+  if (empty) empty.style.display='none';
+  let _lastAddr = null;
+  tbody.innerHTML = list.map(resp => {
+    const req = data.reqMap[resp.invoice_request_id] || {};
+    const addr = req.property_address || '—';
+    const uwid = req.underwrite_id || '';
+    let hdr = '';
+    if (grouped && addr !== _lastAddr){ _lastAddr = addr; hdr = '<tr><td colspan="12" style="padding:9px 10px;background:var(--panel-2);font-weight:700;color:#a5b4fc;border-top:2px solid var(--border)">📍 ' + esc(addr) + '</td></tr>'; }
+    const company = resp.contractor_company || resp.contractor_name || '—';
+    const status = resp.contractor_start || '';
+    let tot = resp.total;
+    if (tot == null){
+      tot = 0; const lq = resp.line_quotes || {};
+      Object.keys(lq).forEach(k => { const q = lq[k]; if (q && q.interested){ const u=parseFloat(q.units)||0, la=parseFloat(q.labor)||0, m=parseFloat(q.material)||0, qy=u>0?u:1; tot += parseFloat(q.total!=null?q.total:q.price) || (qy*(la+m)); } });
+    }
+    let dt='—'; try { if (resp.submitted_at) dt = new Date(resp.submitted_at).toLocaleDateString(); } catch(_){}
+    return hdr + '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="if(!event.target.closest(\'button,input,a\'))renoOpenPropertyScope(\'' + esc(uwid) + '\')" title="Open this property’s Scope">'
+      + '<td style="padding:8px 10px;font-weight:600">' + esc(addr) + '</td>'
+      + '<td style="padding:8px 10px">' + esc(resp.contractor_name || '—') + '</td>'
+      + '<td style="padding:8px 10px;font-weight:600">' + esc(company) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center">' + (status ? esc(status) : '<span style="color:var(--text-dim)">—</span>') + '</td>'
+      + '<td style="padding:8px 10px;text-align:right;font-weight:700">' + money(tot) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center">' + yn(resp.contractor_insured) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center">' + yn(resp.contractor_licensed) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--text-dim)">' + esc(dt) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center"><input type="checkbox" ' + (resp.paid ? 'checked ' : '') + 'onchange="renoInvoiceTogglePaid(\'' + esc(resp.id) + '\',this.checked)" style="width:18px;height:18px;accent-color:#14b8a6;cursor:pointer" title="Mark this invoice as paid"></td>'
+      + '<td style="padding:8px 10px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ea580c" onclick="renoInvoicePrint(\'' + esc(resp.invoice_request_id) + '\',\'' + esc(resp.id) + '\')" title="Open a printable PDF of this invoice">📄 PDF</button></td>'
+      + '</tr>';
+  }).join('');
+}
+window.renderRenoInvoices = renderRenoInvoices;
+
+function renoInvoicesSetGroup(g){
+  window._renoInvoicesGroup = !!g;
+  const a=document.getElementById('reno-invoices-view-all'), p=document.getElementById('reno-invoices-view-prop');
+  if(a) a.classList.toggle('active', !g);
+  if(p) p.classList.toggle('active', !!g);
+  renderRenoInvoices();
+}
+window.renoInvoicesSetGroup = renoInvoicesSetGroup;
+
+function renoInvoicePrint(reqId, respId){
+  const data = window._renoInvoicesData;
+  if (!data){ if (typeof renderRenoInvoices==='function') renderRenoInvoices(true); return; }
+  const req  = data.reqMap[reqId];
+  const resp = (data.responses || []).find(r => r.id === respId);
+  if (!req || !resp){ if (typeof toast === 'function') toast('Invoice not found — click Refresh.', 'warn'); return; }
+  if (typeof _uwBidOpenPrint === 'function') _uwBidOpenPrint(req, resp, 'Invoice');
+}
+window.renoInvoicePrint = renoInvoicePrint;
+
+async function renoInvoiceTogglePaid(id, val){
+  const data = window._renoInvoicesData;
+  const resp = data && (data.responses || []).find(r => r.id === id);
+  if (resp) resp.paid = val;
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Not connected');
+    const { error } = await sb.from('invoice_responses').update({ paid: val }).eq('id', id);
+    if (error) throw error;
+  } catch(e){
+    console.warn('renoInvoiceTogglePaid:', e);
+    if (resp) resp.paid = !val;
+    if (typeof renderRenoInvoices === 'function') renderRenoInvoices();
+    if (typeof toast === 'function') toast('Paid save failed: ' + (e.message || e), 'err');
+  }
+}
+window.renoInvoiceTogglePaid = renoInvoiceTogglePaid;
+
+// Bids view — every contractor bid submitted through the public form, across
+// ALL properties. Joins bid_responses to bid_requests (for the address +
+// line items) and offers the same printable PDF used in the deal comparison.
+async function renderRenoBids(force){
+  const tbody = document.getElementById('reno-bids-tbody');
+  const empty = document.getElementById('reno-bids-empty');
+  if (!tbody) return;
+  if (typeof sb === 'undefined' || !sb){ tbody.innerHTML=''; if(empty){ empty.style.display=''; empty.textContent='Not connected to the database.'; } return; }
+  if (!window._renoBidsData || force){
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center py-6 text-[var(--text-dim)]"><span class="loader"></span> Loading bids…</td></tr>';
+    if (empty) empty.style.display='none';
+    try {
+      const [reqRes, respRes] = await Promise.all([
+        sb.from('bid_requests').select('*'),
+        sb.from('bid_responses').select('*').order('submitted_at', { ascending: false })
+      ]);
+      if (reqRes.error) throw reqRes.error;
+      if (respRes.error) throw respRes.error;
+      const reqMap = {};
+      (reqRes.data || []).forEach(r => { if (r && r.id) reqMap[r.id] = r; });
+      // Also load invoice_requests (by underwrite_id) so each row can offer a
+      // Copy Invoice Link button. Wrapped so a missing table doesn't break bids.
+      let invByUw = {};
+      try { const { data: invData } = await sb.from('invoice_requests').select('id,underwrite_id,token,status'); (invData||[]).forEach(r => { if (r && r.underwrite_id) invByUw[r.underwrite_id] = r; }); } catch(_){}
+      window._renoBidsData = { reqMap: reqMap, responses: respRes.data || [], invByUw: invByUw };
+    } catch(e){
+      console.warn('renderRenoBids:', e);
+      tbody.innerHTML=''; if(empty){ empty.style.display=''; empty.textContent='Failed to load bids: ' + (e.message || e); }
+      return;
+    }
+  }
+  const data = window._renoBidsData || { reqMap:{}, responses:[] };
+  const responses = data.responses || [];
+  if (!responses.length){ tbody.innerHTML=''; if(empty){ empty.style.display=''; empty.textContent='No contractor bids submitted yet.'; } return; }
+  if (empty) empty.style.display='none';
+  const esc = (s)=>escapeHtml(String(s==null?'':s));
+  const money = (n)=>'$'+(Math.round(parseFloat(n)||0)).toLocaleString();
+  const yn = (v) => { const s=String(v||'').trim().toLowerCase(); if(s==='yes') return '<span style="color:#16a34a;font-weight:700">Yes</span>'; if(s==='no') return '<span style="color:#ef4444;font-weight:700">No</span>'; return '<span style="color:var(--text-dim)">' + esc(v || '—') + '</span>'; };
+  const grouped = !!window._renoBidsGroup;
+  const q = ((document.getElementById('reno-bids-search') || {}).value || '').trim().toLowerCase();
+  const _addrOf = (r) => (data.reqMap[r.bid_request_id] || {}).property_address || '—';
+  let list = responses;
+  if (q) list = list.filter(r => { const req = data.reqMap[r.bid_request_id] || {}; return ((req.property_address||'') + ' ' + (r.contractor_company||'') + ' ' + (r.contractor_name||'') + ' ' + (r.contractor_email||'') + ' ' + (r.contractor_phone||'')).toLowerCase().includes(q); });
+  if (grouped) list = list.slice().sort((a,b) => _addrOf(a).localeCompare(_addrOf(b)) || String(b.submitted_at||'').localeCompare(String(a.submitted_at||'')));
+  if (!list.length){ tbody.innerHTML=''; if(empty){ empty.style.display=''; empty.textContent = q ? 'No bids match your search.' : 'No contractor bids submitted yet.'; } return; }
+  if (empty) empty.style.display='none';
+  let _lastAddr = null;
+  tbody.innerHTML = list.map(resp => {
+    const req = data.reqMap[resp.bid_request_id] || {};
+    const addr = req.property_address || '—';
+    const uwid = req.underwrite_id || '';
+    let hdr = '';
+    if (grouped && addr !== _lastAddr){ _lastAddr = addr; hdr = '<tr><td colspan="12" style="padding:9px 10px;background:var(--panel-2);font-weight:700;color:#a5b4fc;border-top:2px solid var(--border)">📍 ' + esc(addr) + '</td></tr>'; }
+    const company = resp.contractor_company || resp.contractor_name || '—';
+    const start = resp.contractor_start || '';
+    const startColor = /2\s*\+/.test(String(start)) ? '#ef4444' : 'var(--text)';
+    let tot = resp.total;
+    if (tot == null){
+      tot = 0; const lq = resp.line_quotes || {};
+      Object.keys(lq).forEach(k => { const q = lq[k]; if (q && q.interested){ const u=parseFloat(q.units)||0, la=parseFloat(q.labor)||0, m=parseFloat(q.material)||0, qy=u>0?u:1; tot += parseFloat(q.total!=null?q.total:q.price) || (qy*(la+m)); } });
+    }
+    let dt='—'; try { if (resp.submitted_at) dt = new Date(resp.submitted_at).toLocaleDateString(); } catch(_){}
+    const phone = resp.contractor_phone || '';
+    const email = resp.contractor_email || '';
+    const phoneCell = phone ? '<a href="tel:' + esc(phone) + '" onclick="event.stopPropagation()" style="color:#60a5fa;text-decoration:none">' + esc(phone) + '</a>' : '<span style="color:var(--text-dim)">—</span>';
+    const emailCell = email ? '<a href="mailto:' + esc(email) + '" onclick="event.stopPropagation()" style="color:#60a5fa;text-decoration:none">' + esc(email) + '</a>' : '<span style="color:var(--text-dim)">—</span>';
+    return hdr + '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="if(!event.target.closest(\'button,input,a\'))renoOpenPropertyScope(\'' + esc(uwid) + '\')" title="Open this property’s Scope">'
+      + '<td style="padding:8px 10px;font-weight:600">' + esc(addr) + '</td>'
+      + '<td style="padding:8px 10px">' + esc(resp.contractor_name || '—') + '</td>'
+      + '<td style="padding:8px 10px;font-weight:600">' + esc(company) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center;color:' + startColor + '">' + (start ? esc(start) : '<span style="color:var(--text-dim)">—</span>') + '</td>'
+      + '<td style="padding:8px 10px;text-align:right;font-weight:700">' + money(tot) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center">' + yn(resp.contractor_insured) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center">' + yn(resp.contractor_licensed) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--text-dim)">' + esc(dt) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center"><input type="checkbox" ' + (resp.accepted ? 'checked ' : '') + 'onchange="renoBidToggleAccepted(\'' + esc(resp.id) + '\',this.checked)" style="width:18px;height:18px;accent-color:#16a34a;cursor:pointer" title="Mark this bid as accepted"></td>'
+      + '<td style="padding:8px 10px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ea580c" onclick="renoBidPrint(\'' + esc(resp.bid_request_id) + '\',\'' + esc(resp.id) + '\')" title="Open a printable PDF of this bid">📄 PDF</button></td>'
+      + '<td style="padding:8px 10px;text-align:center;white-space:nowrap">' + _renoAcceptingLabel(data, resp) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center;white-space:nowrap">' + _renoBidLinks(data, resp) + '</td>'
+      + '</tr>';
+  }).join('');
+}
+window.renderRenoBids = renderRenoBids;
+
+// "Accepting" status for a property, combining its bid + invoice request state:
+//   Open (both live) · Quotes (bid only) · Invoices (invoice only) · Closed (neither)
+function _renoAcceptingLabel(data, resp){
+  const bidReq = data.reqMap[resp.bid_request_id] || {};
+  const bidOpen = (bidReq.status || 'open') === 'open';
+  const invReq = (bidReq.underwrite_id && data.invByUw) ? data.invByUw[bidReq.underwrite_id] : null;
+  const invOpen = invReq ? ((invReq.status || 'open') === 'open') : false;
+  if (bidOpen && invOpen) return '<span style="color:#16a34a;font-weight:700">● Open</span>';
+  if (bidOpen)            return '<span style="color:#a5b4fc;font-weight:700">● Quotes</span>';
+  if (invOpen)            return '<span style="color:#34d399;font-weight:700">● Invoices</span>';
+  return '<span style="color:var(--text-dim)">○ Closed</span>';
+}
+window._renoAcceptingLabel = _renoAcceptingLabel;
+
+// Build the two per-row copy buttons (contractor Bid link + Invoice link).
+function _renoBidLinks(data, resp){
+  const bidReq = data.reqMap[resp.bid_request_id] || {};
+  const bidTok = bidReq.token || '';
+  const invReq = (bidReq.underwrite_id && data.invByUw) ? data.invByUw[bidReq.underwrite_id] : null;
+  const invTok = invReq ? (invReq.token || '') : '';
+  const bidLink = bidTok ? ('https://submit.labbllc.com/bids?token=' + encodeURIComponent(bidTok)) : '';
+  const invLink = invTok ? ('https://submit.labbllc.com/invoices?token=' + encodeURIComponent(invTok)) : '';
+  const btn = (link, label, color, icon, onTitle, offTitle) => link
+    ? '<button class="btn btn-ghost text-xs" style="padding:2px 6px;color:' + color + '" onclick="renoCopyLink(\'' + link + '\',\'' + label + '\')" title="' + onTitle + '">' + icon + '</button>'
+    : '<button class="btn btn-ghost text-xs" disabled style="padding:2px 6px;color:var(--text-dim);opacity:0.4;cursor:default" title="' + offTitle + '">' + icon + '</button>';
+  return btn(bidLink, 'Bid link', '#a5b4fc', '🔗 Bid', 'Copy the contractor bid link for this property', 'No bid link for this property yet')
+    + ' ' + btn(invLink, 'Invoice link', '#34d399', '🧾 Inv', 'Copy the contractor invoice link for this property', 'No invoice pushed live for this property yet');
+}
+window._renoBidLinks = _renoBidLinks;
+function renoCopyLink(url, label){
+  const done = () => { if(typeof toast==='function') toast((label||'Link') + ' copied.','ok'); };
+  if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(done).catch(()=>prompt('Copy this link:', url)); }
+  else prompt('Copy this link:', url);
+}
+window.renoCopyLink = renoCopyLink;
+
+// Open a property's deal in Renovation and land on the Scope section.
+function renoOpenPropertyScope(uwId){
+  if (!uwId) return;
+  if (typeof _hrOpenInCalculator === 'function') _hrOpenInCalculator(uwId, 'renovation');
+  else if (typeof uwLoadById === 'function') uwLoadById(uwId);
+  setTimeout(() => {
+    if (typeof uwSetFolderSubtab === 'function') uwSetFolderSubtab('budget');
+    const el = document.querySelector('#uwview-calculator [data-uw-section="scope-of-work"]');
+    if (el) { try { el.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_){} }
+  }, 350);
+}
+window.renoOpenPropertyScope = renoOpenPropertyScope;
+
+function renoBidsSetGroup(g){
+  window._renoBidsGroup = !!g;
+  const a=document.getElementById('reno-bids-view-all'), p=document.getElementById('reno-bids-view-prop');
+  if(a) a.classList.toggle('active', !g);
+  if(p) p.classList.toggle('active', !!g);
+  renderRenoBids();
+}
+window.renoBidsSetGroup = renoBidsSetGroup;
+
+function renoBidPrint(reqId, respId){
+  const data = window._renoBidsData;
+  if (!data){ if (typeof renderRenoBids==='function') renderRenoBids(true); return; }
+  const req  = data.reqMap[reqId];
+  const resp = (data.responses || []).find(r => r.id === respId);
+  if (!req || !resp){ if (typeof toast === 'function') toast('Bid not found — click Refresh.', 'warn'); return; }
+  if (typeof _uwBidOpenPrint === 'function') _uwBidOpenPrint(req, resp);
+}
+window.renoBidPrint = renoBidPrint;
+
+// Mark a bid accepted (or not). Persists to bid_responses.accepted directly.
+async function renoBidToggleAccepted(id, val){
+  const data = window._renoBidsData;
+  const resp = data && (data.responses || []).find(r => r.id === id);
+  if (resp) resp.accepted = val; // optimistic
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Not connected');
+    const { error } = await sb.from('bid_responses').update({ accepted: val }).eq('id', id);
+    if (error) throw error;
+  } catch(e){
+    console.warn('renoBidToggleAccepted:', e);
+    if (resp) resp.accepted = !val;               // revert
+    if (typeof renderRenoBids === 'function') renderRenoBids();
+    if (typeof toast === 'function') toast('Accept save failed: ' + (e.message || e), 'err');
+  }
+}
+window.renoBidToggleAccepted = renoBidToggleAccepted;
 
 // ============================================================
 // INSPECTORS — Renovation -> 🔍 Inspectors subview
@@ -25908,7 +26635,7 @@ window.inspectorDelete = inspectorDelete;
 // All views render the SAME Buyers panel but with different filtering applied
 // inside renderBuyersList (see _dispoFilter usage there).
 let _dispoActiveView = 'new-contract';
-const _DISPO_VIEWS = ['recent','vetting','unknown','qualified','unqualified','per-deal','new-contract','assigning-contract','hot-contract','assigned-contract','dead-contract'];
+const _DISPO_VIEWS = ['recent','vetting','unknown','qualified','unqualified','per-deal','offers','new-contract','assigning-contract','hot-contract','assigned-contract','dead-contract'];
 
 function setDispoView(view) {
   _dispoActiveView = _DISPO_VIEWS.indexOf(view) >= 0 ? view : 'recent';
@@ -25920,15 +26647,19 @@ function setDispoView(view) {
   // where the user moved a contract/buyer to a different state in another tab.
   if (typeof _dispoUpdateCounts === 'function') _dispoUpdateCounts();
   const isPerDeal   = (_dispoActiveView === 'per-deal');
+  const isOffers    = (_dispoActiveView === 'offers');
   const isContract  = (_dispoActiveView === 'new-contract' || _dispoActiveView === 'hot-contract' || _dispoActiveView === 'assigning-contract' || _dispoActiveView === 'assigned-contract' || _dispoActiveView === 'dead-contract');
-  // Show/hide three mutually-exclusive surfaces: buyer table / per-deal panel
-  // / contracts panel.
+  // Show/hide the mutually-exclusive surfaces: buyer table / per-deal panel /
+  // contracts panel / offers panel.
   const wrap     = document.getElementById('reno-buyers-wrap');
   const perPanel = document.getElementById('dispo-perdeal-panel');
   const conPanel = document.getElementById('dispo-contracts-panel');
-  if (wrap)     wrap.style.display     = (isPerDeal || isContract) ? 'none' : '';
+  const offPanel = document.getElementById('dispo-offers-panel');
+  if (wrap)     wrap.style.display     = (isPerDeal || isContract || isOffers) ? 'none' : '';
   if (perPanel) perPanel.style.display = isPerDeal  ? '' : 'none';
   if (conPanel) conPanel.style.display = isContract ? '' : 'none';
+  if (offPanel) offPanel.style.display = isOffers   ? '' : 'none';
+  if (isOffers) return;
   if (isContract) {
     // Reskin the contracts panel header to match the active subtab.
     const titleEl = document.getElementById('dispo-contracts-title');

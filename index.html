@@ -1023,6 +1023,7 @@
   <div class="tab" data-section="marketing" onclick="goSection('marketing')">📣 Marketing</div>
   <div class="tab" data-section="reports" onclick="goSection('reports')">📝 Logs</div>
   <div class="tab" data-section="results" onclick="goSection('results')">📈 Results</div>
+  <div class="tab" data-section="contacts" onclick="goSection('contacts')">📒 Contacts</div>
   <div class="tab" data-section="underwriting" onclick="window._dispoReturnTo=null; if(typeof uwToggleDispoStageBar==='function') uwToggleDispoStageBar(); if(typeof uwBackToList==='function') uwBackToList(); goSection('underwriting')">📐 Underwriting</div>
   <div class="tab" data-section="dispositions" onclick="goSection('dispositions')">🤝 Dispositions</div>
   <div class="tab" data-section="renovation" onclick="goSection('renovation')">🔨 Renovation</div>
@@ -2535,6 +2536,38 @@
 </div>
 
 
+<!-- SECTION: Contacts -->
+<div id="section-contacts" class="section-content p-6" style="display:none">
+  <div class="panel p-5">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div>
+        <div style="font-size:18px;font-weight:700">📒 Contact Book</div>
+        <div class="text-sm text-[var(--text-dim)]">Phone, email, and notes for sellers and partners who submitted properties.</div>
+      </div>
+      <button class="btn btn-primary text-sm" onclick="contactBookNew()" style="white-space:nowrap">＋ Add Contact</button>
+    </div>
+    <!-- Add/Edit form (hidden until adding/editing) -->
+    <div id="cb-form" style="display:none;padding:16px;border:1px solid var(--border);border-radius:10px;background:var(--panel-2);margin-bottom:14px">
+      <input type="hidden" id="cb-id">
+      <div style="display:grid;gap:10px;grid-template-columns:1fr 1fr">
+        <label class="text-xs">Name<input type="text" id="cb-name" style="width:100%;margin-top:3px"></label>
+        <label class="text-xs">Role<select id="cb-role" style="width:100%;margin-top:3px"><option>Seller</option><option>Partner</option><option>Buyer</option><option>Other</option></select></label>
+        <label class="text-xs">Phone<input type="tel" id="cb-phone" style="width:100%;margin-top:3px"></label>
+        <label class="text-xs">Email<input type="email" id="cb-email" style="width:100%;margin-top:3px"></label>
+        <label class="text-xs">Company<input type="text" id="cb-company" style="width:100%;margin-top:3px"></label>
+        <label class="text-xs">Property address<input type="text" id="cb-property" style="width:100%;margin-top:3px"></label>
+        <label class="text-xs" style="grid-column:1/3">Notes / other contact info<textarea id="cb-notes" style="width:100%;margin-top:3px;min-height:56px;resize:vertical"></textarea></label>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn btn-ghost text-sm" onclick="contactBookCancel()">Cancel</button>
+        <button class="btn btn-primary text-sm" onclick="contactBookSave()">💾 Save Contact</button>
+      </div>
+    </div>
+    <input type="text" id="cb-search" oninput="renderContactBook()" placeholder="🔍 Search name, phone, email, property…" style="width:100%;height:36px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;box-sizing:border-box;margin-bottom:14px">
+    <div id="cb-list"></div>
+  </div>
+</div>
+
 <!-- SECTION: Underwriting -->
 <div id="section-underwriting" class="section-content p-6" style="display:none">
 
@@ -2815,7 +2848,11 @@
             <button class="btn btn-ghost text-sm" onclick="uwAssignToDispositions()" style="white-space:nowrap;border:1px solid #10b981;color:#10b981" title="Mark this deal as a contract heading to dispositions. It'll show up under Dispositions → New Contract until you move it forward.">📤 Assign</button>
           </div>
 
-          <button class="btn btn-primary text-sm" onclick="uwSave(true)" style="white-space:nowrap;flex-shrink:0" title="Save now (auto-save also runs in the background a few seconds after each edit).">💾 Save Now</button>
+          <div style="position:relative;flex-shrink:0;align-self:center">
+            <button class="btn btn-primary text-sm" onclick="uwSave(true)" style="white-space:nowrap" title="Save now (auto-save also runs in the background a few seconds after each edit).">💾 Save Now</button>
+            <button onclick="toggleDealContacts(event)" title="See this property's contact info (the seller/partner who submitted it)." style="position:absolute;top:calc(100% + 6px);right:0;border:1.5px solid #a5b4fc;background:transparent;border-radius:9px;font-size:26px;line-height:1;padding:6px 12px;cursor:pointer">📒</button>
+            <div id="deal-contacts-pop" style="display:none;position:absolute;top:calc(100% + 58px);right:0;z-index:60;background:var(--panel);border:1px solid #a5b4fc;border-radius:10px;padding:12px 14px;min-width:280px;max-width:360px;box-shadow:0 10px 30px rgba(0,0,0,0.5)"></div>
+          </div>
         </div>
       </div>
       <!-- Address / title block — moved below the Back + navigator row so the
@@ -27792,6 +27829,152 @@ function dispoOffersSetSearch(v){
 }
 window.dispoOffersSetSearch = dispoOffersSetSearch;
 
+// ===================== Contact Book =====================
+window._cbCache = window._cbCache || [];
+function _cbEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _cbFmtPhone(p){ const d=String(p||'').replace(/\D/g,''); if(d.length===10) return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6); if(d.length===11&&d[0]==='1') return '1-'+d.slice(1,4)+'-'+d.slice(4,7)+'-'+d.slice(7); return String(p||''); }
+// Called by goSection('contacts') — load then render the page.
+async function _contactsSectionOpen(){
+  contactBookCancel();
+  renderContactBook();      // paint from cache immediately
+  await loadContacts();
+  renderContactBook();
+}
+window._contactsSectionOpen = _contactsSectionOpen;
+async function loadContacts(){
+  if (typeof sb === 'undefined' || !sb) return;
+  try { const { data, error } = await sb.from('contacts').select('*').order('name'); if (error) throw error; window._cbCache = data || []; }
+  catch(e){ console.warn('loadContacts:', e); if (typeof toast==='function') toast('Could not load contacts: '+(e.message||e),'err'); }
+}
+window.loadContacts = loadContacts;
+function renderContactBook(){
+  const list=document.getElementById('cb-list'); if(!list) return;
+  const q=(document.getElementById('cb-search')||{}).value||''; const ql=q.trim().toLowerCase();
+  const roleColor={Seller:'#f59e0b',Partner:'#6366f1',Buyer:'#10b981',Other:'#9ca3af'};
+  let rows=(window._cbCache||[]).slice();
+  if(ql) rows=rows.filter(c=>[c.name,c.phone,c.email,c.company,c.property_address,c.notes].map(x=>String(x||'').toLowerCase()).join(' ').includes(ql));
+  if(!rows.length){ list.innerHTML='<div style="text-align:center;color:var(--text-dim);padding:28px;font-size:13px">'+((window._cbCache||[]).length?'No contacts match your search.':'No contacts yet — click ＋ Add Contact to start your book.')+'</div>'; return; }
+  list.innerHTML=rows.map(c=>{
+    const rc=roleColor[c.role]||'#9ca3af';
+    const contact=[];
+    if(c.phone) contact.push('<a href="tel:'+_cbEsc(c.phone)+'" style="color:#60a5fa;text-decoration:none">📞 '+_cbEsc(_cbFmtPhone(c.phone))+'</a>');
+    if(c.email) contact.push('<a href="mailto:'+_cbEsc(c.email)+'" style="color:#60a5fa;text-decoration:none">✉️ '+_cbEsc(c.email)+'</a>');
+    return '<div style="border:1px solid var(--border);border-left:3px solid '+rc+';border-radius:10px;padding:11px 14px;margin-bottom:9px;background:var(--panel-2)">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">'
+      +   '<div style="min-width:0"><span style="font-weight:700;font-size:14px">'+_cbEsc(c.name||'(no name)')+'</span>'
+      +     ' <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:'+rc+';background:'+rc+'22;padding:2px 7px;border-radius:999px;margin-left:6px">'+_cbEsc(c.role||'Other')+'</span>'
+      +     (c.company?'<div style="font-size:12px;color:var(--text-dim);margin-top:1px">'+_cbEsc(c.company)+'</div>':'')
+      +   '</div>'
+      +   '<div style="display:flex;gap:6px;flex-shrink:0">'
+      +     '<button class="btn btn-ghost text-xs" onclick="contactBookEdit(\''+_cbEsc(c.id)+'\')" title="Edit">✏️</button>'
+      +     '<button class="btn btn-ghost text-xs" onclick="contactBookDelete(\''+_cbEsc(c.id)+'\')" title="Delete" style="color:#f87171">🗑️</button>'
+      +   '</div>'
+      + '</div>'
+      + (contact.length?'<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:7px;font-size:13px">'+contact.join('')+'</div>':'')
+      + (c.property_address?'<div style="font-size:12px;color:var(--text-dim);margin-top:6px">🏠 '+_cbEsc(c.property_address)+'</div>':'')
+      + (c.notes?'<div style="font-size:12.5px;color:var(--text-2);margin-top:6px;white-space:pre-wrap;line-height:1.45">'+_cbEsc(c.notes)+'</div>':'')
+      + '</div>';
+  }).join('');
+}
+window.renderContactBook = renderContactBook;
+function _cbSetForm(c){
+  c=c||{};
+  document.getElementById('cb-id').value=c.id||'';
+  document.getElementById('cb-name').value=c.name||'';
+  document.getElementById('cb-role').value=c.role||'Seller';
+  document.getElementById('cb-phone').value=c.phone||'';
+  document.getElementById('cb-email').value=c.email||'';
+  document.getElementById('cb-company').value=c.company||'';
+  document.getElementById('cb-property').value=c.property_address||'';
+  document.getElementById('cb-notes').value=c.notes||'';
+  document.getElementById('cb-form').style.display='';
+}
+function contactBookNew(){ _cbSetForm(null); document.getElementById('cb-name').focus(); }
+window.contactBookNew = contactBookNew;
+function contactBookEdit(id){ const c=(window._cbCache||[]).find(x=>String(x.id)===String(id)); if(c) _cbSetForm(c); }
+window.contactBookEdit = contactBookEdit;
+function contactBookCancel(){ const f=document.getElementById('cb-form'); if(f) f.style.display='none'; }
+window.contactBookCancel = contactBookCancel;
+async function contactBookSave(){
+  if (typeof sb === 'undefined' || !sb){ if(typeof toast==='function') toast('Supabase not ready.','err'); return; }
+  const g=id=>{const el=document.getElementById(id);return el?(el.value||'').trim():'';};
+  const id=g('cb-id');
+  const row={ name:g('cb-name'), role:g('cb-role'), phone:g('cb-phone'), email:g('cb-email'), company:g('cb-company'), property_address:g('cb-property'), notes:g('cb-notes') };
+  if(!row.name && !row.phone && !row.email){ if(typeof toast==='function') toast('Add at least a name, phone, or email.','err'); return; }
+  try {
+    if(id){ const {error}=await sb.from('contacts').update(row).eq('id',id); if(error) throw error; }
+    else  { row.created_at=new Date().toISOString(); const {error}=await sb.from('contacts').insert(row); if(error) throw error; }
+    if(typeof toast==='function') toast('✓ Contact saved','ok');
+    contactBookCancel();
+    await loadContacts(); renderContactBook();
+  } catch(e){ console.warn('contactBookSave:', e); if(typeof toast==='function') toast('Save failed: '+(e.message||e),'err'); }
+}
+window.contactBookSave = contactBookSave;
+async function contactBookDelete(id){
+  if(!confirm('Delete this contact?')) return;
+  try { const {error}=await sb.from('contacts').delete().eq('id',id); if(error) throw error; await loadContacts(); renderContactBook(); if(typeof toast==='function') toast('Contact deleted','ok'); }
+  catch(e){ console.warn('contactBookDelete:', e); if(typeof toast==='function') toast('Delete failed: '+(e.message||e),'err'); }
+}
+window.contactBookDelete = contactBookDelete;
+
+// ----- Per-property contacts popover (📒 button under Save Now) -----
+async function toggleDealContacts(ev){
+  if (ev) ev.stopPropagation();
+  const pop = document.getElementById('deal-contacts-pop'); if (!pop) return;
+  if (pop._open){ pop.style.display='none'; pop._open=false; return; }
+  pop.style.display='block'; pop._open=true;
+  pop.innerHTML = '<div style="font-size:12px;color:var(--text-dim)">Loading…</div>';
+  if (!(window._cbCache && window._cbCache.length)) { await loadContacts(); }
+  renderDealContacts();
+}
+window.toggleDealContacts = toggleDealContacts;
+function renderDealContacts(){
+  const pop = document.getElementById('deal-contacts-pop'); if (!pop) return;
+  const gv = id => ((document.getElementById(id)||{}).value||'').trim();
+  const addr = gv('uw-address');
+  const addrLo = addr.toLowerCase();
+  const matches = (window._cbCache||[]).filter(c => addrLo && String(c.property_address||'').trim().toLowerCase().includes(addrLo));
+  let html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><div style="font-size:13px;font-weight:700">📒 Property Contacts</div><button onclick="toggleDealContacts(event)" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px">✕</button></div>';
+  if (!addr){ html += '<div style="font-size:12px;color:var(--text-dim)">Enter the property address first.</div>'; }
+  else if (!matches.length){
+    html += '<div style="font-size:12px;color:var(--text-dim);margin-bottom:10px">No contact on file for this property.</div>'
+      + '<button class="btn btn-primary text-xs" onclick="addContactForThisProperty()" style="width:100%">＋ Add contact for this property</button>';
+  } else {
+    const roleColor={Seller:'#f59e0b',Partner:'#6366f1',Buyer:'#10b981',Other:'#9ca3af'};
+    html += matches.map(c => {
+      const rc = roleColor[c.role]||'#9ca3af'; const bits=[];
+      if (c.phone) bits.push('<a href="tel:'+_cbEsc(c.phone)+'" style="color:#60a5fa;text-decoration:none">📞 '+_cbEsc(_cbFmtPhone(c.phone))+'</a>');
+      if (c.email) bits.push('<a href="mailto:'+_cbEsc(c.email)+'" style="color:#60a5fa;text-decoration:none">✉️ '+_cbEsc(c.email)+'</a>');
+      return '<div style="border:1px solid var(--border);border-left:3px solid '+rc+';border-radius:8px;padding:9px 11px;margin-bottom:8px;background:var(--panel-2)">'
+        + '<div style="font-weight:700;font-size:13px">'+_cbEsc(c.name||'(no name)')+' <span style="font-size:9px;font-weight:800;text-transform:uppercase;color:'+rc+';background:'+rc+'22;padding:2px 6px;border-radius:999px;margin-left:4px">'+_cbEsc(c.role||'Other')+'</span></div>'
+        + (c.company?'<div style="font-size:11px;color:var(--text-dim);margin-top:1px">'+_cbEsc(c.company)+'</div>':'')
+        + (bits.length?'<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;font-size:12.5px">'+bits.join('')+'</div>':'')
+        + (c.notes?'<div style="font-size:12px;color:var(--text-2);margin-top:6px;white-space:pre-wrap;line-height:1.4">'+_cbEsc(c.notes)+'</div>':'')
+        + '</div>';
+    }).join('');
+    html += '<button class="btn btn-ghost text-xs" onclick="addContactForThisProperty()" style="width:100%;margin-top:2px">＋ Add another</button>';
+  }
+  pop.innerHTML = html;
+}
+window.renderDealContacts = renderDealContacts;
+function addContactForThisProperty(){
+  const gv = id => ((document.getElementById(id)||{}).value||'').trim();
+  const full = [gv('uw-address'), [gv('uw-city'), gv('uw-state'), gv('uw-zip')].filter(Boolean).join(', ')].filter(Boolean).join(', ');
+  const pop = document.getElementById('deal-contacts-pop'); if (pop){ pop.style.display='none'; pop._open=false; }
+  goSection('contacts');
+  setTimeout(()=>{ contactBookNew(); const p=document.getElementById('cb-property'); if(p) p.value=full; }, 60);
+}
+window.addContactForThisProperty = addContactForThisProperty;
+// Close the popover when clicking outside it.
+document.addEventListener('click', (e)=>{
+  const pop = document.getElementById('deal-contacts-pop');
+  if (!pop || !pop._open) return;
+  if (pop.contains(e.target)) return;
+  const btn = e.target.closest && e.target.closest('button');
+  if (btn && /toggleDealContacts/.test(btn.getAttribute('onclick')||'')) return;
+  pop.style.display='none'; pop._open=false;
+});
+
 function buyerRenderPerDealPanel() {
   const listEl = document.getElementById('dispo-perdeal-list');
   if (!listEl) return;
@@ -36114,6 +36297,7 @@ function goSection(s) {
   // the active section.
   document.body.classList.toggle('sop-active', s === 'sop');
   if (s === "results" && typeof updateResultsDBCount === "function") updateResultsDBCount();
+  if (s === "contacts" && typeof _contactsSectionOpen === "function") _contactsSectionOpen();
 }
 
 // SOP toggle — the header's 📋 SOP button calls this so clicking once opens

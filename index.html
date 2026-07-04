@@ -5830,10 +5830,34 @@
          when cache.underwrites finishes loading. -->
     <div id="dispo-perdeal-list"></div>
   </div>
-  <!-- Offers panel — scaffold for now (blank). -->
+  <!-- Offers panel — buyer offers submitted through the public offers page. -->
   <div id="dispo-offers-panel" class="panel p-5 mb-3" style="display:none">
-    <div style="font-size:18px;font-weight:700">💵 Offers</div>
-    <div class="text-sm text-[var(--text-dim)]" style="margin-top:4px">Coming soon.</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+      <div>
+        <div style="font-size:18px;font-weight:700">💵 Property Offers</div>
+        <div class="text-sm text-[var(--text-dim)]">Offers submitted by buyers on properties you marked with the <b><span style="color:#16a34a">✅</span> Offer Checkbox</b>.</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:11px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.3px">View:</span>
+        <div id="dispo-offers-viewtoggle" style="display:flex;gap:8px;align-items:center"></div>
+        <button class="btn btn-ghost text-sm" onclick="renderDispoOffers(true)" title="Refresh offers from Supabase">🔁 Refresh</button>
+      </div>
+    </div>
+    <div id="dispo-offers-filterbar"></div>
+    <div id="dispo-offers-empty" class="text-sm text-[var(--text-dim)]" style="display:none;padding:20px;text-align:center">No offers submitted yet. Mark an unassigned property <b>🌐 Offer This</b> and share <b>submit.labbllc.com/offers</b>.</div>
+    <div style="overflow:auto"><table style="width:100%;font-size:13px">
+      <thead><tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
+        <th style="padding:8px 10px;text-align:left">Property</th>
+        <th style="padding:8px 10px;text-align:left">Buyer</th>
+        <th style="padding:8px 10px;text-align:right">Offer</th>
+        <th style="padding:8px 10px;text-align:center">Close</th>
+        <th style="padding:8px 10px;text-align:left">Contact</th>
+        <th style="padding:8px 10px;text-align:center">PoF</th>
+        <th style="padding:8px 10px;text-align:center">Reach if beat</th>
+        <th style="padding:8px 10px;text-align:center">Submitted</th>
+      </tr></thead>
+      <tbody id="dispo-offers-tbody"></tbody>
+    </table></div>
   </div>
   <!-- Contracts panel — shown when a contracts subview is active. Stays a
        placeholder until you wire it to the underwrites/contracts table; the
@@ -16755,7 +16779,7 @@ function _uwCollect() {
       if (k.indexOf('_source') === 0 || k === '_priorityHandled' || k === '_holdingStatus' ||
           k === '_budgetActuals' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
           k === '_reno_phase_override' || k === '_compsMode' ||
-          k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_scopeQuotes' || k === '_taggedBuyers' ||
+          k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_scopeQuotes' || k === '_taggedBuyers' || k === '_offerActive' || k === '_offerPacket' ||
           // Geocode coordinates — written by _dispoGeocodeSubject directly
           // into u.data.lat/lng/geocoded_address (not form fields). Without
           // this preservation, the next autosave wipes them and the user
@@ -26659,7 +26683,7 @@ function setDispoView(view) {
   if (perPanel) perPanel.style.display = isPerDeal  ? '' : 'none';
   if (conPanel) conPanel.style.display = isContract ? '' : 'none';
   if (offPanel) offPanel.style.display = isOffers   ? '' : 'none';
-  if (isOffers) return;
+  if (isOffers) { if (typeof renderDispoOffers === 'function') renderDispoOffers(); return; }
   if (isContract) {
     // Reskin the contracts panel header to match the active subtab.
     const titleEl = document.getElementById('dispo-contracts-title');
@@ -27435,6 +27459,339 @@ function _dispoToggleTag(dealId, buyerId) {
 }
 window._dispoToggleTag = _dispoToggleTag;
 
+// ---- Public property offers -------------------------------------------------
+// Marking a dispo property "Active for offers" snapshots its packet data into
+// data._offerPacket + sets the offer_active column, so the public offer page
+// (submit-offer.html) can render the packet without re-deriving anything.
+// Fetch a Google Street View image of the property as a base64 data URL —
+// mirrors the wholesale packet's cover-photo fetch so the offer page shows the
+// same main street picture even when no manual photo was uploaded.
+async function _uwFetchStreetView(address, city, state, zip){
+  if (!address || typeof GMAPS_KEY !== 'string' || !GMAPS_KEY) return null;
+  const qs = encodeURIComponent([address, city, state, zip].filter(Boolean).join(', '));
+  try {
+    const meta = await (await fetch('https://maps.googleapis.com/maps/api/streetview/metadata?location=' + qs + '&key=' + GMAPS_KEY)).json();
+    if (!meta || meta.status !== 'OK') return null;
+    const imgResp = await fetch('https://maps.googleapis.com/maps/api/streetview?size=640x360&fov=80&location=' + qs + '&key=' + GMAPS_KEY);
+    if (!imgResp.ok) return null;
+    const blob = await imgResp.blob();
+    return await new Promise(res => { const r = new FileReader(); r.onloadend = () => res(r.result); r.onerror = () => res(null); r.readAsDataURL(blob); });
+  } catch(_) { return null; }
+}
+window._uwFetchStreetView = _uwFetchStreetView;
+
+async function _uwBuildOfferPacket(u){
+  const d = (u && u.data) || {};
+  const g = (k) => (d[k] != null ? String(d[k]) : '');
+  const n = (k) => { const v = parseFloat(String(d[k]||'').replace(/[^\d.\-]/g,'')); return isFinite(v) ? v : 0; };
+  const arv = (typeof _uwComputeArvFromData === 'function') ? Math.round(_uwComputeArvFromData(d) || 0) : (n('uw-arv') || 0);
+  const asking = (typeof window._uwPacketPrice === 'function') ? Math.round(window._uwPacketPrice(u) || 0) : 0;
+  const address = g('uw-address'), city = g('uw-city'), state = g('uw-state'), zip = g('uw-zip');
+  // ----- Comps: implied ARV = $/SqFt × SqFt, rounded to nearest $500 (matches packet) -----
+  const buildComps = (prefix) => {
+    const rows = [];
+    for (let i = 1; i <= 3; i++){
+      const a = g('uw-'+prefix+i+'-addr'); if (!a) continue;
+      const psf = n('uw-'+prefix+i+'-psf');
+      const sq  = n('uw-'+prefix+i+'-sqft');
+      const impArv = (psf > 0 && sq > 0) ? Math.round((psf * sq) / 500) * 500 : 0;
+      rows.push({ addr:a, bed:g('uw-'+prefix+i+'-bed'), bath:g('uw-'+prefix+i+'-bath'), sqft:g('uw-'+prefix+i+'-sqft'), year:g('uw-'+prefix+i+'-year'), dist:g('uw-'+prefix+i+'-dist'), psf:psf, arv:impArv });
+    }
+    return rows;
+  };
+  const comps       = buildComps('scp');   // sold
+  const listedComps = buildComps('lcp');   // listed / still on market
+  // Rental comps ($/SqFt = rent ÷ sqft)
+  const rentalComps = [];
+  for (let i = 1; i <= 3; i++){
+    const a = g('uw-rcp'+i+'-addr'); if (!a) continue;
+    const rRent = n('uw-rcp'+i+'-rent'), rSq = n('uw-rcp'+i+'-sqft');
+    rentalComps.push({ addr:a, bed:g('uw-rcp'+i+'-bed'), bath:g('uw-rcp'+i+'-bath'), sqft:g('uw-rcp'+i+'-sqft'), dist:g('uw-rcp'+i+'-dist'), psf:(rRent>0&&rSq>0)?(rRent/rSq):0, rent:rRent });
+  }
+  const rcp = [n('uw-rcp1-rent'), n('uw-rcp2-rent'), n('uw-rcp3-rent')].filter(x => x > 0);
+  const rent = n('uw-ravg-override') || n('uw-ravg-rent') || (rcp.length ? Math.round(rcp.reduce((a,b)=>a+b,0)/rcp.length) : 0);
+  // ----- Scope of work — EXACT same grouped line items the PDF packet shows.
+  // The packet uses the v2 rehab calculator (_rcGetScopeByGroup). We replicate
+  // that here from this deal's saved v2 state (data._rehabV2) crossed with the
+  // static catalog (_rcGetFullCatalog), so it matches the PDF line-by-line even
+  // though the deal isn't loaded. Falls back to legacy _rehab. -----
+  const scope = [];
+  try {
+    const v2 = d._rehabV2;
+    if (v2 && v2.items && typeof window._rcGetFullCatalog === 'function') {
+      const checked = new Set();
+      Object.keys(v2.items).forEach(cat => (v2.items[cat] || []).forEach(it => { if (it && it.on) checked.add(it.n); }));
+      (window._rcGetFullCatalog() || []).forEach(g => {
+        const picked = (g.items || []).filter(nm => checked.has(nm));
+        if (picked.length) scope.push({ label: g.room || 'Scope', items: picked });
+      });
+    }
+  } catch(_){}
+  if (!scope.length && Array.isArray(d._rehab)) {
+    d._rehab.forEach(col => {
+      const items = (col.items || []).filter(it => it && (it.needed || it.checked)).map(it => String(it.label || '').trim()).filter(Boolean);
+      if (items.length) scope.push({ label: col.label || 'Scope', items: items });
+    });
+  }
+  // ----- Cash-rental pro forma (mirrors packet section 08) -----
+  let proforma = null;
+  try {
+    const buyPrice = asking > 0 ? Math.ceil(asking / 1000) * 1000 : 0;
+    const units = Math.max(1, n('uw-units') || n('uw-units-rental') || 1);
+    const totalRent = rent * units;
+    if (buyPrice > 0 && totalRent > 0) {
+      let sysBudget = 0;
+      try { if (typeof _hrComputeBudget === 'function') sysBudget = _hrComputeBudget({ data: d }).budgeted || 0; } catch(_){}
+      const rRehab = sysBudget * 0.60;
+      const purchClosing = buyPrice * 0.03;
+      const vacPct = n('uw-rt-vac-pct') || 10, maintPct = n('uw-rt-maint-pct') || 5, capexPct = n('uw-rt-capex-pct') || 5, pmPct = n('uw-rt-pm-pct') || 10;
+      const taxMo = (arv * 0.01) / 12, insMo = (arv * 0.01) / 12;
+      const vacMo = totalRent*(vacPct/100), mntMo = totalRent*(maintPct/100), cpxMo = totalRent*(capexPct/100), pmMo = totalRent*(pmPct/100);
+      const totalMonthlyExp = taxMo + insMo + vacMo + mntMo + cpxMo + pmMo;
+      const renoMo = n('uw-rt-reno-mo') || 1, rentMo = n('uw-rt-rent-mo') || 1;
+      const preRentHolding = (taxMo + insMo) * (renoMo + rentMo);
+      const allIn = buyPrice + rRehab + purchClosing + preRentHolding;
+      const annualRent = totalRent * 12;
+      const monthlyCashflow = Math.round(totalRent - totalMonthlyExp);
+      proforma = { buyPrice, units, perUnitRent:rent, totalRent, annualRent, rRehab, purchClosing, preRentHolding, allIn,
+        taxMo, insMo, vacMo, mntMo, cpxMo, pmMo, totalMonthlyExp, vacPct, maintPct, capexPct, pmPct,
+        monthlyCashflow, annualCashflow: monthlyCashflow * 12, yieldPct: allIn > 0 ? (annualRent/allIn)*100 : 0 };
+    }
+  } catch(_){}
+  // ----- Main photo: uploaded pic, else reuse a previously-saved Street View
+  // image, else fetch it ONCE. After the first fetch the base64 lives in the
+  // saved snapshot, so toggling off/on again reuses it — no repeat API calls. -----
+  let mainPic = g('uw-main-pic');
+  if (!(mainPic && mainPic.startsWith('data:'))) {
+    const prevPic = (u && u.data && u.data._offerPacket && u.data._offerPacket.mainPic) || '';
+    if (prevPic && prevPic.startsWith('data:')) {
+      mainPic = prevPic;  // reuse the already-saved photo — no fetch
+    } else {
+      try { mainPic = (await _uwFetchStreetView(address, city, state, zip)) || mainPic; } catch(_){}
+    }
+  }
+  return {
+    address, city, state, zip,
+    beds:n('uw-bed'), baths:n('uw-bath'), sqft:n('uw-sqft'), year:g('uw-built'),
+    lot:g('uw-lot-size'), propType:g('uw-prop-type'), parking:g('uw-prop-parking'),
+    material:g('uw-prop-material'), foundation:g('uw-prop-foundation'),
+    crime:g('uw-crime'), flood:g('uw-flood'),
+    pics:g('uw-pics'), assessor:g('uw-assessor-url'), mainPic:mainPic,
+    arv:arv, asking:asking, rent:rent,
+    comps:comps, listedComps:listedComps, rentalComps:rentalComps, scope:scope, proforma:proforma,
+    notes:g('uw-deal-notes'), snappedAt:new Date().toISOString()
+  };
+}
+window._uwBuildOfferPacket = _uwBuildOfferPacket;
+
+async function dispoToggleOfferActive(id, on){
+  const u = (cache.underwrites || {})[id];
+  if (!u) return;
+  if (!u.data) u.data = {};
+  u.data._offerActive = !!on;
+  let _photoOk = false;
+  if (on) {
+    if (typeof toast === 'function') toast('📸 Building offer packet (fetching photo)…', 'ok');
+    u.data._offerPacket = await _uwBuildOfferPacket(u);
+    const _mp = (u.data._offerPacket && u.data._offerPacket.mainPic) || '';
+    _photoOk = typeof _mp === 'string' && _mp.startsWith('data:');
+  }
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('not connected');
+    const { error } = await sb.from('underwrites').update({ offer_active: !!on, data: u.data }).eq('id', id);
+    if (error) throw error;
+    if (typeof toast === 'function') {
+      if (!on) toast('Removed from public offers.', 'ok');
+      else if (_photoOk) toast('🌐 Live for offers — photo saved ✅', 'ok');
+      else toast('🌐 Live for offers — but NO photo captured. Upload a main picture on this deal (Street View had none / API blocked), then toggle again.', 'err');
+    }
+  } catch(e){ console.warn('dispoToggleOfferActive:', e); u.data._offerActive = !on; if(typeof toast==='function') toast('Failed: '+(e.message||e),'err'); }
+  if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
+}
+window.dispoToggleOfferActive = dispoToggleOfferActive;
+
+// Inline-edit the CONTRACT (uw-accepted) or TARGET (uw-packet-asking-override)
+// price directly inside the pill the user clicked — no browser prompt.
+function dispoInlineEdit(ev, id, kind){
+  ev.stopPropagation();
+  const pill = ev.currentTarget;
+  if (pill.querySelector('input')) return; // already editing
+  const u = (cache.underwrites || {})[id]; if (!u) return;
+  const curRaw = kind === 'contract'
+    ? ((u.data && (u.data['uw-accepted'] || u.accepted)) || '')
+    : ((u.data && u.data['uw-packet-asking-override']) || '');
+  const cur = parseFloat(String(curRaw).replace(/[^0-9.]/g,'')) || '';
+  const accent = kind === 'contract' ? '#10b981' : '#a5b4fc';
+  const label  = kind === 'contract' ? '📝 CONTRACT' : '🎯 TARGET';
+  pill.innerHTML = '<span style="font-size:9px;color:var(--text-dim);font-weight:700;letter-spacing:0.3px">' + label + '</span>'
+    + '<input type="text" inputmode="numeric" value="' + (cur === '' ? '' : cur) + '" placeholder="0" '
+    + 'style="width:74px;padding:1px 5px;font-size:12px;font-weight:700;color:' + accent + ';background:var(--panel);border:1px solid ' + accent + ';border-radius:4px;font-variant-numeric:tabular-nums;text-align:right;outline:none">';
+  const input = pill.querySelector('input');
+  input.focus(); input.select();
+  let done = false;
+  const commit = async (save) => {
+    if (done) return; done = true;
+    if (save) {
+      const n = parseFloat(String(input.value).replace(/[^0-9.]/g,'')) || 0;
+      if (!u.data) u.data = {};
+      const payload = { data: u.data };
+      if (kind === 'contract') { u.data['uw-accepted'] = n > 0 ? String(n) : ''; u.accepted = n; }
+      else {
+        // TARGET shares one field with the contracts-grid Packet Price + the PDF.
+        u.data['uw-packet-asking-override'] = n > 0 ? String(n) : '';
+        u.packet_price = n > 0 ? n : null;
+        payload.packet_price = u.packet_price;
+        if (!window._dispoPacketPrices) window._dispoPacketPrices = {};
+        if (n > 0) window._dispoPacketPrices[id] = n; else delete window._dispoPacketPrices[id];
+      }
+      try { await sb.from('underwrites').update(payload).eq('id', id); if (typeof toast==='function') toast('✓ Saved','ok'); }
+      catch(e){ if (typeof toast==='function') toast('Failed: '+(e.message||e),'err'); }
+    }
+    if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+    if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
+  };
+  input.addEventListener('click', e => e.stopPropagation());
+  input.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') commit(true); else if (e.key === 'Escape') commit(false); });
+  input.addEventListener('blur', () => commit(true));
+}
+window.dispoInlineEdit = dispoInlineEdit;
+
+// Render buyer offers submitted through the public offers page. Fetches once,
+// then paints; filter/search/group changes repaint from cache (no refetch).
+async function renderDispoOffers(force){
+  const tbody = document.getElementById('dispo-offers-tbody');
+  const empty = document.getElementById('dispo-offers-empty');
+  if (!tbody) return;
+  if (typeof sb === 'undefined' || !sb){ tbody.innerHTML=''; return; }
+  tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-[var(--text-dim)]"><span class="loader"></span> Loading offers…</td></tr>';
+  if (empty) empty.style.display='none';
+  try {
+    const { data, error } = await sb.from('property_offers').select('*').order('submitted_at', { ascending: false });
+    if (error) throw error;
+    window._dispoOffersCache = data || [];
+    _dispoOffersPaint();
+  } catch(e){ console.warn('renderDispoOffers:', e); tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6" style="color:#ef4444">Failed to load offers: ' + (e.message || e) + '</td></tr>'; }
+}
+window.renderDispoOffers = renderDispoOffers;
+
+function _dispoOffersPaint(){
+  const tbody = document.getElementById('dispo-offers-tbody');
+  const empty = document.getElementById('dispo-offers-empty');
+  if (!tbody) return;
+  {
+    const allOffers = window._dispoOffersCache || [];
+    const esc = (s)=>escapeHtml(String(s==null?'':s));
+    const money = (n)=>'$'+(Math.round(parseFloat(n)||0)).toLocaleString();
+    const fmtPhone = (p)=>{ const d=String(p||'').replace(/\D/g,''); if(d.length===10) return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6); if(d.length===11&&d[0]==='1') return '1-'+d.slice(1,4)+'-'+d.slice(4,7)+'-'+d.slice(7); return String(p||''); };
+    // ----- Search + stage filter (mirrors the per-deal filter bar) -----
+    const OSTAGE = {
+      'new':       { label: 'New Contract',       color: '#a5b4fc', bg: 'rgba(99,102,241,0.18)' },
+      'assigning': { label: 'Assigning Contract', color: '#fb923c', bg: 'rgba(251,146,60,0.18)' },
+      'hot':       { label: 'Hot Contract',       color: '#f87171', bg: 'rgba(239,68,68,0.18)'  },
+      'assigned':  { label: 'Assigned Contract',  color: '#10b981', bg: 'rgba(16,185,129,0.18)' },
+      'dead':      { label: 'Dead Contract',      color: '#9ca3af', bg: 'rgba(156,163,175,0.18)' }
+    };
+    const OSTAGE_OPTS = ['new','assigning','hot','assigned','dead'];
+    const stageOf = (o) => {
+      const u = (cache.underwrites || {})[o.underwrite_id];
+      const info = (u && typeof _dispoDealInfoFromRow === 'function') ? _dispoDealInfoFromRow(u) : null;
+      return (info && info.stage) || '';
+    };
+    window._dispoOffersFilter = window._dispoOffersFilter || { search: '', stages: [] };
+    const _of = window._dispoOffersFilter;
+    const _searchLo = String(_of.search || '').trim().toLowerCase();
+    const _stageSet = new Set(Array.isArray(_of.stages) ? _of.stages : []);
+    // Per-stage counts (pre-search) for the chip labels.
+    const _sc = {}; OSTAGE_OPTS.forEach(s => _sc[s] = 0);
+    allOffers.forEach(o => { const st = stageOf(o); if (_sc[st] != null) _sc[st]++; });
+    const offers = allOffers.filter(o => {
+      if (_stageSet.size && !_stageSet.has(stageOf(o))) return false;
+      if (_searchLo) {
+        const hay = [o.property_address, o.buyer_name, o.buyer_company, o.buyer_email, o.buyer_phone].map(x => String(x||'').toLowerCase()).join(' ');
+        if (!hay.includes(_searchLo)) return false;
+      }
+      return true;
+    });
+    // Render the filter bar into its container.
+    const _fbar = document.getElementById('dispo-offers-filterbar');
+    if (_fbar) {
+      const chip = (key) => {
+        const m = OSTAGE[key]; const on = _stageSet.has(key);
+        return '<button type="button" onclick="dispoOffersToggleStage(\'' + key + '\')" style="padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;background:' + (on?m.bg:'transparent') + ';border:1px solid ' + (on?m.color:'var(--border)') + ';color:' + (on?m.color:'var(--text-dim)') + ';white-space:nowrap">' + esc(m.label) + ' <span style="opacity:0.7">' + (_sc[key]||0) + '</span></button>';
+      };
+      _fbar.innerHTML = '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px">'
+        + '<input id="dispo-offers-search" type="text" placeholder="🔍 Search address, buyer, email…" value="' + esc(_of.search || '') + '" oninput="dispoOffersSetSearch(this.value)" style="flex:1 1 240px;min-width:200px;max-width:360px;height:32px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;box-sizing:border-box">'
+        + '<div style="display:flex;align-items:center;gap:6px;flex:1 1 auto;flex-wrap:wrap"><span style="font-size:10px;color:var(--text-dim);font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-right:4px">Stages:</span>' + OSTAGE_OPTS.map(chip).join('') + '</div>'
+        + '</div>';
+      const _si = document.getElementById('dispo-offers-search');
+      if (_si && document.activeElement !== _si) { /* preserve caret when re-rendering */ }
+    }
+    if (!offers.length){ tbody.innerHTML=''; if(empty){ empty.style.display=''; empty.textContent = allOffers.length ? 'No offers match your filters.' : 'No offers submitted yet. Mark an unassigned property 🌐 Offer This and share submit.labbllc.com/offers.'; } return; }
+    if (empty) empty.style.display='none';
+    const rowHtml = (o) => {
+      let dt='—'; try { if (o.submitted_at) dt=new Date(o.submitted_at).toLocaleDateString(); } catch(_){}
+      const contactBits = [];
+      if (o.buyer_phone) contactBits.push('<a href="tel:' + esc(o.buyer_phone) + '" style="color:#60a5fa;text-decoration:none">' + esc(fmtPhone(o.buyer_phone)) + '</a>');
+      if (o.buyer_email) contactBits.push('<a href="mailto:' + esc(o.buyer_email) + '" style="color:#60a5fa;text-decoration:none">' + esc(o.buyer_email) + '</a>');
+      const pof = o.proof_of_funds_url ? '<a href="' + esc(o.proof_of_funds_url) + '" target="_blank" rel="noopener" style="color:#60a5fa">📄 View</a>' : '<span style="color:var(--text-dim)">—</span>';
+      const reach = (o.reach_out_if_beaten === true || String(o.reach_out_if_beaten) === 'true') ? '<span style="color:#16a34a;font-weight:700">Yes</span>' : '<span style="color:var(--text-dim)">No</span>';
+      return '<tr style="border-bottom:1px solid var(--border)">'
+        + '<td style="padding:8px 10px;font-weight:600">' + esc(o.property_address || '—') + '</td>'
+        + '<td style="padding:8px 10px"><div style="font-weight:600">' + esc(o.buyer_name || o.buyer_company || '—') + '</div>' + (o.buyer_company && o.buyer_name ? '<div class="text-xs" style="color:var(--text-dim)">' + esc(o.buyer_company) + '</div>' : '') + '</td>'
+        + '<td style="padding:8px 10px;text-align:right;font-weight:700;color:#10b981">' + money(o.offer_amount) + '</td>'
+        + '<td style="padding:8px 10px;text-align:center;font-size:12px">' + esc(o.closing_date || '—') + '</td>'
+        + '<td style="padding:8px 10px;font-size:12px;color:var(--text-dim)">' + (contactBits.join('<br>') || '—') + '</td>'
+        + '<td style="padding:8px 10px;text-align:center">' + pof + '</td>'
+        + '<td style="padding:8px 10px;text-align:center">' + reach + '</td>'
+        + '<td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--text-dim)">' + esc(dt) + '</td>'
+        + '</tr>';
+    };
+    // View toggle: All (newest first) vs Per Property (grouped, highest offer first).
+    // Rendered into the header (left of Refresh), not the table body.
+    const grp = window._dispoOffersGroup || 'all';
+    const gbtn = (g,label)=>'<button type="button" onclick="dispoOffersSetGroup(\''+g+'\')" style="padding:4px 13px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid '+(grp===g?'#6366f1':'var(--border)')+';background:'+(grp===g?'rgba(99,102,241,0.15)':'transparent')+';color:'+(grp===g?'#a5b4fc':'var(--text-dim)')+'">'+label+'</button>';
+    const _tg = document.getElementById('dispo-offers-viewtoggle');
+    if (_tg) _tg.innerHTML = gbtn('all','All') + gbtn('property','Per Property');
+    let body = '';
+    if (grp === 'property') {
+      const byProp = {};
+      offers.forEach(o => { const k = o.property_address || '—'; (byProp[k] = byProp[k] || []).push(o); });
+      Object.keys(byProp).sort((a,b)=>a.localeCompare(b)).forEach(addr => {
+        const list = byProp[addr].slice().sort((a,b)=>(parseFloat(b.offer_amount)||0)-(parseFloat(a.offer_amount)||0));
+        body += '<tr><td colspan="8" style="padding:9px 10px;background:var(--panel-2);font-weight:700;color:#a5b4fc;border-top:2px solid var(--border)">📍 ' + esc(addr) + ' <span style="color:var(--text-dim);font-weight:500;font-size:12px">· ' + list.length + ' offer' + (list.length===1?'':'s') + '</span></td></tr>';
+        body += list.map(rowHtml).join('');
+      });
+    } else {
+      body = offers.map(rowHtml).join('');
+    }
+    tbody.innerHTML = body;
+  }
+}
+window._dispoOffersPaint = _dispoOffersPaint;
+
+function dispoOffersSetGroup(g){ window._dispoOffersGroup = g; if (typeof _dispoOffersPaint === 'function') _dispoOffersPaint(); }
+window.dispoOffersSetGroup = dispoOffersSetGroup;
+
+function dispoOffersToggleStage(key){
+  window._dispoOffersFilter = window._dispoOffersFilter || { search:'', stages:[] };
+  const s = new Set(window._dispoOffersFilter.stages || []);
+  if (s.has(key)) s.delete(key); else s.add(key);
+  window._dispoOffersFilter.stages = [...s];
+  if (typeof _dispoOffersPaint === 'function') _dispoOffersPaint();
+}
+window.dispoOffersToggleStage = dispoOffersToggleStage;
+
+function dispoOffersSetSearch(v){
+  const si0 = document.getElementById('dispo-offers-search');
+  const pos = si0 ? si0.selectionStart : null;
+  window._dispoOffersFilter = window._dispoOffersFilter || { search:'', stages:[] };
+  window._dispoOffersFilter.search = v;
+  if (typeof _dispoOffersPaint === 'function') _dispoOffersPaint();
+  const si = document.getElementById('dispo-offers-search');
+  if (si) { si.focus(); try { const p = (pos == null) ? si.value.length : pos; si.setSelectionRange(p, p); } catch(_){} }
+}
+window.dispoOffersSetSearch = dispoOffersSetSearch;
+
 function buyerRenderPerDealPanel() {
   const listEl = document.getElementById('dispo-perdeal-list');
   if (!listEl) return;
@@ -28045,6 +28402,17 @@ function buyerRenderPerDealPanel() {
     const offersCountPill = offerCount > 0
       ? '<span style="padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(16,185,129,0.18);color:#10b981;white-space:nowrap;flex-shrink:0" title="Total buyers that have submitted an offer on this deal">' + offerCount + ' offer' + (offerCount === 1 ? '' : 's') + '</span>'
       : '';
+    // Left control cluster: offer-active checkbox + copy-offer-link button.
+    const _offerLink = 'https://submit.labbllc.com/offers?prop=' + encodeURIComponent(u.id);
+    const _offActive = !!(u.data && u.data._offerActive);
+    const _leftCtrl = ''
+      + '<div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0" onclick="event.stopPropagation()">'
+      +   '<label title="' + (_offActive ? 'Live for offers — uncheck to remove' : 'Check to list this property for public offers at submit.labbllc.com/offers') + '" style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer">'
+      +     '<input type="checkbox" ' + (_offActive ? 'checked' : '') + ' onclick="event.stopPropagation();dispoToggleOfferActive(\'' + esc(u.id) + '\',this.checked)" style="width:20px;height:20px;cursor:pointer;accent-color:#16a34a;margin:0">'
+      +     '<span style="font-size:8px;font-weight:800;letter-spacing:.2px;text-transform:uppercase;color:' + (_offActive ? '#16a34a' : 'var(--text-dim)') + '">Offer</span>'
+      +   '</label>'
+      +   '<button type="button" title="Copy the public offer-form link for this property" onclick="event.stopPropagation();navigator.clipboard.writeText(\'' + _offerLink + '\').then(function(){if(typeof toast===\'function\')toast(\'🔗 Offer link copied\',\'ok\');});" style="border:1px solid var(--border);background:var(--panel);color:var(--text-dim);border-radius:6px;cursor:pointer;padding:3px 7px;font-size:13px;line-height:1">🔗</button>'
+      + '</div>';
     return ''
       + '<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:10px;cursor:pointer;transition:background 0.12s" '
       +      'onclick="_dispoOpenDeal(\'' + esc(deal.id) + '\')" '
@@ -28052,6 +28420,7 @@ function buyerRenderPerDealPanel() {
       +      'onmouseout="this.style.background=\'var(--panel-2)\'" '
       +      'title="Click to see all qualifying buyers + record offers">'
       +   '<div style="display:flex;align-items:center;gap:12px;min-width:0">'
+      +     _leftCtrl
       // Address column — flexes to fill leftover space; pills sit on the right.
       +     '<div style="flex:1 1 auto;min-width:0">'
       +       '<div style="font-size:15px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🏠 ' + esc(deal.address || '(no address)') + '</div>'
@@ -28063,18 +28432,14 @@ function buyerRenderPerDealPanel() {
       // column matches its height without making the card any taller.
       +     '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'
       +       '<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">'
-      +         (contractPrice > 0
-                  ? '<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.35);white-space:nowrap" title="What we actually contracted this deal for (uw-accepted).">'
-                    + '<span style="font-size:9px;color:var(--text-dim);font-weight:700;letter-spacing:0.3px">📝 CONTRACT</span>'
-                    + '<span style="font-size:12px;color:#10b981;font-weight:700;font-variant-numeric:tabular-nums">$' + contractPrice.toLocaleString('en-US', { maximumFractionDigits: 0 }) + '</span>'
-                    + '</span>'
-                  : '')
-      +         (targetPkt > 0
-                  ? '<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;background:rgba(165,180,252,0.12);border:1px solid rgba(165,180,252,0.35);white-space:nowrap" title="Est max buyer price = Cash Flip Max × 1.20 rounded UP to next $1k.">'
-                    + '<span style="font-size:9px;color:var(--text-dim);font-weight:700;letter-spacing:0.3px">🎯 TARGET</span>'
-                    + '<span style="font-size:12px;color:#a5b4fc;font-weight:700;font-variant-numeric:tabular-nums">$' + targetPkt.toLocaleString('en-US', { maximumFractionDigits: 0 }) + '</span>'
-                    + '</span>'
-                  : '')
+      +         '<span onclick="dispoInlineEdit(event,\'' + esc(u.id) + '\',\'contract\')" title="Click to edit the contract price (what you signed it for)." style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.35);white-space:nowrap;cursor:pointer">'
+      +           '<span style="font-size:9px;color:var(--text-dim);font-weight:700;letter-spacing:0.3px">📝 CONTRACT</span>'
+      +           '<span style="font-size:12px;color:#10b981;font-weight:700;font-variant-numeric:tabular-nums">' + (contractPrice > 0 ? '$' + contractPrice.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '＋ Set') + '</span>'
+      +         '</span>'
+      +         '<span onclick="dispoInlineEdit(event,\'' + esc(u.id) + '\',\'target\')" title="Click to edit the target / packet price. Leave blank to use the auto-computed price." style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;background:rgba(165,180,252,0.12);border:1px solid rgba(165,180,252,0.35);white-space:nowrap;cursor:pointer">'
+      +           '<span style="font-size:9px;color:var(--text-dim);font-weight:700;letter-spacing:0.3px">🎯 TARGET</span>'
+      +           '<span style="font-size:12px;color:#a5b4fc;font-weight:700;font-variant-numeric:tabular-nums">' + (targetPkt > 0 ? '$' + targetPkt.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '＋ Set') + '</span>'
+      +         '</span>'
       +       '</div>'
       +       '<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">'
       +         offersCountPill
@@ -28432,6 +28797,9 @@ function buyerRenderContractsPanel() {
     if (cashFlipMax <= 0) return 0;
     return Math.ceil(cashFlipMax * 1.20 / 1000) * 1000;
   }
+  // Expose for the offer-packet snapshot (public offer page renders that snapshot).
+  window._uwPacketPrice = packetPrice;
+  window._uwCashFlipMax = _cashFlipMaxFromData;
   function rehabBudget(u) {
     const flip   = parseFloat((u.data && u.data['uw-rehab-flip'])   || 0) || 0;
     const rental = parseFloat((u.data && u.data['uw-rehab-rental']) || 0) || 0;
@@ -28501,7 +28869,17 @@ function buyerRenderContractsPanel() {
     const beds  = num(u, 'uw-bed');
     const baths = num(u, 'uw-bath');
     const sqftRaw = parseFloat(String((u.data && u.data['uw-sqft']) || '').replace(/,/g, '')) || null;
+    // "Active for offers" toggle — only for non-assigned contracts.
+    const _offActive = !!(u.data && u.data._offerActive);
+    // "Offer This" toggle — a checkbox to the LEFT of the address. Green ✓ when
+    // the property is live on the public offers page. Hidden for assigned deals.
+    const _offBtn = (statusKey === 'assigned') ? '<span style="display:inline-block;width:26px;flex-shrink:0"></span>' :
+      '<label onclick="event.stopPropagation()" title="' + (_offActive ? 'Live on the public offers page — uncheck to remove' : 'Check to make this property available for public offers at submit.labbllc.com/offers') + '" style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;flex-shrink:0">' +
+        '<input type="checkbox" ' + (_offActive ? 'checked' : '') + ' onclick="event.stopPropagation();dispoToggleOfferActive(\'' + esc(id) + '\',this.checked)" style="width:20px;height:20px;cursor:pointer;accent-color:#16a34a;margin:0">' +
+        '<span style="font-size:8.5px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;color:' + (_offActive ? '#16a34a' : 'var(--text-dim)') + '">Offer</span>' +
+      '</label>';
     return '<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="window._dispoReturnTo=\'dispositions\'; if(typeof uwToggleDispoStageBar===\'function\') uwToggleDispoStageBar(); if(typeof uwLoadById===\'function\') uwLoadById(\'' + esc(id) + '\'); if(typeof goSection===\'function\') goSection(\'underwriting\'); setTimeout(function(){ if(typeof uwToggleDispoStageBar===\'function\') uwToggleDispoStageBar(); }, 250);" onmouseover="this.style.background=\'rgba(99,102,241,0.05)\'" onmouseout="this.style.background=\'\'" title="Open this deal in Underwriting">' +
+      '<td style="padding:10px 12px;text-align:center;vertical-align:middle">' + _offBtn + '</td>' +
       '<td style="padding:10px 12px;font-size:13px;color:var(--text);text-align:left;vertical-align:middle">' + addrHtml + '</td>' +
       (function () {
         // ---- LOCAL-ONLY recompute (never touches u.data or anything downstream) ----
@@ -28513,8 +28891,13 @@ function buyerRenderContractsPanel() {
         // ceiling would be even after they've set a manual price.
         var _cfmAuto    = _cashFlipMaxFromData(u.data || {});
         var autoMaxPkt  = _cfmAuto > 0 ? Math.ceil(_cfmAuto * 1.20 / 1000) * 1000 : 0;
-        var overrides   = window._dispoPacketPrices || {};
-        var ov          = overrides[u.id];
+        // Single source of truth = uw-packet-asking-override (same field the
+        // per-deal TARGET pill and the wholesale-packet PDF use) so both views
+        // and the packet always match. Falls back to the legacy packet_price
+        // column / local store for rows that predate the sync.
+        var _dataOv     = parseFloat(String((u.data && u.data['uw-packet-asking-override']) || '').replace(/[^0-9.]/g, ''));
+        var _legacyOv   = (window._dispoPacketPrices || {})[u.id];
+        var ov          = (isFinite(_dataOv) && _dataOv > 0) ? _dataOv : _legacyOv;
         var hasOv       = (ov != null && isFinite(ov) && Number(ov) > 0);
         // Effective price the buyer pays = override if set, else our auto-computed
         // Packet Price (MAO × 1.20).
@@ -28670,6 +29053,7 @@ function buyerRenderContractsPanel() {
     '<table style="width:100%;border-collapse:collapse">' +
       '<thead style="position:sticky;top:0;background:var(--panel);z-index:1">' +
         '<tr style="border-bottom:1px solid var(--border)">' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="Check to list this property for public offers at submit.labbllc.com/offers.">Status</th>' +
           '<th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Address</th>' +
           '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="Packet asking price (override) or MAO × 1.20.">Packet Price</th>' +
           '<th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase" title="Accepted contract price for this deal (read-only — comes from your Underwriting Accepted field).">Contract</th>' +
@@ -28890,16 +29274,15 @@ function buyerSetPacketPrice(id, raw) {
   if (!window._dispoPacketPrices) window._dispoPacketPrices = {};
   const v = parseFloat(String(raw == null ? '' : raw).replace(/[^0-9.]/g, ''));
   const newVal = (isFinite(v) && v > 0) ? v : null;
-  // Capture rollback BEFORE we touch anything, in case the cloud write fails.
-  const rollback = window._dispoPacketPrices[id];
-  // Optimistic UI update — instant feedback while we push to the cloud.
+  const u = (cache && cache.underwrites && cache.underwrites[id]) || null;
+  // Write the SHARED field (uw-packet-asking-override) so the per-deal TARGET
+  // pill and the wholesale-packet PDF all reflect the same number. Keep the
+  // legacy packet_price column + local store in sync too.
+  if (u) { if (!u.data) u.data = {}; u.data['uw-packet-asking-override'] = (newVal != null) ? String(newVal) : ''; u.packet_price = newVal; }
   if (newVal == null) delete window._dispoPacketPrices[id];
   else                window._dispoPacketPrices[id] = newVal;
-  // Mirror onto cache.underwrites so other readers stay consistent.
-  if (cache && cache.underwrites && cache.underwrites[id]) {
-    cache.underwrites[id].packet_price = newVal;
-  }
   if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
+  if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
   // Push to Supabase.
   (async function () {
     if (typeof sb === 'undefined' || !sb) {
@@ -28907,18 +29290,13 @@ function buyerSetPacketPrice(id, raw) {
       return;
     }
     try {
-      const { error } = await sb.from('underwrites').update({ packet_price: newVal }).eq('id', id);
+      const payload = { packet_price: newVal };
+      if (u) payload.data = u.data;
+      const { error } = await sb.from('underwrites').update(payload).eq('id', id);
       if (error) throw error;
     } catch (e) {
       console.warn('[buyerSetPacketPrice] FAILED:', e && e.message);
-      // Roll back so the UI doesn't lie about being saved.
-      if (rollback == null) delete window._dispoPacketPrices[id];
-      else                  window._dispoPacketPrices[id] = rollback;
-      if (cache && cache.underwrites && cache.underwrites[id]) {
-        cache.underwrites[id].packet_price = (rollback == null) ? null : rollback;
-      }
       if (typeof toast === 'function') toast('\u274C Packet price NOT SAVED to cloud: ' + (e.message || 'unknown') + '. Re-type after fixing.', 'err');
-      if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
     }
   })();
 }

@@ -1019,20 +1019,35 @@
 
 <!-- SECTION TABS -->
 <div id="section-tabs-row" class="px-6 pt-4 flex items-center gap-2 border-b border-[var(--border)]">
-  <div class="tab active" data-section="data" onclick="goSection('data')">📥 Imports</div>
-  <div class="tab" data-section="marketing" onclick="goSection('marketing')">📣 Marketing</div>
-  <div class="tab" data-section="reports" onclick="goSection('reports')">📝 Logs</div>
+  <div class="tab active" data-section="marketing" onclick="goSection('marketing')">📣 Marketing</div>
   <div class="tab" data-section="results" onclick="goSection('results')">📈 Results</div>
-  <div class="tab" data-section="contacts" onclick="goSection('contacts')">📒 Contacts</div>
   <div class="tab" data-section="underwriting" onclick="window._dispoReturnTo=null; if(typeof uwToggleDispoStageBar==='function') uwToggleDispoStageBar(); if(typeof uwBackToList==='function') uwBackToList(); goSection('underwriting')">📐 Underwriting</div>
   <div class="tab" data-section="dispositions" onclick="goSection('dispositions')">🤝 Dispositions</div>
   <div class="tab" data-section="renovation" onclick="goSection('renovation')">🔨 Renovation</div>
   <div class="tab" data-section="holdings" onclick="goSection('holdings')">🏘️ Holdings</div>
   <div class="tab" data-section="photos" onclick="goSection('photos')" style="display:inline-flex;align-items:center;gap:6px"><span style="font-size:1em;line-height:1;transform:translateY(-1px)">📷</span><span>Photos</span></div>
+  <div class="tab" data-section="contacts" onclick="goSection('contacts')">📒 Contacts</div>
 </div>
 
 <!-- SECTION: DATA -->
-<div id="section-data" class="section-content p-6">
+<!-- Marketing / Imports shared sub-tab bar — shown for both sections so Imports
+     highlights like a real sub-tab. Toggled + highlighted in goSection(). -->
+<div id="mkt-subbar" class="px-6 pt-4">
+  <div class="flex items-center gap-2" style="flex-wrap:wrap;min-width:0">
+    <div class="flex items-center gap-1 panel p-1 w-fit">
+      <div class="subtab" id="mkt-pill-imports" onclick="goSection('data')" title="Data imports &amp; uploads.">📥 Imports</div>
+    </div>
+    <div class="flex items-center gap-1 panel p-1 w-fit">
+      <div class="subtab active" data-mview="lists" onclick="goMarketingView('lists')">📋 Lists</div>
+      <div class="subtab" data-mview="vendors" onclick="goMarketingView('vendors')">🏢 Vendors</div>
+    </div>
+    <div class="flex items-center gap-1 panel p-1 w-fit">
+      <div class="subtab" data-mview="campaigns" onclick="goMarketingView('campaigns')" title="Saved campaign snapshots — pick vendors, export ready-to-call CSVs.">🎯 Campaigns</div>
+    </div>
+  </div>
+</div>
+
+<div id="section-data" class="section-content p-6" style="display:none">
 
   <!-- Mini dashboard -->
   <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
@@ -1765,21 +1780,11 @@
 </div><!-- /section-data -->
 
 <!-- SECTION: Marketing -->
-<div id="section-marketing" class="section-content p-6" style="display:none">
+<div id="section-marketing" class="section-content p-6">
 
-  <!-- Marketing subtab row — TWO disconnected panel pills, same pattern as
-       the Renovation top bar (phase pills + resources pills). Lists / Vendors
-       are the data-collection workflow; Campaigns sits in its own pill to
-       visually flag that it's the downstream export workflow. -->
-  <div class="flex items-center gap-2 mb-4" style="flex-wrap:wrap;min-width:0">
-    <div class="flex items-center gap-1 panel p-1 w-fit">
-      <div class="subtab active" data-mview="lists" onclick="goMarketingView('lists')">📋 Lists</div>
-      <div class="subtab" data-mview="vendors" onclick="goMarketingView('vendors')">🏢 Vendors</div>
-    </div>
-    <div class="flex items-center gap-1 panel p-1 w-fit">
-      <div class="subtab" data-mview="campaigns" onclick="goMarketingView('campaigns')" title="Saved campaign snapshots — pick vendors, export ready-to-call CSVs.">🎯 Campaigns</div>
-    </div>
-  </div>
+  <!-- Marketing subtab row lives OUTSIDE this section (#mkt-subbar, just under the
+       top nav) so it stays visible for both Marketing and Imports, letting the
+       Imports pill highlight like a real sub-tab. -->
 
   <!-- ============ Marketing: Lists subview ============ -->
   <div id="mview-lists" class="mview">
@@ -2045,6 +2050,20 @@
 </div>
 
 
+<!-- Results / Logs shared sub-tab bar — shown for both sections so Logs
+     highlights like a real sub-tab. Toggled + highlighted in goSection(). -->
+<div id="res-subbar" class="px-6 pt-4" style="display:none">
+  <div class="flex items-center gap-2" style="flex-wrap:wrap;min-width:0">
+    <div class="flex items-center gap-1 panel p-1 w-fit">
+      <div class="subtab" id="res-pill-logs" onclick="goSection('reports')" title="Call logs &amp; notebook.">📝 Logs</div>
+    </div>
+    <div class="flex items-center gap-1 panel p-1 w-fit">
+      <div class="subtab active" data-resview="records" onclick="goResView('records')">📋 Records</div>
+      <div class="subtab" data-resview="overview" onclick="goResView('overview')">📊 Overview</div>
+    </div>
+  </div>
+</div>
+
 <!-- SECTION: Reports (Notebook) -->
 <div id="section-reports" class="section-content p-6" style="display:none">
   <!-- Agent reports / CSV imports -->
@@ -2218,11 +2237,9 @@
     </div>
   </div>
 
-  <!-- Results subtabs -->
-  <div class="flex items-center gap-2 mb-4">
-    <div class="subtab active" data-resview="records" onclick="goResView('records')">📋 Records</div>
-    <div class="subtab" data-resview="overview" onclick="goResView('overview')">📊 Overview</div>
-  </div>
+  <!-- Results subtab bar lives OUTSIDE this section (#res-subbar, under the top nav)
+       so it stays visible for both Results and Logs, letting the Logs pill highlight
+       like a real sub-tab. -->
 
   <!-- Overview subtab content -->
   <div data-resview-panel="overview" style="display:none">
@@ -35683,7 +35700,16 @@ CREATE POLICY "underwrites_all" ON underwrites FOR ALL USING (true) WITH CHECK (
 
 // ---------- Marketing: subtabs ----------
 function goMarketingView(v) {
-  document.querySelectorAll('#section-marketing .subtab').forEach(t => t.classList.toggle('active', t.dataset.mview === v));
+  // If we're currently in the Imports (data) section, switch back to Marketing first.
+  const _msec = document.getElementById('section-marketing');
+  if (_msec && _msec.style.display === 'none') {
+    document.querySelectorAll('.section-content').forEach(el => el.style.display = 'none');
+    _msec.style.display = 'block';
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.section === 'marketing'));
+    const _bar = document.getElementById('mkt-subbar'); if (_bar) _bar.style.display = '';
+    const _ip = document.getElementById('mkt-pill-imports'); if (_ip) _ip.classList.remove('active');
+  }
+  document.querySelectorAll('#mkt-subbar .subtab').forEach(t => t.classList.toggle('active', t.dataset.mview === v));
   document.querySelectorAll('#section-marketing .mview').forEach(el => el.style.display = 'none');
   const target = document.getElementById('mview-' + v);
   if (target) target.style.display = '';
@@ -36848,7 +36874,10 @@ function renderCampaigns() {
   }).join('');
 }
 
-function goSection(s) {
+function goSection(s, _opts) {
+  // Track that the user (or a real navigation) has picked a section, so the
+  // boot default doesn't yank them back to Marketing after data finishes loading.
+  if (!(_opts && _opts.boot)) window._navUserClicked = true;
   // If the user is navigating to any section other than 'underwriting', clear
   // the dispo-mode flag — dispo bars + Remove button + nav highlight should
   // restore for the new section.
@@ -36966,6 +36995,32 @@ function goSection(s) {
   const target = document.getElementById("section-" + s);
   // SOP uses a fullscreen flex layout; everything else uses block.
   if (target) target.style.display = (s === "sop") ? "flex" : "block";
+  // Shared Marketing/Imports sub-tab bar: visible for both, with Imports
+  // highlighted when you're in the Imports (data) section.
+  const _mktBar = document.getElementById('mkt-subbar');
+  if (_mktBar) _mktBar.style.display = (s === 'marketing' || s === 'data') ? '' : 'none';
+  const _impPill = document.getElementById('mkt-pill-imports');
+  if (_impPill) _impPill.classList.toggle('active', s === 'data');
+  if (s === 'data') {
+    document.querySelectorAll('#mkt-subbar .subtab[data-mview]').forEach(t => t.classList.remove('active'));
+  } else if (s === 'marketing') {
+    // Keep the active marketing pill in sync with whichever subview is shown.
+    const shown = Array.from(document.querySelectorAll('#section-marketing .mview')).find(el => el && el.style.display !== 'none');
+    const v = shown ? shown.id.replace('mview-', '') : 'lists';
+    if (typeof goMarketingView === 'function') goMarketingView(v);
+  }
+  // Shared Results/Logs sub-tab bar: visible for both, Logs highlighted when in Logs.
+  const _resBar = document.getElementById('res-subbar');
+  if (_resBar) _resBar.style.display = (s === 'results' || s === 'reports') ? '' : 'none';
+  const _logsPill = document.getElementById('res-pill-logs');
+  if (_logsPill) _logsPill.classList.toggle('active', s === 'reports');
+  if (s === 'reports') {
+    document.querySelectorAll('#res-subbar .subtab[data-resview]').forEach(t => t.classList.remove('active'));
+  } else if (s === 'results') {
+    const shownR = Array.from(document.querySelectorAll('[data-resview-panel]')).find(el => el && el.style.display !== 'none');
+    const rv = shownR ? shownR.dataset.resviewPanel : 'records';
+    if (typeof goResView === 'function') goResView(rv);
+  }
   // Toggle a body class so the fullscreen CSS for SOP (hides section-tabs
   // row, sizes the section to fill the viewport) only applies when SOP is
   // the active section.
@@ -37441,6 +37496,15 @@ function toggleSopSection() {
 }
 window.toggleSopSection = toggleSopSection;
 function goResView(v) {
+  // If we're currently in the Logs (reports) section, switch back to Results first.
+  const _rsec = document.getElementById('section-results');
+  if (_rsec && _rsec.style.display === 'none') {
+    document.querySelectorAll('.section-content').forEach(el => el.style.display = 'none');
+    _rsec.style.display = 'block';
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.section === 'results'));
+    const _bar = document.getElementById('res-subbar'); if (_bar) _bar.style.display = '';
+    const _lp = document.getElementById('res-pill-logs'); if (_lp) _lp.classList.remove('active');
+  }
   document.querySelectorAll('.subtab[data-resview]').forEach(t => t.classList.toggle('active', t.dataset.resview === v));
   document.querySelectorAll('[data-resview-panel]').forEach(p => { p.style.display = (p.dataset.resviewPanel === v) ? '' : 'none'; });
   if (v === 'records') {
@@ -42962,6 +43026,10 @@ async function boot() {
   wireDropzone('dz-agentperf', 'file-agentperf', handleAgentPerfFile);
   if (typeof syncGeoProviderRadios === 'function') syncGeoProviderRadios();
   try { setupRealtime(); } catch (e) { console.warn('setupRealtime:', e); }
+  // Imports is now a pill inside Marketing (no longer its own top tab), so land on
+  // Marketing — but ONLY if the user hasn't already clicked into a section while
+  // data was loading (otherwise it would yank them back).
+  try { if (!window._navUserClicked && typeof goSection === 'function') goSection('marketing', { boot: true }); } catch(_){}
   setTimeout(hideBootLoader, 600);
 }
 

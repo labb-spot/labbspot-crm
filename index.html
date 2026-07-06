@@ -5937,6 +5937,7 @@
         <th style="padding:8px 10px;text-align:center">PoF</th>
         <th style="padding:8px 10px;text-align:center">Reach if beat</th>
         <th style="padding:8px 10px;text-align:center">Submitted</th>
+        <th style="padding:8px 10px;text-align:center"></th>
       </tr></thead>
       <tbody id="dispo-offers-tbody"></tbody>
     </table></div>
@@ -28365,9 +28366,23 @@ async function renderDispoOffers(force){
     if (error) throw error;
     window._dispoOffersCache = data || [];
     _dispoOffersPaint();
-  } catch(e){ console.warn('renderDispoOffers:', e); tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6" style="color:#ef4444">Failed to load offers: ' + (e.message || e) + '</td></tr>'; }
+  } catch(e){ console.warn('renderDispoOffers:', e); tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6" style="color:#ef4444">Failed to load offers: ' + (e.message || e) + '</td></tr>'; }
 }
 window.renderDispoOffers = renderDispoOffers;
+
+// Delete a submitted offer (with confirm), then refresh the list.
+async function dispoOfferDelete(id){
+  if(!id) return;
+  if(!confirm('Delete this offer? This cannot be undone.')) return;
+  try {
+    const { error } = await sb.from('property_offers').delete().eq('id', id);
+    if (error) throw error;
+    window._dispoOffersCache = (window._dispoOffersCache||[]).filter(o => String(o.id) !== String(id));
+    if (typeof _dispoOffersPaint === 'function') _dispoOffersPaint();
+    if (typeof toast==='function') toast('Offer deleted.','ok');
+  } catch(e){ console.warn('dispoOfferDelete:', e); if(typeof toast==='function') toast('Delete failed: ' + (e.message||e), 'err'); }
+}
+window.dispoOfferDelete = dispoOfferDelete;
 
 function _dispoOffersPaint(){
   const tbody = document.getElementById('dispo-offers-tbody');
@@ -28439,6 +28454,7 @@ function _dispoOffersPaint(){
         + '<td style="padding:8px 10px;text-align:center">' + pof + '</td>'
         + '<td style="padding:8px 10px;text-align:center">' + reach + '</td>'
         + '<td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--text-dim)">' + esc(dt) + '</td>'
+        + '<td style="padding:8px 10px;text-align:center"><button onclick="dispoOfferDelete(\'' + esc(o.id) + '\')" title="Delete this offer" style="background:none;border:1px solid rgba(239,68,68,0.5);color:#ef4444;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700">✕</button></td>'
         + '</tr>';
     };
     // View toggle: All (newest first) vs Per Property (grouped, highest offer first).
@@ -28453,7 +28469,7 @@ function _dispoOffersPaint(){
       offers.forEach(o => { const k = o.property_address || '—'; (byProp[k] = byProp[k] || []).push(o); });
       Object.keys(byProp).sort((a,b)=>a.localeCompare(b)).forEach(addr => {
         const list = byProp[addr].slice().sort((a,b)=>(parseFloat(b.offer_amount)||0)-(parseFloat(a.offer_amount)||0));
-        body += '<tr><td colspan="8" style="padding:9px 10px;background:var(--panel-2);font-weight:700;color:#a5b4fc;border-top:2px solid var(--border)">📍 ' + esc(addr) + ' <span style="color:var(--text-dim);font-weight:500;font-size:12px">· ' + list.length + ' offer' + (list.length===1?'':'s') + '</span></td></tr>';
+        body += '<tr><td colspan="9" style="padding:9px 10px;background:var(--panel-2);font-weight:700;color:#a5b4fc;border-top:2px solid var(--border)">📍 ' + esc(addr) + ' <span style="color:var(--text-dim);font-weight:500;font-size:12px">· ' + list.length + ' offer' + (list.length===1?'':'s') + '</span></td></tr>';
         body += list.map(rowHtml).join('');
       });
     } else {

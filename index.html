@@ -4236,6 +4236,7 @@
           <button class="btn text-sm" id="uw-cq-tab-list" onclick="uwCqSetTab('list')" title="List of contractor quotes submitted for this property.">📋 Contractor Quote List</button>
           <button class="btn btn-ghost text-sm" id="uw-cq-tab-compare" onclick="uwCqSetTab('compare')" title="Side-by-side comparison of the quotes, line by line.">📊 Quote Comparisons</button>
           <button class="btn btn-ghost text-sm" id="uw-cq-tab-external" onclick="uwCqSetTab('external')" title="Upload external quote files saved to this deal.">📎 External Quotes</button>
+          <button class="btn btn-ghost text-sm" id="uw-cq-tab-agreements" onclick="uwCqSetTab('agreements')" title="Drop signed construction agreements / contracts for this deal.">📝 Construction Agreements</button>
         </div>
 
         <!-- Bid-sheet controls — used by the List + Comparison views (hidden on External). -->
@@ -4268,6 +4269,15 @@
             <button class="btn btn-primary text-sm" id="uw-scope-quote-btn" onclick="document.getElementById('uw-scope-quote-file').click()" title="Upload a contractor quote — you'll be asked to name it.">⬆ Upload Quote</button>
           </div>
           <div id="uw-scope-quotes-list" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+        <!-- View 4: Construction Agreements -->
+        <div id="uw-cq-agreements-view" style="display:none;margin-top:6px">
+          <input id="uw-agreement-file" type="file" style="display:none" onchange="uwAgreementUpload()">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);border-left:4px solid #10b981;border-radius:8px;padding:11px 14px;margin-bottom:10px">
+            <span style="font-size:12px;color:#6ee7b7;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">📝 Signed Construction Agreements</span>
+            <button class="btn btn-primary text-sm" id="uw-agreement-btn" onclick="document.getElementById('uw-agreement-file').click()" title="Upload a signed construction agreement — you'll be asked to name it.">⬆ Upload Agreement</button>
+          </div>
+          <div id="uw-agreements-list" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
 
     </div><!-- /Contractor Quotes & Bids panel -->
@@ -16891,7 +16901,7 @@ function _uwCollect() {
           k === '_budgetActuals' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
           k === '_reno_phase_override' || k === '_compsMode' ||
           k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_scopeQuotes' || k === '_taggedBuyers' || k === '_offerActive' || k === '_offerPacket' ||
-          k === '_invoiceOriginal' || k === '_invoiceActive' || k === '_invoiceTab' || k === '_invoiceInclContractor' || k === '_invoicePaidDeposits' || k === '_externalInvoices' ||
+          k === '_invoiceOriginal' || k === '_invoiceActive' || k === '_invoiceTab' || k === '_invoiceInclContractor' || k === '_invoicePaidDeposits' || k === '_externalInvoices' || k === '_constructionAgreements' ||
           // Geocode coordinates — written by _dispoGeocodeSubject directly
           // into u.data.lat/lng/geocoded_address (not form fields). Without
           // this preservation, the next autosave wipes them and the user
@@ -23502,6 +23512,113 @@ async function uwScopeDeleteQuote(idx) {
 }
 window.uwScopeDeleteQuote = uwScopeDeleteQuote;
 
+// ===== Construction Agreements — per-deal signed document uploads =====
+// Reuse the 'contractor-quotes' bucket, path <dealId>/agmt_<ts>_<name>.
+// Metadata persists on u.data._constructionAgreements (array of {name,fileName,path,url,size,uploadedAt}).
+function _uwRenderAgreements() {
+  const listEl = document.getElementById('uw-agreements-list');
+  if (!listEl) return;
+  const u = _uwCurrentId ? ((cache.underwrites || {})[_uwCurrentId]) : null;
+  const docs = (u && u.data && Array.isArray(u.data._constructionAgreements)) ? u.data._constructionAgreements : [];
+  if (!docs.length) {
+    listEl.innerHTML = '<span class="text-xs" style="color:var(--text-dim)">No signed agreements uploaded yet.</span>';
+    return;
+  }
+  listEl.innerHTML = docs.map(function(q, i) {
+    const url = q.url || (q.path ? _uwQuotePublicUrl(q.path) : '#');
+    const when = q.uploadedAt ? new Date(q.uploadedAt).toLocaleDateString() : '';
+    const kb = q.size ? (q.size < 1024*1024 ? Math.max(1, Math.round(q.size/1024)) + ' KB' : (q.size/1048576).toFixed(1) + ' MB') : '';
+    const meta = [escapeHtml(q.fileName || ''), kb, when].filter(Boolean).join(' · ');
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">' +
+      '<span style="font-size:15px">📝</span>' +
+      '<div style="flex:1;min-width:0">' +
+        '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" style="color:#60a5fa;font-size:13px;font-weight:600;text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(q.name || q.fileName || 'Agreement') + '</a>' +
+        '<span style="font-size:11px;color:var(--text-dim);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + meta + '</span>' +
+      '</div>' +
+      '<button class="btn btn-ghost text-xs" title="Rename this agreement" onclick="uwAgreementRename(' + i + ')">✎</button>' +
+      '<button class="btn btn-ghost text-xs" style="color:#f87171" title="Delete this agreement" onclick="uwAgreementDelete(' + i + ')">✕</button>' +
+    '</div>';
+  }).join('');
+}
+window._uwRenderAgreements = _uwRenderAgreements;
+
+async function uwAgreementUpload() {
+  const fileEl = document.getElementById('uw-agreement-file');
+  const btn = document.getElementById('uw-agreement-btn');
+  if (!fileEl || !fileEl.files || !fileEl.files[0]) return;
+  if (!_uwCurrentId) { if (typeof toast === 'function') toast('Open a deal first.', 'warn'); fileEl.value = ''; return; }
+  const u = (cache.underwrites || {})[_uwCurrentId];
+  if (!u) { fileEl.value = ''; return; }
+  const file = fileEl.files[0];
+  const docName = (prompt('Name this agreement (e.g. Master Construction Agreement — Jaidon):', '') || '').trim();
+  if (!docName) { fileEl.value = ''; return; }
+  const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, '_');
+  const path = _uwCurrentId + '/agmt_' + Date.now() + '_' + safeName;
+  const oldLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⬆ Uploading…'; }
+  try {
+    const up = await sb.storage.from(_SCOPE_QUOTES_BUCKET).upload(path, file, { cacheControl: '3600', upsert: false });
+    if (up.error) throw up.error;
+    u.data = u.data || {};
+    if (!Array.isArray(u.data._constructionAgreements)) u.data._constructionAgreements = [];
+    u.data._constructionAgreements.push({
+      name: docName,
+      fileName: file.name,
+      path: path,
+      url: _uwQuotePublicUrl(path),
+      size: file.size,
+      uploadedAt: new Date().toISOString()
+    });
+    if (typeof _uwScheduleAutosave === 'function') _uwScheduleAutosave();
+    else if (typeof uwSave === 'function') uwSave(false);
+    _uwRenderAgreements();
+    if (typeof toast === 'function') toast('Agreement uploaded.', 'ok');
+  } catch (err) {
+    console.error('[agreements] upload failed', err);
+    const msg = (err && err.message) ? err.message : String(err);
+    if (typeof toast === 'function') toast('Upload failed: ' + msg, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = oldLabel || '⬆ Upload Agreement'; }
+    fileEl.value = '';
+  }
+}
+window.uwAgreementUpload = uwAgreementUpload;
+
+function uwAgreementRename(idx) {
+  if (!_uwCurrentId) return;
+  const u = (cache.underwrites || {})[_uwCurrentId];
+  if (!u || !u.data || !Array.isArray(u.data._constructionAgreements)) return;
+  const q = u.data._constructionAgreements[idx];
+  if (!q) return;
+  const next = prompt('Rename agreement:', q.name || q.fileName || '');
+  if (next === null) return;
+  const trimmed = next.trim();
+  q.name = trimmed || q.fileName || 'Agreement';
+  if (typeof _uwScheduleAutosave === 'function') _uwScheduleAutosave();
+  else if (typeof uwSave === 'function') uwSave(false);
+  _uwRenderAgreements();
+  if (typeof toast === 'function') toast('Agreement renamed.', 'ok');
+}
+window.uwAgreementRename = uwAgreementRename;
+
+async function uwAgreementDelete(idx) {
+  if (!_uwCurrentId) return;
+  const u = (cache.underwrites || {})[_uwCurrentId];
+  if (!u || !u.data || !Array.isArray(u.data._constructionAgreements)) return;
+  const q = u.data._constructionAgreements[idx];
+  if (!q) return;
+  if (!confirm('Delete agreement "' + (q.name || q.fileName || '') + '"?\n\nThis permanently removes the uploaded file.')) return;
+  try {
+    if (q.path) await sb.storage.from(_SCOPE_QUOTES_BUCKET).remove([q.path]);
+  } catch (err) { console.warn('[agreements] storage remove failed (continuing to drop metadata)', err); }
+  u.data._constructionAgreements.splice(idx, 1);
+  if (typeof _uwScheduleAutosave === 'function') _uwScheduleAutosave();
+  else if (typeof uwSave === 'function') uwSave(false);
+  _uwRenderAgreements();
+  if (typeof toast === 'function') toast('Agreement deleted.', 'ok');
+}
+window.uwAgreementDelete = uwAgreementDelete;
+
 // ===== Contractor Bids — per-property bid sheet + contractor responses =====
 // bid_requests: one row per property (underwrite_id) holding editable line_items
 // [{id,room,description}] + a share token. bid_responses: one row per contractor
@@ -24174,7 +24291,7 @@ window.uwBidLoadResponses = uwBidLoadResponses;
 
 // Switch the Contractor Quotes & Bids panel between its three views.
 function uwCqSetTab(tab){
-  window._uwCqTab = (tab === 'compare' || tab === 'external') ? tab : 'list';
+  window._uwCqTab = (tab === 'compare' || tab === 'external' || tab === 'agreements') ? tab : 'list';
   tab = window._uwCqTab;
   const setBtn = (id, on) => {
     const b = document.getElementById(id);
@@ -24189,12 +24306,15 @@ function uwCqSetTab(tab){
   setBtn('uw-cq-tab-list', tab === 'list');
   setBtn('uw-cq-tab-compare', tab === 'compare');
   setBtn('uw-cq-tab-external', tab === 'external');
+  setBtn('uw-cq-tab-agreements', tab === 'agreements');
   const show = (id, v) => { const e = document.getElementById(id); if (e) e.style.display = v ? '' : 'none'; };
-  show('uw-cq-bidcontrols', tab !== 'external');
+  show('uw-cq-bidcontrols', tab !== 'external' && tab !== 'agreements');
   show('uw-cq-list-view', tab === 'list');
   show('uw-cq-compare-view', tab === 'compare');
   show('uw-cq-external-view', tab === 'external');
+  show('uw-cq-agreements-view', tab === 'agreements');
   if (tab === 'external' && typeof _uwRenderScopeQuotes === 'function') _uwRenderScopeQuotes();
+  if (tab === 'agreements' && typeof _uwRenderAgreements === 'function') _uwRenderAgreements();
   // List + Comparison content is already rendered (on deal load / Refresh), so
   // switching tabs just toggles visibility — no refetch, no flicker.
 }

@@ -1889,27 +1889,27 @@
       </div>
     </div>
     <!-- Filter row 1 — full labels, generous spacing. Wraps cleanly on narrow widths. -->
-    <div class="flex items-center flex-wrap mb-2" style="padding:12px 14px;background:var(--panel-2);border-radius:8px;border:1px solid var(--border);gap:14px 22px">
-      <label class="text-xs flex items-center gap-2 whitespace-nowrap">State
-        <select id="sq-filter-state" style="width:auto;padding:4px 8px;min-width:80px" onchange="_sqFiltersChanged()"><option value="">Any</option></select>
+    <div class="flex items-center flex-wrap mb-2" style="padding:12px 14px;background:var(--panel-2);border-radius:8px;border:1px solid var(--border);gap:8px 12px">
+      <label class="text-xs flex items-center gap-1.5 whitespace-nowrap">State
+        <select id="sq-filter-state" style="width:auto;padding:4px 6px;min-width:0" onchange="_sqFiltersChanged()"><option value="">Any</option></select>
       </label>
-      <label class="text-xs flex items-center gap-2 whitespace-nowrap">Property Address
-        <select id="sq-filter-addr" style="width:auto;padding:4px 8px;min-width:110px" onchange="_sqFiltersChanged()">
+      <label class="text-xs flex items-center gap-1.5 whitespace-nowrap" title="Property Address status">Status
+        <select id="sq-filter-addr" style="width:auto;padding:4px 6px;min-width:0" onchange="_sqFiltersChanged()">
           <option value="">Any</option>
           <option value="verified">Verified</option>
           <option value="unverified">Unverified</option>
         </select>
       </label>
-      <label class="text-xs flex items-center gap-2 whitespace-nowrap">Mailing Address
-        <select id="sq-filter-mail" style="width:auto;padding:4px 8px;min-width:120px" onchange="_sqFiltersChanged()">
+      <label class="text-xs flex items-center gap-1.5 whitespace-nowrap" title="Mailing Address">Mail
+        <select id="sq-filter-mail" style="width:auto;padding:4px 6px;min-width:0" onchange="_sqFiltersChanged()">
           <option value="">Any</option>
           <option value="verified">Verified</option>
           <option value="unverified">Unverified</option>
           <option value="none">No mailing</option>
         </select>
       </label>
-      <label class="text-xs flex items-center gap-2 whitespace-nowrap">Imported
-        <select id="sq-filter-imported" style="width:auto;padding:4px 8px;min-width:110px" onchange="_sqFiltersChanged()">
+      <label class="text-xs flex items-center gap-1.5 whitespace-nowrap">Imported
+        <select id="sq-filter-imported" style="width:auto;padding:4px 6px;min-width:0" onchange="_sqFiltersChanged()">
           <option value="">Any</option>
           <option value="1">24 hours</option>
           <option value="7">7 days</option>
@@ -1917,46 +1917,101 @@
           <option value="90">3 months</option>
         </select>
       </label>
-      <label class="text-xs flex items-center gap-2 whitespace-nowrap">Contact Status
-        <select id="sq-filter-contacted" style="width:auto;padding:4px 8px;min-width:120px" onchange="_sqFiltersChanged()">
+      <label class="text-xs flex items-center gap-1.5 whitespace-nowrap" title="How recently the property was skiptraced. Combines with the Skiptrace provider chips below.">Skiptraced
+        <select id="sq-filter-sk-window" style="width:auto;padding:4px 6px;min-width:0" onchange="_sqFiltersChanged()">
+          <option value="">Any time</option>
+          <option value="1">24 hours</option>
+          <option value="7">7 days</option>
+          <option value="30">30 days</option>
+          <option value="90">3 months</option>
+          <option value="180">6 months</option>
+          <option value="365">12 months</option>
+        </select>
+      </label>
+      <label class="text-xs flex items-center gap-1.5 whitespace-nowrap" title="Contact Status">Contact
+        <select id="sq-filter-contacted" style="width:auto;padding:4px 6px;min-width:0" onchange="_sqFiltersChanged()">
           <option value="">All</option>
           <option value="never">Uncontacted</option>
           <option value="contacted">Contacted</option>
         </select>
       </label>
-      <label class="text-xs flex items-center gap-2 whitespace-nowrap" title="Filter by owner type. Corporate = the property has a company name OR the owner name contains LLC, Inc, Corp, Trust, etc. Individual = a real person's name with no corporate markers.">Owner
-        <select id="sq-filter-owner" style="width:auto;padding:4px 8px;min-width:120px" onchange="_sqFiltersChanged()">
+      <label class="text-xs flex items-center gap-1.5 whitespace-nowrap" title="Filter by owner type. Corporate = the property has a company name OR the owner name contains LLC, Inc, Corp, Trust, etc. Individual = a real person's name with no corporate markers.">Owner
+        <select id="sq-filter-owner" style="width:auto;padding:4px 6px;min-width:0" onchange="_sqFiltersChanged()">
           <option value="">Any</option>
           <option value="individual">Individual</option>
           <option value="corporate">Corporate</option>
         </select>
       </label>
-      <label class="text-xs flex items-center gap-2 whitespace-nowrap" title="ALL = property must have every selected flag (AND). ANY = property must have at least one (OR).">Flags Match
-        <select id="sq-flag-mode" style="width:auto;padding:4px 8px;min-width:110px" onchange="_sqFiltersChanged()">
-          <option value="and">ALL (AND)</option>
-          <option value="or">ANY (OR)</option>
-        </select>
-      </label>
-      <label class="text-xs flex items-center gap-2 whitespace-nowrap" title="ALL = property must be on every selected list (AND). ANY = property must be on at least one (OR).">Lists Match
-        <select id="sq-list-mode" style="width:auto;padding:4px 8px;min-width:110px" onchange="_sqFiltersChanged()">
-          <option value="or">ANY (OR)</option>
-          <option value="and">ALL (AND)</option>
-        </select>
-      </label>
     </div>
-    <!-- Filter row 2 (flag chips only) -->
-    <div class="flex items-center gap-3 flex-wrap mb-2" style="padding:10px 12px;background:var(--panel-2);border-radius:8px;border:1px solid var(--border);row-gap:10px">
-      <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1;min-width:0">
-        <span class="text-xs text-[var(--text-dim)] whitespace-nowrap">Flags:</span>
+    <!-- Filter row: Skiptrace provider + recency -->
+    <div class="mb-2" style="padding:12px 14px;background:var(--panel-2);border-radius:8px;border:1px solid var(--border)">
+      <div class="flex items-center flex-wrap" style="gap:14px 22px">
+        <span class="text-xs whitespace-nowrap" style="font-weight:700;color:#a5b4fc;display:inline-block;width:104px">📞 Skiptrace</span>
+        <span class="text-xs flex items-center gap-2 whitespace-nowrap" style="margin-left:auto" title="Include = keep only properties that match this skiptrace filter. Exclude = drop properties that match it.">Match
+          <span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden">
+            <input type="hidden" id="sq-sk-inmode" value="include">
+            <button type="button" id="sq-sk-inc" onclick="_sqSetMode('sk','include')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:#10b981;color:#fff">Include</button>
+            <button type="button" id="sq-sk-exc" onclick="_sqSetMode('sk','exclude')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim)">Exclude</button>
+          </span>
+        </span>
+        <span class="text-xs flex items-center gap-2 whitespace-nowrap" title="ALL = property must be skiptraced by every selected provider (AND). ANY = at least one (OR).">Combine
+          <span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden">
+            <input type="hidden" id="sq-sk-mode" value="or">
+            <button type="button" id="sq-sk-mode-and" onclick="_sqSetMatch('sk','and')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--text-dim)">ALL (AND)</button>
+            <button type="button" id="sq-sk-mode-or" onclick="_sqSetMatch('sk','or')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-left:1px solid var(--border);cursor:pointer;background:#3b82f6;color:#fff">ANY (OR)</button>
+          </span>
+        </span>
+      </div>
+      <!-- Provider chips (click to select one or more; none selected = any provider) -->
+      <div class="flex items-center gap-2 flex-wrap" style="margin-top:10px;row-gap:8px">
+        <span id="sq-filter-sk-providers" class="flex flex-wrap gap-1"></span>
+      </div>
+    </div>
+    <!-- Filter row 2 (flag chips) -->
+    <div class="mb-2" style="padding:12px 14px;background:var(--panel-2);border-radius:8px;border:1px solid var(--border)">
+      <div class="flex items-center flex-wrap" style="gap:14px 22px">
+        <span class="text-xs whitespace-nowrap" style="font-weight:700;color:#fbbf24;display:inline-block;width:104px">🚩 Flags</span>
+        <span class="text-xs flex items-center gap-2 whitespace-nowrap" style="margin-left:auto" title="Include = keep only properties that match the selected flags. Exclude = drop properties that match them.">Match
+          <span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden">
+            <input type="hidden" id="sq-flag-inmode" value="include">
+            <button type="button" id="sq-flag-inc" onclick="_sqSetMode('flag','include')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:#10b981;color:#fff">Include</button>
+            <button type="button" id="sq-flag-exc" onclick="_sqSetMode('flag','exclude')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim)">Exclude</button>
+          </span>
+        </span>
+        <span class="text-xs flex items-center gap-2 whitespace-nowrap" title="ALL = property must have every selected flag (AND). ANY = property must have at least one (OR).">Combine
+          <span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden">
+            <input type="hidden" id="sq-flag-mode" value="or">
+            <button type="button" id="sq-flag-mode-and" onclick="_sqSetMatch('flag','and')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--text-dim)">ALL (AND)</button>
+            <button type="button" id="sq-flag-mode-or" onclick="_sqSetMatch('flag','or')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-left:1px solid var(--border);cursor:pointer;background:#3b82f6;color:#fff">ANY (OR)</button>
+          </span>
+        </span>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap" style="margin-top:10px;row-gap:8px">
         <span id="sq-filter-flags" class="flex flex-wrap gap-1"></span>
-      </span>
+      </div>
     </div>
     <!-- Filter row 3 (list chips) -->
-    <div class="flex items-center gap-3 flex-wrap mb-2" style="padding:10px 12px;background:var(--panel-2);border-radius:8px;border:1px solid var(--border);row-gap:10px">
-      <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1;min-width:0">
-        <span class="text-xs text-[var(--text-dim)] whitespace-nowrap">Lists:</span>
+    <div class="mb-2" style="padding:12px 14px;background:var(--panel-2);border-radius:8px;border:1px solid var(--border)">
+      <div class="flex items-center flex-wrap" style="gap:14px 22px">
+        <span class="text-xs whitespace-nowrap" style="font-weight:700;color:#34d399;display:inline-block;width:104px">📚 Lists</span>
+        <span class="text-xs flex items-center gap-2 whitespace-nowrap" style="margin-left:auto" title="Include = keep only properties on the selected lists. Exclude = drop properties on them.">Match
+          <span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden">
+            <input type="hidden" id="sq-list-inmode" value="include">
+            <button type="button" id="sq-list-inc" onclick="_sqSetMode('list','include')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:#10b981;color:#fff">Include</button>
+            <button type="button" id="sq-list-exc" onclick="_sqSetMode('list','exclude')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim)">Exclude</button>
+          </span>
+        </span>
+        <span class="text-xs flex items-center gap-2 whitespace-nowrap" title="ALL = property must be on every selected list (AND). ANY = property must be on at least one (OR).">Combine
+          <span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden">
+            <input type="hidden" id="sq-list-mode" value="or">
+            <button type="button" id="sq-list-mode-and" onclick="_sqSetMatch('list','and')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--text-dim)">ALL (AND)</button>
+            <button type="button" id="sq-list-mode-or" onclick="_sqSetMatch('list','or')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-left:1px solid var(--border);cursor:pointer;background:#3b82f6;color:#fff">ANY (OR)</button>
+          </span>
+        </span>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap" style="margin-top:10px;row-gap:8px">
         <span id="sq-filter-lists" class="flex flex-wrap gap-1"></span>
-      </span>
+      </div>
     </div>
     <div id="suggested-queue-summary" class="text-xs text-[var(--text-dim)] mb-2">—</div>
     <div class="overflow-auto" style="max-height:840px">
@@ -45514,12 +45569,51 @@ function populateSqStateOptions() {
   sel.innerHTML = '<option value="">Any</option>' + sorted.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
   if (current && sorted.indexOf(current) !== -1) sel.value = current;
 }
+
+// Multi-select state for skiptrace provider chips (keyed by vendor name)
+window._sqProviderFilters = window._sqProviderFilters || {};
+
+// Render the Skiptrace → Provider chips from vendors that actually have
+// skiptrace records (so the list only shows providers you've imported).
+// None selected = any provider.
+function populateSqProviderOptions() {
+  const container = document.getElementById('sq-filter-sk-providers');
+  if (!container) return;
+  const names = new Set();
+  Object.values(cache.skiptrace || {}).forEach(r => { if (r && r.vendor_name) names.add(String(r.vendor_name).trim()); });
+  // Fall back to the vendors table if skiptrace rows haven't streamed in yet.
+  if (!names.size) Object.values(cache.vendors || {}).forEach(v => { if (v && v.name) names.add(String(v.name).trim()); });
+  const sorted = Array.from(names).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  if (!sorted.length) {
+    container.innerHTML = '<span class="text-xs" style="color:var(--text-dim)">No skiptrace providers yet.</span>';
+    return;
+  }
+  const chosen = window._sqProviderFilters;
+  container.innerHTML = sorted.map(name => {
+    const on = !!chosen[name];
+    const bg = on
+      ? 'background:rgba(99,102,241,0.22);border-color:#6366f1;color:var(--text)'
+      : 'background:var(--panel-2);border-color:var(--border);color:var(--text-dim)';
+    const safe = String(name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return '<span onclick="toggleSqProvider(\'' + safe + '\')" '
+      + 'style="cursor:pointer;padding:2px 8px;border-radius:999px;border:1px solid;font-size:11px;' + bg + '">'
+      + (on ? '✓ ' : '') + escapeHtml(name) + '</span>';
+  }).join('');
+}
+function toggleSqProvider(name) {
+  window._sqProviderFilters[name] = !window._sqProviderFilters[name];
+  window._mpPage = 0;
+  populateSqProviderOptions();
+  renderSuggestedQueue();
+}
+window.toggleSqProvider = toggleSqProvider;
 function clearSuggestedQueueFilters() {
-  ['sq-filter-state','sq-filter-addr','sq-filter-mail','sq-filter-imported','sq-filter-contacted','sq-filter-owner'].forEach(id => {
+  ['sq-filter-state','sq-filter-addr','sq-filter-mail','sq-filter-imported','sq-filter-contacted','sq-filter-owner','sq-filter-sk-window'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  const flagMode = document.getElementById('sq-flag-mode'); if (flagMode) flagMode.value = 'and';
-  const listMode = document.getElementById('sq-list-mode'); if (listMode) listMode.value = 'or';
+  window._sqProviderFilters = {};
+  if (typeof _sqSetMode === 'function') { _sqSetMode('sk','include'); _sqSetMode('flag','include'); _sqSetMode('list','include'); }
+  if (typeof _sqSetMatch === 'function') { _sqSetMatch('flag','or'); _sqSetMatch('list','or'); _sqSetMatch('sk','or'); }
   window._sqFlagFilters = {};
   window._sqListFilters = {};
   window._mpPage = 0;
@@ -45534,6 +45628,35 @@ function _sqFiltersChanged() {
   window._mpPage = 0;
   renderSuggestedQueue();
 }
+
+// Generic Include/Exclude segmented toggle for the Skiptrace / Flags / Lists
+// filter sections. kind = 'sk' | 'flag' | 'list'. Value is stored on the
+// hidden #sq-<kind>-inmode input so the filter-read logic stays simple.
+function _sqSetMode(kind, mode) {
+  mode = (mode === 'exclude') ? 'exclude' : 'include';
+  const hid = document.getElementById('sq-' + kind + '-inmode');
+  if (hid) hid.value = mode;
+  const inc = document.getElementById('sq-' + kind + '-inc');
+  const exc = document.getElementById('sq-' + kind + '-exc');
+  if (inc) { const on = mode === 'include'; inc.style.background = on ? '#10b981' : 'transparent'; inc.style.color = on ? '#fff' : 'var(--text-dim)'; }
+  if (exc) { const on = mode === 'exclude'; exc.style.background = on ? '#ef4444' : 'transparent'; exc.style.color = on ? '#fff' : 'var(--text-dim)'; }
+  _sqFiltersChanged();
+}
+window._sqSetMode = _sqSetMode;
+
+// AND/OR "Combine" segmented toggle for the Flags / Lists sections.
+// kind = 'flag' | 'list'. Value stored on hidden #sq-<kind>-mode input.
+function _sqSetMatch(kind, mode) {
+  mode = (mode === 'or') ? 'or' : 'and';
+  const hid = document.getElementById('sq-' + kind + '-mode');
+  if (hid) hid.value = mode;
+  const andB = document.getElementById('sq-' + kind + '-mode-and');
+  const orB = document.getElementById('sq-' + kind + '-mode-or');
+  if (andB) { const on = mode === 'and'; andB.style.background = on ? '#8b5cf6' : 'transparent'; andB.style.color = on ? '#fff' : 'var(--text-dim)'; }
+  if (orB) { const on = mode === 'or'; orB.style.background = on ? '#3b82f6' : 'transparent'; orB.style.color = on ? '#fff' : 'var(--text-dim)'; }
+  _sqFiltersChanged();
+}
+window._sqSetMatch = _sqSetMatch;
 window._mpPageChange = function(delta) {
   window._mpPage = Math.max(0, (window._mpPage || 0) + delta);
   renderSuggestedQueue();
@@ -45551,6 +45674,13 @@ function _computeFilteredMarketingProps() {
   phones.forEach(ph => {
     if (!ph.property_id || !ph.number) return;
     (phonesByProp[ph.property_id] ||= []).push(ph);
+  });
+  // Index skiptrace records by property → [{vendor, ms}] for the provider/recency filter.
+  const skByProp = {};
+  Object.values(cache.skiptrace || {}).forEach(r => {
+    if (!r || !r.property_id) return;
+    const ms = r.uploaded_at ? new Date(r.uploaded_at).getTime() : 0;
+    (skByProp[r.property_id] ||= []).push({ vendor: String(r.vendor_name || '').trim(), ms: isNaN(ms) ? 0 : ms });
   });
   // Last-contact per phone
   const lastContactByPhone = {};
@@ -45582,10 +45712,20 @@ function _computeFilteredMarketingProps() {
     return !!nm && _corpRegex.test(nm);
   };
   const flagFilters = Object.keys(window._sqFlagFilters || {}).filter(k => window._sqFlagFilters[k]);
-  const flagMode = document.getElementById('sq-flag-mode')?.value || 'and';
+  const flagMode = document.getElementById('sq-flag-mode')?.value || 'or';
+  const flagInMode = document.getElementById('sq-flag-inmode')?.value || 'include';
   const listFilters = Object.keys(window._sqListFilters || {}).filter(k => window._sqListFilters[k]);
   const listMode = document.getElementById('sq-list-mode')?.value || 'or';
+  const listInMode = document.getElementById('sq-list-inmode')?.value || 'include';
   const importedMs = importedF ? Number(importedF) * 24 * 60 * 60 * 1000 : 0;
+  // Skiptrace filter: providers (multi-select chips), include/exclude mode, recency window.
+  const skProviders = Object.keys(window._sqProviderFilters || {}).filter(k => window._sqProviderFilters[k]);
+  const skProviderSet = new Set(skProviders);
+  const skModeF = document.getElementById('sq-sk-inmode')?.value || 'include';
+  const skCombine = document.getElementById('sq-sk-mode')?.value || 'or';
+  const skWindowF = document.getElementById('sq-filter-sk-window')?.value || '';
+  const skWindowMs = skWindowF ? Number(skWindowF) * 24 * 60 * 60 * 1000 : 0;
+  const skActive = skProviderSet.size > 0 || !!skWindowMs;
   const now = Date.now();
 
   const out = [];
@@ -45604,6 +45744,23 @@ function _computeFilteredMarketingProps() {
       const ms = new Date(t).getTime();
       if (isNaN(ms) || (now - ms) > importedMs) continue;
     }
+    // Skiptrace provider / recency filter.
+    if (skActive) {
+      const recs = skByProp[p.id] || [];
+      const winOk = rec => !skWindowMs || (rec.ms > 0 && (now - rec.ms) <= skWindowMs);
+      let hasMatch;
+      if (skProviderSet.size) {
+        // AND = skiptraced by every selected provider; OR = any selected provider.
+        hasMatch = (skCombine === 'and')
+          ? Array.from(skProviderSet).every(prov => recs.some(rec => rec.vendor === prov && winOk(rec)))
+          : recs.some(rec => skProviderSet.has(rec.vendor) && winOk(rec));
+      } else {
+        // No provider chosen — just require any skiptrace within the window.
+        hasMatch = recs.some(rec => winOk(rec));
+      }
+      if (skModeF === 'include' && !hasMatch) continue;
+      if (skModeF === 'exclude' && hasMatch) continue;
+    }
     // Phones + last-contact
     const propPhones = (phonesByProp[p.id] || []).slice().sort((a, b) => (a.slot || 99) - (b.slot || 99));
     let mostRecentMs = 0;
@@ -45613,21 +45770,23 @@ function _computeFilteredMarketingProps() {
     }
     if (contactedF === 'never' && mostRecentMs > 0) continue;
     if (contactedF === 'contacted' && mostRecentMs === 0) continue;
-    // Flag filters with AND/OR mode
+    // Flag filters with AND/OR mode + Include/Exclude
     if (flagFilters.length) {
       const pf = p.flags || {};
-      const matchesAll = flagFilters.every(f => pf[f]);
-      const matchesAny = flagFilters.some(f => pf[f]);
-      if (flagMode === 'and' && !matchesAll) continue;
-      if (flagMode === 'or' && !matchesAny) continue;
+      const matched = flagMode === 'and'
+        ? flagFilters.every(f => pf[f])
+        : flagFilters.some(f => pf[f]);
+      if (flagInMode === 'include' && !matched) continue;
+      if (flagInMode === 'exclude' && matched) continue;
     }
-    // List filters with AND/OR mode (matches against p._lists membership)
+    // List filters with AND/OR mode + Include/Exclude (against p._lists membership)
     if (listFilters.length) {
       const memberOf = new Set(p._lists || []);
-      const matchesAll = listFilters.every(lid => memberOf.has(lid));
-      const matchesAny = listFilters.some(lid => memberOf.has(lid));
-      if (listMode === 'and' && !matchesAll) continue;
-      if (listMode === 'or' && !matchesAny) continue;
+      const matched = listMode === 'and'
+        ? listFilters.every(lid => memberOf.has(lid))
+        : listFilters.some(lid => memberOf.has(lid));
+      if (listInMode === 'include' && !matched) continue;
+      if (listInMode === 'exclude' && matched) continue;
     }
     out.push({ p, propPhones, mostRecentMs });
   }
@@ -45646,6 +45805,7 @@ function renderSuggestedQueue() {
   const summary = document.getElementById('suggested-queue-summary');
   if (!tbody) return;
   populateSqStateOptions();
+  populateSqProviderOptions();
   renderSqFlagChips();
   renderSqListChips();
 

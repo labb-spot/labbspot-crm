@@ -4284,6 +4284,17 @@
         <button class="btn btn-ghost text-sm" id="uw-inv-tab-contractor" onclick="uwInvSetTab('contractor')" title="Line items and amounts from the contractor bids you marked Accepted.">👷 Contractor Invoice List</button>
         <button class="btn btn-ghost text-sm" id="uw-inv-tab-active" onclick="uwInvSetTab('active')" title="Working invoice list — edit amounts and add items without changing the original.">✏️ Active Invoice List</button>
         <button class="btn btn-ghost text-sm" id="uw-inv-tab-invoices" onclick="uwInvSetTab('invoices')" title="Live invoice link + contractor-submitted invoices.">🧾 Invoices</button>
+        <button class="btn btn-ghost text-sm" id="uw-inv-tab-external" onclick="uwInvSetTab('external')" title="Upload external invoice files (PDFs/images) saved to this deal.">📎 External Invoices</button>
+      </div>
+
+      <!-- View: External Invoices — upload invoice files received outside the system -->
+      <div id="uw-inv-view-external" style="display:none">
+        <input id="uw-inv-external-file" type="file" style="display:none" onchange="uwInvUploadExternal()">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.35);border-left:4px solid #6366f1;border-radius:8px;padding:11px 14px;margin-bottom:10px">
+          <span style="font-size:12px;color:#a5b4fc;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">📎 External Contractor Invoices</span>
+          <button class="btn btn-primary text-sm" id="uw-inv-external-btn" onclick="document.getElementById('uw-inv-external-file').click()" title="Upload an invoice file — you'll be asked to name it.">⬆ Upload Invoice</button>
+        </div>
+        <div id="uw-inv-external-list" style="display:flex;flex-direction:column;gap:6px"></div>
       </div>
 
       <!-- View: Contractor Invoice List — built from Accepted contractor bids -->
@@ -16880,7 +16891,7 @@ function _uwCollect() {
           k === '_budgetActuals' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
           k === '_reno_phase_override' || k === '_compsMode' ||
           k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_scopeQuotes' || k === '_taggedBuyers' || k === '_offerActive' || k === '_offerPacket' ||
-          k === '_invoiceOriginal' || k === '_invoiceActive' || k === '_invoiceTab' || k === '_invoiceInclContractor' ||
+          k === '_invoiceOriginal' || k === '_invoiceActive' || k === '_invoiceTab' || k === '_invoiceInclContractor' || k === '_invoicePaidDeposits' || k === '_externalInvoices' ||
           // Geocode coordinates — written by _dispoGeocodeSubject directly
           // into u.data.lat/lng/geocoded_address (not form fields). Without
           // this preservation, the next autosave wipes them and the user
@@ -17949,10 +17960,19 @@ function _uwBudgetUpdateBar() {
   cols.forEach(col => (col.items || []).forEach(it => {
     if (it && it.needed) baseRehab += (parseFloat(it.price) || 0) * sqft;
   }));
-  // Spent now comes from the Phase Timelines SPENT inputs (p.realSpent),
-  // read through the canonical accessor so the key/migration always match.
-  const _bp = (typeof _uwGetScopePhases === 'function') ? (_uwGetScopePhases() || []) : [];
-  spent = _bp.reduce((s, p) => s + ((Number(p && p.realSpent) > 0) ? Number(p.realSpent) : 0), 0);
+  // Spent = the "Paid" amount from invoice tracking (deposit invoices marked paid +
+  // active line items marked paid). Load invoices once if needed, then refresh.
+  spent = (typeof _invPaidTotal === 'function') ? _invPaidTotal() : 0;
+  try {
+    const _did = _uwCurrentId;
+    const _r = (typeof _uwInv !== 'undefined' && _uwInv.byDeal) ? _uwInv.byDeal[_did] : undefined;
+    const _loaded = _r && _r.id && ((_uwInv.responses || {})[_r.id]);
+    _uwBudgetUpdateBar._tried = _uwBudgetUpdateBar._tried || {};
+    if (!_loaded && _did && !_uwBudgetUpdateBar._tried[_did] && typeof _invEnsureInvoicesLoaded === 'function') {
+      _uwBudgetUpdateBar._tried[_did] = true;
+      _invEnsureInvoicesLoaded().then(() => _uwBudgetUpdateBar()).catch(() => {});
+    }
+  } catch (_) {}
   // Budgeted total = subtotal + contingency UNLESS the user has entered a
   // rehab override. Mirrors the calculator's rehabFinal logic exactly.
   const contRaw  = document.getElementById('uw-rehab-contingency-pct')?.value || '10';
@@ -24214,7 +24234,7 @@ function _invRenoTimelineDays(data){
 }
 
 function uwInvSetTab(tab){
-  const valid=['original','contractor','active','invoices'];
+  const valid=['original','contractor','active','invoices','external'];
   tab = valid.indexOf(tab)>=0 ? tab : 'original';
   const u=_invGetDeal(); if(u){ if(!u.data)u.data={}; u.data._invoiceTab=tab; }
   const setBtn=(id,on)=>{ const b=document.getElementById(id); if(!b)return; b.className='btn text-sm'; b.style.border=on?'2px solid #6366f1':'2px solid var(--border)'; b.style.background=on?'rgba(99,102,241,0.20)':'transparent'; b.style.color=on?'#c7d2fe':'var(--text-dim)'; b.style.fontWeight='700'; b.style.boxShadow=on?'0 0 0 3px rgba(99,102,241,0.15)':'none'; };
@@ -24222,17 +24242,93 @@ function uwInvSetTab(tab){
   setBtn('uw-inv-tab-contractor', tab==='contractor');
   setBtn('uw-inv-tab-active', tab==='active');
   setBtn('uw-inv-tab-invoices', tab==='invoices');
+  setBtn('uw-inv-tab-external', tab==='external');
   const show=(id,v)=>{ const e=document.getElementById(id); if(e)e.style.display=v?'':'none'; };
   show('uw-inv-view-original', tab==='original');
   show('uw-inv-view-contractor', tab==='contractor');
   show('uw-inv-view-active', tab==='active');
   show('uw-inv-view-invoices', tab==='invoices');
+  show('uw-inv-view-external', tab==='external');
   if(tab==='original') renderInvOriginal();
   else if(tab==='contractor') renderInvContractor();
   else if(tab==='active') renderInvActive();
   else if(tab==='invoices' && typeof _uwRenderInvSection==='function') _uwRenderInvSection();
+  else if(tab==='external' && typeof renderInvExternal==='function') renderInvExternal();
 }
 window.uwInvSetTab = uwInvSetTab;
+
+// ===== External Invoices — per-deal file uploads (mirrors External Quotes) =====
+function _uwExtInvPublicUrl(path){ try { return sb.storage.from(_SCOPE_QUOTES_BUCKET).getPublicUrl(path).data.publicUrl; } catch(e){ return '#'; } }
+function renderInvExternal(){
+  const listEl=document.getElementById('uw-inv-external-list'); if(!listEl) return;
+  const u=_uwCurrentId?((cache.underwrites||{})[_uwCurrentId]):null;
+  const items=(u&&u.data&&Array.isArray(u.data._externalInvoices))?u.data._externalInvoices:[];
+  if(!items.length){ listEl.innerHTML='<span class="text-xs" style="color:var(--text-dim)">No external invoices uploaded yet.</span>'; return; }
+  listEl.innerHTML=items.map(function(q,i){
+    const url=q.url||(q.path?_uwExtInvPublicUrl(q.path):'#');
+    const when=q.uploadedAt?new Date(q.uploadedAt).toLocaleDateString():'';
+    const kb=q.size?(q.size<1048576?Math.max(1,Math.round(q.size/1024))+' KB':(q.size/1048576).toFixed(1)+' MB'):'';
+    const meta=[escapeHtml(q.fileName||''),kb,when].filter(Boolean).join(' · ');
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">'+
+      '<span style="font-size:15px">📄</span>'+
+      '<div style="flex:1;min-width:0">'+
+        '<a href="'+escapeHtml(url)+'" target="_blank" rel="noopener" style="color:#60a5fa;font-size:13px;font-weight:600;text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escapeHtml(q.name||q.fileName||'Invoice')+'</a>'+
+        '<span style="font-size:11px;color:var(--text-dim);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+meta+'</span>'+
+      '</div>'+
+      '<button class="btn btn-ghost text-xs" title="Rename" onclick="uwInvRenameExternal('+i+')">✎</button>'+
+      '<button class="btn btn-ghost text-xs" style="color:#f87171" title="Delete" onclick="uwInvDeleteExternal('+i+')">✕</button>'+
+    '</div>';
+  }).join('');
+}
+window.renderInvExternal=renderInvExternal;
+async function uwInvUploadExternal(){
+  const fileEl=document.getElementById('uw-inv-external-file');
+  const btn=document.getElementById('uw-inv-external-btn');
+  if(!fileEl||!fileEl.files||!fileEl.files[0]) return;
+  if(!_uwCurrentId){ if(typeof toast==='function') toast('Open a deal first.','warn'); fileEl.value=''; return; }
+  const u=(cache.underwrites||{})[_uwCurrentId]; if(!u){ fileEl.value=''; return; }
+  const file=fileEl.files[0];
+  const name=(prompt('Name this invoice (e.g. Early Bird — Framing Invoice):','')||'').trim();
+  if(!name){ fileEl.value=''; return; }
+  const safeName=file.name.replace(/[^A-Za-z0-9._-]/g,'_');
+  const path=_uwCurrentId+'/extinv_'+Date.now()+'_'+safeName;
+  const oldLabel=btn?btn.textContent:'';
+  if(btn){ btn.disabled=true; btn.textContent='⬆ Uploading…'; }
+  try {
+    const up=await sb.storage.from(_SCOPE_QUOTES_BUCKET).upload(path,file,{cacheControl:'3600',upsert:false});
+    if(up.error) throw up.error;
+    u.data=u.data||{};
+    if(!Array.isArray(u.data._externalInvoices)) u.data._externalInvoices=[];
+    u.data._externalInvoices.push({ name:name, fileName:file.name, path:path, url:_uwExtInvPublicUrl(path), size:file.size, uploadedAt:new Date().toISOString() });
+    if(typeof _uwScheduleAutosave==='function') _uwScheduleAutosave(); else if(typeof uwSave==='function') uwSave(false);
+    renderInvExternal();
+    if(typeof toast==='function') toast('Invoice uploaded.','ok');
+  } catch(err){ console.error('[ext-inv] upload failed',err); const msg=(err&&err.message)?err.message:String(err); if(typeof toast==='function') toast('Upload failed: '+msg,'err'); }
+  finally { if(btn){ btn.disabled=false; btn.textContent=oldLabel||'⬆ Upload Invoice'; } fileEl.value=''; }
+}
+window.uwInvUploadExternal=uwInvUploadExternal;
+function uwInvRenameExternal(idx){
+  if(!_uwCurrentId) return; const u=(cache.underwrites||{})[_uwCurrentId];
+  if(!u||!u.data||!Array.isArray(u.data._externalInvoices)) return;
+  const q=u.data._externalInvoices[idx]; if(!q) return;
+  const next=prompt('Rename invoice:', q.name||q.fileName||''); if(next===null) return;
+  q.name=next.trim()||q.fileName||'Invoice';
+  if(typeof _uwScheduleAutosave==='function') _uwScheduleAutosave(); else if(typeof uwSave==='function') uwSave(false);
+  renderInvExternal();
+}
+window.uwInvRenameExternal=uwInvRenameExternal;
+async function uwInvDeleteExternal(idx){
+  if(!_uwCurrentId) return; const u=(cache.underwrites||{})[_uwCurrentId];
+  if(!u||!u.data||!Array.isArray(u.data._externalInvoices)) return;
+  const q=u.data._externalInvoices[idx]; if(!q) return;
+  if(!confirm('Delete invoice "'+(q.name||q.fileName||'')+'"?\n\nThis permanently removes the uploaded file.')) return;
+  try { if(q.path) await sb.storage.from(_SCOPE_QUOTES_BUCKET).remove([q.path]); } catch(err){ console.warn('[ext-inv] remove failed',err); }
+  u.data._externalInvoices.splice(idx,1);
+  if(typeof _uwScheduleAutosave==='function') _uwScheduleAutosave(); else if(typeof uwSave==='function') uwSave(false);
+  renderInvExternal();
+  if(typeof toast==='function') toast('Invoice deleted.','ok');
+}
+window.uwInvDeleteExternal=uwInvDeleteExternal;
 
 // Contractor Invoice List — line items + amounts from the contractor bids marked
 // Accepted in Contractor Quotes & Bids. Loads bid responses if needed.
@@ -24359,8 +24455,27 @@ function renderInvOriginal(){
 }
 window.renderInvOriginal = renderInvOriginal;
 
-const _INV_GRID='grid-template-columns:26px 118px 1fr 52px 52px 70px 76px 74px 24px;gap:6px;';
+// Total "Paid" for this deal — deposit invoices marked paid + the invoiced amount
+// of active lines marked paid. Used by the Budget Use bar (spent + %).
+function _invPaidTotal(){
+  let sum=0;
+  try {
+    const u=_invGetDeal(); const items=(u&&u.data&&Array.isArray(u.data._invoiceActive))?u.data._invoiceActive:[];
+    const invoicedMap=(typeof _invInvoicedByDesc==='function')?_invInvoicedByDesc():{};
+    const deposits=(typeof _invDepositRequests==='function')?_invDepositRequests():[];
+    const paidDepSet=(typeof _invPaidDepositSet==='function')?_invPaidDepositSet():new Set();
+    deposits.forEach(d=>{ if(paidDepSet.has(String(d.id))) sum += (d.amount||0); });
+    items.forEach(it=>{ if(it && it.invoiced){ const b=invoicedMap[String(it.description||'').trim().toLowerCase()]; if(b) sum += (b.amt||0); } });
+  } catch(_){}
+  return sum;
+}
+window._invPaidTotal = _invPaidTotal;
+
+const _INV_GRID='grid-template-columns:110px minmax(120px,1fr) 88px 14px 88px 180px 14px 88px 180px 48px 30px;gap:6px;';
 const _invInput='padding:6px 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;height:30px';
+const _invBox='height:30px;padding:0 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;box-sizing:border-box;overflow:hidden;';
+const _invDiv='<div style="justify-self:center;align-self:center;width:2px;height:22px;background:var(--border);border-radius:2px"></div>';
+const _invDivHdr='<div style="justify-self:center;align-self:center;width:2px;height:12px;background:var(--border);border-radius:2px"></div>';
 // The Active list = the Original Invoice List + anything the user added here.
 // Original items are matched by id: an existing Active row (with the user's edits)
 // is kept; new Original items are seeded in; user-added rows (added:true) are kept;
@@ -24381,47 +24496,256 @@ function _invSyncActiveFromOriginal(){
   u.data._invoiceActive=out;
   return out;
 }
+// Amount contractors have actually invoiced, summed by line description, from
+// submitted contractor invoices (invoice_responses) for this deal.
+function _invInvoicedByDesc(){
+  const map={};
+  try {
+    const dealId=_uwCurrentId;
+    const req=(typeof _uwInv!=='undefined' && _uwInv.byDeal)?_uwInv.byDeal[dealId]:null;
+    if(!req || !req.id) return map;
+    const responses=((_uwInv.responses||{})[req.id])||[];
+    const lineById={}; (Array.isArray(req.line_items)?req.line_items:[]).forEach(l=>{ if(l&&l.id) lineById[l.id]=l; });
+    responses.forEach(r=>{
+      if(String(r.contractor_start||'')==='Request for Deposit') return; // deposits show only in Deposit Requests
+      const company = r.contractor_company || r.contractor_name || '';
+      const lq=r.line_quotes||{};
+      Object.keys(lq).forEach(k=>{
+        const q=lq[k]; if(!q||!q.interested) return;
+        const base=lineById[k]||{};
+        const desc=q.custom?(q.description||''):(base.description||q.description||'');
+        if(!desc) return;
+        const amt=(q.total!=null&&q.total!=='')?(parseFloat(q.total)||0):((q.price!=null)?(parseFloat(q.price)||0):((parseFloat(q.units)||1)*((parseFloat(q.labor)||0)+(parseFloat(q.material)||0))));
+        const key=String(desc).trim().toLowerCase();
+        if(!map[key]) map[key]={amt:0, companies:[], desc:String(desc).trim(), room:(q.custom?'Custom items':(base.room||''))};
+        map[key].amt += (amt||0);
+        if(company && map[key].companies.indexOf(company)<0) map[key].companies.push(company);
+      });
+    });
+  } catch(_){}
+  return map; // desc -> { amt, companies:[] }
+}
+// The individual "Request for Deposit" contractor invoices for this deal.
+function _invDepositRequests(){
+  const out=[];
+  try {
+    const dealId=_uwCurrentId;
+    const req=(typeof _uwInv!=='undefined' && _uwInv.byDeal)?_uwInv.byDeal[dealId]:null;
+    if(!req || !req.id) return out;
+    const responses=((_uwInv.responses||{})[req.id])||[];
+    responses.forEach(r=>{ if(String(r.contractor_start||'')==='Request for Deposit'){ out.push({ id:r.id, company:r.contractor_company||r.contractor_name||'Contractor', amount:parseFloat(r.total)||0, date:r.submitted_at }); } });
+  } catch(_){}
+  return out;
+}
+// Set of deposit-invoice ids the user has marked Paid (stored on the deal).
+function _invPaidDepositSet(){
+  const u=_invGetDeal();
+  const arr=(u&&u.data&&Array.isArray(u.data._invoicePaidDeposits))?u.data._invoicePaidDeposits:[];
+  return new Set(arr.map(String));
+}
+function uwInvDepositTogglePaid(id, checked){
+  const u=_invGetDeal(); if(!u) return; if(!u.data)u.data={};
+  let arr=Array.isArray(u.data._invoicePaidDeposits)?u.data._invoicePaidDeposits.slice():[];
+  arr=arr.filter(x=>String(x)!==String(id));
+  if(checked) arr.push(String(id));
+  u.data._invoicePaidDeposits=arr; _invSave(); renderInvActive();
+  if(typeof _uwBudgetUpdateBar==='function') _uwBudgetUpdateBar();
+}
+window.uwInvDepositTogglePaid = uwInvDepositTogglePaid;
+// Total from "Request for Deposit" contractor invoices (these have no line items).
+function _invDepositTotal(){
+  let sum=0;
+  try {
+    const dealId=_uwCurrentId;
+    const req=(typeof _uwInv!=='undefined' && _uwInv.byDeal)?_uwInv.byDeal[dealId]:null;
+    if(!req || !req.id) return 0;
+    const responses=((_uwInv.responses||{})[req.id])||[];
+    responses.forEach(r=>{ if(String(r.contractor_start||'')==='Request for Deposit') sum += (parseFloat(r.total)||0); });
+  } catch(_){}
+  return sum;
+}
+// Accepted contractor bid amount, summed by line description (for the Bid column).
+function _invBidByDesc(){
+  const map={};
+  try {
+    const dealId=_uwCurrentId;
+    const req=(typeof _uwBid!=='undefined' && _uwBid.byDeal)?_uwBid.byDeal[dealId]:null;
+    if(!req || !req.id) return map;
+    const responses=((_uwBid.responses||{})[req.id])||[];
+    const lineById={}; (Array.isArray(req.line_items)?req.line_items:[]).forEach(l=>{ if(l&&l.id) lineById[l.id]=l; });
+    responses.filter(r=>r&&r.accepted).forEach(r=>{
+      const company = r.contractor_company || r.contractor_name || '';
+      const lq=r.line_quotes||{};
+      Object.keys(lq).forEach(k=>{
+        const q=lq[k]; if(!q||!q.interested) return;
+        const base=lineById[k]||{};
+        const desc=q.custom?(q.description||''):(base.description||q.description||'');
+        if(!desc) return;
+        const amt=(q.total!=null&&q.total!=='')?(parseFloat(q.total)||0):((q.price!=null)?(parseFloat(q.price)||0):((parseFloat(q.units)||1)*((parseFloat(q.labor)||0)+(parseFloat(q.material)||0))));
+        const key=String(desc).trim().toLowerCase();
+        if(!map[key]) map[key]={amt:0, companies:[]};
+        map[key].amt += (amt||0);
+        if(company && map[key].companies.indexOf(company)<0) map[key].companies.push(company);
+      });
+    });
+  } catch(_){}
+  return map; // desc -> { amt, companies:[] }
+}
+// Total the accepted contractor bid(s) quoted for this property.
+function _invContractorQuotedTotal(){
+  let sum=0;
+  try {
+    const dealId=_uwCurrentId;
+    const req=(typeof _uwBid!=='undefined' && _uwBid.byDeal)?_uwBid.byDeal[dealId]:null;
+    if(!req || !req.id) return 0;
+    const responses=((_uwBid.responses||{})[req.id])||[];
+    responses.filter(r=>r&&r.accepted).forEach(r=>{
+      let t=r.total;
+      if(t==null||t===''){ t=0; const lq=r.line_quotes||{}; Object.keys(lq).forEach(k=>{const q=lq[k]; if(q&&q.interested){ const u=parseFloat(q.units)||0,la=parseFloat(q.labor)||0,m=parseFloat(q.material)||0,qy=u>0?u:1; t+=parseFloat(q.total!=null?q.total:q.price)||(qy*(la+m)); }}); }
+      sum += parseFloat(t)||0;
+    });
+  } catch(_){}
+  return sum;
+}
+let _invLoadTried={};
+async function _invEnsureInvoicesLoaded(){
+  const dealId=_uwCurrentId; if(!dealId) return false;
+  let req=(typeof _uwInv!=='undefined' && _uwInv.byDeal)?_uwInv.byDeal[dealId]:undefined;
+  if(req===undefined && typeof _uwInvFetchForDeal==='function'){ req=await _uwInvFetchForDeal(dealId); }
+  if(!req || !req.id) return false;
+  if(!((_uwInv.responses||{})[req.id]) && typeof uwInvLoadResponses==='function'){ await uwInvLoadResponses(true); }
+  return true;
+}
+async function _invEnsureBidsLoaded(){
+  const dealId=_uwCurrentId; if(!dealId) return false;
+  let req=(typeof _uwBid!=='undefined' && _uwBid.byDeal)?_uwBid.byDeal[dealId]:undefined;
+  if(!req && typeof _uwBidFetchForDeal==='function'){ req=await _uwBidFetchForDeal(dealId); }
+  if(!req || !req.id) return false;
+  if(!((_uwBid.responses||{})[req.id]) && typeof uwBidLoadResponses==='function'){ await uwBidLoadResponses(true); }
+  return true;
+}
 function renderInvActive(){
   const el=document.getElementById('uw-inv-active-list'); if(!el)return;
-  const items=_invSyncActiveFromOriginal();
+  let items=_invSyncActiveFromOriginal();
   const _u=_invGetDeal(); const _cbInc=document.getElementById('uw-inv-incl-contractor'); if(_cbInc) _cbInc.checked=!!(_u&&_u.data&&_u.data._invoiceInclContractor);
+  // Invoiced-to-date per line, from submitted contractor invoices (load in bg if needed).
+  const invoicedMap = _invInvoicedByDesc();
+  // Pull any contractor-invoiced items that aren't on the list yet into Additional Items,
+  // so they show as rows (with their Invoiced amount + company) instead of vanishing.
+  (function(){
+    const u=_invGetDeal(); if(!u||!u.data) return;
+    const before=(u.data._invoiceActive||[]).length;
+    // Drop auto-added invoiced rows that no longer match a current invoice line.
+    u.data._invoiceActive=(u.data._invoiceActive||[]).filter(it=>{ if(!it||!it.fromInvoice) return true; const k=String(it.description||'').trim().toLowerCase(); return invoicedMap[k] && invoicedMap[k].amt>0; });
+    let changed=(u.data._invoiceActive.length!==before);
+    const have=new Set(u.data._invoiceActive.map(it=>String(it.description||'').trim().toLowerCase()).filter(Boolean));
+    Object.keys(invoicedMap).forEach(k=>{ if(!k||have.has(k)) return; const m=invoicedMap[k]; if(!m||!(m.amt>0)) return; u.data._invoiceActive.push({ id:_invGenId(), room:m.room||'', description:m.desc||k, added:true, fromInvoice:true }); have.add(k); changed=true; });
+    if(changed){ _invSave(); if(typeof _invSyncFormSoon==='function') _invSyncFormSoon(); }
+    items=u.data._invoiceActive;
+  })();
   if(!items.length){ el.innerHTML='<div class="text-xs" style="color:var(--text-dim);padding:8px 0">Empty — Fill the Original list first, or click <b>+ Add item</b>.</div>'; return; }
-  const head='<div style="display:grid;'+_INV_GRID+'font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-dim);padding:0 2px 4px"><div title="Check to mark an item already invoiced — it shows crossed out as completed on the contractor form">✓</div><div>Room</div><div>Description</div><div>Units</div><div>Hours</div><div>Labor $</div><div>Material $</div><div style="text-align:right">Total</div><div></div></div>';
+  const bidMap = _invBidByDesc();
+  const _bidForRow = (it) => { const b=bidMap[String(it.description||'').trim().toLowerCase()]; return b?(b.amt||0):0; };
+  const _companyForRow = (it) => { const b=bidMap[String(it.description||'').trim().toLowerCase()]; return (b&&b.companies&&b.companies.length)?b.companies.join(', '):''; };
+  // Background-load submitted invoices + contractor bids once (per deal) so the
+  // Invoiced/Deposit/Contractor-Quoted figures fill in, then re-render.
+  (function(){
+    const dealId=_uwCurrentId; if(!dealId) return;
+    const invLoaded=(function(){ const r=(_uwInv.byDeal||{})[dealId]; return r && r.id && ((_uwInv.responses||{})[r.id]); })();
+    if(!invLoaded && !_invLoadTried['inv_'+dealId]){ _invLoadTried['inv_'+dealId]=true; _invEnsureInvoicesLoaded().then(()=>renderInvActive()).catch(()=>{}); }
+    const bidLoaded=(function(){ const r=(_uwBid.byDeal||{})[dealId]; return r && r.id && ((_uwBid.responses||{})[r.id]); })();
+    if(!bidLoaded && !_invLoadTried['bid_'+dealId]){ _invLoadTried['bid_'+dealId]=true; _invEnsureBidsLoaded().then(()=>renderInvActive()).catch(()=>{}); }
+  })();
+  const _invForRow = (it) => { const b=invoicedMap[String(it.description||'').trim().toLowerCase()]; return b?(b.amt||0):0; };
+  const _invCompanyForRow = (it) => { const b=invoicedMap[String(it.description||'').trim().toLowerCase()]; return (b&&b.companies&&b.companies.length)?b.companies.join(', '):''; };
+  const head='<div style="display:grid;'+_INV_GRID+'font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-dim);padding:0 2px 4px"><div style="padding-left:8px">Room</div><div style="padding-left:8px">Description</div><div style="text-align:left;padding-left:8px" title="Your estimated amount for this line">Expected</div>'+_invDivHdr+'<div style="text-align:left;padding-left:8px" title="Accepted contractor\'s bid for this line">Quoted</div><div style="text-align:left;padding-left:8px" title="Company on the accepted bid that quoted this line">Quoted By</div>'+_invDivHdr+'<div style="text-align:left;padding-left:8px" title="Amount contractors have invoiced for this line">Invoiced</div><div style="text-align:left;padding-left:8px" title="Company that invoiced this line">Invoiced By</div><div style="text-align:center" title="Mark this line paid">Paid</div><div></div></div>';
   const mkRow = (it) => {
     const t=_invLineTotal(it);
+    const _inv=_invForRow(it);
+    const _bid=_bidForRow(it);
+    const _co=_companyForRow(it);
+    const _invco=_invCompanyForRow(it);
     const done=!!it.invoiced;
     const rowTip=done?' title="This item has already been invoiced for"':'';
     const strike=done?'text-decoration:line-through;color:var(--text-dim);':'';
     const ctrBadge = it.contractor ? '<span title="Quoted by '+escapeHtml(it.contractor)+'" style="flex:0 0 auto;font-size:9px;font-weight:800;color:#7c3aed;background:rgba(124,58,237,0.15);border-radius:4px;padding:2px 5px;white-space:nowrap">👷</span>' : '';
     return '<div class="inv-arow'+(done?' invoiced':'')+'" data-id="'+escapeHtml(it.id)+'"'+rowTip+' style="display:grid;'+_INV_GRID+'margin-bottom:5px;align-items:center;'+(done?'opacity:0.6;':'')+'">'
-      + '<div style="text-align:center"><input type="checkbox" class="inv-a-inv" '+(done?'checked ':'')+'onclick="uwInvActiveToggleInvoiced(\''+escapeHtml(it.id)+'\',this.checked)" title="'+(done?'This item has already been invoiced for — click to un-mark':'Mark already invoiced — shows it crossed out as completed on the contractor form')+'" style="width:16px;height:16px;cursor:pointer;accent-color:#a855f7"></div>'
       + '<input class="inv-a-room" value="'+escapeHtml(it.room||'')+'" placeholder="Room" style="'+_invInput+strike+'">'
       + '<div style="display:flex;align-items:center;gap:4px;min-width:0">'+ctrBadge+'<input class="inv-a-desc" value="'+escapeHtml(it.description||'')+'" placeholder="Description" style="'+_invInput+strike+';flex:1;min-width:0">'+'</div>'
-      + '<input class="inv-a-units" inputmode="numeric" value="'+escapeHtml(it.units||'')+'" placeholder="Qty" style="'+_invInput+'">'
-      + '<input class="inv-a-hours" inputmode="decimal" value="'+escapeHtml(it.hours||'')+'" placeholder="Hrs" style="'+_invInput+'">'
-      + '<input class="inv-a-labor" inputmode="decimal" value="'+escapeHtml(it.labor||'')+'" placeholder="Labor" style="'+_invInput+'">'
-      + '<input class="inv-a-material" inputmode="decimal" value="'+escapeHtml(it.material||'')+'" placeholder="Matl" style="'+_invInput+'">'
-      + '<div class="inv-a-total" style="text-align:right;font-weight:700;font-size:12px">'+(t?_invMoney(t):'—')+'</div>'
-      + '<button onclick="uwInvActiveRemove(\''+escapeHtml(it.id)+'\')" title="Remove" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:15px;line-height:1">✕</button>'
+      + '<div class="inv-a-total" style="'+_invBox+'justify-content:flex-start;font-weight:700;font-size:12px;color:var(--brand)">'+(t?_invMoney(t):'—')+'</div>'
+      + _invDiv
+      + '<div class="inv-a-bid" style="'+_invBox+'justify-content:flex-start;font-weight:700;font-size:12px;color:'+(_bid>0?'#f59e0b':'var(--text-dim)')+'" title="Accepted contractor bid for this line">'+(_bid>0?_invMoney(_bid):'—')+'</div>'
+      + '<div class="inv-a-company" style="'+_invBox+'font-size:11px;color:'+(_co?'var(--text)':'var(--text-dim)')+';white-space:nowrap;text-overflow:ellipsis" title="'+escapeHtml(_co||'Company that quoted this line')+'">'+(_co?escapeHtml(_co):'—')+'</div>'
+      + _invDiv
+      + '<div class="inv-a-invoiced" style="'+_invBox+'justify-content:flex-start;font-weight:700;font-size:12px;color:'+(_inv>0?'#22c55e':'var(--text-dim)')+'" title="Invoiced by contractors for this line">'+(_inv>0?_invMoney(_inv):'—')+'</div>'
+      + '<div class="inv-a-invcompany" style="'+_invBox+'font-size:11px;color:'+(_invco?'var(--text)':'var(--text-dim)')+';white-space:nowrap;text-overflow:ellipsis" title="'+escapeHtml(_invco||'Company that invoiced this line')+'">'+(_invco?escapeHtml(_invco):'—')+'</div>'
+      + '<div style="justify-self:center;width:26px;height:26px;box-sizing:border-box;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;background:var(--panel-2)"><input type="checkbox" class="inv-a-inv" '+(done?'checked ':'')+'onclick="uwInvActiveToggleInvoiced(\''+escapeHtml(it.id)+'\',this.checked)" title="'+(done?'Marked paid — click to un-mark':'Mark this line paid')+'" style="width:15px;height:15px;cursor:pointer;accent-color:#22c55e"></div>'
+      + '<button onclick="uwInvActiveRemove(\''+escapeHtml(it.id)+'\')" title="Remove this line" style="justify-self:center;box-sizing:border-box;background:none;border:1px solid rgba(239,68,68,0.55);border-radius:6px;color:#ef4444;cursor:pointer;font-size:12px;line-height:1;width:26px;height:26px;display:flex;align-items:center;justify-content:center">✕</button>'
       + '</div>';
   };
   const secHead=(txt,color,bg)=>'<div style="margin:10px 0 6px;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:'+color+';background:'+bg+'">'+txt+'</div>';
   const origRows = items.filter(it=>!it.added);
   const addedRows = items.filter(it=>it.added);
   let rows='';
+  // Deposit Requests — submitted "Request for Deposit" contractor invoices.
+  const deposits=_invDepositRequests();
+  const paidDepSet=_invPaidDepositSet();
+  rows += secHead('🧾 Deposit Requests ('+deposits.length+')','#818cf8','rgba(129,140,248,0.14)');
+  if(deposits.length){
+    rows += deposits.map(d=>{ let dt=''; try{ if(d.date) dt=new Date(d.date).toLocaleDateString(); }catch(_){}
+      const paid=paidDepSet.has(String(d.id));
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;margin-bottom:5px;background:var(--panel-2);'+(paid?'opacity:0.75':'')+'">'
+        +'<div style="font-weight:600;font-size:13px">'+escapeHtml(d.company)+(dt?' <span style="color:var(--text-dim);font-size:11px;font-weight:400">· '+dt+'</span>':'')+'</div>'
+        +'<div style="display:flex;align-items:center;gap:16px">'
+          +'<div style="font-weight:800;color:#818cf8;font-size:14px">'+_invMoney(d.amount)+'</div>'
+          +'<label style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:'+(paid?'#22c55e':'var(--text-dim)')+';cursor:pointer;white-space:nowrap"><input type="checkbox" '+(paid?'checked ':'')+'onclick="uwInvDepositTogglePaid(\''+escapeHtml(d.id)+'\',this.checked)" style="width:15px;height:15px;cursor:pointer;accent-color:#22c55e"> Paid</label>'
+        +'</div>'
+        +'</div>';
+    }).join('');
+  } else {
+    rows += '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:2px 4px 8px">No deposit requests submitted yet.</div>';
+  }
   if(origRows.length){ rows += secHead('✓ From Original Invoice List ('+origRows.length+')','#15803d','rgba(34,197,94,0.12)'); rows += origRows.map(mkRow).join(''); }
   rows += secHead('➕ Additional Items ('+addedRows.length+')','#a855f7','rgba(168,85,247,0.12)');
   rows += addedRows.length ? addedRows.map(mkRow).join('') : '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:2px 4px 6px">Nothing added yet — click <b>+ Add item</b>, or turn on 👷 Include Contractor Quotes to pull in items a contractor quoted.</div>';
   const grand=items.reduce((s,it)=>s+_invLineTotal(it),0);
-  const bar='<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:12px"><span>Items <b id="inv-a-count">'+items.length+'</b></span><span>Total <b id="inv-a-grand" style="color:var(--brand);font-size:16px">'+_invMoney(grand)+'</b></span></div>';
-  el.innerHTML=head+rows+bar;
+  // Invoiced counts only amounts that match a line on this active list (so it stays
+  // consistent with the per-line Invoiced column); unmatched invoice lines are ignored.
+  const _actInvDescSet=new Set(items.map(it=>String(it.description||'').trim().toLowerCase()).filter(Boolean));
+  const grandInv=Object.keys(invoicedMap).reduce((s,k)=> s + (_actInvDescSet.has(k) ? ((invoicedMap[k]&&invoicedMap[k].amt)||0) : 0), 0);
+  const grandDep=_invDepositTotal();
+  const ctrQuoted=_invContractorQuotedTotal();
+  // Paid = deposit invoices you've checked Paid + the invoiced amount of every line you've checked Paid.
+  const paidDeposits=deposits.reduce((s,d)=> s + (paidDepSet.has(String(d.id)) ? d.amount : 0), 0);
+  const grandPaid=paidDeposits + items.reduce((s,it)=> s + (it.invoiced ? _invForRow(it) : 0), 0);
+  // Owed = everything invoiced (line items + deposits) that hasn't been marked paid.
+  const grandOwed=Math.max(0, (grandInv + grandDep) - grandPaid);
+  const bar='<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);font-size:12px">'
+    +'<span>Items <b id="inv-a-count">'+items.length+'</b></span>'
+    +'<span>Expected <b id="inv-a-grand" style="color:var(--brand);font-size:16px">'+_invMoney(grand)+'</b></span>'
+    +'<span>Quoted <b id="inv-a-ctrtot" style="color:#f59e0b;font-size:16px">'+_invMoney(ctrQuoted)+'</b></span>'
+    +'<span>Deposit <b id="inv-a-deptot" style="color:#818cf8;font-size:16px">'+_invMoney(grandDep)+'</b></span>'
+    +'<span>Invoiced <b id="inv-a-invtot" style="color:#22c55e;font-size:16px">'+_invMoney(grandInv)+'</b></span>'
+    +'<span>Paid <b id="inv-a-paidtot" style="color:#10b981;font-size:16px">'+_invMoney(grandPaid)+'</b></span>'
+    +'<span>Owed <b id="inv-a-owedtot" style="color:#ef4444;font-size:16px">'+_invMoney(grandOwed)+'</b></span>'
+    +'</div>';
+  el.innerHTML=bar+head+rows;
   el.querySelectorAll('.inv-arow input:not(.inv-a-inv)').forEach(inp => inp.addEventListener('input', _invActiveOnEdit));
 }
 window.renderInvActive = renderInvActive;
 
 function _invRowRead(row){
-  const g=s=>{ const e=row.querySelector(s); return e?e.value:''; };
-  return { id:row.getAttribute('data-id'), room:g('.inv-a-room').trim(), description:g('.inv-a-desc').trim(), units:g('.inv-a-units').trim(), hours:g('.inv-a-hours').trim(), labor:g('.inv-a-labor').trim(), material:g('.inv-a-material').trim() };
+  // Only include fields whose inputs actually exist, so merging in _invCollectActive
+  // preserves stored amounts (the numeric entry fields were removed from the table).
+  const g=s=>{ const e=row.querySelector(s); return e?e.value.trim():null; };
+  const out={ id:row.getAttribute('data-id') };
+  const room=g('.inv-a-room'); if(room!=null) out.room=room;
+  const desc=g('.inv-a-desc'); if(desc!=null) out.description=desc;
+  const units=g('.inv-a-units'); if(units!=null) out.units=units;
+  const hours=g('.inv-a-hours'); if(hours!=null) out.hours=hours;
+  const labor=g('.inv-a-labor'); if(labor!=null) out.labor=labor;
+  const material=g('.inv-a-material'); if(material!=null) out.material=material;
+  return out;
 }
 function _invCollectActive(){
   // Merge edited DOM values over the stored rows so flags (added, est) survive edits.
@@ -24436,8 +24760,8 @@ function _invCollectActive(){
 let _invFormSyncTimer=null;
 function _invSyncFormSoon(){ if(_invFormSyncTimer) clearTimeout(_invFormSyncTimer); _invFormSyncTimer=setTimeout(()=>{ try{ _uwInvSyncFormLines(_uwCurrentId); }catch(_){} }, 1000); }
 function _invActiveOnEdit(e){
-  const row=e.target.closest('.inv-arow');
-  if(row){ const it=_invRowRead(row); const t=_invLineTotal(it); const te=row.querySelector('.inv-a-total'); if(te) te.textContent=t?_invMoney(t):'—'; }
+  // The table no longer has numeric entry fields; editing Room/Description just
+  // saves. Expected totals are preserved via the merge in _invCollectActive.
   const items=_invCollectActive();
   const gc=document.getElementById('inv-a-count'); if(gc) gc.textContent=items.length;
   const gg=document.getElementById('inv-a-grand'); if(gg) gg.textContent=_invMoney(items.reduce((s,it)=>s+_invLineTotal(it),0));
@@ -24454,6 +24778,9 @@ function uwInvActiveAddRow(){
 window.uwInvActiveAddRow = uwInvActiveAddRow;
 function uwInvActiveRemove(id){
   const u=_invGetDeal(); if(!u||!u.data)return;
+  const it=(u.data._invoiceActive||[]).find(x=>String(x.id)===String(id));
+  const name=(it&&it.description)?('"'+it.description+'"'):'this line item';
+  if(!confirm('Delete '+name+' from the invoice list? This cannot be undone.')) return;
   u.data._invoiceActive=(u.data._invoiceActive||[]).filter(it=>String(it.id)!==String(id));
   _invSave(); renderInvActive(); _invSyncFormSoon();
 }
@@ -24466,6 +24793,7 @@ async function uwInvActiveToggleInvoiced(id, checked){
   const arr=Array.isArray(u.data._invoiceActive)?u.data._invoiceActive:[];
   const it=arr.find(x=>String(x.id)===String(id)); if(!it) return;
   it.invoiced=!!checked; _invSave(); renderInvActive();
+  if(typeof _uwBudgetUpdateBar==='function') _uwBudgetUpdateBar();
   let synced=false;
   try { synced = await _uwInvSyncFormLines(_uwCurrentId); } catch(_){}
   if(typeof toast==='function'){

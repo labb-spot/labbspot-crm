@@ -3655,7 +3655,7 @@
 
     <!-- ===== 6. Condition Checklist (matches Underwriting sheet exactly) ===== -->
     <div class="panel p-5 mb-4" data-uw-section="condition-checklist" data-uw-section-label="🔧 Condition Checklist">
-      <div class="flex items-center justify-between mb-3 gap-2 flex-wrap" onclick="if(event.target.closest('button'))return;window._uwToggleConditionChecklist&&window._uwToggleConditionChecklist();" style="cursor:pointer;user-select:none" title="Click the title to collapse / expand">
+      <div class="flex items-center justify-between gap-2 flex-wrap" onclick="if(event.target.closest('button'))return;window._uwToggleConditionChecklist&&window._uwToggleConditionChecklist();" style="cursor:pointer;user-select:none;min-height:34px" title="Click the title to collapse / expand">
         <div class="font-semibold text-base" style="display:flex;align-items:center;gap:8px">
           <span id="uw-cl-caret" style="font-size:11px;color:var(--text-dim);font-weight:normal">▶</span>
           🔧 Condition Checklist <span id="uw-checklist-mode-badge" class="text-xs" style="color:var(--text-dim);font-weight:normal"></span>
@@ -3667,7 +3667,7 @@
         </div>
       </div>
       <!-- Collapsible body — collapsed by default, state persisted in localStorage -->
-      <div id="uw-cl-body" style="display:none">
+      <div id="uw-cl-body" style="display:none;margin-top:12px">
       <!-- Dynamic checklist columns — rendered by uwRenderChecklistColumns() from
            a saved layout. Field nodes live in the hidden bank below and are
            moved into columns via appendChild (so all IDs + listeners survive). -->
@@ -3732,6 +3732,18 @@
         <span id="uw-rehab-rental-note"></span>
       </div>
       </div><!-- /uw-cl-body -->
+    </div>
+
+    <!-- ===== Big Ticket Checklist — major systems working / needs-work board ===== -->
+    <div class="panel p-5 mb-4" data-uw-section="big-ticket" data-uw-section-label="🎯 Major Systems">
+      <div class="font-semibold text-base" onclick="window._uwToggleBigTicket&&window._uwToggleBigTicket();" style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;min-height:34px" title="Click the title to collapse / expand">
+        <span id="uw-bt-caret" style="font-size:11px;color:var(--text-dim);font-weight:normal">▶</span>
+        🎯 Major Systems
+        <span class="text-xs" style="color:var(--text-dim);font-weight:normal">— mark each major system Operational or Needs Attention</span>
+      </div>
+      <div id="uw-bt-body" style="display:none;margin-top:12px">
+        <div id="uw-bigticket-grid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px"></div>
+      </div>
     </div>
 
     <!-- ===== Rehab Calculator v2 (Phase 1 — new calc inside live UW panel) ===== -->
@@ -10221,6 +10233,57 @@ function uwClearComp(prefix) {
 }
 window.uwClearComp = uwClearComp;
 
+// ===== Big Ticket Checklist — major systems Working / Needs Work =====
+// State persists on u.data._bigTicket = { key: 'working' | 'needs' }.
+const _UW_BIG_TICKET_ITEMS = [
+  { key: 'roof',          label: 'Roof' },
+  { key: 'furnace',       label: 'Furnace' },
+  { key: 'condenser',     label: 'Condenser' },
+  { key: 'foundation',    label: 'Foundation' },
+  { key: 'water_heater',  label: 'Water Heater' },
+  { key: 'electrical',    label: 'Electrical Wiring' },
+  { key: 'plumbing',      label: 'Plumbing Supply Lines' },
+  { key: 'plumbing_drain',label: 'Plumbing Drain Lines' },
+];
+function _uwBigTicketState() {
+  const u = _uwCurrentId ? ((cache.underwrites || {})[_uwCurrentId]) : null;
+  return (u && u.data && u.data._bigTicket && typeof u.data._bigTicket === 'object') ? u.data._bigTicket : {};
+}
+function uwRenderBigTicket() {
+  const grid = document.getElementById('uw-bigticket-grid');
+  if (!grid) return;
+  const state = _uwBigTicketState();
+  grid.innerHTML = _UW_BIG_TICKET_ITEMS.map(function (it) {
+    const v = state[it.key] || '';
+    const wOn = v === 'working';
+    const nOn = v === 'needs';
+    const wStyle = 'padding:4px 8px;font-size:10.5px;font-weight:600;white-space:nowrap;border:none;cursor:pointer;' +
+      (wOn ? 'background:#10b981;color:#fff' : 'background:transparent;color:var(--text-dim)');
+    const nStyle = 'padding:4px 8px;font-size:10.5px;font-weight:600;white-space:nowrap;border:none;border-left:1px solid var(--border);cursor:pointer;' +
+      (nOn ? 'background:#ef4444;color:#fff' : 'background:transparent;color:var(--text-dim)');
+    return '<div style="display:flex;align-items:center;gap:6px;padding:6px 9px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">' +
+      '<span style="font-size:10.5px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(it.label) + '">' + escapeHtml(it.label) + '</span>' +
+      '<span style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;flex-shrink:0">' +
+        '<button type="button" onclick="uwBigTicketSet(\'' + it.key + '\',\'working\')" style="' + wStyle + '">✓ Operational</button>' +
+        '<button type="button" onclick="uwBigTicketSet(\'' + it.key + '\',\'needs\')" style="' + nStyle + '">✕ Needs Attention</button>' +
+      '</span>' +
+    '</div>';
+  }).join('');
+}
+window.uwRenderBigTicket = uwRenderBigTicket;
+function uwBigTicketSet(key, status) {
+  if (!_uwCurrentId) return;
+  const u = (cache.underwrites || {})[_uwCurrentId];
+  if (!u) return;
+  u.data = u.data || {};
+  if (!u.data._bigTicket || typeof u.data._bigTicket !== 'object') u.data._bigTicket = {};
+  // Click the already-active state to clear it back to neutral.
+  u.data._bigTicket[key] = (u.data._bigTicket[key] === status) ? '' : status;
+  uwRenderBigTicket();
+  if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+}
+window.uwBigTicketSet = uwBigTicketSet;
+
 // Initialize all 6 comp icons in their disabled grey state on first render
 function uwInitCompLinks() {
   ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3'].forEach(p => uwUpdateCompLinks(p));
@@ -10230,6 +10293,7 @@ function uwInitCompLinks() {
   // First-paint: pick up any fields newly-shipped since this session was last opened
   if (typeof _uwMergeMissingFields === 'function') _uwMergeMissingFields();
   if (typeof uwRenderChecklistColumns === 'function') uwRenderChecklistColumns();
+  if (typeof uwRenderBigTicket === 'function') uwRenderBigTicket();
   // First-paint the Rehab Calculator with default prices (no items checked yet)
   if (typeof uwRenderRehabCalculator === 'function') uwRenderRehabCalculator();
 }
@@ -15445,6 +15509,49 @@ async function uwGenerateWholesalePacket() {
     doc.setFont('helvetica', 'normal');
   };
 
+  // ---------- Big Ticket Item Statuses ----------
+  // Major systems the buyer cares about most. Always shown; anything the user
+  // didn't mark reads "Unknown" so the buyer knows it wasn't assessed.
+  {
+    const BT_ITEMS = (typeof _UW_BIG_TICKET_ITEMS !== 'undefined') ? _UW_BIG_TICKET_ITEMS : [
+      { key: 'roof', label: 'Roof' }, { key: 'furnace', label: 'Furnace' },
+      { key: 'condenser', label: 'Condenser' }, { key: 'foundation', label: 'Foundation' },
+      { key: 'water_heater', label: 'Water Heater' }, { key: 'electrical', label: 'Electrical Wiring' },
+      { key: 'plumbing', label: 'Plumbing Supply Lines' }, { key: 'plumbing_drain', label: 'Plumbing Drain Lines' },
+    ];
+    const btState = (typeof _uwBigTicketState === 'function') ? (_uwBigTicketState() || {}) : {};
+    section('MAJOR SYSTEMS');
+    doc.setFontSize(9);
+    doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+    doc.text('Condition of the major systems. "Unknown" = not assessed during the walkthrough.', MARGIN, y);
+    y += 14;
+    const btCols = 2;
+    const btColW = (PAGE_W - 2 * MARGIN) / btCols;
+    const btRowH = 18;
+    const btRows = Math.ceil(BT_ITEMS.length / btCols);
+    need(btRows * btRowH + 6);
+    const yTop = y;
+    BT_ITEMS.forEach((it, i) => {
+      const col = i % btCols, row = Math.floor(i / btCols);
+      const x = MARGIN + col * btColW;
+      const yy = yTop + row * btRowH;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+      doc.text(it.label, x, yy);
+      const v = btState[it.key] || '';
+      let sLabel = 'Unknown', sColor = C_DIM;
+      if (v === 'working') { sLabel = 'Operational'; sColor = C_GREEN; }
+      else if (v === 'needs') { sLabel = 'Needs Attention'; sColor = C_RED; }
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(sColor[0], sColor[1], sColor[2]);
+      doc.text(sLabel, x + btColW - 16, yy, { align: 'right' });
+    });
+    y = yTop + btRows * btRowH + 8;
+    doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+    doc.setFont('helvetica', 'normal');
+  }
+
   // ---------- Scope of work (NO PRICES) — 3-column layout ----------
   // Three columns guarantees the full scope fits on page 2 alongside comps
   // + the disclosure even when the user has many groups + items checked.
@@ -16998,7 +17105,7 @@ function _uwCollect() {
       if (k.indexOf('_source') === 0 || k === '_priorityHandled' || k === '_holdingStatus' ||
           k === '_budgetActuals' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
           k === '_reno_phase_override' || k === '_compsMode' ||
-          k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_scopeQuotes' || k === '_taggedBuyers' || k === '_offerActive' || k === '_offerPacket' ||
+          k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_scopeQuotes' || k === '_taggedBuyers' || k === '_offerActive' || k === '_offerPacket' || k === '_bigTicket' ||
           k === '_invoiceOriginal' || k === '_invoiceActive' || k === '_invoiceTab' || k === '_invoiceInclContractor' || k === '_invoicePaidDeposits' || k === '_externalInvoices' || k === '_constructionAgreements' ||
           // Geocode coordinates — written by _dispoGeocodeSubject directly
           // into u.data.lat/lng/geocoded_address (not form fields). Without
@@ -18385,6 +18492,7 @@ const _UW_SECTION_TAB = {
   'rental-comps':         'evaluation',
   'deal-notes':           'evaluation',
   'condition-checklist':  'renovation',
+  'big-ticket':           'renovation',
   'rehab-calc':           'renovation',
   'ideal-flip-profit':    'strategy',
   'equity-per-rehab':     'strategy',
@@ -51826,11 +51934,32 @@ window._uwToggleConditionChecklist = function(){
   try { localStorage.setItem(_UW_CL_KEY, _uwClCollapsed ? '1' : '0'); } catch(_){}
   _uwApplyClCollapse();
 };
+
+// Big Ticket Checklist collapse — collapsed by default; persisted to localStorage
+const _UW_BT_KEY = 'uw-big-ticket-collapsed';
+let _uwBtCollapsed = true;
+try {
+  const v = localStorage.getItem(_UW_BT_KEY);
+  if (v !== null) _uwBtCollapsed = (v === '1');
+} catch(_){}
+function _uwApplyBtCollapse(){
+  const body = document.getElementById('uw-bt-body');
+  const caret = document.getElementById('uw-bt-caret');
+  if(body) body.style.display = _uwBtCollapsed ? 'none' : '';
+  if(caret) caret.textContent = _uwBtCollapsed ? '▶' : '▼';
+}
+window._uwToggleBigTicket = function(){
+  _uwBtCollapsed = !_uwBtCollapsed;
+  try { localStorage.setItem(_UW_BT_KEY, _uwBtCollapsed ? '1' : '0'); } catch(_){}
+  _uwApplyBtCollapse();
+};
+
 // Apply initial collapse state once the DOM is ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', _uwApplyClCollapse);
+  document.addEventListener('DOMContentLoaded', function(){ _uwApplyClCollapse(); _uwApplyBtCollapse(); });
 } else {
   _uwApplyClCollapse();
+  _uwApplyBtCollapse();
 }
 
 // Public refresh hook so the live-site UW code can trigger a recalc.

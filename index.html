@@ -3269,7 +3269,9 @@
       </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div>
-          <div class="text-xs font-semibold mb-1">Comp #1</div>
+          <div class="text-xs font-semibold mb-1 flex items-center justify-between">Comp #1
+            <button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px;color:#f87171" onclick="uwClearComp('scp1')" title="Clear every field for Comp #1">✕ Clear</button>
+          </div>
           <div style="display:flex;gap:4px;align-items:center">
             <input id="uw-scp1-addr" oninput="uwUpdateCompLinks('scp1')" placeholder="Address (street, city, state, zip)" style="flex:1;min-width:0">
             <a id="uw-scp1-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
@@ -3291,7 +3293,9 @@
           <select id="uw-scp1-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
         </div>
         <div>
-          <div class="text-xs font-semibold mb-1">Comp #2</div>
+          <div class="text-xs font-semibold mb-1 flex items-center justify-between">Comp #2
+            <button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px;color:#f87171" onclick="uwClearComp('scp2')" title="Clear every field for Comp #2">✕ Clear</button>
+          </div>
           <div style="display:flex;gap:4px;align-items:center">
             <input id="uw-scp2-addr" oninput="uwUpdateCompLinks('scp2')" placeholder="Address (street, city, state, zip)" style="flex:1;min-width:0">
             <a id="uw-scp2-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
@@ -3313,7 +3317,9 @@
           <select id="uw-scp2-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
         </div>
         <div>
-          <div class="text-xs font-semibold mb-1">Comp #3</div>
+          <div class="text-xs font-semibold mb-1 flex items-center justify-between">Comp #3
+            <button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px;color:#f87171" onclick="uwClearComp('scp3')" title="Clear every field for Comp #3">✕ Clear</button>
+          </div>
           <div style="display:flex;gap:4px;align-items:center">
             <input id="uw-scp3-addr" oninput="uwUpdateCompLinks('scp3')" placeholder="Address (street, city, state, zip)" style="flex:1;min-width:0">
             <a id="uw-scp3-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
@@ -10177,6 +10183,26 @@ function uwUpdateCompLinks(prefix) {
     gEl.onclick = null;
   }
 }
+
+// Clear every field for a single comp (prefix e.g. 'scp1'). Dispatches input +
+// change events so the existing handlers (links, ARV, recalc, autosave) re-run.
+function uwClearComp(prefix) {
+  // Tell the next autosave that this bulk-clear is intentional, so the
+  // "form may not have loaded fully" wipe-protection guard lets it through.
+  window._uwBypassWipeOnce = true;
+  const fields = ['addr','psf','dist','bed','bath','sqft','year','lot','lot-sqft','parking','material'];
+  fields.forEach(f => {
+    const el = document.getElementById('uw-' + prefix + '-' + f);
+    if (!el) return;
+    el.value = '';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  if (typeof uwUpdateCompLinks === 'function') uwUpdateCompLinks(prefix);
+  if (typeof uwUpdateCompArv === 'function') uwUpdateCompArv();
+  if (typeof uwRecalc === 'function') uwRecalc();
+}
+window.uwClearComp = uwClearComp;
 
 // Initialize all 6 comp icons in their disabled grey state on first render
 function uwInitCompLinks() {
@@ -17485,8 +17511,13 @@ async function uwSave(manual) {
   // For manual saves: ask for confirmation before destroying the data.
   // This guards against the "open deal, autosave fires, wipes data"
   // scenario where the form is half-loaded but the save fires anyway.
+  // One-shot bypass: an explicit user action (e.g. ✕ Clear on a comp) set this
+  // flag, so we KNOW the field-clearing is intentional. Consume it here so the
+  // very next save skips Guard 2, and every later save is protected again.
+  let _bypassWipeOnce = false;
+  try { _bypassWipeOnce = !!window._uwBypassWipeOnce; window._uwBypassWipeOnce = false; } catch (_) {}
   try {
-    if (_uwCurrentId && cache.underwrites && cache.underwrites[_uwCurrentId]) {
+    if (!_bypassWipeOnce && _uwCurrentId && cache.underwrites && cache.underwrites[_uwCurrentId]) {
       const cachedData = cache.underwrites[_uwCurrentId].data || {};
       // A "filled" value is anything not null/undefined/empty string.
       // Empty objects and arrays don't count as filled either.

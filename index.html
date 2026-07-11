@@ -8197,6 +8197,7 @@
         <label class="text-xs text-[var(--text-dim)] block mb-1" title="Optional: pick a column and each row is auto-tagged from that cell's value. Recognizes case types (MF → Foreclosure, EU → Probate, etc.) AND direct flag names. Put several tags in one cell separated by commas — e.g. 'Vacant, Tax Delinquent' — to apply multiple flags to that property.">🏷️ Auto-tag each row from a column — case types (foreclosure/probate/…) or comma-separated tags like "Vacant, Tax Delinquent"</label>
         <select id="mapper-autoflag-col" style="max-width:360px" onchange="if(window._mapperAutoFlagChanged)window._mapperAutoFlagChanged(this.value)"><option value="">— None —</option></select>
         <div id="mapper-autoflag-hint" class="text-xs" style="color:var(--text-dim);margin-top:5px"></div>
+        <div id="mapper-autoflag-reconcile"></div>
       </div>
     </div>
     <div id="mapper-fields" class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4"></div>
@@ -38850,17 +38851,38 @@ function toggleUploadFlag(flag) {
 //      or "EU - Estate, Unsupervised" map to Foreclosure / Probate / etc.
 // Only returns flags that actually exist in cache.config.flags so it never
 // invents a flag. Used by the mapper's per-row auto-tag feature.
-function _autoFlagsFromValue(raw) {
+function _autoFlagsFromValue(raw, opts) {
+  opts = opts || {};
   const s = String(raw == null ? '' : raw).toLowerCase();
   if (!s.trim()) return [];
   const configFlags = Array.isArray(cache.config && cache.config.flags) ? cache.config.flags : [];
+  // Normalize for matching: lowercase + drop spaces/punctuation so capitalization,
+  // hyphens, extra spaces, and stray punctuation never cause a miss. Matching is
+  // still EXACT on the normalized form — it will never guess and apply the wrong
+  // tag. Genuine misspellings are surfaced in the mapper for you to map by hand.
+  const _norm = (x) => String(x).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const _cfg = configFlags.map(f => ({ real: f, n: _norm(f) }));
+  // Per-import overrides you set in the "map unknown values to a tag" step.
+  const overrides = (typeof pendingUpload !== 'undefined' && pendingUpload && pendingUpload.autoFlagOverrides) || {};
   const out = [];
   const add = (name) => {
-    const real = configFlags.find(f => String(f).toLowerCase() === String(name).toLowerCase());
-    if (real && out.indexOf(real) < 0) out.push(real);
+    const n = _norm(name);
+    if (!n) return;
+    // Manual override wins (maps a typo/unknown value to one of your tags).
+    if (overrides[n]) {
+      const ov = _cfg.find(c => c.n === _norm(overrides[n]));
+      if (ov) { if (out.indexOf(ov.real) < 0) out.push(ov.real); return; }
+    }
+    const hit = _cfg.find(c => c.n === n);
+    if (hit && out.indexOf(hit.real) < 0) out.push(hit.real);
   };
-  // 1) Direct flag names — split on , ; | and newlines, match each token exactly.
-  String(raw == null ? '' : raw).split(/[,;|\n]+/).forEach(tok => { const t = tok.trim(); if (t) add(t); });
+  // 1) Direct flag names — the whole cell (covers whole-value overrides) and
+  //    each comma/semicolon/pipe/newline token matched exactly.
+  if (!opts.keywordOnly) {
+    const whole = String(raw == null ? '' : raw).trim();
+    if (whole) add(whole);
+    String(raw == null ? '' : raw).split(/[,;|\n]+/).forEach(tok => { const t = tok.trim(); if (t) add(t); });
+  }
   // 2) Case-type keyword rules.
   if (/foreclos|mortgage foreclosure|\bmf\b|\bcc\s*-?\s*foreclos/.test(s)) add('Foreclosure');
   if (/probate|estate|decedent|decedant|\beu\b|\bes\b|\bep\b|\bgu\b/.test(s)) add('Probate');
@@ -38905,15 +38927,126 @@ function _updateAutoFlagHint() {
   const col = pendingUpload.map ? pendingUpload.map.autoFlagCol : null;
   if (col == null) { hint.textContent = 'Each row keeps only the list-wide tags above.'; return; }
   const counts = {}; let tagged = 0;
+  // Collect DISTINCT cell values that produced no tag at all, so a typo or an
+  // unconfigured tag is visible for you to fix — instead of being auto-guessed.
+  const unmatched = {};
   (pendingUpload.rows || []).forEach(r => {
-    const fl = _autoFlagsFromValue(r[col]);
+    const val = r[col];
+    const fl = _autoFlagsFromValue(val);
     if (fl.length) { tagged++; fl.forEach(f => counts[f] = (counts[f] || 0) + 1); }
+    else { const v = String(val == null ? '' : val).trim(); if (v) unmatched[v] = (unmatched[v] || 0) + 1; }
   });
   const parts = Object.keys(counts).map(k => k + ': ' + counts[k]);
-  hint.innerHTML = tagged
-    ? ('✓ Will auto-tag <b>' + tagged + '</b> of ' + (pendingUpload.rows || []).length + ' rows → ' + escapeHtml(parts.join(',  ')))
-    : '⚠ No rows in that column matched a known case type (foreclosure / probate / eviction / etc.).';
+  const total = (pendingUpload.rows || []).length;
+  let html = tagged
+    ? ('✓ Will auto-tag <b>' + tagged + '</b> of ' + total + ' rows → ' + escapeHtml(parts.join(',  ')))
+    : '⚠ No values in that column matched a configured tag.';
+  const unmatchedKeys = Object.keys(unmatched);
+  if (unmatchedKeys.length) {
+    const sample = unmatchedKeys.sort((a, b) => unmatched[b] - unmatched[a]).slice(0, 6)
+      .map(v => escapeHtml(v.length > 40 ? v.slice(0, 40) + '…' : v) + ' (' + unmatched[v] + ')');
+    html += '<br><span style="color:#f59e0b">⚠ ' + unmatchedKeys.length + ' value' + (unmatchedKeys.length === 1 ? '' : 's') +
+      ' didn\'t match any tag — check for typos or add the tag first: </span><span style="color:var(--text-dim)">' +
+      sample.join(' · ') + (unmatchedKeys.length > 6 ? ' …' : '') + '</span>';
+  }
+  hint.innerHTML = html;
+  _renderAutoFlagReconcile();
 }
+
+// Is the selected auto-tag column a "case type" column (mostly keyword-matched,
+// e.g. court filing types) vs a "tags" column (comma-separated flag names)?
+// Decides whether unmatched detection works at the whole-cell or per-token level.
+function _autoFlagIsCaseTypeColumn(col) {
+  const rows = pendingUpload.rows || [];
+  let nonEmpty = 0, kw = 0;
+  for (const r of rows) {
+    const c = r[col];
+    if (c == null || !String(c).trim()) continue;
+    nonEmpty++;
+    if (_autoFlagsFromValue(c, { keywordOnly: true }).length) kw++;
+  }
+  return nonEmpty > 0 && (kw / nonEmpty) >= 0.5;
+}
+// Distinct values (or comma-tokens) in the auto-tag column that match NO tag.
+function _autoFlagUnmatchedValues() {
+  const col = (pendingUpload && pendingUpload.map) ? pendingUpload.map.autoFlagCol : null;
+  if (col == null) return [];
+  const caseType = _autoFlagIsCaseTypeColumn(col);
+  const seen = {}; // norm -> { display, count }
+  const record = (t) => {
+    const disp = String(t).trim(); if (!disp) return;
+    const n = disp.toLowerCase().replace(/[^a-z0-9]/g, ''); if (!n) return;
+    if (!seen[n]) seen[n] = { display: disp, count: 0 };
+    seen[n].count++;
+  };
+  (pendingUpload.rows || []).forEach(r => {
+    const cell = r[col];
+    if (cell == null || !String(cell).trim()) return;
+    if (caseType) {
+      if (_autoFlagsFromValue(cell).length === 0) record(cell);
+    } else {
+      String(cell).split(/[,;|\n]+/).forEach(tok => {
+        const t = tok.trim(); if (!t) return;
+        if (_autoFlagsFromValue(t).length === 0) record(t);
+      });
+    }
+  });
+  return Object.keys(seen).map(n => ({ norm: n, display: seen[n].display, count: seen[n].count }))
+    .sort((a, b) => b.count - a.count);
+}
+// Render the "map unknown values to one of your tags" rows under the auto-tag hint.
+function _renderAutoFlagReconcile() {
+  const box = document.getElementById('mapper-autoflag-reconcile');
+  if (!box || !pendingUpload) return;
+  const col = pendingUpload.map ? pendingUpload.map.autoFlagCol : null;
+  if (col == null) { box.innerHTML = ''; return; }
+  if (!pendingUpload.autoFlagOverrides) pendingUpload.autoFlagOverrides = {};
+  const configFlags = Array.isArray(cache.config && cache.config.flags) ? cache.config.flags : [];
+  const unmatched = _autoFlagUnmatchedValues();
+  if (!unmatched.length) { box.innerHTML = ''; return; }
+  const optionsHtml = '<option value="">— Skip (no tag) —</option>' +
+    configFlags.map(f => '<option value="' + escapeHtml(f) + '">' + escapeHtml(f) + '</option>').join('');
+  box.innerHTML =
+    '<div style="margin-top:8px;padding:10px 12px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);border-radius:8px">' +
+    '<div class="text-xs" style="font-weight:600;color:#f59e0b;margin-bottom:8px">Map unknown values to one of your tags (leave as Skip to ignore):</div>' +
+    unmatched.map(u =>
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+        '<span class="text-xs" style="flex:0 0 auto;min-width:150px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600" title="' + escapeHtml(u.display) + '">' + escapeHtml(u.display) + '</span>' +
+        '<span class="text-xs" style="color:var(--text-dim);flex:0 0 auto">×' + u.count + '</span>' +
+        '<span class="text-xs" style="color:var(--text-dim)">→</span>' +
+        '<select data-unmatched="' + escapeHtml(u.norm) + '" onchange="_setAutoFlagOverride(this)" style="flex:1;max-width:240px;font-size:12px">' + optionsHtml + '</select>' +
+      '</div>'
+    ).join('') +
+    '</div>';
+  // Re-apply any existing selections so they persist across re-renders.
+  box.querySelectorAll('select[data-unmatched]').forEach(sel => {
+    const key = sel.getAttribute('data-unmatched');
+    if (pendingUpload.autoFlagOverrides[key]) sel.value = pendingUpload.autoFlagOverrides[key];
+  });
+}
+window._setAutoFlagOverride = function (sel) {
+  if (!pendingUpload) return;
+  if (!pendingUpload.autoFlagOverrides) pendingUpload.autoFlagOverrides = {};
+  const key = sel.getAttribute('data-unmatched');
+  if (sel.value) pendingUpload.autoFlagOverrides[key] = sel.value;
+  else delete pendingUpload.autoFlagOverrides[key];
+  // Refresh the counts line (the mapped value now tags rows) without wiping the
+  // reconcile dropdowns the user is mid-way through.
+  const hint = document.getElementById('mapper-autoflag-hint');
+  if (hint) {
+    const col = pendingUpload.map ? pendingUpload.map.autoFlagCol : null;
+    if (col != null) {
+      const counts = {}; let tagged = 0;
+      (pendingUpload.rows || []).forEach(r => { const fl = _autoFlagsFromValue(r[col]); if (fl.length) { tagged++; fl.forEach(f => counts[f] = (counts[f] || 0) + 1); } });
+      const parts = Object.keys(counts).map(k => k + ': ' + counts[k]);
+      // keep the reconcile box; only update the first line
+      const firstLine = '✓ Will auto-tag <b>' + tagged + '</b> of ' + (pendingUpload.rows || []).length + ' rows → ' + escapeHtml(parts.join(',  '));
+      const rest = hint.innerHTML.indexOf('<br>') >= 0 ? hint.innerHTML.slice(hint.innerHTML.indexOf('<br>')) : '';
+      hint.innerHTML = firstLine + rest;
+    }
+  }
+  _renderAutoFlagReconcile();
+};
 
 function openListMapper(headers, rows, fileName) {
   const auto = autoMap(headers);
@@ -38986,9 +39119,7 @@ function renderMapperFields(fieldList) {
     petitioner:'Petitioner (probate)', petitionerAddress:'Petitioner address (probate)', petitionerCount:'Petitioner count (probate)', attorney:'Attorney info'
   };
   const fieldHints = {
-    fullAddress: 'Use when the whole address is in ONE column. Parsed values override individual street/city/state/zip columns.',
-    petitioner: 'Probate estate contact (the living person handling the estate). Stored on the property.',
-    attorney: 'Attorney block from the filing — kept as-is on the property for reference.'
+    fullAddress: 'Use when the whole address is in ONE column. Parsed values override individual street/city/state/zip columns.'
   };
   container.innerHTML = fieldList.map(f => {
     const cur = pendingUpload.map[f];

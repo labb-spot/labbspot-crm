@@ -8193,6 +8193,11 @@
     <div class="mb-4" id="mapper-flags-block">
       <label class="text-xs text-[var(--text-dim)] block mb-1" title="Flags applied to every property imported from this list.">Tags / Flags for this list (optional)</label>
       <div id="mapper-flags" class="flex flex-wrap gap-1"></div>
+      <div id="mapper-autoflag-block" style="margin-top:12px">
+        <label class="text-xs text-[var(--text-dim)] block mb-1" title="Optional: pick a column and each row is auto-tagged from that cell's value. Recognizes case types (MF → Foreclosure, EU → Probate, etc.) AND direct flag names. Put several tags in one cell separated by commas — e.g. 'Vacant, Tax Delinquent' — to apply multiple flags to that property.">🏷️ Auto-tag each row from a column — case types (foreclosure/probate/…) or comma-separated tags like "Vacant, Tax Delinquent"</label>
+        <select id="mapper-autoflag-col" style="max-width:360px" onchange="if(window._mapperAutoFlagChanged)window._mapperAutoFlagChanged(this.value)"><option value="">— None —</option></select>
+        <div id="mapper-autoflag-hint" class="text-xs" style="color:var(--text-dim);margin-top:5px"></div>
+      </div>
     </div>
     <div id="mapper-fields" class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4"></div>
 
@@ -24059,8 +24064,24 @@ window.uwInvTogglePaid = uwInvTogglePaid;
 
 async function uwInvDeleteResponse(id){
   if (!confirm('Remove this invoice submission?')) return;
-  try { const { error } = await sb.from('invoice_responses').delete().eq('id', id); if (error) throw error; uwInvLoadResponses(true); }
-  catch(e){ console.warn('uwInvDeleteResponse:', e); if(typeof toast==='function') toast('Delete failed','err'); }
+  try {
+    // .select() so we can tell whether a row was ACTUALLY deleted. Supabase
+    // returns success with an empty array when RLS silently blocks the delete,
+    // which otherwise looks like "the button did nothing."
+    const { data, error } = await sb.from('invoice_responses').delete().eq('id', id).select('id');
+    if (error) throw error;
+    if (!data || data.length === 0){
+      if(typeof toast==='function') toast('Could not delete — your login lacks delete permission on invoices (row-level security). I can give you a one-line SQL fix.','err');
+      return;
+    }
+    // Drop it from the in-memory list immediately so it disappears even before
+    // the reload round-trips.
+    const req=_uwInv.byDeal[_uwCurrentId];
+    if(req && Array.isArray(_uwInv.responses[req.id])) _uwInv.responses[req.id]=_uwInv.responses[req.id].filter(r=>r.id!==id);
+    uwInvLoadResponses(true);
+    if(typeof toast==='function') toast('Invoice removed.','ok');
+  }
+  catch(e){ console.warn('uwInvDeleteResponse:', e); if(typeof toast==='function') toast('Delete failed: '+((e&&e.message)||'unknown'),'err'); }
 }
 window.uwInvDeleteResponse = uwInvDeleteResponse;
 
@@ -38718,14 +38739,21 @@ async function retryFailedGeocodes() {
 
 // --------- Column detection ---------
 const FIELD_PATTERNS = {
-  fullAddress: [/^(full[_ ]?address|combined[_ ]?address|property[_ ]?full[_ ]?address|one[_ ]?line[_ ]?address|complete[_ ]?address|address[_ ]?full|address[_ ]?combined|address[_ ]?one[_ ]?line)$/i],
+  fullAddress: [/^(full[_ ]?address|combined[_ ]?address|property[_ ]?full[_ ]?address|one[_ ]?line[_ ]?address|complete[_ ]?address|address[_ ]?full|address[_ ]?combined|address[_ ]?one[_ ]?line)$/i,
+    // Looser fallbacks so court-list headers like "Subject Full Address (Verified
+    // Format)" auto-detect as a single-column address instead of needing manual mapping.
+    /full[_ ]?address/i, /subject.*address/i],
   street: [/^(property|prop|subject|mailing|site|site_?address|street|address|addr|property[_ ]?address|property[_ ]?line[_ ]?1|input[_ ]?address|street[_ ]?address|address[_ ]?line[_ ]?1|recipient[_ ]?address)$/i],
   city: [/^(property[_ ]?city|city|subject[_ ]?city|input[_ ]?city)$/i],
   state: [/^(property[_ ]?state|state|subject[_ ]?state|input[_ ]?state|st)$/i],
   zip: [/^(property[_ ]?zip|zip|zip[_ ]?code|postal|property[_ ]?zipcode|subject[_ ]?zip|input[_ ]?zipcode)$/i],
   firstName: [/^(first|first[_ ]?name|owner[_ ]?first(_?name)?|primary[_ ]?first|contact[_ ]?1[_ ]?first|owner_1_firstname|first_name)$/i],
   lastName: [/^(last|last[_ ]?name|owner[_ ]?last(_?name)?|primary[_ ]?last|contact[_ ]?1[_ ]?last|owner_1_lastname|last_name)$/i],
-  fullName: [/^(full[_ ]?name|owner[_ ]?name|contact[_ ]?name|name|name[_ ]?on[_ ]?deed|submitted[_ ]?owner[_ ]?full[_ ]?name)$/i],
+  fullName: [/^(full[_ ]?name|owner[_ ]?name|contact[_ ]?name|name|name[_ ]?on[_ ]?deed|submitted[_ ]?owner[_ ]?full[_ ]?name|(defendant|decedent|decedant)\b.*)$/i],
+  petitioner: [/^petitioner\b(?!.*(address|count))/i],
+  petitionerAddress: [/^petitioner.*address/i],
+  petitionerCount: [/^petitioner.*count/i],
+  attorney: [/attorney/i],
   company: [/^(company|business[_ ]?name|llc|entity|corporate)$/i],
   mailStreet: [/^(mail[_ ]?(address|street|addr)[_ ]?(1|line[_ ]?1)?|mailing[_ ]?(address|street|addr)[_ ]?(1|line[_ ]?1)?|owner[_ ]?(mail[_ ]?(street|address|addr)|mailing[_ ]?(street|address|addr))[_ ]?(1|line[_ ]?1)?|correspondence[_ ]?(address|street)|recipient[_ ]?(address|street))$/i],
   mailCity: [/^(mail[_ ]?city|mailing[_ ]?city[_ ]?(1)?|owner[_ ]?(mail[_ ]?city|mailing[_ ]?city)|correspondence[_ ]?city|recipient[_ ]?city)$/i],
@@ -38813,6 +38841,80 @@ function toggleUploadFlag(flag) {
   }
 }
 
+// Classify a raw cell value into one or MORE configured flag names. Two ways:
+//   1) Direct list — the cell literally names flags, comma/semicolon/pipe/newline
+//      separated (e.g. "Vacant, Tax Delinquent"). Each token that matches a
+//      configured flag is applied. This is how you put several tags on one
+//      property from a single column.
+//   2) Case-type keywords — court-list values like "MF - Mortgage Foreclosure"
+//      or "EU - Estate, Unsupervised" map to Foreclosure / Probate / etc.
+// Only returns flags that actually exist in cache.config.flags so it never
+// invents a flag. Used by the mapper's per-row auto-tag feature.
+function _autoFlagsFromValue(raw) {
+  const s = String(raw == null ? '' : raw).toLowerCase();
+  if (!s.trim()) return [];
+  const configFlags = Array.isArray(cache.config && cache.config.flags) ? cache.config.flags : [];
+  const out = [];
+  const add = (name) => {
+    const real = configFlags.find(f => String(f).toLowerCase() === String(name).toLowerCase());
+    if (real && out.indexOf(real) < 0) out.push(real);
+  };
+  // 1) Direct flag names — split on , ; | and newlines, match each token exactly.
+  String(raw == null ? '' : raw).split(/[,;|\n]+/).forEach(tok => { const t = tok.trim(); if (t) add(t); });
+  // 2) Case-type keyword rules.
+  if (/foreclos|mortgage foreclosure|\bmf\b|\bcc\s*-?\s*foreclos/.test(s)) add('Foreclosure');
+  if (/probate|estate|decedent|decedant|\beu\b|\bes\b|\bep\b|\bgu\b/.test(s)) add('Probate');
+  if (/evict|\bev\b|possession of real|forcible/.test(s)) add('Eviction');
+  if (/tax (lien|sale|deed|delinq)|delinquent tax|\btp\b/.test(s)) add('Tax Delinquent');
+  if (/bankrupt|\bch(apter)?\s*(7|11|13)\b/.test(s)) add('Bankruptcy');
+  if (/divorce|dissolution|\bdr\b|\bdn\b/.test(s)) add('Divorce');
+  if (/\blien\b/.test(s) && !/tax/.test(s)) add('Liens');
+  if (/code violation|nuisance|unsafe building/.test(s)) add('Code Violations');
+  return out;
+}
+// Populate + wire the mapper's "auto-tag from column" dropdown.
+window._mapperAutoFlagChanged = function (val) {
+  if (!pendingUpload || !pendingUpload.map) return;
+  pendingUpload.map.autoFlagCol = (val === '' || val == null) ? null : parseInt(val, 10);
+  _updateAutoFlagHint();
+};
+function _populateAutoFlagCol() {
+  const sel = document.getElementById('mapper-autoflag-col');
+  if (!sel || !pendingUpload) return;
+  const headers = pendingUpload.headers || [];
+  // Guess a "Type"-ish column, but only PRE-SELECT it if that column actually
+  // classifies into known case flags — otherwise a normal list with a plain
+  // "Type"/"Property Type" column would behave differently than before.
+  let guess = '';
+  headers.forEach((h, i) => { if (guess === '' && /\b(case ?type|type|category|kind|case ?category)\b/i.test(String(h || ''))) guess = String(i); });
+  if (guess !== '') {
+    const gi = parseInt(guess, 10);
+    const anyMatch = (pendingUpload.rows || []).some(r => _autoFlagsFromValue(r[gi]).length > 0);
+    if (!anyMatch) guess = '';
+  }
+  sel.innerHTML = '<option value="">— None —</option>' +
+    headers.map((h, i) => '<option value="' + i + '">' + escapeHtml(String(h || ('Column ' + (i + 1)))) + '</option>').join('');
+  const cur = (pendingUpload.map && pendingUpload.map.autoFlagCol != null) ? String(pendingUpload.map.autoFlagCol) : guess;
+  sel.value = cur;
+  pendingUpload.map.autoFlagCol = (cur === '') ? null : parseInt(cur, 10);
+  _updateAutoFlagHint();
+}
+function _updateAutoFlagHint() {
+  const hint = document.getElementById('mapper-autoflag-hint');
+  if (!hint || !pendingUpload) return;
+  const col = pendingUpload.map ? pendingUpload.map.autoFlagCol : null;
+  if (col == null) { hint.textContent = 'Each row keeps only the list-wide tags above.'; return; }
+  const counts = {}; let tagged = 0;
+  (pendingUpload.rows || []).forEach(r => {
+    const fl = _autoFlagsFromValue(r[col]);
+    if (fl.length) { tagged++; fl.forEach(f => counts[f] = (counts[f] || 0) + 1); }
+  });
+  const parts = Object.keys(counts).map(k => k + ': ' + counts[k]);
+  hint.innerHTML = tagged
+    ? ('✓ Will auto-tag <b>' + tagged + '</b> of ' + (pendingUpload.rows || []).length + ' rows → ' + escapeHtml(parts.join(',  ')))
+    : '⚠ No rows in that column matched a known case type (foreclosure / probate / eviction / etc.).';
+}
+
 function openListMapper(headers, rows, fileName) {
   const auto = autoMap(headers);
   // Seed the mapper's flags from whatever was ticked in the Upload panel chips.
@@ -38822,7 +38924,8 @@ function openListMapper(headers, rows, fileName) {
   document.getElementById('mapper-subtitle').textContent = 'We guessed the best match for each field. Adjust any that look wrong, then confirm.';
   document.getElementById('mapper-list-name').value = fileName.replace(/\.(csv|xlsx|xls)$/i,'');
   renderMapperFlagChips();
-  renderMapperFields(['fullAddress','street','city','state','zip','firstName','lastName','fullName','company','mailStreet','mailCity','mailState','mailZip']);
+  _populateAutoFlagCol();
+  renderMapperFields(['fullAddress','street','city','state','zip','firstName','lastName','fullName','company','mailStreet','mailCity','mailState','mailZip','petitioner','petitionerAddress','petitionerCount','attorney']);
   renderMapperPreview();
   document.getElementById('mapper-confirm').onclick = confirmListImport;
   openModal('modal-mapper');
@@ -38879,10 +38982,13 @@ function renderMapperFields(fieldList) {
   const fieldLabels = {
     fullAddress:'Full address (one column)', street:'Property street', city:'City', state:'State', zip:'ZIP',
     firstName:'Owner first name', lastName:'Owner last name', fullName:'Owner full name', company:'Company / LLC',
-    mailStreet:'Mailing street', mailCity:'Mailing city', mailState:'Mailing state', mailZip:'Mailing ZIP'
+    mailStreet:'Mailing street', mailCity:'Mailing city', mailState:'Mailing state', mailZip:'Mailing ZIP',
+    petitioner:'Petitioner (probate)', petitionerAddress:'Petitioner address (probate)', petitionerCount:'Petitioner count (probate)', attorney:'Attorney info'
   };
   const fieldHints = {
-    fullAddress: 'Use when the whole address is in ONE column. Parsed values override individual street/city/state/zip columns.'
+    fullAddress: 'Use when the whole address is in ONE column. Parsed values override individual street/city/state/zip columns.',
+    petitioner: 'Probate estate contact (the living person handling the estate). Stored on the property.',
+    attorney: 'Attorney block from the filing — kept as-is on the property for reference.'
   };
   container.innerHTML = fieldList.map(f => {
     const cur = pendingUpload.map[f];
@@ -39457,6 +39563,15 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
   Object.entries((pendingUpload && pendingUpload.flags) || {}).forEach(([k, v]) => { if (v) chosenFlagsObj[k] = true; });
   const hasChosenFlags = Object.keys(chosenFlagsObj).length > 0;
   const mergedPropIds = new Set();
+  // Per-row auto-tag: derive a flag from a chosen "Type" column value per row.
+  const autoFlagCol = (pendingUpload && pendingUpload.map && pendingUpload.map.autoFlagCol != null) ? pendingUpload.map.autoFlagCol : null;
+  // Accumulates the flags to union onto each MERGED (already-existing) property.
+  const mergeFlagsByPropId = {};
+  // Snapshot of EVERY flag this import actually applied (list-wide chosen flags
+  // + all per-row auto-tags). Stored on the list row so the Imports table shows
+  // exactly the tags this upload brought in — never tags a property later picks
+  // up from OTHER lists. Seeded with the list-wide chosen flags.
+  const appliedFlagsUnion = { ...chosenFlagsObj };
 
   const listSourceEl = document.getElementById('list-source');
   const listSource = listSourceEl ? listSourceEl.value : '';
@@ -39495,6 +39610,11 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
     const { row, addr, key, geo } = rd;
     if (addr.warning) warnImported++;
 
+    // Per-row flags from the auto-tag column (e.g. Foreclosure vs Probate vs Eviction).
+    const rowFlags = {};
+    if (autoFlagCol != null) _autoFlagsFromValue(row[autoFlagCol]).forEach(f => { rowFlags[f] = true; appliedFlagsUnion[f] = true; });
+    const hasRowFlags = Object.keys(rowFlags).length > 0;
+
     // Use geocoded data if available
     let finalStreet = addr.street, finalCity = addr.city, finalState = addr.state, finalZip = normalizeZip(addr.zip);
     let geoFields = { geocode_status: 'pending' };
@@ -39523,7 +39643,10 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
     if (propId) {
       plLinks.push({ property_id: propId, list_id: listId });
       merged++;
-      if (hasChosenFlags) mergedPropIds.add(propId);
+      if (hasChosenFlags || hasRowFlags) {
+        mergedPropIds.add(propId);
+        mergeFlagsByPropId[propId] = { ...(mergeFlagsByPropId[propId] || {}), ...chosenFlagsObj, ...rowFlags };
+      }
     } else if (!seenKeys[finalKey]) {
       propId = uid();
       seenKeys[finalKey] = propId;
@@ -39538,7 +39661,13 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
         company: normalizeName(row[m.company] || ''),
         mail_street: row[m.mailStreet] || '', mail_city: row[m.mailCity] || '',
         mail_state: row[m.mailState] || '', mail_zip: normalizeZip(row[m.mailZip] || ''),
-        flags: hasChosenFlags ? { ...chosenFlagsObj } : {},
+        flags: (hasChosenFlags || hasRowFlags) ? { ...chosenFlagsObj, ...rowFlags } : {},
+        // Probate / legal extras (optional columns — stripped automatically on
+        // insert if your properties schema doesn't have them yet).
+        ...(m.petitioner        != null && String(row[m.petitioner]||'').trim()        ? { petitioner: String(row[m.petitioner]).trim() } : {}),
+        ...(m.petitionerAddress != null && String(row[m.petitionerAddress]||'').trim() ? { petitioner_address: String(row[m.petitionerAddress]).trim() } : {}),
+        ...(m.petitionerCount   != null && String(row[m.petitionerCount]||'').trim()   ? { petitioner_count: String(row[m.petitionerCount]).trim() } : {}),
+        ...(m.attorney          != null && String(row[m.attorney]||'').trim()          ? { attorney_info: String(row[m.attorney]).trim() } : {}),
         ...geoFields,
       });
       plLinks.push({ property_id: propId, list_id: listId });
@@ -39568,12 +39697,31 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
   // create plLinks pointing at rows that never inserted (FK violation cascade).
   const insertedPropIds = new Set();
   if (newProps.length > 0) {
+    // OPTIONAL columns (petitioner/attorney_info, etc.) that only exist once the
+    // user runs the SQL. If the schema is missing one, Postgres rejects the whole
+    // insert with "column ... does not exist". Strip that column from EVERY row
+    // and retry, so a missing optional column never blocks the core import.
+    const _optionalCols = ['petitioner','petitioner_address','petitioner_count','attorney_info'];
     let propFailedBatches = 0;
     let propFailedFirstErr = null;
     let propRowsLost = 0;
     for (let i = 0; i < newProps.length; i += 500) {
-      const slice = newProps.slice(i, i + 500);
-      const { error } = await sb.from('properties').insert(slice);
+      let slice = newProps.slice(i, i + 500);
+      let error;
+      // Try the batch; if it fails on a missing OPTIONAL column, strip it from
+      // ALL remaining rows and retry (loop-bounded by the number of such columns).
+      for (let attempt = 0; attempt <= _optionalCols.length; attempt++) {
+        const res = await sb.from('properties').insert(slice);
+        error = res.error;
+        if (!error) break;
+        const mm = String(error.message || '').match(/column "?([a-z_]+)"? .*does not exist/i);
+        if (mm && _optionalCols.indexOf(mm[1]) >= 0) {
+          newProps.forEach(p => { delete p[mm[1]]; });   // strip from every pending row
+          slice = newProps.slice(i, i + 500);
+          continue;
+        }
+        break; // not a strippable-column error — hand off to the row-by-row path
+      }
       if (!error) {
         // Whole batch landed — every id in the slice is good.
         slice.forEach(p => insertedPropIds.add(p.id));
@@ -39611,6 +39759,9 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
   listRow.merged_count = merged;
   listRow.skipped_count = (reviewData?.rows?.filter(r => !r.include).length) || 0;
   listRow.warning_count = warnImported;
+  // Snapshot of the exact tags this import applied (list-wide + per-row auto-tags).
+  // safeInsert strips it if the lists.applied_flags column doesn't exist yet.
+  listRow.applied_flags = appliedFlagsUnion;
   {
     const res = await safeInsertList(listRow);
     if (!res.ok) {
@@ -39667,15 +39818,17 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
       else alert(msg);
     }
   }
-  // Merge chosen flags into any existing (already-known) properties that this list referenced.
-  if (hasChosenFlags && mergedPropIds.size) {
+  // Merge chosen (list-wide) + per-row auto-tag flags into any existing
+  // (already-known) properties that this list referenced.
+  if (mergedPropIds.size) {
     const ids = Array.from(mergedPropIds);
     for (let i = 0; i < ids.length; i += 200) {
       const batch = ids.slice(i, i + 200);
       const { data: existingRows } = await sb.from('properties').select('id, flags').in('id', batch);
       const updates = (existingRows || []).map(r => {
         const existingFlags = (r && r.flags && typeof r.flags === 'object') ? r.flags : {};
-        return { id: r.id, flags: { ...existingFlags, ...chosenFlagsObj } };
+        const addFlags = mergeFlagsByPropId[r.id] || chosenFlagsObj;
+        return { id: r.id, flags: { ...existingFlags, ...addFlags } };
       });
       if (updates.length) {
         await sb.from('properties').upsert(updates, { onConflict: 'id' });
@@ -40973,10 +41126,20 @@ function renderLists() {
     // Stored on l.chosen_flags. Falls back to aggregated property flags for
     // legacy lists imported before the chosen_flags column existed.
     let flagNames = [];
-    if (l.chosen_flags && typeof l.chosen_flags === 'object') {
+    // 1) Prefer the per-import snapshot of tags THIS upload applied (list-wide +
+    //    per-row auto-tags) — shows only what you uploaded them with.
+    const appliedTrue = (l.applied_flags && typeof l.applied_flags === 'object')
+      ? Object.keys(l.applied_flags).filter(k => l.applied_flags[k] === true) : [];
+    if (appliedTrue.length) {
+      flagNames = appliedTrue;
+    } else if (l.chosen_flags && typeof l.chosen_flags === 'object') {
+      // 2) chosen_flags is present (even if empty) → show exactly the list-wide
+      //    tags you ticked. Empty stays blank ("—"), exactly as it did before.
+      //    Never aggregate cross-list flags here.
       flagNames = Object.keys(l.chosen_flags).filter(k => l.chosen_flags[k] === true);
     } else {
-      // Legacy fallback: list was imported before chosen_flags was added
+      // 3) Truly legacy list (no chosen_flags value at all — pre-dates that
+      //    column) → last-resort aggregate, same fallback as the original code.
       flagNames = Object.keys(flagsByList[l.id] || {});
     }
     const flagChips = flagNames.length === 0
@@ -46060,7 +46223,10 @@ function exportSuggestedQueue() {
   const headers = [
     'first_name','last_name','company','property_street','property_city','property_state','property_zip',
     'property_verified','mail_street','mail_city','mail_state','mail_zip','mail_verified',
-    'top_phone','phone_count','last_contacted','flags','imported_at'
+    'top_phone','phone_count','last_contacted','flags','imported_at',
+    // Probate extras — property stays in-line so you can skiptrace the petitioner
+    // against the subject property, and eyeball the attorney block in the file.
+    'petitioner','petitioner_address','petitioner_count','attorney_info'
   ];
   const rows = filtered.map(x => {
     const p = x.p;
@@ -46077,7 +46243,8 @@ function exportSuggestedQueue() {
       x.propPhones.length,
       lastContacted,
       flagList.join('; '),
-      p.created_at ? String(p.created_at).slice(0, 10) : ''
+      p.created_at ? String(p.created_at).slice(0, 10) : '',
+      p.petitioner || '', p.petitioner_address || '', p.petitioner_count || '', p.attorney_info || ''
     ];
   });
   const csv = Papa.unparse([headers, ...rows]);

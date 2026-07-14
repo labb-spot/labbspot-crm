@@ -15767,6 +15767,13 @@ let _uwCurrentId = null; // null = new deal; UUID = editing existing
 // updated_at differs, another user has saved while we were editing and we
 // abort with a clear warning rather than silently overwriting their work.
 let _uwLoadedAt = null;
+// Unique ID for THIS browser tab/session. Stamped onto every underwrite save so
+// the optimistic lock can tell this tab's own writes apart from a STALE second
+// tab of the same login. Without it, the "same user → proceed" branch below let
+// an old tab silently overwrite newer work. Regenerated on every page load.
+const _UW_SESSION_ID = (typeof crypto !== 'undefined' && crypto.randomUUID)
+  ? crypto.randomUUID()
+  : ('sess-' + Date.now().toString(36) + Math.random().toString(36).slice(2));
 
 const UW_FIELDS = [
   'uw-packet-status','uw-asking','uw-offer','uw-accepted','uw-packet-asking-override',
@@ -17808,9 +17815,21 @@ async function uwSave(manual) {
     wholetail_profit:       isFinite(window._3p_wtFin)        ? window._3p_wtFin       : null,
     data: data,
     updated_at: new Date().toISOString(),
+    updated_session: _UW_SESSION_ID,   // which tab/session made this write (concurrency guard)
   };
   _uwAutosaveInflight = true;
   _uwSetSaveStatus('saving');
+  // Write helper: if the `updated_session` column isn't in the DB yet (SQL not
+  // run), Postgres rejects the write — strip that key and retry once so saves
+  // never break during rollout. Everything else about the write is unchanged.
+  const _uwWrite = async (p, op) => {
+    let r = await op(p);
+    if (r.error && /updated_session/i.test(r.error.message || '')) {
+      const { updated_session, ...rest } = p;
+      r = await op(rest);
+    }
+    return r;
+  };
   try {
     let result;
     if (_uwCurrentId) {
@@ -17823,23 +17842,34 @@ async function uwSave(manual) {
       if (_uwLoadedAt) {
         const { data: live, error: lockErr } = await sb
           .from('underwrites')
-          .select('updated_at, updated_by')
+          .select('updated_at, updated_by, updated_session')
           .eq('id', _uwCurrentId)
           .maybeSingle();
         if (!lockErr && live && live.updated_at && live.updated_at !== _uwLoadedAt) {
-          // Resolve the current user email so we can tell "someone else
-          // changed it" from "I changed it through a different code path
-          // (geocode / dispo stage / packet price / etc.)".
-          let myEmail = null;
-          try {
-            const r = await sb.auth.getUser();
-            myEmail = (r && r.data && r.data.user && r.data.user.email) || null;
-          } catch (_) {}
-          const liveBy = (live.updated_by || '').toLowerCase();
-          const meLow  = (myEmail || '').toLowerCase();
-          if (meLow && liveBy && liveBy === meLow) {
-            // It was us via a side-channel update — silently refresh the
-            // baseline and proceed with the save.
+          // The deal changed since THIS tab loaded it. Decide whether to proceed:
+          //   • If the change was stamped by THIS exact tab/session → it was our
+          //     own side-channel update → safe to proceed.
+          //   • If a DIFFERENT session made it (another tab / device — even the
+          //     SAME login) or an external write (submission/trigger has no
+          //     session) → BLOCK, so a stale window can't wipe newer work.
+          //   • Legacy rows with no session stamp fall back to the old same-user
+          //     check so we don't false-block a user's own untracked update.
+          const liveSess = live.updated_session || '';
+          let proceed;
+          if (liveSess) {
+            proceed = (liveSess === _UW_SESSION_ID);
+          } else {
+            let myEmail = null;
+            try {
+              const r = await sb.auth.getUser();
+              myEmail = (r && r.data && r.data.user && r.data.user.email) || null;
+            } catch (_) {}
+            const liveBy = (live.updated_by || '').toLowerCase();
+            const meLow  = (myEmail || '').toLowerCase();
+            proceed = !!(meLow && liveBy && liveBy === meLow);
+          }
+          if (proceed) {
+            // Our own tab's earlier/side-channel write — refresh baseline, proceed.
             _uwLoadedAt = live.updated_at;
           } else {
             _uwAutosaveInflight = false;
@@ -17848,9 +17878,9 @@ async function uwSave(manual) {
               try { return new Date(live.updated_at).toLocaleString(); }
               catch (_) { return 'a moment ago'; }
             })();
-            const whoFmt = liveBy ? (' by ' + live.updated_by) : '';
-            const msg = '⚠️ Another user edited this deal' + whoFmt + ' at ' + editTimeFmt +
-              '. Save was BLOCKED to protect their work. Reload the deal to see ' +
+            const whoFmt = live.updated_by ? (' by ' + live.updated_by) : '';
+            const msg = '⚠️ This deal was changed in another window or device' + whoFmt + ' at ' + editTimeFmt +
+              '. Save was BLOCKED to protect that copy. Reload the deal to see ' +
               'the latest version, then re-apply your changes.';
             if (manual) alert(msg);
             else if (typeof toast === 'function') toast(msg, 'warn');
@@ -17858,7 +17888,7 @@ async function uwSave(manual) {
           }
         }
       }
-      result = await sb.from('underwrites').update(payload).eq('id', _uwCurrentId).select().maybeSingle();
+      result = await _uwWrite(payload, p => sb.from('underwrites').update(p).eq('id', _uwCurrentId).select().maybeSingle());
     } else {
       // Duplicate-insert guard: a save with no active deal id would normally
       // INSERT a new row. Before doing that, check whether a non-deleted deal
@@ -17879,11 +17909,11 @@ async function uwSave(manual) {
       } catch (_) {}
       if (_dupId) {
         _uwCurrentId = _dupId;
-        result = await sb.from('underwrites').update(payload).eq('id', _dupId).select().maybeSingle();
+        result = await _uwWrite(payload, p => sb.from('underwrites').update(p).eq('id', _dupId).select().maybeSingle());
       } else {
         payload.id = uid();
         payload.created_at = new Date().toISOString();
-        result = await sb.from('underwrites').insert(payload).select().maybeSingle();
+        result = await _uwWrite(payload, p => sb.from('underwrites').insert(p).select().maybeSingle());
       }
     }
     if (result.error) {
@@ -19195,35 +19225,46 @@ async function uwSetHoldingStatus(id, status) {
     // deals being routed from the list, we trust the cache.
     if (id === _uwCurrentId && _uwLoadedAt) {
       const { data: live } = await sb.from('underwrites')
-        .select('updated_at, updated_by').eq('id', id).maybeSingle();
+        .select('updated_at, updated_by, updated_session').eq('id', id).maybeSingle();
       if (live && live.updated_at && live.updated_at !== _uwLoadedAt) {
-        // Same fix as uwSave: if the side-channel edit was the current user,
-        // silently refresh the baseline instead of blocking.
-        let myEmail = null;
-        try {
-          const r = await sb.auth.getUser();
-          myEmail = (r && r.data && r.data.user && r.data.user.email) || null;
-        } catch (_) {}
-        const liveBy = (live.updated_by || '').toLowerCase();
-        const meLow  = (myEmail || '').toLowerCase();
-        if (meLow && liveBy && liveBy === meLow) {
+        // Session-aware (same as uwSave): proceed only if THIS tab made the
+        // change; block a different tab/device/user or an external write.
+        const liveSess = live.updated_session || '';
+        let proceed;
+        if (liveSess) {
+          proceed = (liveSess === _UW_SESSION_ID);
+        } else {
+          let myEmail = null;
+          try {
+            const r = await sb.auth.getUser();
+            myEmail = (r && r.data && r.data.user && r.data.user.email) || null;
+          } catch (_) {}
+          const liveBy = (live.updated_by || '').toLowerCase();
+          const meLow  = (myEmail || '').toLowerCase();
+          proceed = !!(meLow && liveBy && liveBy === meLow);
+        }
+        if (proceed) {
           _uwLoadedAt = live.updated_at;
         } else {
           const editTimeFmt = (() => {
             try { return new Date(live.updated_at).toLocaleString(); }
             catch (_) { return 'a moment ago'; }
           })();
-          const whoFmt = liveBy ? (' by ' + live.updated_by) : '';
+          const whoFmt = live.updated_by ? (' by ' + live.updated_by) : '';
           if (typeof toast === 'function') {
-            toast('⚠️ Another user edited this deal' + whoFmt + ' at ' + editTimeFmt +
+            toast('⚠️ This deal was changed in another window' + whoFmt + ' at ' + editTimeFmt +
               '. Reload before routing it.', 'warn');
           }
           return;
         }
       }
     }
-    const { data: saved, error } = await sb.from('underwrites')
-      .update({ data: u.data }).eq('id', id).select().maybeSingle();
+    let _hsRes = await sb.from('underwrites')
+      .update({ data: u.data, updated_session: _UW_SESSION_ID }).eq('id', id).select().maybeSingle();
+    if (_hsRes.error && /updated_session/i.test(_hsRes.error.message || '')) {
+      _hsRes = await sb.from('underwrites').update({ data: u.data }).eq('id', id).select().maybeSingle();
+    }
+    const { data: saved, error } = _hsRes;
     if (error) throw error;
     // Keep the locking baseline fresh after a successful write.
     if (saved && saved.updated_at && id === _uwCurrentId) {

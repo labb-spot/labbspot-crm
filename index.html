@@ -6088,18 +6088,19 @@
   <div id="reno-buyers-wrap" style="display:none">
     <div class="panel p-5">
       <!-- Single-row header: title + action buttons + filters + search. -->
-      <div class="flex items-center gap-2 mb-3" style="flex-wrap:wrap">
-        <div class="font-semibold text-lg" style="flex:0 0 auto;margin-right:8px;white-space:nowrap">💰 Buyers</div>
-        <button class="btn btn-primary text-sm" onclick="buyerOpenAddModal()" style="height:38px;padding:0 14px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new buyer to your rolodex.">+ Add Buyer</button>
-        <button class="btn btn-ghost text-sm" onclick="buyerOpenImportModal()" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0;line-height:1;border:1px solid var(--border)" title="Bulk-import buyers from a CSV / XLSX. You'll get to map columns + tag with a county / city / zip before importing.">📤 Import CSV</button>
-        <button id="buyers-undo-import-btn" class="btn btn-ghost text-xs" onclick="buyerUndoLastImport()" style="height:38px;padding:0 10px;white-space:nowrap;flex-shrink:0;display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4)" title="Delete every buyer that was NEWLY ADDED by the most recent import. Merged rows (rows that already existed) are NOT touched.">↶ Undo Import</button>
-        <button id="buyers-retry-failed-btn" class="btn btn-ghost text-xs" onclick="_buyerRetryFailedGeocodes()" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0;display:none;color:#fbbf24;border:1px solid rgba(251,191,36,0.4)" title="Retry geocoding for purchase addresses that previously failed. Uses your Google API — each call costs ~$0.005.">↻ Retry Failed</button>
-        <button type="button" id="buyers-qualified-filter" data-state="" onclick="buyerCycleQualifiedFilter()" title="Click to cycle the qualification filter: All → Qualified → Unqualified → Unknown" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex:0 0 auto;min-width:150px;width:170px;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all 0.15s ease">All Statuses</button>
-        <select id="buyers-criteria-filter" onchange="renderBuyersList()" title="Filter by acquisitions range." style="height:38px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;min-width:170px;max-width:220px;width:200px">
+      <div class="flex items-center mb-3" style="flex-wrap:nowrap;gap:6px">
+        <div class="font-semibold" style="flex:0 0 auto;margin-right:4px;white-space:nowrap;font-size:16px">💰 Buyers</div>
+        <button class="btn btn-primary text-xs" onclick="buyerOpenAddModal()" style="height:36px;padding:0 10px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new buyer to your rolodex.">+ Add</button>
+        <button class="btn btn-ghost text-xs" onclick="buyerOpenImportModal()" style="height:36px;padding:0 10px;white-space:nowrap;flex-shrink:0;line-height:1;border:1px solid var(--border)" title="Bulk-import buyers from a CSV / XLSX. You'll get to map columns + tag with a county / city / zip before importing.">📤 Import</button>
+        <button id="buyers-undo-import-btn" class="btn btn-ghost text-xs" onclick="buyerUndoLastImport()" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0;display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4)" title="Delete every buyer that was NEWLY ADDED by the most recent import. Merged rows (rows that already existed) are NOT touched.">↶ Undo</button>
+        <button id="buyers-retry-failed-btn" class="btn btn-ghost text-xs" onclick="_buyerRetryFailedGeocodes()" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0;color:#fbbf24;border:1px solid rgba(251,191,36,0.4)" title="Retry geocoding for purchase addresses that previously FAILED at Google. Uses your Google API — each call costs ~$0.005.">↻ Retry Failed</button>
+        <button id="buyers-resume-paused-btn" class="btn btn-ghost text-xs" onclick="_buyerResumePausedGeocodes()" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0;color:#60a5fa;border:1px solid rgba(96,165,250,0.4)" title="Geocode purchase addresses that were never attempted (paused/pending — e.g. a page reload stopped the queue). These were NOT charged before. Uses your Google API — each call costs ~$0.005.">▶ Resume Paused</button>
+        <button type="button" id="buyers-qualified-filter" data-state="" onclick="buyerCycleQualifiedFilter()" title="Click to cycle the qualification filter: All → Qualified → Unqualified → Unknown" style="height:36px;padding:0 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex:0 0 auto;width:118px;display:inline-flex;align-items:center;justify-content:center;gap:4px;transition:all 0.15s ease">All Statuses</button>
+        <select id="buyers-criteria-filter" onchange="renderBuyersList()" title="Filter by acquisitions range." style="height:36px;padding:0 6px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;width:140px">
           <option value="">All Acquisitions</option>
         </select>
-        <input id="buyers-search" type="text" placeholder="🔍 Search by name, criteria, city, county, zip, lender..." oninput="renderBuyersList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;box-sizing:border-box" title="Filter by name, company, criteria, funding, city, state, county, zip, lender, channel, or notes. Matches anywhere." />
-        <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('buyers-search');if(i){i.value='';renderBuyersList();i.focus();}})();" style="height:38px;padding:0 10px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
+        <input id="buyers-search" type="text" placeholder="🔍 Search name, city, zip, lender…" oninput="renderBuyersList()" style="height:36px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;flex:1 1 60px;min-width:0;box-sizing:border-box" title="Filter by name, company, criteria, funding, city, state, county, zip, lender, channel, or notes. Matches anywhere." />
+        <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('buyers-search');if(i){i.value='';renderBuyersList();i.focus();}})();" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
       </div>
       <div id="buyers-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No buyers saved yet — click <b>+ Add Buyer</b> to start building your rolodex.</div>
       <div class="overflow-auto" style="max-height:140vh">
@@ -33799,8 +33800,9 @@ function renderBuyersList() {
   if (!cache.buyerPurchases && typeof loadBuyerPurchases === 'function') {
     Promise.resolve(loadBuyerPurchases()).then(() => renderBuyersList()).catch(() => {});
   }
-  // Update the "Retry Failed" button visibility/count from current cache.
+  // Update the "Retry Failed" + "Resume Paused" button visibility/count from cache.
   if (typeof _buyerUpdateRetryButtonCount === 'function') _buyerUpdateRetryButtonCount();
+  if (typeof _buyerUpdateResumeButtonCount === 'function') _buyerUpdateResumeButtonCount();
   // Refresh dispo subtab badges every time the buyer list rerenders — covers
   // qualification changes, new imports, deletes, etc.
   if (typeof _dispoUpdateCounts === 'function') _dispoUpdateCounts();
@@ -35539,6 +35541,53 @@ async function _buyerMergeLocationIntoBuyer(buyerId, loc) {
 }
 window._buyerMergeLocationIntoBuyer = _buyerMergeLocationIntoBuyer;
 
+// ---- Reusable floating progress bar (geocoding, imports, etc.) ----
+// Fixed to the bottom of the screen; shows a live bar + "X / N" + rough ETA.
+function _labbProgressShow(label, total) {
+  let el = document.getElementById('labb-progress-bar');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'labb-progress-bar';
+    el.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:99999;min-width:340px;max-width:92vw;background:var(--panel,#1e293b);border:1px solid var(--border,#334155);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.5);padding:12px 16px;font-size:13px;color:var(--text,#e2e8f0)';
+    el.innerHTML =
+      '<div style="display:flex;justify-content:space-between;gap:14px;margin-bottom:8px">' +
+        '<span id="labb-progress-label" style="font-weight:600"></span>' +
+        '<span id="labb-progress-count" style="color:var(--text-dim,#94a3b8);white-space:nowrap"></span>' +
+      '</div>' +
+      '<div style="height:8px;background:rgba(148,163,184,0.25);border-radius:6px;overflow:hidden">' +
+        '<div id="labb-progress-fill" style="height:100%;width:0%;background:linear-gradient(90deg,#6366f1,#3b82f6);transition:width .12s"></div>' +
+      '</div>';
+    document.body.appendChild(el);
+  }
+  el.style.display = '';
+  el._total = total || 0;
+  el._start = Date.now();
+  const l = document.getElementById('labb-progress-label'); if (l) l.textContent = label || 'Working\u2026';
+  _labbProgressUpdate(0);
+}
+function _labbProgressUpdate(done) {
+  const el = document.getElementById('labb-progress-bar'); if (!el) return;
+  const total = el._total || 0;
+  const pct = total > 0 ? Math.min(100, Math.round(done / total * 100)) : 0;
+  const fill = document.getElementById('labb-progress-fill'); if (fill) fill.style.width = pct + '%';
+  const c = document.getElementById('labb-progress-count');
+  if (c) {
+    let eta = '';
+    if (done > 0 && total > done) {
+      const elapsed = (Date.now() - (el._start || Date.now())) / 1000;
+      const remain = (total - done) / (done / elapsed);
+      if (isFinite(remain) && remain > 0) { const m = Math.floor(remain / 60), s = Math.round(remain % 60); eta = ' \u00b7 ~' + (m > 0 ? m + 'm ' + s + 's' : s + 's') + ' left'; }
+    }
+    c.textContent = done.toLocaleString() + ' / ' + total.toLocaleString() + ' (' + pct + '%)' + eta;
+  }
+}
+function _labbProgressHide() {
+  const el = document.getElementById('labb-progress-bar'); if (el) el.style.display = 'none';
+}
+window._labbProgressShow = _labbProgressShow;
+window._labbProgressUpdate = _labbProgressUpdate;
+window._labbProgressHide = _labbProgressHide;
+
 async function _buyerGeocodePurchaseQueue(queue) {
   if (!Array.isArray(queue) || queue.length === 0) return;
   if (typeof sb === 'undefined' || !sb) return;
@@ -35554,9 +35603,11 @@ async function _buyerGeocodePurchaseQueue(queue) {
   // rate ceiling so we don't get OVER_QUERY_LIMIT errors on large batches.
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   let ok = 0, fail = 0, rateHits = 0;
+  _labbProgressShow('\ud83d\udccd Geocoding buyer purchases', queue.length);
   for (let qi = 0; qi < queue.length; qi++) {
     const job = queue[qi];
     if (qi > 0) await sleep(150);
+    _labbProgressUpdate(qi);
     try {
       let res = await geocodeAddress(job.address, job.city, job.state, job.zip);
       // If Google rate-limited, back off and retry once.
@@ -35594,6 +35645,8 @@ async function _buyerGeocodePurchaseQueue(queue) {
       try { await sb.from('buyer_purchases').update({ geocode_status: 'failed', geocode_at: new Date().toISOString() }).eq('id', job.id); } catch (_) {}
     }
   }
+  _labbProgressUpdate(queue.length);
+  _labbProgressHide();
   if (typeof toast === 'function' && (ok || fail)) {
     const rateNote = rateHits > 0 ? ' (' + rateHits + ' rate-limit retries)' : '';
     toast('Geocode complete \u2014 ' + ok + ' ok \u00b7 ' + fail + ' failed' + rateNote, fail ? 'warn' : 'ok');
@@ -35634,6 +35687,7 @@ async function _buyerRetryFailedGeocodes() {
     // Refresh cache + button count.
     if (typeof loadBuyerPurchases === 'function') await loadBuyerPurchases(true);
     if (typeof _buyerUpdateRetryButtonCount === 'function') _buyerUpdateRetryButtonCount();
+    if (typeof _buyerUpdateResumeButtonCount === 'function') _buyerUpdateResumeButtonCount();
   } catch (e) {
     console.warn('[_buyerRetryFailedGeocodes]', e);
     if (typeof toast === 'function') toast('Retry failed: ' + (e.message || e), 'err');
@@ -35641,6 +35695,80 @@ async function _buyerRetryFailedGeocodes() {
   }
 }
 window._buyerRetryFailedGeocodes = _buyerRetryFailedGeocodes;
+
+// Geocode buyer purchases that were NEVER attempted (no coordinates + not marked
+// 'failed') — i.e. the queue was paused/interrupted (e.g. a page reload) before
+// it reached them. These were never sent to Google, so they were never charged.
+// Pulls fresh from Supabase so it catches every such row, not just cached ones.
+async function _buyerResumePausedGeocodes() {
+  if (typeof sb === 'undefined' || !sb) {
+    if (typeof toast === 'function') toast('Supabase not ready.', 'err');
+    return;
+  }
+  const btn = document.getElementById('buyers-resume-paused-btn');
+  let prevLabel = '';
+  if (btn) { prevLabel = btn.innerHTML; btn.disabled = true; btn.innerHTML = '⏳ Loading…'; }
+  try {
+    // Un-geocoded (lat IS NULL) AND not previously failed → "paused/pending".
+    // Paginate so big buyer lists don't get truncated at 1,000 rows.
+    const all = [];
+    let from = 0; const PAGE = 1000;
+    while (true) {
+      const { data, error } = await sb
+        .from('buyer_purchases')
+        .select('id, address, city, state, zip, geocode_status')
+        .is('lat', null)
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      if (!data || !data.length) break;
+      all.push(...data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    const queue = all
+      .filter(r => r && String(r.geocode_status || '').toLowerCase() !== 'failed')
+      .map(r => ({ id: r.id, address: r.address, city: r.city || '', state: r.state || '', zip: r.zip || '' }))
+      .filter(j => j.address && String(j.address).trim());
+    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '▶ Resume Paused'; }
+    if (!queue.length) {
+      if (typeof toast === 'function') toast('No paused addresses to geocode — everything unmapped has already been attempted (use Retry Failed for those).', 'ok');
+      return;
+    }
+    // Same throttled queue as the importer — it owns its own approval prompt +
+    // cost confirmation, so the user sees exactly how many calls will run.
+    await _buyerGeocodePurchaseQueue(queue);
+    if (typeof loadBuyerPurchases === 'function') await loadBuyerPurchases(true);
+    if (typeof _buyerUpdateRetryButtonCount === 'function') _buyerUpdateRetryButtonCount();
+    if (typeof _buyerUpdateResumeButtonCount === 'function') _buyerUpdateResumeButtonCount();
+  } catch (e) {
+    console.warn('[_buyerResumePausedGeocodes]', e);
+    if (typeof toast === 'function') toast('Resume failed: ' + (e.message || e), 'err');
+    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '▶ Resume Paused'; }
+  }
+}
+window._buyerResumePausedGeocodes = _buyerResumePausedGeocodes;
+
+// Show/label the Resume Paused button = purchases with no coords that weren't
+// marked 'failed' (i.e. never attempted). Counts from cache; the button pulls
+// fresh from the DB when clicked.
+function _buyerUpdateResumeButtonCount() {
+  const btn = document.getElementById('buyers-resume-paused-btn');
+  if (!btn) return;
+  let count = 0;
+  try {
+    const map = cache.buyerPurchases || {};
+    Object.keys(map).forEach(k => {
+      (map[k] || []).forEach(p => {
+        if (p && p.lat == null && String(p.geocode_status || '').toLowerCase() !== 'failed') count++;
+      });
+    });
+  } catch (e) {}
+  // Always visible, even at 0, so the button row stays stable.
+  btn.style.display = '';
+  btn.innerHTML = '▶ Resume Paused (' + count.toLocaleString() + ')';
+}
+window._buyerUpdateResumeButtonCount = _buyerUpdateResumeButtonCount;
 
 // Update the Retry button label + visibility. Counts purchases with
 // geocode_status='failed' AND lat IS NULL.
@@ -35656,13 +35784,9 @@ function _buyerUpdateRetryButtonCount() {
       });
     });
   } catch (e) {}
-  if (count > 0) {
-    btn.style.display = '';
-    btn.innerHTML = '\u21BB Retry Failed (' + count + ')';
-  } else {
-    btn.style.display = 'none';
-    btn.innerHTML = '\u21BB Retry Failed';
-  }
+  // Always visible, even at 0, so the button row stays stable.
+  btn.style.display = '';
+  btn.innerHTML = '\u21BB Retry Failed (' + count.toLocaleString() + ')';
 }
 window._buyerUpdateRetryButtonCount = _buyerUpdateRetryButtonCount;
 
@@ -39602,10 +39726,12 @@ async function executeListImport() {
     }
     const toastEl = document.getElementById('toast');
     let geoDone = 0;
+    if (typeof _labbProgressShow === 'function') _labbProgressShow('📍 Geocoding imported addresses', totalCalls);
     const showProgress = () => {
       const extra = inFileSavings > 0 ? ` (saved ${inFileSavings} duplicate calls)` : '';
       toastEl.textContent = `Geocoding ${geoDone}/${totalCalls} unique addresses${extra}…`;
       toastEl.className = 'toast show';
+      if (typeof _labbProgressUpdate === 'function') _labbProgressUpdate(geoDone);
     };
     showProgress();
 
@@ -39642,6 +39768,7 @@ async function executeListImport() {
       workers.push(noKeyWorker());
     }
     await Promise.all(workers);
+    if (typeof _labbProgressHide === 'function') _labbProgressHide();
   }
 
   // Check for geocode failures (include rows with null geo — means geocoding was skipped or failed)

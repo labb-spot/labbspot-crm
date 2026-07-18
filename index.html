@@ -35543,16 +35543,19 @@ window._buyerMergeLocationIntoBuyer = _buyerMergeLocationIntoBuyer;
 
 // ---- Reusable floating progress bar (geocoding, imports, etc.) ----
 // Fixed to the bottom of the screen; shows a live bar + "X / N" + rough ETA.
-function _labbProgressShow(label, total) {
+function _labbProgressShow(label, total, onCancel) {
   let el = document.getElementById('labb-progress-bar');
   if (!el) {
     el = document.createElement('div');
     el.id = 'labb-progress-bar';
-    el.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:99999;min-width:340px;max-width:92vw;background:var(--panel,#1e293b);border:1px solid var(--border,#334155);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.5);padding:12px 16px;font-size:13px;color:var(--text,#e2e8f0)';
+    el.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:99999;min-width:360px;max-width:92vw;background:var(--panel,#1e293b);border:1px solid var(--border,#334155);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.5);padding:12px 16px;font-size:13px;color:var(--text,#e2e8f0)';
     el.innerHTML =
-      '<div style="display:flex;justify-content:space-between;gap:14px;margin-bottom:8px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:8px">' +
         '<span id="labb-progress-label" style="font-weight:600"></span>' +
-        '<span id="labb-progress-count" style="color:var(--text-dim,#94a3b8);white-space:nowrap"></span>' +
+        '<span style="display:flex;align-items:center;gap:10px">' +
+          '<span id="labb-progress-count" style="color:var(--text-dim,#94a3b8);white-space:nowrap"></span>' +
+          '<button id="labb-progress-cancel" type="button" style="display:none;flex-shrink:0;height:26px;padding:0 10px;font-size:12px;font-weight:600;border:1px solid rgba(251,191,36,0.5);background:rgba(251,191,36,0.12);color:#fbbf24;border-radius:7px;cursor:pointer">\u23f8 Pause</button>' +
+        '</span>' +
       '</div>' +
       '<div style="height:8px;background:rgba(148,163,184,0.25);border-radius:6px;overflow:hidden">' +
         '<div id="labb-progress-fill" style="height:100%;width:0%;background:linear-gradient(90deg,#6366f1,#3b82f6);transition:width .12s"></div>' +
@@ -35563,6 +35566,19 @@ function _labbProgressShow(label, total) {
   el._total = total || 0;
   el._start = Date.now();
   const l = document.getElementById('labb-progress-label'); if (l) l.textContent = label || 'Working\u2026';
+  // Pause button \u2014 only shown when the caller supplies an onCancel handler.
+  const cbtn = document.getElementById('labb-progress-cancel');
+  if (cbtn) {
+    if (typeof onCancel === 'function') {
+      cbtn.style.display = '';
+      cbtn.disabled = false;
+      cbtn.textContent = '\u23f8 Pause';
+      cbtn.onclick = () => { cbtn.disabled = true; cbtn.textContent = '\u23f8 Pausing\u2026'; try { onCancel(); } catch (_) {} };
+    } else {
+      cbtn.style.display = 'none';
+      cbtn.onclick = null;
+    }
+  }
   _labbProgressUpdate(0);
 }
 function _labbProgressUpdate(done) {
@@ -35599,18 +35615,16 @@ async function _buyerGeocodePurchaseQueue(queue) {
       return;
     }
   }
-  // Throttle: 150ms between calls keeps us well under Google's per-second
-  // rate ceiling so we don't get OVER_QUERY_LIMIT errors on large batches.
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  let ok = 0, fail = 0, rateHits = 0;
-  _labbProgressShow('\ud83d\udccd Geocoding buyer purchases', queue.length);
-  for (let qi = 0; qi < queue.length; qi++) {
-    const job = queue[qi];
-    if (qi > 0) await sleep(150);
-    _labbProgressUpdate(qi);
+  let ok = 0, fail = 0, rateHits = 0, done = 0, idx = 0;
+  let cancelled = false;
+  // Parallel workers instead of one-at-a-time: ~5-6x faster while staying well
+  // under Google's ~50 req/sec ceiling. A small per-job stagger + the existing
+  // rate-limit backoff keeps us safe. \u23f8 Pause stops pulling new jobs.
+  _labbProgressShow('\ud83d\udccd Geocoding buyer purchases', queue.length, () => { cancelled = true; });
+  const doJob = async (job) => {
     try {
       let res = await geocodeAddress(job.address, job.city, job.state, job.zip);
-      // If Google rate-limited, back off and retry once.
       if (res && res.geocode_status === 'failed' && res.error_reason && /rate limit/i.test(res.error_reason)) {
         rateHits++;
         await sleep(2000);
@@ -35624,9 +35638,6 @@ async function _buyerGeocodePurchaseQueue(queue) {
           const i = arr.findIndex(p => p.id === data.id);
           if (i >= 0) arr[i] = data;
           ok++;
-          // Now that we have CANONICAL city / state / zip / county from Google,
-          // fold them into the buyer's chip lists. County is the new contribution
-          // here (CSV imports usually don't have it).
           if (typeof _buyerMergeLocationIntoBuyer === 'function') {
             _buyerMergeLocationIntoBuyer(data.buyer_id, {
               city:   res.city   || data.city  || '',
@@ -35644,12 +35655,28 @@ async function _buyerGeocodePurchaseQueue(queue) {
       fail++;
       try { await sb.from('buyer_purchases').update({ geocode_status: 'failed', geocode_at: new Date().toISOString() }).eq('id', job.id); } catch (_) {}
     }
-  }
-  _labbProgressUpdate(queue.length);
+    done++;
+    _labbProgressUpdate(done);
+  };
+  const worker = async () => {
+    while (!cancelled) {
+      const myI = idx++;
+      if (myI >= queue.length) return;
+      await sleep(90);           // light stagger to spread requests
+      await doJob(queue[myI]);
+    }
+  };
+  const CONC = Math.min(6, queue.length);
+  const workers = [];
+  for (let w = 0; w < CONC; w++) workers.push(worker());
+  await Promise.all(workers);
   _labbProgressHide();
-  if (typeof toast === 'function' && (ok || fail)) {
+  if (cancelled) {
+    const remaining = queue.length - done;
+    if (typeof toast === 'function') toast('\u23f8 Paused \u2014 ' + ok.toLocaleString() + ' geocoded this run \u00b7 ' + remaining.toLocaleString() + ' left. Click Resume Paused to continue (already-done ones are skipped).', 'warn');
+  } else if (typeof toast === 'function' && (ok || fail)) {
     const rateNote = rateHits > 0 ? ' (' + rateHits + ' rate-limit retries)' : '';
-    toast('Geocode complete \u2014 ' + ok + ' ok \u00b7 ' + fail + ' failed' + rateNote, fail ? 'warn' : 'ok');
+    toast('Geocode complete \u2014 ' + ok.toLocaleString() + ' ok \u00b7 ' + fail.toLocaleString() + ' failed' + rateNote, fail ? 'warn' : 'ok');
   }
   if (typeof renderBuyersList === 'function') renderBuyersList();
 }
@@ -39726,7 +39753,8 @@ async function executeListImport() {
     }
     const toastEl = document.getElementById('toast');
     let geoDone = 0;
-    if (typeof _labbProgressShow === 'function') _labbProgressShow('📍 Geocoding imported addresses', totalCalls);
+    let _geoCancelled = false;   // ⏸ Pause stops geocoding; un-geocoded rows land in Unverified Properties.
+    if (typeof _labbProgressShow === 'function') _labbProgressShow('📍 Geocoding imported addresses', totalCalls, () => { _geoCancelled = true; });
     const showProgress = () => {
       const extra = inFileSavings > 0 ? ` (saved ${inFileSavings} duplicate calls)` : '';
       toastEl.textContent = `Geocoding ${geoDone}/${totalCalls} unique addresses${extra}…`;
@@ -39739,6 +39767,7 @@ async function executeListImport() {
     let gIdx = 0;
     async function bucketWorker() {
       while (gIdx < uniqueBuckets.length) {
+        if (_geoCancelled) return;
         const i = gIdx++;
         const b = uniqueBuckets[i];
         b.geo = await geocodeAddress(b.addr.street, b.addr.city, b.addr.state, b.addr.zip);
@@ -39751,6 +39780,7 @@ async function executeListImport() {
     let gIdx2 = 0;
     async function noKeyWorker() {
       while (gIdx2 < toGeocodeWithoutKey.length) {
+        if (_geoCancelled) return;
         const i = gIdx2++;
         const r = toGeocodeWithoutKey[i];
         r.geo = await geocodeAddress(r.addr.street, r.addr.city, r.addr.state, r.addr.zip);

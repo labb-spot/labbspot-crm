@@ -39896,6 +39896,10 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
   const autoFlagCol = (pendingUpload && pendingUpload.map && pendingUpload.map.autoFlagCol != null) ? pendingUpload.map.autoFlagCol : null;
   // Accumulates the flags to union onto each MERGED (already-existing) property.
   const mergeFlagsByPropId = {};
+  // Accumulates mailing-address updates for MERGED properties. The list is the
+  // source of truth for mailing, so whenever a matched row provides a mailing
+  // address we update the existing property to that newest value.
+  const mailUpdatesByPropId = {};
   // Snapshot of EVERY flag this import actually applied (list-wide chosen flags
   // + all per-row auto-tags). Stored on the list row so the Imports table shows
   // exactly the tags this upload brought in — never tags a property later picks
@@ -39931,6 +39935,7 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
   const plLinks = [];
   const phoneInserts = [];
   const emailInserts = [];
+  const mailingInserts = [];
   const seenKeys = {};
 
   toast(`Saving ${newRowData.length} rows to database…`);
@@ -39976,6 +39981,34 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
         mergedPropIds.add(propId);
         mergeFlagsByPropId[propId] = { ...(mergeFlagsByPropId[propId] || {}), ...chosenFlagsObj, ...rowFlags };
       }
+      // Update the existing property's mailing from the list (newest value wins),
+      // but only when this row actually provides a mailing street — a blank
+      // mailing on the list never wipes an existing one. Clearing mail_geocode_status
+      // marks it unverified so it can be re-checked against the new address.
+      if (m.mailStreet != null) {
+        const _ms = String(row[m.mailStreet] || '').trim();
+        if (_ms) {
+          const _mc  = String(row[m.mailCity]  || '').trim();
+          const _mst = String(row[m.mailState] || '').trim();
+          const _mz  = normalizeZip(row[m.mailZip] || '');
+          const _upd = { mail_street: _ms, mail_city: _mc, mail_state: _mst, mail_zip: _mz };
+          // Only re-geocode (clear the status) when the mailing address actually
+          // CHANGED. If the property already has a matching, successfully-geocoded
+          // mailing address, leave its status alone so we don't pay to geocode an
+          // unchanged address again. Omitting mail_geocode_status from the update
+          // leaves the existing value untouched.
+          const _ex = cache.properties && cache.properties[propId];
+          const _n = s => normalizeAddress(String(s || '')).replace(/\s+/g, '').toLowerCase();
+          const _sameMail = _ex
+            && _ex.mail_geocode_status === 'ok'
+            && _n(_ex.mail_street) === _n(_ms)
+            && normalizeZip(_ex.mail_zip || '') === _mz
+            && _n(_ex.mail_city)  === _n(_mc)
+            && _n(_ex.mail_state) === _n(_mst);
+          if (!_sameMail) _upd.mail_geocode_status = null;
+          mailUpdatesByPropId[propId] = _upd;
+        }
+      }
     } else if (!seenKeys[finalKey]) {
       propId = uid();
       seenKeys[finalKey] = propId;
@@ -40020,6 +40053,22 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
     emails.forEach(e => emailInserts.push({
       property_id: propId, address: e, source: 'list:' + listName, vendor_name: '',
     }));
+    // Store the mailing address like phones/emails: accumulate every one seen
+    // (deduped by property + address) with its source list, so you keep a
+    // history instead of just the single overwritable field.
+    if (m.mailStreet != null) {
+      const _ms = String(row[m.mailStreet] || '').trim();
+      if (_ms) {
+        mailingInserts.push({
+          property_id: propId,
+          street: _ms,
+          city:  String(row[m.mailCity]  || '').trim(),
+          state: String(row[m.mailState] || '').trim(),
+          zip:   normalizeZip(row[m.mailZip] || ''),
+          source: 'list:' + listName, vendor_name: '',
+        });
+      }
+    }
   }
 
   // Track which property IDs actually committed to the DB so we don't try to
@@ -40169,6 +40218,23 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
       });
     }
   }
+  // Update mailing addresses on existing properties the list matched (newest
+  // uploaded mailing wins). Batched by id. Cache is patched so the Mailing
+  // column fills in without a reload.
+  {
+    const mailIds = Object.keys(mailUpdatesByPropId);
+    for (let i = 0; i < mailIds.length; i += 200) {
+      const batch = mailIds.slice(i, i + 200);
+      const updates = batch.map(id => ({ id, ...mailUpdatesByPropId[id] }));
+      if (updates.length) {
+        await sb.from('properties').upsert(updates, { onConflict: 'id' });
+        updates.forEach(u => {
+          const cp = cache.properties && cache.properties[u.id];
+          if (cp) { cp.mail_street = u.mail_street; cp.mail_city = u.mail_city; cp.mail_state = u.mail_state; cp.mail_zip = u.mail_zip; if ('mail_geocode_status' in u) cp.mail_geocode_status = u.mail_geocode_status; }
+        });
+      }
+    }
+  }
   if (phoneInserts.length > 0) {
     for (let i = 0; i < phoneInserts.length; i += 500) {
       await sb.from('phones').upsert(phoneInserts.slice(i, i + 500), { onConflict: 'property_id,number,vendor_name,slot', ignoreDuplicates: true });
@@ -40178,6 +40244,16 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
     for (let i = 0; i < emailInserts.length; i += 500) {
       await sb.from('emails').upsert(emailInserts.slice(i, i + 500), { onConflict: 'property_id,address,vendor_name,slot', ignoreDuplicates: true });
     }
+  }
+  // Accumulate mailing addresses into their own table (like phones/emails).
+  // Wrapped in try/catch so if the mailing_addresses table isn't created yet
+  // (SQL not run), the rest of the import still succeeds.
+  if (mailingInserts.length > 0) {
+    try {
+      for (let i = 0; i < mailingInserts.length; i += 500) {
+        await sb.from('mailing_addresses').upsert(mailingInserts.slice(i, i + 500), { onConflict: 'property_id,street,city,state,zip', ignoreDuplicates: true });
+      }
+    } catch (e) { console.warn('[import] mailing_addresses upsert skipped:', e && e.message); }
   }
 
   // Build a summary that calls out within-file duplicates explicitly so the
@@ -40854,7 +40930,7 @@ async function loadAllFromDB() {
   const suRes = { data: suData };
 
   cache.properties = {};
-  (pRes.data || []).forEach(p => { p._lists = []; p._phones = []; p._emails = []; cache.properties[p.id] = p; });
+  (pRes.data || []).forEach(p => { p._lists = []; p._phones = []; p._emails = []; p._mailings = []; cache.properties[p.id] = p; });
 
   cache.lists = {};
   (lRes.data || []).forEach(l => cache.lists[l.id] = l);
@@ -40883,12 +40959,15 @@ async function loadAllFromDB() {
   // Each updates the lazy-load banner + reruns dependent widgets on resolve.
   setTimeout(() => {
     const _bgRehydrateProps = () => {
-      Object.values(cache.properties || {}).forEach(p => { p._phones = []; p._emails = []; });
+      Object.values(cache.properties || {}).forEach(p => { p._phones = []; p._emails = []; p._mailings = []; });
       Object.values(cache.phones || {}).forEach(ph => {
         if (cache.properties[ph.property_id]) cache.properties[ph.property_id]._phones.push(ph);
       });
       Object.values(cache.emails || {}).forEach(em => {
         if (cache.properties[em.property_id]) cache.properties[em.property_id]._emails.push(em);
+      });
+      Object.values(cache.mailingAddresses || {}).forEach(ma => {
+        if (cache.properties[ma.property_id]) cache.properties[ma.property_id]._mailings.push(ma);
       });
     };
     const _rerenderAfterLazy = () => {
@@ -40923,6 +41002,14 @@ async function loadAllFromDB() {
       if (typeof _setLazyStatus === 'function') _setLazyStatus('emails', 'loaded', (rows||[]).length);
       _rerenderAfterLazy();
     }).catch(() => { if (typeof _setLazyStatus === 'function') _setLazyStatus('emails', 'error'); });
+    // Mailing addresses (accumulated history, like phones/emails). safe() → []
+    // if the table doesn't exist yet, so the app loads fine before the SQL is run.
+    safe(tracked('mailing_addresses', () => fetchAll('mailing_addresses')), []).then(rows => {
+      cache.mailingAddresses = {};
+      (rows || []).forEach(ma => { cache.mailingAddresses[ma.id] = ma; });
+      _bgRehydrateProps();
+      _rerenderAfterLazy();
+    }).catch(() => {});
   }, 0);
 
   // Results (call records) — paginated via fetchAll so we get ALL rows.
@@ -49062,7 +49149,7 @@ async function addUnmatchedAsProperty(rowKey) {
   // Properties view does redraw via renderProperties() since a new property
   // really did appear; the rest of the app doesn't need a full re-render.
   if (!cache.properties) cache.properties = {};
-  prop._lists = []; prop._phones = []; prop._emails = [];
+  prop._lists = []; prop._phones = []; prop._emails = []; prop._mailings = [];
   cache.properties[prop.id] = prop;
   if (!cache.skiptrace) cache.skiptrace = {};
   cache.skiptrace[rec2.id] = rec2;

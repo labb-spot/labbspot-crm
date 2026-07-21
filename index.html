@@ -46501,8 +46501,18 @@ function _computeFilteredMarketingProps() {
     if (mailF === 'unverified' && (!p.mail_street || p.mail_geocode_status === 'ok')) continue;
     if (mailF === 'none' && p.mail_street) continue;
     // Missing-data filter: keep only properties lacking the selected contact field.
-    if (missingF === 'phone'   && (phonesByProp[p.id] && phonesByProp[p.id].length)) continue;
-    if (missingF === 'email'   && (emailsByProp[p.id] && emailsByProp[p.id].length)) continue;
+    // Provider-aware: when Skiptrace provider chips are selected in INCLUDE mode,
+    // "Missing Phone/Email" means "no phone/email FROM THOSE providers" — e.g.
+    // idiCore skiptraced it but returned no number. With no provider selected (or
+    // in Exclude mode) it falls back to "no phone/email from any source at all."
+    if (missingF === 'phone' || missingF === 'email') {
+      const items = (missingF === 'phone' ? phonesByProp[p.id] : emailsByProp[p.id]) || [];
+      const useProv = skModeF === 'include' && skProviderSet.size > 0;
+      const hasIt = useProv
+        ? items.some(it => skProviderSet.has(String(it.vendor_name || '').trim()))
+        : items.length > 0;
+      if (hasIt) continue;
+    }
     if (missingF === 'mailing' && String(p.mail_street || '').trim()) continue;
     if (importedMs) {
       const t = p.created_at || p.inserted_at || p.uploaded_at;

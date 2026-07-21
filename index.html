@@ -1945,6 +1945,14 @@
           <option value="corporate">Corporate</option>
         </select>
       </label>
+      <label class="text-xs flex items-center gap-1.5 whitespace-nowrap" title="Show only properties that are MISSING the selected contact data — no phone, no email, or no mailing address on file.">Missing
+        <select id="sq-filter-missing" style="width:auto;padding:4px 6px;min-width:0" onchange="_sqFiltersChanged()">
+          <option value="">None</option>
+          <option value="phone">📞 Phone</option>
+          <option value="email">✉️ Email</option>
+          <option value="mailing">📬 Mailing</option>
+        </select>
+      </label>
     </div>
     <!-- Filter row: Skiptrace provider + recency -->
     <div class="mb-2" style="padding:12px 14px;background:var(--panel-2);border-radius:8px;border:1px solid var(--border)">
@@ -46355,7 +46363,7 @@ function toggleSqProvider(name) {
 }
 window.toggleSqProvider = toggleSqProvider;
 function clearSuggestedQueueFilters() {
-  ['sq-filter-state','sq-filter-addr','sq-filter-mail','sq-filter-imported','sq-filter-contacted','sq-filter-owner','sq-filter-sk-window'].forEach(id => {
+  ['sq-filter-state','sq-filter-addr','sq-filter-mail','sq-filter-imported','sq-filter-contacted','sq-filter-owner','sq-filter-missing','sq-filter-sk-window'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   window._sqProviderFilters = {};
@@ -46422,6 +46430,12 @@ function _computeFilteredMarketingProps() {
     if (!ph.property_id || !ph.number) return;
     (phonesByProp[ph.property_id] ||= []).push(ph);
   });
+  // Index emails by property (for the "Missing → Email" filter)
+  const emailsByProp = {};
+  Object.values(cache.emails || {}).forEach(em => {
+    if (!em || !em.property_id || !em.address) return;
+    (emailsByProp[em.property_id] ||= []).push(em);
+  });
   // Index skiptrace records by property → [{vendor, ms}] for the provider/recency filter.
   const skByProp = {};
   Object.values(cache.skiptrace || {}).forEach(r => {
@@ -46445,6 +46459,7 @@ function _computeFilteredMarketingProps() {
   const importedF = document.getElementById('sq-filter-imported')?.value || '';
   const contactedF = document.getElementById('sq-filter-contacted')?.value || '';
   const ownerF = document.getElementById('sq-filter-owner')?.value || '';
+  const missingF = document.getElementById('sq-filter-missing')?.value || '';
   // Corporate-owner detection. Triggers if EITHER (a) the property has a
   // non-empty company field, OR (b) the combined owner name matches one of
   // these business-entity / commercial-real-estate keywords. Tuned to
@@ -46485,6 +46500,10 @@ function _computeFilteredMarketingProps() {
     if (mailF === 'verified' && p.mail_geocode_status !== 'ok') continue;
     if (mailF === 'unverified' && (!p.mail_street || p.mail_geocode_status === 'ok')) continue;
     if (mailF === 'none' && p.mail_street) continue;
+    // Missing-data filter: keep only properties lacking the selected contact field.
+    if (missingF === 'phone'   && (phonesByProp[p.id] && phonesByProp[p.id].length)) continue;
+    if (missingF === 'email'   && (emailsByProp[p.id] && emailsByProp[p.id].length)) continue;
+    if (missingF === 'mailing' && String(p.mail_street || '').trim()) continue;
     if (importedMs) {
       const t = p.created_at || p.inserted_at || p.uploaded_at;
       if (!t) continue;

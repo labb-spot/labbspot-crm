@@ -53191,5 +53191,56 @@ if (_rcRoot && document.getElementById('basicGroups')) {
 }
 })();
 </script>
+
+<!-- ===== New-version notifier (suggest-only) =====
+     Centered, transparent/frosted overlay — like the initial loader but see-through.
+     Detects when index.html has been redeployed (its ETag / Last-Modified changes)
+     and invites the user to reload. Suggest-only: nobody is interrupted; work
+     autosaves before reload. No manual version bumping needed. -->
+<div id="app-update-overlay" style="display:none;position:fixed;inset:0;z-index:2147483647;background:rgba(8,11,20,0.45);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:rgba(22,28,44,0.82);border:1px solid rgba(168,85,247,0.55);border-radius:18px;padding:30px 34px;max-width:430px;width:100%;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,0.55)">
+    <div style="font-size:36px;margin-bottom:12px">🔄</div>
+    <div style="font-size:19px;font-weight:800;color:#fff;margin-bottom:8px;letter-spacing:-0.01em">A new version is available</div>
+    <div style="font-size:13.5px;color:#cbd5e1;margin-bottom:22px;line-height:1.55">Reload to get the latest update. Your current work is saved automatically first.</div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button type="button" onclick="_appUpdateReload()" style="background:#a855f7;color:#fff;border:none;padding:11px 22px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">Reload now</button>
+      <button type="button" onclick="document.getElementById('app-update-overlay').style.display='none'" style="background:transparent;color:#cbd5e1;border:1px solid rgba(255,255,255,0.22);padding:11px 20px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">Later</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var baseline = null, shown = false;
+  function marker(h){
+    try { return h.get('etag') || h.get('last-modified') || h.get('content-length') || null; }
+    catch(e){ return null; }
+  }
+  function check(){
+    if (shown) return;
+    try {
+      fetch(location.href, { method: 'HEAD', cache: 'no-store' }).then(function(r){
+        var m = marker(r.headers);
+        if (!m) return;                 // host gives no usable marker — do nothing
+        if (baseline === null){ baseline = m; return; }  // first run = baseline
+        if (m !== baseline){             // file was redeployed
+          shown = true;
+          var o = document.getElementById('app-update-overlay');
+          if (o) o.style.display = 'flex';
+        }
+      }).catch(function(){});
+    } catch(e){}
+  }
+  window._appUpdateReload = function(){
+    // Flush any pending autosave so no in-progress edit is lost, then reload.
+    try { if (typeof _uwFlushAutosave === 'function') _uwFlushAutosave(); } catch(e){}
+    setTimeout(function(){ location.reload(); }, 350);
+  };
+  // Establish the baseline shortly after load, then poll + re-check on refocus.
+  setTimeout(check, 5000);
+  setInterval(check, 180000); // every 3 minutes
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) check(); });
+  window.addEventListener('focus', check);
+})();
+</script>
 </body>
 </html>

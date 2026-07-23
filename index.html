@@ -3373,9 +3373,14 @@
               <input type="text" id="uw-asis-asqft" readonly tabindex="-1" placeholder="(fills from comps)" style="width:100%;background:rgba(148,163,184,0.10);cursor:not-allowed;color:var(--text)">
             </span>
           </label>
-          <label class="text-xs" title="Auto-computed: Total Livable SqFt × Average As-Is Sold Price Per SqFt, rounded to the nearest $1,000. Reference only — does not affect ARV or offers.">Estimated As-Is Value
+          <label class="text-xs" title="Auto-computed: Total Livable SqFt × Average As-Is Sold Price Per SqFt, rounded to the nearest $1,000.">Estimated As-Is Value
             <span class="uw-money" style="margin-top:4px">
               <input type="text" id="uw-asis-arv" readonly tabindex="-1" placeholder="(SqFt × avg/SqFt)" style="width:100%;background:rgba(148,163,184,0.10);cursor:not-allowed;color:var(--text);font-weight:600">
+            </span>
+          </label>
+          <label class="text-xs" title="Optional: type a value here to override the Estimated As-Is Value. Used as the active ARV when 'Use As-Is Sold' is selected.">Override As-Is Value
+            <span class="uw-money" style="margin-top:4px">
+              <input type="number" id="uw-asis-arv-override" oninput="uwRecalc()" placeholder="(optional override)" style="width:100%;border-color:#3b82f6">
             </span>
           </label>
         </div>
@@ -3590,9 +3595,19 @@
               <input type="text" id="uw-asis-lavg-psf" readonly tabindex="-1" placeholder="(fills from listings)" style="width:100%;background:rgba(148,163,184,0.10);cursor:not-allowed;color:var(--text)">
             </span>
           </label>
-          <label class="text-xs" title="Auto-computed: Total Livable SqFt × Average As-Is Listed Price Per SqFt, rounded to the nearest $1,000. Reference only — does not affect ARV or offers.">Estimated As-Is Listed Value
+          <label class="text-xs" title="Auto-computed: Total Livable SqFt × Average As-Is Listed Price Per SqFt, rounded to the nearest $1,000.">Estimated As-Is Listed Value
             <span class="uw-money" style="margin-top:4px">
               <input type="text" id="uw-asis-lest-arv" readonly tabindex="-1" placeholder="(SqFt × avg listed/SqFt)" style="width:100%;background:rgba(148,163,184,0.10);cursor:not-allowed;color:var(--text);font-weight:600">
+            </span>
+          </label>
+          <label class="text-xs" title="Auto-computed: 90% of Estimated As-Is Listed Value. Listings typically drop ~10% from asking before they sell. Override below if you want a different number.">Estimated Real As-Is Value
+            <span class="uw-money" style="margin-top:4px">
+              <input type="text" id="uw-asis-lreal-arv" readonly tabindex="-1" placeholder="(90% of listed)" style="width:100%;background:rgba(148,163,184,0.10);cursor:not-allowed;color:var(--text);font-weight:600">
+            </span>
+          </label>
+          <label class="text-xs" title="Optional: type a value here to override the Estimated Real As-Is Value. Used as the active ARV when 'Use As-Is Listed' is selected.">Override Real Value
+            <span class="uw-money" style="margin-top:4px">
+              <input type="number" id="uw-asis-lreal-override" oninput="uwRecalc()" placeholder="(optional override)" style="width:100%;border-color:#3b82f6">
             </span>
           </label>
         </div>
@@ -11054,15 +11069,28 @@ function uwRecalcAsIs() {
     const v = (avg > 0 && sqft > 0) ? round1k(sqft * avg) : 0;
     el.value = v > 0 ? v.toLocaleString() : '';
     el.title = v > 0
-      ? (sqft.toLocaleString() + ' SqFt × $' + avg.toFixed(2) + '/SqFt = $' + v.toLocaleString() + ' — drives ARV & offers when its "Use As-Is…" box is checked')
+      ? (sqft.toLocaleString() + ' SqFt × $' + avg.toFixed(2) + '/SqFt = $' + v.toLocaleString())
       : 'Fills once Total Livable SqFt and at least one comp $/SqFt are set.';
+    return v;
   };
   const sold = avgOf(['ascp1', 'ascp2', 'ascp3']);
   writeAvg('uw-asis-asqft', sold.avg, sold.n, 'as-is sold comps');
   writeVal('uw-asis-arv', sold.avg);
   const listed = avgOf(['alcp1', 'alcp2', 'alcp3']);
   writeAvg('uw-asis-lavg-psf', listed.avg, listed.n, 'as-is listed comps');
-  writeVal('uw-asis-lest-arv', listed.avg);
+  const asisListedEst = writeVal('uw-asis-lest-arv', listed.avg);
+  // Estimated Real As-Is Value = 90% of the estimated listed value (listings
+  // typically drop ~10% before they sell), rounded to $1k. Mirrors the
+  // Renovated Listed "Estimated Real Value". The Override Real Value field
+  // takes precedence downstream when As-Is Listed is the active comp mode.
+  const asisReal = asisListedEst > 0 ? round1k(asisListedEst * 0.90) : 0;
+  const asisRealEl = document.getElementById('uw-asis-lreal-arv');
+  if (asisRealEl) {
+    asisRealEl.value = asisReal > 0 ? asisReal.toLocaleString() : '';
+    asisRealEl.title = asisReal > 0
+      ? ('90% of Estimated As-Is Listed Value ($' + asisListedEst.toLocaleString() + ' × 0.90 = $' + asisReal.toLocaleString() + ')')
+      : 'Fills once Estimated As-Is Listed Value is computed.';
+  }
 }
 window.uwRecalcAsIs = uwRecalcAsIs;
 
@@ -11213,10 +11241,12 @@ function uwRecalc() {
   // that field is the "Estimated After Repair Value" reference (sold-comp
   // $/SqFt × SqFt), set earlier in this function and left untouched here so
   // the override doesn't visually replace the Estimated ARV the user sees.
-  // As-Is estimated values (reference displays, populated by uwRecalcAsIs
-  // earlier this pass). Selected via the As-Is comp modes; no override field.
-  const asisSoldArv   = _uwGetN('uw-asis-arv');
-  const asisListedArv = _uwGetN('uw-asis-lest-arv');
+  // As-Is values (populated by uwRecalcAsIs earlier this pass). Each As-Is mode
+  // has its own override that wins when filled: As-Is Sold uses the Estimated
+  // As-Is Value (or its override); As-Is Listed uses the Estimated Real As-Is
+  // Value = 90% of listed (or its override) — mirroring the Renovated pairs.
+  const asisSoldArv   = _uwGetN('uw-asis-arv-override')    > 0 ? _uwGetN('uw-asis-arv-override')    : _uwGetN('uw-asis-arv');
+  const asisListedArv = _uwGetN('uw-asis-lreal-override')  > 0 ? _uwGetN('uw-asis-lreal-override')  : _uwGetN('uw-asis-lreal-arv');
   const _compsMode = window._uwCompsMode;
   arv = _compsMode === 'listed'      ? (lrealOverride > 0 ? lrealOverride : autoRealValue)
       : _compsMode === 'asis-sold'   ? asisSoldArv
@@ -12029,9 +12059,9 @@ function uwIfpRecalc() {
   const arv = (_ifpMode === 'listed')
     ? (_ifpNum('uw-lreal-arv') || _ifpNum('uw-lreal-override'))
     : (_ifpMode === 'asis-sold')
-    ? _ifpNum('uw-asis-arv')
+    ? (_ifpNum('uw-asis-arv-override') || _ifpNum('uw-asis-arv'))
     : (_ifpMode === 'asis-listed')
-    ? _ifpNum('uw-asis-lest-arv')
+    ? (_ifpNum('uw-asis-lreal-override') || _ifpNum('uw-asis-lreal-arv'))
     : (_ifpNum('uw-arv') || _ifpNum('uw-arv-override'));
   const dollar = arv * (finalPct / 100);
   const fmt = (n) => isFinite(n) && n > 0 ? '$' + Math.round(n).toLocaleString() : '$0';
@@ -16069,7 +16099,7 @@ const UW_FIELDS = [
   'uw-lcp2-addr','uw-lcp2-psf','uw-lcp2-dist','uw-lcp2-bed','uw-lcp2-bath','uw-lcp2-sqft','uw-lcp2-year','uw-lcp2-lot','uw-lcp2-lot-sqft','uw-lcp2-parking','uw-lcp2-material',
   'uw-lcp3-addr','uw-lcp3-psf','uw-lcp3-dist','uw-lcp3-bed','uw-lcp3-bath','uw-lcp3-sqft','uw-lcp3-year','uw-lcp3-lot','uw-lcp3-lot-sqft','uw-lcp3-parking','uw-lcp3-material',
   // As-Is comps (reference only — do not drive ARV/offer math)
-  'uw-asis-asqft','uw-asis-arv','uw-asis-lavg-psf','uw-asis-lest-arv',
+  'uw-asis-asqft','uw-asis-arv','uw-asis-arv-override','uw-asis-lavg-psf','uw-asis-lest-arv','uw-asis-lreal-arv','uw-asis-lreal-override',
   'uw-ascp1-addr','uw-ascp1-psf','uw-ascp1-dist','uw-ascp1-bed','uw-ascp1-bath','uw-ascp1-sqft','uw-ascp1-year','uw-ascp1-lot','uw-ascp1-lot-sqft','uw-ascp1-parking','uw-ascp1-material',
   'uw-ascp2-addr','uw-ascp2-psf','uw-ascp2-dist','uw-ascp2-bed','uw-ascp2-bath','uw-ascp2-sqft','uw-ascp2-year','uw-ascp2-lot','uw-ascp2-lot-sqft','uw-ascp2-parking','uw-ascp2-material',
   'uw-ascp3-addr','uw-ascp3-psf','uw-ascp3-dist','uw-ascp3-bed','uw-ascp3-bath','uw-ascp3-sqft','uw-ascp3-year','uw-ascp3-lot','uw-ascp3-lot-sqft','uw-ascp3-parking','uw-ascp3-material',
@@ -16847,10 +16877,10 @@ function _uwComputeArvFromData(data) {
     return N('uw-lreal-override') || N('uw-lreal-arv') || (N('uw-lavg-psf') * N('uw-sqft') * 0.9) || 0;
   }
   if (data._compsMode === 'asis-sold') {
-    return N('uw-asis-arv') || (N('uw-asis-asqft') * N('uw-sqft')) || 0;
+    return N('uw-asis-arv-override') || N('uw-asis-arv') || (N('uw-asis-asqft') * N('uw-sqft')) || 0;
   }
   if (data._compsMode === 'asis-listed') {
-    return N('uw-asis-lest-arv') || (N('uw-asis-lavg-psf') * N('uw-sqft')) || 0;
+    return N('uw-asis-lreal-override') || N('uw-asis-lreal-arv') || (N('uw-asis-lavg-psf') * N('uw-sqft') * 0.9) || 0;
   }
   return N('uw-arv-override') || N('uw-arv') || (N('uw-asqft') * N('uw-sqft')) || 0;
 }
@@ -17465,9 +17495,9 @@ function _uwCollect() {
   const arv = (_collectMode === 'listed')
     ? (_colNum('uw-lreal-arv') || _colNum('uw-lreal-override') || (_colNum('uw-lavg-psf') * _colSqft * 0.9))
     : (_collectMode === 'asis-sold')
-    ? (_colNum('uw-asis-arv') || (_colNum('uw-asis-asqft') * _colSqft))
+    ? (_colNum('uw-asis-arv-override') || _colNum('uw-asis-arv') || (_colNum('uw-asis-asqft') * _colSqft))
     : (_collectMode === 'asis-listed')
-    ? (_colNum('uw-asis-lest-arv') || (_colNum('uw-asis-lavg-psf') * _colSqft))
+    ? (_colNum('uw-asis-lreal-override') || _colNum('uw-asis-lreal-arv') || (_colNum('uw-asis-lavg-psf') * _colSqft * 0.9))
     : (_colNum('uw-arv') || _colNum('uw-arv-override') || (_colNum('uw-asqft') * _colSqft));
   const offer = parseFloat(document.getElementById('uw-offer')?.value || '0');
   // Pull computed best exit + profit. We extract the exit NAME directly from

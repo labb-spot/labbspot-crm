@@ -3251,10 +3251,10 @@
     <!-- ===== 4. Comparable Sold Properties ===== -->
     <div class="panel p-5 mb-4" data-uw-section="sold-comps" data-uw-section-label="💰 Comparable Sold Properties">
       <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
-        <div class="font-semibold text-base">💰 Comparable Sold Properties <span class="text-xs" style="color:var(--text-dim);font-weight:normal">(drives After Repair Value)</span></div>
+        <div class="font-semibold text-base">💰 Comparable Renovated Sold Properties <span class="text-xs" style="color:var(--text-dim);font-weight:normal">(drives After Repair Value)</span></div>
         <label class="text-xs" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;color:var(--text-dim);white-space:nowrap" title="Use Sold comps as the active comp set. Mutually exclusive with Listed.">
           <input type="checkbox" id="uw-comps-using-sold" checked onchange="uwSetCompsMode('sold', this)" style="width:14px;height:14px;cursor:pointer;accent-color:#10b981">
-          <span>Using Sold</span>
+          <span>Use Renovated Sold</span>
         </label>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
@@ -3354,13 +3354,119 @@
       </div>
     </div>
 
+    <!-- ===== Comparable As-Is Sold Properties (reference only — does NOT drive ARV/offer math) ===== -->
+    <div class="panel p-5 mb-4" data-uw-section="asis-sold-comps" data-uw-section-label="💰 Comparable As-Is Sold Properties">
+      <div onclick="toggleSection('uw-asis-sold-body','uw-asis-sold-arrow')" class="flex items-center justify-between gap-2 flex-wrap" style="cursor:pointer;user-select:none">
+        <div class="font-semibold text-base">💰 Comparable As-Is Sold Properties</div>
+        <div class="flex items-center gap-3">
+          <label class="text-xs" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;color:var(--text-dim);white-space:nowrap" title="Use As-Is Sold comps as the active comp set that drives ARV and offers. Mutually exclusive with the other three.">
+            <input type="checkbox" id="uw-comps-using-asis-sold" onchange="uwSetCompsMode('asis-sold', this)" style="width:14px;height:14px;cursor:pointer;accent-color:#10b981">
+            <span>Use As-Is Sold</span>
+          </label>
+          <span id="uw-asis-sold-arrow" style="color:var(--text-dim);transition:transform 0.15s;font-size:14px;display:inline-block">▶</span>
+        </div>
+      </div>
+      <div id="uw-asis-sold-body" style="display:none;margin-top:14px">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <label class="text-xs" title="Auto-computed: average $/SqFt of the 3 as-is sold comps below.">Average As-Is Sold Price Per SqFt
+            <span class="uw-money" style="margin-top:4px">
+              <input type="text" id="uw-asis-asqft" readonly tabindex="-1" placeholder="(fills from comps)" style="width:100%;background:rgba(148,163,184,0.10);cursor:not-allowed;color:var(--text)">
+            </span>
+          </label>
+          <label class="text-xs" title="Auto-computed: Total Livable SqFt × Average As-Is Sold Price Per SqFt, rounded to the nearest $1,000. Reference only — does not affect ARV or offers.">Estimated As-Is Value
+            <span class="uw-money" style="margin-top:4px">
+              <input type="text" id="uw-asis-arv" readonly tabindex="-1" placeholder="(SqFt × avg/SqFt)" style="width:100%;background:rgba(148,163,184,0.10);cursor:not-allowed;color:var(--text);font-weight:600">
+            </span>
+          </label>
+        </div>
+        <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
+          <div class="text-xs text-[var(--text-dim)]">As-Is Sold Comparable Properties (3) — closed sales in unrenovated condition. Zillow / Google icons auto-link from the address.</div>
+          <button type="button" class="btn btn-ghost text-xs" onclick="uwRefreshDistances()" title="Geocode the subject address + each comp address and fill the Distance field with the straight-line miles between them.">📍 Refresh Distances</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <div class="text-xs font-semibold mb-1 flex items-center justify-between">As-Is Comp #1
+              <button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px;color:#f87171" onclick="uwClearComp('ascp1')" title="Clear every field for As-Is Comp #1">✕ Clear</button>
+            </div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input id="uw-ascp1-addr" oninput="uwUpdateCompLinks('ascp1')" placeholder="Address (street, city, state, zip)" style="flex:1;min-width:0">
+              <a id="uw-ascp1-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
+              <a id="uw-ascp1-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
+            </div>
+            <span class="uw-money uw-comp-arv-group" style="margin-top:4px;display:flex"><input type="number" id="uw-ascp1-psf" oninput="uwRecalc();uwUpdateCompArv()" placeholder="0/SqFt"><span id="uw-ascp1-arv" class="uw-comp-arv-cell is-empty" title="Implied value = $/SqFt × Comp SqFt, rounded to nearest $500">—</span></span>
+            <input type="text" id="uw-ascp1-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
+            <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
+              <input type="number" id="uw-ascp1-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
+              <input type="number" id="uw-ascp1-bath" step="0.5" placeholder="Bath" title="Bathrooms" style="width:100%;font-size:12px">
+              <input type="number" id="uw-ascp1-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px" oninput="uwUpdateCompArv()">
+              <input type="number" id="uw-ascp1-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
+            </div>
+            <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+              <span class="uw-suffix-ac"><input type="number" id="uw-ascp1-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-ascp1-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+              <span class="uw-suffix-sqft"><input type="number" id="uw-ascp1-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-ascp1-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
+              <select id="uw-ascp1-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
+            </div>
+            <select id="uw-ascp1-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
+          </div>
+          <div>
+            <div class="text-xs font-semibold mb-1 flex items-center justify-between">As-Is Comp #2
+              <button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px;color:#f87171" onclick="uwClearComp('ascp2')" title="Clear every field for As-Is Comp #2">✕ Clear</button>
+            </div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input id="uw-ascp2-addr" oninput="uwUpdateCompLinks('ascp2')" placeholder="Address (street, city, state, zip)" style="flex:1;min-width:0">
+              <a id="uw-ascp2-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
+              <a id="uw-ascp2-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
+            </div>
+            <span class="uw-money uw-comp-arv-group" style="margin-top:4px;display:flex"><input type="number" id="uw-ascp2-psf" oninput="uwRecalc();uwUpdateCompArv()" placeholder="0/SqFt"><span id="uw-ascp2-arv" class="uw-comp-arv-cell is-empty" title="Implied value = $/SqFt × Comp SqFt, rounded to nearest $500">—</span></span>
+            <input type="text" id="uw-ascp2-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
+            <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
+              <input type="number" id="uw-ascp2-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
+              <input type="number" id="uw-ascp2-bath" step="0.5" placeholder="Bath" title="Bathrooms" style="width:100%;font-size:12px">
+              <input type="number" id="uw-ascp2-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px" oninput="uwUpdateCompArv()">
+              <input type="number" id="uw-ascp2-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
+            </div>
+            <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+              <span class="uw-suffix-ac"><input type="number" id="uw-ascp2-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-ascp2-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+              <span class="uw-suffix-sqft"><input type="number" id="uw-ascp2-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-ascp2-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
+              <select id="uw-ascp2-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
+            </div>
+            <select id="uw-ascp2-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
+          </div>
+          <div>
+            <div class="text-xs font-semibold mb-1 flex items-center justify-between">As-Is Comp #3
+              <button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px;color:#f87171" onclick="uwClearComp('ascp3')" title="Clear every field for As-Is Comp #3">✕ Clear</button>
+            </div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input id="uw-ascp3-addr" oninput="uwUpdateCompLinks('ascp3')" placeholder="Address (street, city, state, zip)" style="flex:1;min-width:0">
+              <a id="uw-ascp3-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
+              <a id="uw-ascp3-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
+            </div>
+            <span class="uw-money uw-comp-arv-group" style="margin-top:4px;display:flex"><input type="number" id="uw-ascp3-psf" oninput="uwRecalc();uwUpdateCompArv()" placeholder="0/SqFt"><span id="uw-ascp3-arv" class="uw-comp-arv-cell is-empty" title="Implied value = $/SqFt × Comp SqFt, rounded to nearest $500">—</span></span>
+            <input type="text" id="uw-ascp3-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
+            <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
+              <input type="number" id="uw-ascp3-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
+              <input type="number" id="uw-ascp3-bath" step="0.5" placeholder="Bath" title="Bathrooms" style="width:100%;font-size:12px">
+              <input type="number" id="uw-ascp3-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px" oninput="uwUpdateCompArv()">
+              <input type="number" id="uw-ascp3-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
+            </div>
+            <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+              <span class="uw-suffix-ac"><input type="number" id="uw-ascp3-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-ascp3-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+              <span class="uw-suffix-sqft"><input type="number" id="uw-ascp3-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-ascp3-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
+              <select id="uw-ascp3-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
+            </div>
+            <select id="uw-ascp3-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== Comparable Listed Properties (active listings — informational only, not in ARV calc) ===== -->
     <div class="panel p-5 mb-4" data-uw-section="listed-comps" data-uw-section-label="🏷️ Comparable Listed Properties">
       <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
-        <div class="font-semibold text-base">🏷️ Comparable Listed Properties <span class="text-xs" style="color:var(--text-dim);font-weight:normal">(active listings — gauge market sentiment)</span></div>
+        <div class="font-semibold text-base">🏷️ Comparable Renovated Listed Properties <span class="text-xs" style="color:var(--text-dim);font-weight:normal">(active listings — gauge market sentiment)</span></div>
         <label class="text-xs" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;color:var(--text-dim);white-space:nowrap" title="Use Listed comps as the active comp set. Mutually exclusive with Sold.">
           <input type="checkbox" id="uw-comps-using-listed" onchange="uwSetCompsMode('listed', this)" style="width:14px;height:14px;cursor:pointer;accent-color:#10b981">
-          <span>Using Listed</span>
+          <span>Use Renovated Listed</span>
         </label>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
@@ -3465,6 +3571,112 @@
       </div>
     </div>
 
+    <!-- ===== Comparable As-Is Listed Properties (reference only — does NOT drive ARV/offer math) ===== -->
+    <div class="panel p-5 mb-4" data-uw-section="asis-listed-comps" data-uw-section-label="🏷️ Comparable As-Is Listed Properties">
+      <div onclick="toggleSection('uw-asis-listed-body','uw-asis-listed-arrow')" class="flex items-center justify-between gap-2 flex-wrap" style="cursor:pointer;user-select:none">
+        <div class="font-semibold text-base">🏷️ Comparable As-Is Listed Properties</div>
+        <div class="flex items-center gap-3">
+          <label class="text-xs" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;color:var(--text-dim);white-space:nowrap" title="Use As-Is Listed comps as the active comp set that drives ARV and offers. Mutually exclusive with the other three.">
+            <input type="checkbox" id="uw-comps-using-asis-listed" onchange="uwSetCompsMode('asis-listed', this)" style="width:14px;height:14px;cursor:pointer;accent-color:#10b981">
+            <span>Use As-Is Listed</span>
+          </label>
+          <span id="uw-asis-listed-arrow" style="color:var(--text-dim);transition:transform 0.15s;font-size:14px;display:inline-block">▶</span>
+        </div>
+      </div>
+      <div id="uw-asis-listed-body" style="display:none;margin-top:14px">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <label class="text-xs" title="Auto-computed: average $/SqFt of the 3 as-is active listings below.">Average As-Is Listed Price Per SqFt
+            <span class="uw-money" style="margin-top:4px">
+              <input type="text" id="uw-asis-lavg-psf" readonly tabindex="-1" placeholder="(fills from listings)" style="width:100%;background:rgba(148,163,184,0.10);cursor:not-allowed;color:var(--text)">
+            </span>
+          </label>
+          <label class="text-xs" title="Auto-computed: Total Livable SqFt × Average As-Is Listed Price Per SqFt, rounded to the nearest $1,000. Reference only — does not affect ARV or offers.">Estimated As-Is Listed Value
+            <span class="uw-money" style="margin-top:4px">
+              <input type="text" id="uw-asis-lest-arv" readonly tabindex="-1" placeholder="(SqFt × avg listed/SqFt)" style="width:100%;background:rgba(148,163,184,0.10);cursor:not-allowed;color:var(--text);font-weight:600">
+            </span>
+          </label>
+        </div>
+        <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
+          <div class="text-xs text-[var(--text-dim)]">As-Is Listed Comparable Properties (3) — active listings in unrenovated condition. Reference only.</div>
+          <button type="button" class="btn btn-ghost text-xs" onclick="uwRefreshDistances()" title="Geocode the subject address + each comp address and fill the Distance field with the straight-line miles between them.">📍 Refresh Distances</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <div class="text-xs font-semibold mb-1 flex items-center justify-between">As-Is Listing #1
+              <button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px;color:#f87171" onclick="uwClearComp('alcp1')" title="Clear every field for As-Is Listing #1">✕ Clear</button>
+            </div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input id="uw-alcp1-addr" oninput="uwUpdateCompLinks('alcp1')" placeholder="Address (street, city, state, zip)" style="flex:1;min-width:0">
+              <a id="uw-alcp1-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
+              <a id="uw-alcp1-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
+            </div>
+            <span class="uw-money uw-comp-arv-group" style="margin-top:4px;display:flex"><input type="number" id="uw-alcp1-psf" oninput="uwRecalc();uwUpdateCompArv()" placeholder="0/SqFt"><span id="uw-alcp1-arv" class="uw-comp-arv-cell is-empty" title="Implied value = $/SqFt × Comp SqFt, rounded to nearest $500">—</span></span>
+            <input type="text" id="uw-alcp1-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
+            <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
+              <input type="number" id="uw-alcp1-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
+              <input type="number" id="uw-alcp1-bath" step="0.5" placeholder="Bath" title="Bathrooms" style="width:100%;font-size:12px">
+              <input type="number" id="uw-alcp1-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px" oninput="uwUpdateCompArv()">
+              <input type="number" id="uw-alcp1-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
+            </div>
+            <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+              <span class="uw-suffix-ac"><input type="number" id="uw-alcp1-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-alcp1-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+              <span class="uw-suffix-sqft"><input type="number" id="uw-alcp1-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-alcp1-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
+              <select id="uw-alcp1-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
+            </div>
+            <select id="uw-alcp1-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
+          </div>
+          <div>
+            <div class="text-xs font-semibold mb-1 flex items-center justify-between">As-Is Listing #2
+              <button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px;color:#f87171" onclick="uwClearComp('alcp2')" title="Clear every field for As-Is Listing #2">✕ Clear</button>
+            </div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input id="uw-alcp2-addr" oninput="uwUpdateCompLinks('alcp2')" placeholder="Address (street, city, state, zip)" style="flex:1;min-width:0">
+              <a id="uw-alcp2-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
+              <a id="uw-alcp2-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
+            </div>
+            <span class="uw-money uw-comp-arv-group" style="margin-top:4px;display:flex"><input type="number" id="uw-alcp2-psf" oninput="uwRecalc();uwUpdateCompArv()" placeholder="0/SqFt"><span id="uw-alcp2-arv" class="uw-comp-arv-cell is-empty" title="Implied value = $/SqFt × Comp SqFt, rounded to nearest $500">—</span></span>
+            <input type="text" id="uw-alcp2-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
+            <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
+              <input type="number" id="uw-alcp2-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
+              <input type="number" id="uw-alcp2-bath" step="0.5" placeholder="Bath" title="Bathrooms" style="width:100%;font-size:12px">
+              <input type="number" id="uw-alcp2-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px" oninput="uwUpdateCompArv()">
+              <input type="number" id="uw-alcp2-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
+            </div>
+            <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+              <span class="uw-suffix-ac"><input type="number" id="uw-alcp2-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-alcp2-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+              <span class="uw-suffix-sqft"><input type="number" id="uw-alcp2-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-alcp2-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
+              <select id="uw-alcp2-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
+            </div>
+            <select id="uw-alcp2-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
+          </div>
+          <div>
+            <div class="text-xs font-semibold mb-1 flex items-center justify-between">As-Is Listing #3
+              <button type="button" class="btn btn-ghost" style="font-size:10px;padding:2px 8px;color:#f87171" onclick="uwClearComp('alcp3')" title="Clear every field for As-Is Listing #3">✕ Clear</button>
+            </div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input id="uw-alcp3-addr" oninput="uwUpdateCompLinks('alcp3')" placeholder="Address (street, city, state, zip)" style="flex:1;min-width:0">
+              <a id="uw-alcp3-z" target="_blank" rel="noopener" title="Open in Zillow" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">Z</a>
+              <a id="uw-alcp3-g" target="_blank" rel="noopener" title="Open in Google Maps" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:30px;border-radius:5px;border:1px solid var(--border);text-decoration:none;flex-shrink:0">G</a>
+            </div>
+            <span class="uw-money uw-comp-arv-group" style="margin-top:4px;display:flex"><input type="number" id="uw-alcp3-psf" oninput="uwRecalc();uwUpdateCompArv()" placeholder="0/SqFt"><span id="uw-alcp3-arv" class="uw-comp-arv-cell is-empty" title="Implied value = $/SqFt × Comp SqFt, rounded to nearest $500">—</span></span>
+            <input type="text" id="uw-alcp3-dist" placeholder="Distance (mi)" title="Straight-line miles to subject. Click 📍 Refresh Distances to auto-fill." style="width:100%;margin-top:4px;font-size:12px">
+            <div class="grid grid-cols-4 gap-1" style="margin-top:4px">
+              <input type="number" id="uw-alcp3-bed" placeholder="Bed" title="Bedrooms" style="width:100%;font-size:12px">
+              <input type="number" id="uw-alcp3-bath" step="0.5" placeholder="Bath" title="Bathrooms" style="width:100%;font-size:12px">
+              <input type="number" id="uw-alcp3-sqft" placeholder="SqFt" title="Square footage" style="width:100%;font-size:12px" oninput="uwUpdateCompArv()">
+              <input type="number" id="uw-alcp3-year" placeholder="Year" title="Year built" style="width:100%;font-size:12px">
+            </div>
+            <div class="grid grid-cols-3 gap-1" style="margin-top:4px">
+              <span class="uw-suffix-ac"><input type="number" id="uw-alcp3-lot" step="0.001" placeholder="Acres" oninput="_uwLotAcInput('uw-alcp3-lot')" title="Lot size in acres. Sq Ft auto-fills as you type." style="width:100%;font-size:12px"></span>
+              <span class="uw-suffix-sqft"><input type="number" id="uw-alcp3-lot-sqft" step="1" placeholder="Sq Ft" oninput="_uwLotSqftInput('uw-alcp3-lot')" title="Lot size in sq ft. Acres auto-fills as you type." style="width:100%;font-size:12px"></span>
+              <select id="uw-alcp3-parking" title="Parking" style="width:100%;font-size:12px"><option value="">Park—</option><option>Driveway</option><option>Detached</option><option>Attached</option><option>Carport</option><option>Street</option><option>None</option></select>
+            </div>
+            <select id="uw-alcp3-material" title="Building material" style="width:100%;margin-top:4px;font-size:12px"><option value="">Material—</option><option>Wood Frame</option><option>Brick</option><option>Concrete</option><option>Steel Frame</option><option>Manufactured (Mobile)</option><option>Modular</option><option>Stone</option><option>Adobe</option></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== Comps mode toggle (Sold ↔ Listed mutually-exclusive checkboxes) =====
          The Sold and Listed panel headers each have a checkbox; this script keeps
          them mutually exclusive and persists the choice in localStorage.
@@ -3476,14 +3688,23 @@
     <script>
       (function(){
         var STORAGE_KEY = 'uwCompsMode';
+        var MODES = ['sold','asis-sold','listed','asis-listed'];
+        var BOX = {
+          'sold':        'uw-comps-using-sold',
+          'asis-sold':   'uw-comps-using-asis-sold',
+          'listed':      'uw-comps-using-listed',
+          'asis-listed': 'uw-comps-using-asis-listed'
+        };
         function apply(mode, opts){
           opts = opts || {};
-          var sold   = document.getElementById('uw-comps-using-sold');
-          var listed = document.getElementById('uw-comps-using-listed');
-          if (!sold || !listed) return;
-          if (mode !== 'sold' && mode !== 'listed') mode = 'sold';
-          sold.checked   = (mode === 'sold');
-          listed.checked = (mode === 'listed');
+          if (MODES.indexOf(mode) === -1) mode = 'sold';
+          // Mutually exclusive: check the picked box, uncheck the others.
+          var anyFound = false;
+          MODES.forEach(function(m){
+            var box = document.getElementById(BOX[m]);
+            if (box) { box.checked = (m === mode); anyFound = true; }
+          });
+          if (!anyFound) return;
           window._uwCompsMode = mode;
           if (document.body) document.body.setAttribute('data-comps-mode', mode);
           if (opts.persist !== false) {
@@ -3795,14 +4016,24 @@
         <div id="recsContent" class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs" style="color:var(--text-dim)"></div>
       </div>
 
+      <!-- ===== Custom Presets (⭐ Custom is the permanent per-deal one; the
+           rest are user-named, reusable across all deals) ===== -->
+      <div id="rc-custom-presets-row" class="flex items-center gap-2 mb-2 flex-wrap" style="align-items:center">
+        <span class="text-xs" style="color:var(--text-dim);align-self:center">Custom Presets:</span>
+        <!-- ⭐ Custom — per-deal, always present, cannot be deleted. Loads
+             whatever the user saved last time for this deal. Save Custom (next
+             to it) appears when Custom is active so the user can update it. -->
+        <button class="rc-preset" data-preset="custom" title="Apply this deal's saved Custom selection. Use 💾 Save Custom to update it. This one is always here and can't be deleted.">⭐ Custom</button>
+        <span id="rc-custom-presets-list" class="flex items-center gap-2 flex-wrap" style="align-items:center"></span>
+        <span style="margin-left:auto;display:inline-flex;gap:8px;align-items:center">
+          <button id="rc-save-custom" class="rc-preset" style="display:none;background:#10b981;color:white;border-color:#10b981" title="Save the current item + special-case selection as this deal's Custom preset. The next time you click ⭐ Custom on this deal, this exact selection loads back.">💾 Save Custom</button>
+          <button type="button" id="rc-save-new-preset" style="background:#a855f7;color:white;border:1px solid #a855f7;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s" title="Save the current item + special-case selection as a new named preset for this deal.">💾 Save New Preset</button>
+        </span>
+      </div>
+
       <!-- ===== Distress Presets ===== -->
       <div class="flex items-center gap-2 mb-3 flex-wrap" style="align-items:center">
         <span class="text-xs" style="color:var(--text-dim);align-self:center">Quick presets:</span>
-        <!-- Custom preset — per-deal. Loads whatever the user saved last time
-             for this deal. Save button below appears when Custom is active so
-             the user can update the snapshot after toggling items. Placed first
-             so the user's saved selection is the most prominent option. -->
-        <button class="rc-preset" data-preset="custom" title="Apply the custom rehab selection saved for this deal. Use the 💾 Save Custom button (appears when this is active) to capture your current item + special-case state.">⭐ Custom</button>
         <button class="rc-preset" data-preset="cosmetic">Cosmetic</button>
         <button class="rc-preset" data-preset="light">Light</button>
         <button class="rc-preset active" data-preset="moderate">Moderate</button>
@@ -3810,11 +4041,6 @@
         <button class="rc-preset" data-preset="gut">Gut Rehab</button>
         <button class="rc-preset" data-preset="monster">Monster</button>
         <button class="rc-preset" data-preset="clear">Clear All</button>
-        <!-- Save Custom — only visible while Custom is the active preset.
-             Snapshots the current item toggles + special-case severities
-             onto data._customRehabPreset so the next 'Custom' click restores
-             them. Sits on the right side of the row. -->
-        <button id="rc-save-custom" class="rc-preset" style="display:none;margin-left:auto;background:#10b981;color:white;border-color:#10b981" title="Save the current item + special-case selection as this deal's Custom preset. The next time you click ⭐ Custom on this deal, this exact selection will load back.">💾 Save Custom</button>
       </div>
 
       <!-- ===== Hazmat Alert ===== -->
@@ -10230,8 +10456,8 @@ function uwUpdateCompLinks(prefix) {
 // change events so the existing handlers (links, ARV, recalc, autosave) re-run.
 function uwClearComp(prefix) {
   // Friendly name for the confirm dialog (scp=Comp, lcp=Listing, rcp=Rental Comp).
-  const m = /^(scp|lcp|rcp)(\d)$/.exec(prefix || '');
-  const labels = { scp: 'Comp #', lcp: 'Listing #', rcp: 'Rental Comp #' };
+  const m = /^(ascp|alcp|scp|lcp|rcp)(\d)$/.exec(prefix || '');
+  const labels = { scp: 'Comp #', lcp: 'Listing #', rcp: 'Rental Comp #', ascp: 'As-Is Comp #', alcp: 'As-Is Listing #' };
   const name = m ? (labels[m[1]] + m[2]) : 'this comp';
   if (!confirm('Clear every field for ' + name + '?\n\nThis cannot be undone.')) return;
   // Tell the next autosave that this bulk-clear is intentional, so the
@@ -10304,7 +10530,7 @@ window.uwBigTicketSet = uwBigTicketSet;
 
 // Initialize all 6 comp icons in their disabled grey state on first render
 function uwInitCompLinks() {
-  ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3'].forEach(p => uwUpdateCompLinks(p));
+  ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3','ascp1','ascp2','ascp3','alcp1','alcp2','alcp3'].forEach(p => uwUpdateCompLinks(p));
   if (typeof uwUpdateAssessorLink === 'function') uwUpdateAssessorLink();
   if (typeof uwUpdateSubjectLinks === 'function') uwUpdateSubjectLinks();
   if (typeof uwUpdateRiskLinks === 'function') uwUpdateRiskLinks();
@@ -10428,7 +10654,7 @@ async function uwRefreshDistances() {
       toast('Could not geocode the subject address with Google. Either the address is incomplete/malformed, or your Google geocoding limit was reached.', 'err');
       return;
     }
-    const prefixes = ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3'];
+    const prefixes = ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3','ascp1','ascp2','ascp3','alcp1','alcp2','alcp3'];
     let filled = 0, skipped = 0, failed = 0;
     for (const p of prefixes) {
       const addrEl = document.getElementById('uw-' + p + '-addr');
@@ -10469,7 +10695,7 @@ async function uwRefreshDistances() {
 // On load (or after recalc), re-color any saved distance values so they stay
 // visually meaningful even before the user re-runs Refresh Distances.
 function _uwRecolorAllDistances() {
-  ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3'].forEach(p => {
+  ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3','ascp1','ascp2','ascp3','alcp1','alcp2','alcp3'].forEach(p => {
     const el = document.getElementById('uw-' + p + '-dist');
     if (!el) return;
     const m = (el.value || '').match(/([\d.]+)/);
@@ -10517,7 +10743,7 @@ window._uwLotSqftInput = _uwLotSqftInput;
 // On deal load, both fields might come back populated (acres from save,
 // sq-ft from save). If only one is set, derive the other so they're in sync.
 function _uwRefreshAllLotConversions() {
-  ['uw-lot-size','uw-scp1-lot','uw-scp2-lot','uw-scp3-lot','uw-lcp1-lot','uw-lcp2-lot','uw-lcp3-lot','uw-rcp1-lot','uw-rcp2-lot','uw-rcp3-lot'].forEach(id => {
+  ['uw-lot-size','uw-scp1-lot','uw-scp2-lot','uw-scp3-lot','uw-lcp1-lot','uw-lcp2-lot','uw-lcp3-lot','uw-rcp1-lot','uw-rcp2-lot','uw-rcp3-lot','uw-ascp1-lot','uw-ascp2-lot','uw-ascp3-lot','uw-alcp1-lot','uw-alcp2-lot','uw-alcp3-lot'].forEach(id => {
     const ac = _uwGetN(id);
     const sqft = _uwGetN(id + '-sqft');
     if (ac > 0 && sqft <= 0) _uwLotAcInput(id);
@@ -10585,7 +10811,7 @@ function _uwUpdateCompCautions() {
     else if (isOk)       flag(id, 'ok', okMsg);
     else                 flag(id, null, '');
   };
-  ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3'].forEach(p => {
+  ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3','ascp1','ascp2','ascp3','alcp1','alcp2','alcp3'].forEach(p => {
     ['bed','bath','sqft','year','lot','parking','material','dist'].forEach(f => cacheOrig('uw-' + p + '-' + f));
     // Skip empty-checks for an entire comp slot if the address is blank — no
     // point yelling about missing fields on a comp the user hasn't started.
@@ -10786,7 +11012,7 @@ function uwUpdateCompArv() {
   const round500 = (n) => Math.round(n / 500) * 500;
   const getN = (id) => { const el = document.getElementById(id); if (!el) return 0; const v = parseFloat(String(el.value || '').replace(/,/g,'')); return isFinite(v) ? v : 0; };
   const fmt = (n) => '$' + Math.round(n).toLocaleString();
-  ['scp1','scp2','scp3','lcp1','lcp2','lcp3'].forEach(k => {
+  ['scp1','scp2','scp3','lcp1','lcp2','lcp3','ascp1','ascp2','ascp3','alcp1','alcp2','alcp3'].forEach(k => {
     const psf  = getN('uw-' + k + '-psf');
     const sqft = getN('uw-' + k + '-sqft');
     const box  = document.getElementById('uw-' + k + '-arv');
@@ -10803,6 +11029,42 @@ function uwUpdateCompArv() {
   });
 }
 window.uwUpdateCompArv = uwUpdateCompArv;
+
+// ===== As-Is comp averages + estimated values (reference only) =====
+// Mirrors the sold/listed comp math but writes ONLY to the As-Is display
+// fields. Deliberately isolated: it never touches uw-arv, uw-lreal-arv, the
+// active-comp mode, or any downstream offer/exit math. Called at the end of
+// uwRecalc so it stays in sync with the subject's Total Livable SqFt.
+function uwRecalcAsIs() {
+  const sqft = _uwGetN('uw-sqft');
+  const round1k = (n) => Math.round(n / 1000) * 1000;
+  const avgOf = (prefixes) => {
+    const vals = prefixes.map(p => _uwGetN('uw-' + p + '-psf')).filter(x => x > 0);
+    return { avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0, n: vals.length };
+  };
+  const writeAvg = (id, avg, n, label) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = avg > 0 ? avg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+    el.title = avg > 0 ? ('Average of ' + n + ' ' + label + ': $' + avg.toFixed(2) + '/SqFt') : ('Enter $/SqFt for at least one ' + label + ' below.');
+  };
+  const writeVal = (id, avg) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v = (avg > 0 && sqft > 0) ? round1k(sqft * avg) : 0;
+    el.value = v > 0 ? v.toLocaleString() : '';
+    el.title = v > 0
+      ? (sqft.toLocaleString() + ' SqFt × $' + avg.toFixed(2) + '/SqFt = $' + v.toLocaleString() + ' — drives ARV & offers when its "Use As-Is…" box is checked')
+      : 'Fills once Total Livable SqFt and at least one comp $/SqFt are set.';
+  };
+  const sold = avgOf(['ascp1', 'ascp2', 'ascp3']);
+  writeAvg('uw-asis-asqft', sold.avg, sold.n, 'as-is sold comps');
+  writeVal('uw-asis-arv', sold.avg);
+  const listed = avgOf(['alcp1', 'alcp2', 'alcp3']);
+  writeAvg('uw-asis-lavg-psf', listed.avg, listed.n, 'as-is listed comps');
+  writeVal('uw-asis-lest-arv', listed.avg);
+}
+window.uwRecalcAsIs = uwRecalcAsIs;
 
 function uwRecalc() {
   // Make sure comp icons are in the right state (grey vs active)
@@ -10850,6 +11112,8 @@ function uwRecalc() {
   }
   // SqFt drives the Rehab Calculator multiplier — re-render its costs.
   if (typeof uwRenderRehabCalculator === 'function') uwRenderRehabCalculator();
+  // As-Is comp averages + estimated values (reference only; isolated from ARV math).
+  if (typeof uwRecalcAsIs === 'function') uwRecalcAsIs();
   // Auto-set renovation time on Flip + Rental Refi from sqft × IFP scale.
   // Formula: 5-day setup + 2 days per 100 sqft × scale multiplier (tied to
   // the IFP slider position). Sticky override: only overwrites the input
@@ -10949,10 +11213,15 @@ function uwRecalc() {
   // that field is the "Estimated After Repair Value" reference (sold-comp
   // $/SqFt × SqFt), set earlier in this function and left untouched here so
   // the override doesn't visually replace the Estimated ARV the user sees.
-  const _compsMode = window._uwCompsMode === 'listed' ? 'listed' : 'sold';
-  arv = _compsMode === 'listed'
-    ? (lrealOverride > 0 ? lrealOverride : autoRealValue)
-    : (arvOverride   > 0 ? arvOverride   : autoArv);
+  // As-Is estimated values (reference displays, populated by uwRecalcAsIs
+  // earlier this pass). Selected via the As-Is comp modes; no override field.
+  const asisSoldArv   = _uwGetN('uw-asis-arv');
+  const asisListedArv = _uwGetN('uw-asis-lest-arv');
+  const _compsMode = window._uwCompsMode;
+  arv = _compsMode === 'listed'      ? (lrealOverride > 0 ? lrealOverride : autoRealValue)
+      : _compsMode === 'asis-sold'   ? asisSoldArv
+      : _compsMode === 'asis-listed' ? asisListedArv
+      : (arvOverride > 0 ? arvOverride : autoArv);
   // ===== Average Rent (mean of the 3 rental comps where rent > 0) =====
   // Rounded to whole dollars. Auto-fills the Rent /mo field for both rental
   // exits if the user hasn't typed an override there.
@@ -11755,12 +12024,15 @@ function uwIfpRecalc() {
   // Mode-aware ARV: use the override + display from the comp mode the deal
   // is currently set to. A Sold override on a Listed-mode deal shouldn't
   // bleed in (and vice-versa).
-  const _ifpMode = window._uwCompsMode === 'listed' ? 'listed' : 'sold';
+  const _ifpMode = window._uwCompsMode;
+  const _ifpNum = (id) => parseFloat(String(document.getElementById(id)?.value || '0').replace(/,/g,'')) || 0;
   const arv = (_ifpMode === 'listed')
-    ? (parseFloat(String(document.getElementById('uw-lreal-arv')?.value || '0').replace(/,/g,'')) ||
-       (parseFloat(document.getElementById('uw-lreal-override')?.value) || 0))
-    : (parseFloat(String(document.getElementById('uw-arv')?.value || '0').replace(/,/g,'')) ||
-       (parseFloat(document.getElementById('uw-arv-override')?.value) || 0));
+    ? (_ifpNum('uw-lreal-arv') || _ifpNum('uw-lreal-override'))
+    : (_ifpMode === 'asis-sold')
+    ? _ifpNum('uw-asis-arv')
+    : (_ifpMode === 'asis-listed')
+    ? _ifpNum('uw-asis-lest-arv')
+    : (_ifpNum('uw-arv') || _ifpNum('uw-arv-override'));
   const dollar = arv * (finalPct / 100);
   const fmt = (n) => isFinite(n) && n > 0 ? '$' + Math.round(n).toLocaleString() : '$0';
   const $ = (id) => document.getElementById(id);
@@ -15796,6 +16068,14 @@ const UW_FIELDS = [
   'uw-lcp1-addr','uw-lcp1-psf','uw-lcp1-dist','uw-lcp1-bed','uw-lcp1-bath','uw-lcp1-sqft','uw-lcp1-year','uw-lcp1-lot','uw-lcp1-lot-sqft','uw-lcp1-parking','uw-lcp1-material',
   'uw-lcp2-addr','uw-lcp2-psf','uw-lcp2-dist','uw-lcp2-bed','uw-lcp2-bath','uw-lcp2-sqft','uw-lcp2-year','uw-lcp2-lot','uw-lcp2-lot-sqft','uw-lcp2-parking','uw-lcp2-material',
   'uw-lcp3-addr','uw-lcp3-psf','uw-lcp3-dist','uw-lcp3-bed','uw-lcp3-bath','uw-lcp3-sqft','uw-lcp3-year','uw-lcp3-lot','uw-lcp3-lot-sqft','uw-lcp3-parking','uw-lcp3-material',
+  // As-Is comps (reference only — do not drive ARV/offer math)
+  'uw-asis-asqft','uw-asis-arv','uw-asis-lavg-psf','uw-asis-lest-arv',
+  'uw-ascp1-addr','uw-ascp1-psf','uw-ascp1-dist','uw-ascp1-bed','uw-ascp1-bath','uw-ascp1-sqft','uw-ascp1-year','uw-ascp1-lot','uw-ascp1-lot-sqft','uw-ascp1-parking','uw-ascp1-material',
+  'uw-ascp2-addr','uw-ascp2-psf','uw-ascp2-dist','uw-ascp2-bed','uw-ascp2-bath','uw-ascp2-sqft','uw-ascp2-year','uw-ascp2-lot','uw-ascp2-lot-sqft','uw-ascp2-parking','uw-ascp2-material',
+  'uw-ascp3-addr','uw-ascp3-psf','uw-ascp3-dist','uw-ascp3-bed','uw-ascp3-bath','uw-ascp3-sqft','uw-ascp3-year','uw-ascp3-lot','uw-ascp3-lot-sqft','uw-ascp3-parking','uw-ascp3-material',
+  'uw-alcp1-addr','uw-alcp1-psf','uw-alcp1-dist','uw-alcp1-bed','uw-alcp1-bath','uw-alcp1-sqft','uw-alcp1-year','uw-alcp1-lot','uw-alcp1-lot-sqft','uw-alcp1-parking','uw-alcp1-material',
+  'uw-alcp2-addr','uw-alcp2-psf','uw-alcp2-dist','uw-alcp2-bed','uw-alcp2-bath','uw-alcp2-sqft','uw-alcp2-year','uw-alcp2-lot','uw-alcp2-lot-sqft','uw-alcp2-parking','uw-alcp2-material',
+  'uw-alcp3-addr','uw-alcp3-psf','uw-alcp3-dist','uw-alcp3-bed','uw-alcp3-bath','uw-alcp3-sqft','uw-alcp3-year','uw-alcp3-lot','uw-alcp3-lot-sqft','uw-alcp3-parking','uw-alcp3-material',
   'uw-max-ltv','uw-rehab-cost','uw-rehab-flip','uw-rehab-rental','uw-rehab-contingency-pct','uw-rehab-override',
   'uw-occupancy','uw-occupant-agreement','uw-additional-checklist','uw-kitchen','uw-bath-update','uw-parking','uw-amp','uw-breaker',
   'uw-elec-status','uw-elec-age','uw-elec-type','uw-plumb-status','uw-plumb-age','uw-plumb-type',
@@ -16306,9 +16586,7 @@ function _uwComputeMaxOfferFromData(data) {
   };
   // Comp-mode aware ARV: each mode has its own override + auto-computed
   // display, and the OTHER mode's override is ignored.
-  const arv = (data._compsMode === 'listed')
-    ? (N('uw-lreal-override', 0) || N('uw-lreal-arv', 0) || (N('uw-lavg-psf', 0) * N('uw-sqft', 0) * 0.9))
-    : (N('uw-arv-override',   0) || N('uw-arv',       0) || (N('uw-asqft',    0) * N('uw-sqft', 0)));
+  const arv = _uwComputeArvFromData(data);
   if (arv <= 0) return 0;
   // Flip-grade rehab: override > rehab calculator total > flip field
   let fRehab = N('uw-rehab-override', 0);
@@ -16405,9 +16683,7 @@ function _uwComputeWholesaleProfitFromData(data) {
   };
   // Comp-mode aware ARV: each mode has its own override + auto-computed
   // display, and the OTHER mode's override is ignored.
-  const arv = (data._compsMode === 'listed')
-    ? (N('uw-lreal-override', 0) || N('uw-lreal-arv', 0) || (N('uw-lavg-psf', 0) * N('uw-sqft', 0) * 0.9))
-    : (N('uw-arv-override',   0) || N('uw-arv',       0) || (N('uw-asqft',    0) * N('uw-sqft', 0)));
+  const arv = _uwComputeArvFromData(data);
   if (arv <= 0) return 0;
   // Buy price = accepted ?? asking
   const buyPrice = N('uw-accepted', 0) || N('uw-asking', 0) || 0;
@@ -16480,9 +16756,7 @@ function _uwComputeCashRentalFromData(data) {
   };
   // Comp-mode aware ARV: each mode has its own override + auto-computed
   // display, and the OTHER mode's override is ignored.
-  const arv = (data._compsMode === 'listed')
-    ? (N('uw-lreal-override', 0) || N('uw-lreal-arv', 0) || (N('uw-lavg-psf', 0) * N('uw-sqft', 0) * 0.9))
-    : (N('uw-arv-override',   0) || N('uw-arv',       0) || (N('uw-asqft',    0) * N('uw-sqft', 0)));
+  const arv = _uwComputeArvFromData(data);
   if (arv <= 0) return empty;
   const buyPrice = N('uw-accepted', 0) || N('uw-asking', 0) || 0;
   if (buyPrice <= 0) return empty;
@@ -16571,6 +16845,12 @@ function _uwComputeArvFromData(data) {
   // to a Listed-mode deal and vice versa.
   if (data._compsMode === 'listed') {
     return N('uw-lreal-override') || N('uw-lreal-arv') || (N('uw-lavg-psf') * N('uw-sqft') * 0.9) || 0;
+  }
+  if (data._compsMode === 'asis-sold') {
+    return N('uw-asis-arv') || (N('uw-asis-asqft') * N('uw-sqft')) || 0;
+  }
+  if (data._compsMode === 'asis-listed') {
+    return N('uw-asis-lest-arv') || (N('uw-asis-lavg-psf') * N('uw-sqft')) || 0;
   }
   return N('uw-arv-override') || N('uw-arv') || (N('uw-asqft') * N('uw-sqft')) || 0;
 }
@@ -17130,7 +17410,7 @@ function _uwCollect() {
       if (k.indexOf('_source') === 0 || k === '_priorityHandled' || k === '_holdingStatus' ||
           k === '_budgetActuals' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
           k === '_reno_phase_override' || k === '_compsMode' ||
-          k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_scopeQuotes' || k === '_taggedBuyers' || k === '_offerActive' || k === '_offerPacket' || k === '_bigTicket' ||
+          k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_customRehabPresets' || k === '_scopeQuotes' || k === '_taggedBuyers' || k === '_offerActive' || k === '_offerPacket' || k === '_bigTicket' ||
           k === '_invoiceOriginal' || k === '_invoiceActive' || k === '_invoiceTab' || k === '_invoiceInclContractor' || k === '_invoicePaidDeposits' || k === '_externalInvoices' || k === '_constructionAgreements' ||
           // Geocode coordinates — written by _dispoGeocodeSubject directly
           // into u.data.lat/lng/geocoded_address (not form fields). Without
@@ -17179,16 +17459,16 @@ function _uwCollect() {
   // Mode-aware: in Listed mode the saved ARV comes from the Listed-real
   // override / display, NOT the Sold-side fields. This way the list/preview
   // shows the same ARV the calculator is using for the active comp mode.
-  const _collectMode = window._uwCompsMode === 'listed' ? 'listed' : 'sold';
+  const _collectMode = window._uwCompsMode;
+  const _colNum = (id) => parseFloat(String(document.getElementById(id)?.value || '0').replace(/,/g,'')) || 0;
+  const _colSqft = _colNum('uw-sqft');
   const arv = (_collectMode === 'listed')
-    ? (parseFloat(String(document.getElementById('uw-lreal-arv')?.value || '0').replace(/,/g,'')) ||
-       (parseFloat(document.getElementById('uw-lreal-override')?.value) || 0) ||
-       (parseFloat(document.getElementById('uw-lavg-psf')?.value || '0') *
-        parseFloat(document.getElementById('uw-sqft')?.value || '0') * 0.9))
-    : (parseFloat(String(document.getElementById('uw-arv')?.value || '0').replace(/,/g,'')) ||
-       (parseFloat(document.getElementById('uw-arv-override')?.value) || 0) ||
-       (parseFloat(document.getElementById('uw-asqft')?.value || '0') *
-        parseFloat(document.getElementById('uw-sqft')?.value || '0')));
+    ? (_colNum('uw-lreal-arv') || _colNum('uw-lreal-override') || (_colNum('uw-lavg-psf') * _colSqft * 0.9))
+    : (_collectMode === 'asis-sold')
+    ? (_colNum('uw-asis-arv') || (_colNum('uw-asis-asqft') * _colSqft))
+    : (_collectMode === 'asis-listed')
+    ? (_colNum('uw-asis-lest-arv') || (_colNum('uw-asis-lavg-psf') * _colSqft))
+    : (_colNum('uw-arv') || _colNum('uw-arv-override') || (_colNum('uw-asqft') * _colSqft));
   const offer = parseFloat(document.getElementById('uw-offer')?.value || '0');
   // Pull computed best exit + profit. We extract the exit NAME directly from
   // the BEST card's title (rather than parsing the recommendation banner text)
@@ -17325,6 +17605,29 @@ function _uwCollect() {
   return { data, arv, offer, bestExit, bestProfitText };
 }
 
+// Assumption fields that should NEVER load blank. Older deals saved before a
+// field existed (or saved while it was momentarily blank) store an empty value
+// for these, which then computes as 0% (e.g. "Agent Commissions 0% of resale").
+// After the load/apply pass we backfill any that came back blank with the same
+// default new deals use — so every deal shows the standard 2.5%/2.5% agents,
+// closing %, rates, etc. A field the user set to a real number (including "0")
+// is preserved; only truly-blank fields get the default.
+const _UW_ASSUMPTION_DEFAULTS = {
+  'uw-max-ltv': '70', 'uw-buy-close-pct': '2', 'uw-purch-sell-close-pct': '1', 'uw-sell-close-pct': '2',
+  'uw-orig-pct': '2', 'uw-int-pct': '12',
+  'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '2.5',
+  'uw-buy-agent-pct': '2.5', 'uw-loan-rate': '6.5',
+  'uw-loan-yrs': '30', 'uw-units': '1', 'uw-units-rental': '1',
+  'uw-wt-sale-pct': '75', 'uw-wt-cap-pct': '10',
+  'uw-wt-reno-mo': '1', 'uw-wt-listed-mo': '2', 'uw-wt-ins': '150',
+  'uw-fl-reno-mo': '2', 'uw-fl-listed-mo': '2.5', 'uw-fl-ins': '200',
+  'uw-fl-hm-ltv': '90', 'uw-fl-hm-rate': '12', 'uw-fl-hm-orig': '2',
+  'uw-rt-vac-pct': '10', 'uw-rt-maint-pct': '5', 'uw-rt-capex-pct': '5', 'uw-rt-pm-pct': '10', 'uw-rt-appr-pct': '3',
+  'uw-rt-rf-hm-ltv': '100', 'uw-rt-rf-hm-rate': '12', 'uw-rt-rf-hm-orig': '2',
+  'uw-rt-br-ltv': '70', 'uw-rt-br-rate': '6.5', 'uw-rt-br-yrs': '30',
+  'uw-rt-rf-close-pct': '2', 'uw-rt-reno-mo': '1', 'uw-rt-rent-mo': '2.5',
+};
+
 function _uwApply(data) {
   if (!data) return;
   // Rehydrate custom checklist BEFORE we apply field values, so the inputs exist
@@ -17420,6 +17723,14 @@ function _uwApply(data) {
     if (el.type === 'checkbox') el.checked = (val === '1' || val === true);
     else el.value = val || '';
   });
+  // Backfill assumption defaults for any field that loaded blank (older deals
+  // that never stored these). Preserves any real value the user set, including
+  // an explicit "0" — only truly-empty fields get the standard default.
+  Object.entries(_UW_ASSUMPTION_DEFAULTS).forEach(([id, def]) => {
+    if (!def) return;
+    const el = document.getElementById(id);
+    if (el && String(el.value).trim() === '') el.value = def;
+  });
   // Refresh the Main Picture Upload status caption now that the hidden
   // #uw-main-pic input has been populated from saved data. Previously this
   // ran before the apply loop, so the caption always showed "no picture"
@@ -17444,7 +17755,7 @@ function _uwApply(data) {
   // newly-loaded deal.
   if (typeof _uwUpdateRiskWarnings === 'function') _uwUpdateRiskWarnings();
   // Re-render the auto-derived Zillow / Google Map icons for each comp
-  ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3'].forEach(p => {
+  ['scp1','scp2','scp3','lcp1','lcp2','lcp3','rcp1','rcp2','rcp3','ascp1','ascp2','ascp3','alcp1','alcp2','alcp3'].forEach(p => {
     if (typeof uwUpdateCompLinks === 'function') uwUpdateCompLinks(p);
   });
   // Re-color any persisted distance values so they keep their green/amber/red badge
@@ -18536,7 +18847,9 @@ window._uwTimelineUpdateBar = _uwTimelineUpdateBar;
 const _UW_ALWAYS_SECTIONS = new Set(['deal-status', 'property-info']);
 const _UW_SECTION_TAB = {
   'sold-comps':           'evaluation',
+  'asis-sold-comps':      'evaluation',
   'listed-comps':         'evaluation',
+  'asis-listed-comps':    'evaluation',
   'rental-comps':         'evaluation',
   'deal-notes':           'evaluation',
   'condition-checklist':  'renovation',
@@ -18998,6 +19311,10 @@ async function uwLoadById(id) {
   goUwView('calculator');
   _uwApply(u.data);
   _uwCurrentId = id;
+  // Per-deal custom rehab presets — render AFTER _uwCurrentId is set so the row
+  // reflects THIS deal's saved presets (data._customRehabPresets), not the
+  // previously-open deal's. Empty for deals that have none.
+  try { if (typeof window._rcRenderCustomPresets === 'function') window._rcRenderCustomPresets(); } catch (_) {}
   // Update the prev/next navigator position for the section this deal is in.
   if (typeof _uwNavUpdate === 'function') _uwNavUpdate();
   // Show Closed On for Finalized deals (replaces ARV − Asking).
@@ -19011,7 +19328,8 @@ async function uwLoadById(id) {
   // opened was on Listed. skipDealSave avoids triggering an autosave during
   // the load itself.
   try {
-    var _dealMode = (u.data && u.data._compsMode === 'listed') ? 'listed' : 'sold';
+    var _savedMode = u.data && u.data._compsMode;
+    var _dealMode = (['sold','asis-sold','listed','asis-listed'].indexOf(_savedMode) !== -1) ? _savedMode : 'sold';
     if (typeof window.uwSetCompsMode === 'function') {
       window.uwSetCompsMode(_dealMode, null, { skipDealSave: true });
     }
@@ -28517,9 +28835,7 @@ function _dispoCashFlipMaxFromData(d) {
     const v = parseFloat(String(raw).replace(/,/g, ''));
     return isFinite(v) && v > 0 ? v : (def || 0);
   };
-  const arv = (d._compsMode === 'listed')
-    ? (N('uw-lreal-override', 0) || N('uw-lreal-arv', 0) || (N('uw-lavg-psf', 0) * N('uw-sqft', 0) * 0.9))
-    : (N('uw-arv-override',   0) || N('uw-arv',       0) || (N('uw-asqft',    0) * N('uw-sqft', 0)));
+  const arv = _uwComputeArvFromData(d);
   if (arv <= 0) return 0;
   let fRehab = N('uw-rehab-override', 0);
   if (fRehab <= 0) {
@@ -30342,9 +30658,7 @@ function buyerRenderContractsPanel() {
       return isFinite(v) && v > 0 ? v : (def || 0);
     };
     // Comp-mode aware ARV (same as _uwComputeMaxOfferFromData)
-    const arv = (d._compsMode === 'listed')
-      ? (N('uw-lreal-override', 0) || N('uw-lreal-arv', 0) || (N('uw-lavg-psf', 0) * N('uw-sqft', 0) * 0.9))
-      : (N('uw-arv-override',   0) || N('uw-arv',       0) || (N('uw-asqft',    0) * N('uw-sqft', 0)));
+    const arv = _uwComputeArvFromData(d);
     if (arv <= 0) return 0;
     // Flip-grade rehab: override > rehab calc state > flat field
     let fRehab = N('uw-rehab-override', 0);
@@ -52395,7 +52709,109 @@ _rcRoot.addEventListener('input', e=>{
     recalc();
   }
 });
+// ===== User-named Custom Presets (PER-DEAL, exactly like ⭐ Custom) =====
+// Stored on the deal's data blob under data._customRehabPresets as an array of
+// snapshots: [{ id, name, items:{group:[{n,on}]}, specialCases:[{n,sev}] }]
+// Per-deal (not global): the presets you build on one property belong to that
+// property, same as the ⭐ Custom selection. Saved via the deal autosave.
+function _rcCurrentDeal(){
+  return (typeof _uwCurrentId !== 'undefined' && _uwCurrentId &&
+          window.cache && cache.underwrites) ? cache.underwrites[_uwCurrentId] : null;
+}
+function _rcGetCustomPresets(){
+  const u = _rcCurrentDeal();
+  const a = u && u.data && u.data._customRehabPresets;
+  return Array.isArray(a) ? a : [];
+}
+function _rcSetCustomPresets(arr){
+  const u = _rcCurrentDeal();
+  if(!u){ if(typeof toast === 'function') toast('Open a deal first', 'warn'); return false; }
+  if(!u.data) u.data = {};
+  u.data._customRehabPresets = arr || [];
+  if(typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+  return true;
+}
+function _rcEscHtml(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function _rcEscAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+// Snapshot the current item toggles + special-case severities (same shape the
+// ⭐ Custom Save uses).
+function _rcSnapshotCurrent(){
+  return {
+    items: Object.keys(items).reduce((acc,k)=>{ acc[k] = items[k].map(i=>({n:i.n, on:!!i.on})); return acc; }, {}),
+    specialCases: Array.isArray(specialCases) ? specialCases.map(s=>({n:s.n, sev:s.sev||null})) : []
+  };
+}
+// Apply a saved snapshot to the live calculator (mirrors the ⭐ Custom load).
+function _rcApplySnapshot(saved){
+  if(!saved || !saved.items) return;
+  Object.keys(items).forEach(k=>{
+    const savedList = saved.items[k];
+    items[k].forEach(i=>{
+      const found = Array.isArray(savedList) ? savedList.find(x=>x.n===i.n) : null;
+      i.on = !!(found && found.on);
+    });
+  });
+  if(Array.isArray(saved.specialCases)){
+    specialCases.forEach(s=>{ const f = saved.specialCases.find(x=>x.n===s.n); s.sev = f ? f.sev : null; });
+  }
+  recalc();
+}
+function _rcRenderCustomPresets(){
+  const list = document.getElementById('rc-custom-presets-list');
+  if(!list) return;
+  const arr = _rcGetCustomPresets();
+  list.innerHTML = arr.map(p=>(
+    '<span style="display:inline-flex;align-items:center;border:1px solid #a855f7;border-radius:8px;overflow:hidden">'
+    + '<button type="button" class="rc-cpreset" data-cpreset-id="'+p.id+'" title="Apply preset: '+_rcEscAttr(p.name)+'" style="background:rgba(168,85,247,0.12);color:#c4b5fd;border:none;padding:8px 12px;cursor:pointer;font-size:13px;font-weight:500">'+_rcEscHtml(p.name)+'</button>'
+    + '<button type="button" data-cpreset-del="'+p.id+'" title="Delete this preset" style="background:transparent;border:none;border-left:1px solid #a855f7;color:#f87171;padding:8px 9px;cursor:pointer;font-size:12px;line-height:1">✕</button>'
+    + '</span>'
+  )).join('');
+}
+window._rcRenderCustomPresets = _rcRenderCustomPresets;
+
 _rcRoot.addEventListener('click', e=>{
+  // ----- Save New Preset (named, global) -----
+  if(e.target.id === 'rc-save-new-preset'){
+    if(!_rcCurrentDeal()){ if(typeof toast === 'function') toast('Open a deal first', 'warn'); return; }
+    const name = (prompt('Name this preset:') || '').trim();
+    if(!name) return;
+    const arr = _rcGetCustomPresets().slice();
+    arr.push(Object.assign({ id:'cp-'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:name }, _rcSnapshotCurrent()));
+    if(_rcSetCustomPresets(arr)){
+      _rcRenderCustomPresets();
+      if(typeof toast === 'function') toast('💾 Preset saved: ' + name, 'ok');
+    }
+    return;
+  }
+  // ----- Delete a named preset (with confirm) -----
+  const _cpDel = e.target.closest('[data-cpreset-del]');
+  if(_cpDel){
+    e.stopPropagation();
+    const id = _cpDel.getAttribute('data-cpreset-del');
+    const arr = _rcGetCustomPresets();
+    const found = arr.find(p=>p.id===id);
+    if(found && confirm('Delete preset "' + found.name + '"?\n\nThis cannot be undone.')){
+      _rcSetCustomPresets(arr.filter(p=>p.id!==id));
+      _rcRenderCustomPresets();
+      if(typeof toast === 'function') toast('Preset deleted', 'ok');
+    }
+    return;
+  }
+  // ----- Apply a named preset -----
+  const _cpApply = e.target.closest('.rc-cpreset');
+  if(_cpApply && _cpApply.hasAttribute('data-cpreset-id')){
+    const id = _cpApply.getAttribute('data-cpreset-id');
+    const found = _rcGetCustomPresets().find(p=>p.id===id);
+    if(found){
+      _rcRoot.querySelectorAll('.rc-preset').forEach(b=>b.classList.remove('active'));
+      _rcRoot.querySelectorAll('.rc-cpreset').forEach(b=>{ b.style.background='rgba(168,85,247,0.12)'; });
+      _cpApply.style.background = 'rgba(168,85,247,0.38)';
+      const _sb = document.getElementById('rc-save-custom');
+      if(_sb) _sb.style.display = 'none';
+      _rcApplySnapshot(found);
+    }
+    return;
+  }
   if(e.target.matches('.sev-btn')){
     const idx = parseInt(e.target.dataset.sc), sev = e.target.dataset.sev;
     specialCases[idx].sev = specialCases[idx].sev===sev ? null : sev;
@@ -52428,6 +52844,7 @@ _rcRoot.addEventListener('click', e=>{
   }
   if(e.target.matches('.rc-preset')){
     _rcRoot.querySelectorAll('.rc-preset').forEach(b=>b.classList.remove('active'));
+    _rcRoot.querySelectorAll('.rc-cpreset').forEach(b=>{ b.style.background='rgba(168,85,247,0.12)'; });
     e.target.classList.add('active');
     const p = e.target.dataset.preset;
     if(p==='clear'){ Object.keys(items).forEach(k=>items[k].forEach(i=>i.on=false)); specialCases.forEach(s=>s.sev=null); }
@@ -52770,6 +53187,7 @@ if (_rcRoot && document.getElementById('basicGroups')) {
   renderCategoryRows();
   recalc();
   _rcApplyRecsCollapse();
+  _rcRenderCustomPresets();
 }
 })();
 </script>

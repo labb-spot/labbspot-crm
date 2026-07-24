@@ -130,6 +130,11 @@
   .dropzone { border: 2px dashed var(--border); border-radius: 12px; padding: 40px; text-align: center; background: var(--panel-2); transition: all 0.15s; cursor: pointer; }
   .dropzone:hover, .dropzone.drag-over { border-color: var(--brand); background: rgba(249,115,22,0.05); }
   input, select, textarea { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-size: 14px; width: 100%; }
+  /* Underwriting toolbar controls (Buy Box + role chips): match the 36px filter
+     field height so their bottoms line up with the selects/search when top-aligned. */
+  .uw-tbctl { height: 36px; box-sizing: border-box; }
+  .uw-tbchip { height: 36px; box-sizing: border-box; display: inline-flex; align-items: stretch; }
+  .uw-tbchip > button { display: inline-flex; align-items: center; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand); }
   /* Compact "Choose File" button so file inputs render at the same height
      as regular text inputs (the native button chrome would otherwise add
@@ -4806,20 +4811,27 @@
   <!-- ============ Underwriting: Analyzed subview ============ -->
   <div id="uwview-analyzed" class="uwview" style="display:none">
     <div class="panel p-5">
-      <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
-        <div>
-          <div class="font-semibold text-lg flex items-center gap-2">
-            ✅ Analyzed
-            <!-- Count badge: shows "Offered / Total" — Analyzed deals whose
-                 Offer Status is anything past "Needed" (Sent, Rejected,
-                 Accepted, Pending, Inspection, Contracted, Closed, Dropped)
-                 out of the total Analyzed list. Updated in
-                 renderUnderwriteList alongside the tab count. -->
-            <span id="uw-analyzed-header-count" style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(139,92,246,0.15);color:#a78bfa;letter-spacing:0.3px" title="Analyzed deals that have moved past Needed (Sent / Rejected / Accepted / Pending / Inspection / Contracted / Closed / Dropped) out of total Analyzed.">—</span>
+      <div class="flex items-start justify-between mb-3 gap-3" style="flex-wrap:nowrap">
+        <div class="flex items-center gap-3" style="flex-wrap:nowrap;flex-shrink:0">
+          <div style="flex-shrink:0">
+            <div class="font-semibold text-lg" style="white-space:nowrap">✅ Analyzed</div>
+            <div class="text-sm text-[var(--text-dim)]">Status Submitted or Dead.</div>
           </div>
-          <div class="text-sm text-[var(--text-dim)]">Status Submitted or Dead.</div>
+          <!-- Owner / Partner / Agent chips + Buy Box toggle + edit (same criteria as All Deals) -->
+          <span class="uw-tbchip" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px">
+            <button type="button" id="uw-analyzed-role-owner"   onclick="_uwSecSetRole('analyzed','owner')"   style="padding:0 12px;border:none;cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Owner</button>
+            <button type="button" id="uw-analyzed-role-partner" onclick="_uwSecSetRole('analyzed','partner')" style="padding:0 12px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Partner</button>
+            <button type="button" id="uw-analyzed-role-agent"   onclick="_uwSecSetRole('analyzed','agent')"   style="padding:0 12px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Agent</button>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:4px">
+            <button type="button" id="uw-analyzed-buybox" class="uw-tbctl" onclick="_uwSecBuyBox('analyzed', this)" title="Buy Box filter — grey = off, green = on. Shows only Analyzed deals matching your Buy Box criteria (SqFt range, min year built, optional ZIP list)." style="padding:0 13px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap">🎯 Buy Box</button>
+            <button type="button" onclick="_uwBuyBoxOpenEditor()" title="Edit Buy Box criteria" class="uw-tbctl" style="padding:0 8px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;line-height:1">⚙️</button>
+          </span>
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
+        <!-- Offered count badge — centered between the Buy Box and the filters.
+             Shows "Offered / Total": Analyzed deals past "Needed" out of total. -->
+        <span id="uw-analyzed-header-count" style="height:36px;box-sizing:border-box;display:inline-flex;align-items:center;font-size:13px;font-weight:600;padding:0 14px;border-radius:999px;background:rgba(139,92,246,0.15);color:#a78bfa;letter-spacing:0.3px;white-space:nowrap" title="Analyzed deals that have moved past Needed (Sent / Rejected / Accepted / Pending / Inspection / Contracted / Closed / Dropped) out of total Analyzed.">—</span>
+        <div class="flex items-center gap-2 flex-wrap" style="flex-shrink:0">
           <select id="uw-analyzed-status-filter" onchange="renderUnderwriteList()" style="width:160px">
             <option value="">All statuses</option>
             <option>Submitted</option>
@@ -4843,7 +4855,7 @@
           <input id="uw-analyzed-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="From (imported on or after)">
           <input id="uw-analyzed-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="To (imported on or before)">
           <input id="uw-analyzed-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
-          <button class="btn btn-ghost text-sm" onclick="uwRescanAnalyzedProfits()" title="Open each Analyzed deal in the calculator, let the cascade settle, and save back to Supabase. Refreshes Exit Margins, Budget, and all preview-table values to match current math." style="white-space:nowrap;border:1px solid rgba(139,92,246,0.4);color:#a78bfa">🔄 Rescan Analyzed</button>
+          <button class="btn btn-ghost text-sm" onclick="uwRescanAnalyzedProfits()" title="Open each Analyzed deal in the calculator, let the cascade settle, and save back to Supabase. Refreshes Exit Margins, Budget, and all preview-table values to match current math." style="white-space:nowrap;border:1px solid rgba(139,92,246,0.4);color:#a78bfa">🔄 Rescan</button>
         </div>
       </div>
       <div id="uw-analyzed-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -4882,7 +4894,7 @@
         <div>
           <div class="font-semibold text-lg flex items-center gap-2">
             🔥 Hot
-            <span id="uw-hot-header-count" style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(239,68,68,0.15);color:#fca5a5;letter-spacing:0.3px" title="Hot deals that have moved past Needed (Sent / Rejected / Accepted / Pending / Inspection / Contracted / Closed / Dropped) out of total Hot.">—</span>
+            <span id="uw-hot-header-count" style="height:36px;box-sizing:border-box;display:inline-flex;align-items:center;white-space:nowrap;font-size:13px;font-weight:600;padding:0 14px;border-radius:999px;background:rgba(239,68,68,0.15);color:#fca5a5;letter-spacing:0.3px" title="Hot deals that have moved past Needed (Sent / Rejected / Accepted / Pending / Inspection / Contracted / Closed / Dropped) out of total Hot.">—</span>
           </div>
           <div class="text-sm text-[var(--text-dim)]">Max Offer within $15k or 25% of Asking.</div>
         </div>
@@ -5115,7 +5127,7 @@
             <!-- Count badge: shows "Closed / Total" — successfully Closed
                  deals out of the combined Closed + Dropped total. Updated
                  in renderUnderwriteList alongside the tab count. -->
-            <span id="uw-closed-header-count" style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(20,184,166,0.15);color:#14b8a6;letter-spacing:0.3px" title="Successfully Closed deals out of total finalized deals (Closed + Dropped).">—</span>
+            <span id="uw-closed-header-count" style="height:36px;box-sizing:border-box;display:inline-flex;align-items:center;white-space:nowrap;font-size:13px;font-weight:600;padding:0 14px;border-radius:999px;background:rgba(20,184,166,0.15);color:#14b8a6;letter-spacing:0.3px" title="Successfully Closed deals out of total finalized deals (Closed + Dropped).">—</span>
           </div>
           <div class="text-sm text-[var(--text-dim)]">Deals that have reached a terminal state — either Closed (successful close) or Dropped (deal fell through). Click any row to open the full property details + calculator.</div>
         </div>
@@ -5267,9 +5279,21 @@
        stage it lives in. ============ -->
   <div id="uwview-all" class="uwview" style="display:none">
     <div class="panel p-5">
-      <div class="flex items-center justify-between mb-3 gap-3" style="flex-wrap:nowrap">
+      <div class="flex items-start justify-between mb-3 gap-3" style="flex-wrap:nowrap">
         <div style="flex-shrink:0">
-          <div class="font-semibold text-lg">📋 All Deals — Search Everything</div>
+          <!-- Title line + Role chips (Owner / Partner / Agent) + Buy Box toggle, all inline -->
+          <div class="flex items-center gap-3" style="flex-wrap:nowrap">
+            <div class="font-semibold text-lg" style="white-space:nowrap">📋 All Deals — Search Everything</div>
+            <span class="uw-tbchip" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px">
+              <button type="button" id="uwall-role-owner"   onclick="_uwAllSetRole('owner')"   style="padding:0 12px;border:none;cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Owner</button>
+              <button type="button" id="uwall-role-partner" onclick="_uwAllSetRole('partner')" style="padding:0 12px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Partner</button>
+              <button type="button" id="uwall-role-agent"   onclick="_uwAllSetRole('agent')"   style="padding:0 12px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Agent</button>
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:4px">
+              <button type="button" id="uw-all-buybox" class="uw-tbctl" onclick="_uwSecBuyBox('all', this)" title="Buy Box filter — grey = off, green = on. Shows only deals matching your criteria (SqFt range, min year built, and optional ZIP list)." style="padding:0 13px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap">🎯 Buy Box</button>
+              <button type="button" id="uwall-buybox-edit" class="uw-tbctl" onclick="_uwBuyBoxOpenEditor()" title="Edit Buy Box criteria" style="padding:0 8px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;line-height:1">⚙️</button>
+            </span>
+          </div>
           <div class="text-sm text-[var(--text-dim)]">Every deal across every workflow stage in one searchable list. Click any row to open the property.</div>
         </div>
         <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end">
@@ -5334,8 +5358,8 @@
     <div class="panel p-5">
       <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
         <div>
-          <div class="font-semibold text-lg">❓ Help — Properties Needing Review</div>
-          <div class="text-sm text-[var(--text-dim)]">Properties an employee marked with the 🆘 Needs Help toggle (in the calculator header). Click any row to open the full property and review.</div>
+          <div class="font-semibold text-lg" style="white-space:nowrap">❓ Help</div>
+          <div class="text-sm text-[var(--text-dim)]">Properties needing review — an employee marked them with the 🆘 Needs Help toggle. Click any row to open the full property and review.</div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
           <select id="uw-help-source-filter" onchange="renderUnderwriteList()" style="width:130px" title="Filter by where the deal came from">
@@ -5836,7 +5860,7 @@
         <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
           <button class="btn btn-primary text-sm" onclick="contractorOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new contractor to your rolodex.">+ Add Contractor</button>
           <button type="button" id="contractors-verified-filter" data-state="all" onclick="contractorsCycleListFilter()" title="Click to cycle: All → ✓ Verified → ✗ Unverified → ? Unknown" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">All Status</button>
-          <select id="contractors-service-filter" onchange="renderContractorsList()" title="Filter by trade / service offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
+          <select id="contractors-service-filter" onchange="renderContractorsList()" title="Filter by trade / service offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;width:190px">
             <option value="">All services</option>
           </select>
           <input id="contractors-search" type="text" placeholder="🔍 Search by name, city, or service..." oninput="renderContractorsList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" title="Filter by name, services, city, state, or notes. Matches anywhere." />
@@ -5952,7 +5976,7 @@
         <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
           <button class="btn btn-primary text-sm" onclick="lenderOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new lender to your rolodex.">+ Add Lender</button>
           <button type="button" id="lenders-verified-filter" data-active="false" onclick="toggleVerifiedFilter('lenders-verified-filter', 'renderLendersList')" title="Click to show only verified lenders. Click again to show all." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
-          <select id="lenders-type-filter" onchange="renderLendersList()" title="Filter by loan type / product offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
+          <select id="lenders-type-filter" onchange="renderLendersList()" title="Filter by loan type / product offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;width:190px">
             <option value="">All loan types</option>
           </select>
           <input id="lenders-search" type="text" placeholder="🔍 Search by name, city, or product..." oninput="renderLendersList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" title="Filter by name, loan types, city, state, or notes. Matches anywhere." />
@@ -6151,7 +6175,7 @@
         <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
           <button class="btn btn-primary text-sm" onclick="attorneyOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new attorney to your rolodex.">+ Add Attorney</button>
           <button type="button" id="attorneys-verified-filter" data-active="false" onclick="toggleVerifiedFilter('attorneys-verified-filter', 'renderAttorneysList')" title="Click to show only verified attorneys. Click again to show all." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
-          <select id="attorneys-area-filter" onchange="renderAttorneysList()" title="Filter by practice area." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
+          <select id="attorneys-area-filter" onchange="renderAttorneysList()" title="Filter by practice area." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;width:190px">
             <option value="">All practice areas</option>
           </select>
           <input id="attorneys-search" type="text" placeholder="🔍 Search by name, firm, or area..." oninput="renderAttorneysList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" title="Filter by name, firm, practice areas, city, state, or notes. Matches anywhere." />
@@ -27160,6 +27184,12 @@ window._uwToggleImpSort = _uwToggleImpSort;
 // thanks to stable sort. So we apply in REVERSE activation order (innermost
 // first, primary last).
 function _uwApplyAllSorts(arr, prefix) {
+  // Buy Box: when THIS section's Buy Box is on, keep only deals that match the
+  // shared criteria. Centralized here so every underwriting tab is covered in
+  // one place (each section calls this with its own prefix).
+  if (window._uwBuyBoxOn && window._uwBuyBoxOn[prefix] && typeof _uwBuyBoxPass === 'function') {
+    arr = arr.filter(_uwBuyBoxPass);
+  }
   const order = _uwSortOrder[prefix] || [];
   if (!order.length) return arr;
   let out = arr;
@@ -36720,7 +36750,7 @@ function renderUnderwriteList() {
           if (OFFERED_SET.has(s) || isClosed) nOff++;
         });
         const T = total.toLocaleString();
-        const pill = (txt, bg, fg) => '<span style="font-size:12px;font-weight:600;padding:3px 11px;border-radius:999px;background:' + bg + ';color:' + fg + ';margin-left:6px">' + txt + '</span>';
+        const pill = (txt, bg, fg) => '<span style="height:36px;box-sizing:border-box;display:inline-flex;align-items:center;white-space:nowrap;font-size:12px;font-weight:600;padding:0 12px;border-radius:999px;background:' + bg + ';color:' + fg + ';margin-left:6px">' + txt + '</span>';
         _pfStats.innerHTML =
           pill(nOff.toLocaleString() + '/' + T + ' Offered',     'rgba(99,102,241,0.15)', '#a5b4fc') +
           pill(nCon.toLocaleString() + '/' + T + ' Contracted',  'rgba(245,158,11,0.15)', '#fbbf24') +
@@ -53221,6 +53251,332 @@ if (_rcRoot && document.getElementById('basicGroups')) {
 }
 })();
 </script>
+
+<script>
+// ===== All Deals toolbar chips: Owner/Partner/Agent (single-select) + Buy Box toggle =====
+// State is held on window so renderUnderwriteList (or future filter logic) can read it.
+// Currently these drive nothing in the query yet — they're the UI controls + state,
+// ready to wire to filtering once we decide what each should match.
+window._uwAllRole = '';        // '' | 'owner' | 'partner' | 'agent'
+window._uwAllRenderRoleChips = function(){
+  // Each role gets its own active color: Owner = yellow, Partner = purple, Agent = blue.
+  var COLORS = {
+    owner:   { bg: '#eab308', fg: '#1c1917' },
+    partner: { bg: '#a855f7', fg: '#ffffff' },
+    agent:   { bg: '#3b82f6', fg: '#ffffff' }
+  };
+  [['owner','uwall-role-owner'],['partner','uwall-role-partner'],['agent','uwall-role-agent']].forEach(function(pair){
+    var b = document.getElementById(pair[1]); if(!b) return;
+    var on = (window._uwAllRole === pair[0]);
+    var c = COLORS[pair[0]];
+    b.style.background = on ? c.bg : 'transparent';
+    b.style.color      = on ? c.fg : 'var(--text-dim)';
+  });
+};
+window._uwAllSetRole = function(r){
+  // Click the active chip again to clear it (so "none selected" is allowed).
+  window._uwAllRole = (window._uwAllRole === r) ? '' : r;
+  window._uwAllRenderRoleChips();
+  if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
+};
+// ===== Per-section Buy Box toggle (each tab independent; shared criteria) =====
+window._uwBuyBoxOn = window._uwBuyBoxOn || {};   // { all:bool, analyzed:bool, priority:bool, ... }
+window._uwSecBuyBox = function(section, btn){
+  window._uwBuyBoxOn[section] = !window._uwBuyBoxOn[section];
+  var on = !!window._uwBuyBoxOn[section];
+  var b = btn || document.getElementById('uw-' + section + '-buybox');
+  if (b){
+    b.style.background  = on ? '#10b981' : 'transparent';
+    b.style.color       = on ? '#fff'    : 'var(--text-dim)';
+    b.style.borderColor = on ? '#10b981' : 'var(--border)';
+  }
+  if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
+};
+
+// ===== Per-section role chips (Owner / Partner / Agent, single-select, visual) =====
+window._uwSecRole = window._uwSecRole || {};   // { section: '' | 'owner' | 'partner' | 'agent' }
+var _UW_ROLE_COLORS = { owner:{bg:'#eab308',fg:'#1c1917'}, partner:{bg:'#a855f7',fg:'#fff'}, agent:{bg:'#3b82f6',fg:'#fff'} };
+window._uwSecRenderRoleChips = function(section){
+  ['owner','partner','agent'].forEach(function(role){
+    var b = document.getElementById('uw-' + section + '-role-' + role);
+    if (!b) return;
+    var on = (window._uwSecRole[section] === role);
+    var c = _UW_ROLE_COLORS[role];
+    b.style.background = on ? c.bg : 'transparent';
+    b.style.color      = on ? c.fg : 'var(--text-dim)';
+  });
+};
+window._uwSecSetRole = function(section, role){
+  window._uwSecRole[section] = (window._uwSecRole[section] === role) ? '' : role;
+  window._uwSecRenderRoleChips(section);
+  if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
+};
+
+// Build the standard controls cluster (chips + Buy Box + edit) for a section.
+window._uwSecControlsHTML = function(section){
+  var chipBtn = function(role, label){
+    return '<button type="button" id="uw-' + section + '-role-' + role + '" onclick="_uwSecSetRole(\'' + section + '\',\'' + role + '\')" style="padding:0 12px;border:none;' +
+      (role === 'owner' ? '' : 'border-left:1px solid var(--border);') +
+      'cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">' + label + '</button>';
+  };
+  return '<span class="uw-tbchip" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px">' +
+      chipBtn('owner','Owner') + chipBtn('partner','Partner') + chipBtn('agent','Agent') +
+    '</span>' +
+    '<span style="display:inline-flex;align-items:center;gap:4px">' +
+      '<button type="button" id="uw-' + section + '-buybox" class="uw-tbctl" onclick="_uwSecBuyBox(\'' + section + '\', this)" title="Buy Box filter — grey = off, green = on. Shows only deals matching your Buy Box criteria." style="padding:0 13px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap">🎯 Buy Box</button>' +
+      '<button type="button" onclick="_uwBuyBoxOpenEditor()" title="Edit Buy Box criteria" class="uw-tbctl" style="padding:0 8px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;line-height:1">⚙️</button>' +
+    '</span>';
+};
+
+// Inject the controls cluster into every underwriting section header that
+// doesn't already have it, and top-align the header row for a uniform look.
+// (All Deals + Analyzed already have hand-built controls, so they're skipped.)
+window._uwInjectSecControls = function(){
+  var sections = ['help','analyzing','priority','checking','hot','offered','inspection','contracted','closed','trash'];
+  sections.forEach(function(sec){
+    var view = document.getElementById('uwview-' + sec);
+    if (!view) return;
+    var row = view.querySelector('.panel > .flex');
+    if (!row || row.querySelector('[data-uw-secctl]')) return;   // already injected
+    // Top-align the header so the title line and the right-side filters share a top.
+    row.classList.remove('items-center'); row.classList.add('items-start');
+    // Stop the row from WRAPPING the filters onto a new line. With wrap on, the
+    // browser drops the filters below instead of shrinking the title block. With
+    // nowrap, the title block shrinks (its long subtitle reflows) and the filters
+    // hold their spot up on the title line. The filter group is pinned (no shrink)
+    // so it's the title block that gives way, not the selects.
+    row.classList.remove('flex-wrap');
+    row.style.flexWrap = 'nowrap';
+    var filterGroup = row.lastElementChild;   // the existing right-side filter group
+    if (filterGroup) { filterGroup.style.flexShrink = '0'; }
+    var cluster = document.createElement('div');
+    cluster.setAttribute('data-uw-secctl', '1');
+    cluster.className = 'flex items-center gap-3';
+    cluster.style.cssText = 'flex-wrap:nowrap';
+    cluster.innerHTML = window._uwSecControlsHTML(sec);
+    // Put the chips + Buy Box ON the title line (inside the title block), exactly
+    // like All Deals — keeps the title block a single flex-shrink:0 unit so the
+    // filters wrap cleanly below only when there's no room, instead of a broken
+    // mid-row gap. The subtitle stays on the second line beneath.
+    var titleBlock = row.firstElementChild;
+    if (titleBlock) {
+      // Let the title block shrink to its title-LINE width (which is nowrap) so a
+      // long subtitle wraps beneath instead of stretching the block full-width and
+      // shoving the filters onto a new row. min-width:auto keeps it from shrinking
+      // narrower than the title + chips.
+      titleBlock.style.flexShrink = '1';
+      titleBlock.style.minWidth = 'auto';
+      var titleText = titleBlock.firstElementChild;
+      if (titleText) {
+        var line = document.createElement('div');
+        line.className = 'flex items-center gap-3';
+        line.style.cssText = 'flex-wrap:nowrap';
+        titleBlock.insertBefore(line, titleText);
+        line.appendChild(titleText);
+        line.appendChild(cluster);
+        // Move any count/stat badge out of the title to AFTER the cluster, so it
+        // reads title → chips → Buy Box → gear → badge (matching Analyzed).
+        titleText.querySelectorAll('span[id$="-header-count"], span[id="uw-photos-stats"]').forEach(function(b){ line.appendChild(b); });
+      } else {
+        titleBlock.appendChild(cluster);
+      }
+    } else {
+      row.appendChild(cluster);
+    }
+    // Reflect current on-state onto the freshly-built button (green if already on).
+    if (window._uwBuyBoxOn[sec]){
+      var bb = document.getElementById('uw-' + sec + '-buybox');
+      if (bb){ bb.style.background = '#10b981'; bb.style.color = '#fff'; bb.style.borderColor = '#10b981'; }
+    }
+    window._uwSecRenderRoleChips(sec);
+  });
+};
+// Hide the grey explanation subtitle under every underwriting section title —
+// cleaner headers and frees the space so the controls + filters fit on one line.
+window._uwHideSectionSubtitles = function(){
+  ['all','help','analyzing','priority','checking','analyzed','hot','offered','inspection','contracted','closed','trash'].forEach(function(sec){
+    var view = document.getElementById('uwview-' + sec);
+    if (!view) return;
+    var row = view.querySelector('.panel > .flex');
+    if (!row || !row.firstElementChild) return;
+    var sub = row.firstElementChild.querySelector('.text-sm');
+    if (sub) sub.style.display = 'none';
+  });
+};
+window._uwHeaderSetup = function(){
+  try { window._uwInjectSecControls(); } catch(e){}
+  try { window._uwHideSectionSubtitles(); } catch(e){}
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', window._uwHeaderSetup);
+else window._uwHeaderSetup();
+
+// ===== Connections (rolodex) header cleanup =====
+// Pull each section's controls (Add / Verified / category / search / clear) up
+// onto ONE row in line with the title, stop them from wrapping below, merge the
+// Agents two-row layout into one, and shrink the controls a touch.
+window._connFixHeaders = function(){
+  ['inspectors','contractors','lenders','realtors','attorneys'].forEach(function(sec){
+    var wrap = document.getElementById('reno-' + sec + '-wrap');
+    if (!wrap) return;
+    var panel = wrap.querySelector('.panel');
+    if (!panel) return;
+    var row = panel.querySelector(':scope > .flex');
+    if (!row || row.getAttribute('data-conn-fixed')) return;
+    row.setAttribute('data-conn-fixed', '1');
+    var controlGroup = row.lastElementChild;
+    // Agents: fold the separate filter row into the header's control group.
+    if (sec === 'realtors') {
+      var vf = document.getElementById('realtors-verified-filter');
+      var frow = vf ? vf.parentElement : null;
+      if (frow && frow !== controlGroup) {
+        while (frow.firstElementChild) controlGroup.appendChild(frow.firstElementChild);
+        frow.remove();
+      }
+    }
+    // One row, controls in line with the title.
+    row.classList.remove('items-center', 'flex-wrap');
+    row.classList.add('items-start');
+    row.style.flexWrap = 'nowrap';
+    var titleBlock = row.firstElementChild;
+    if (titleBlock) { titleBlock.style.flexShrink = '1'; titleBlock.style.minWidth = 'auto'; }
+    if (controlGroup) {
+      controlGroup.style.flexWrap = 'nowrap';
+      controlGroup.style.flexShrink = '0';
+      // Shrink each control a bit (height + font).
+      controlGroup.querySelectorAll('button, select, input').forEach(function(el){
+        el.style.height = '34px';
+        el.style.fontSize = '12px';
+      });
+    }
+  });
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', window._connFixHeaders);
+else window._connFixHeaders();
+
+// ===== Buy Box criteria (global, saved in this browser) =====
+// Defaults: 700–2200 SqFt, built after 1950, no ZIP restriction.
+var _UW_BUYBOX_KEY = 'uwBuyBox';
+window._uwBuyBoxGet = function(){
+  var def = { minSqft: 700, maxSqft: 2200, minYear: 1950, zips: [] };
+  try {
+    var s = JSON.parse(localStorage.getItem(_UW_BUYBOX_KEY) || '{}');
+    return {
+      minSqft: (s.minSqft != null ? +s.minSqft : def.minSqft) || 0,
+      maxSqft: (s.maxSqft != null ? +s.maxSqft : def.maxSqft) || 0,
+      minYear: (s.minYear != null ? +s.minYear : def.minYear) || 0,
+      zips: Array.isArray(s.zips) ? s.zips.filter(function(z){ return /^\d{5}$/.test(z); }) : []
+    };
+  } catch(e){ return def; }
+};
+window._uwBuyBoxSet = function(bb){
+  try { localStorage.setItem(_UW_BUYBOX_KEY, JSON.stringify(bb || {})); } catch(e){}
+};
+// Does a deal pass the current Buy Box? Unknown SqFt/Year are excluded when a
+// limit is set — Buy Box only shows deals that CONFIRM the criteria.
+window._uwBuyBoxPass = function(u){
+  var bb = window._uwBuyBoxGet();
+  var d = (u && u.data) || {};
+  var num = function(v){ var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0; };
+  var sqft = num(d['uw-sqft']) || num(d['uw-zsqft']);
+  var year = num(d['uw-built']);
+  var zip = String((u && u.zip) || d['uw-zip'] || '').trim().slice(0, 5);
+  if (bb.minSqft || bb.maxSqft){
+    if (!sqft) return false;
+    if (bb.minSqft && sqft < bb.minSqft) return false;
+    if (bb.maxSqft && sqft > bb.maxSqft) return false;
+  }
+  if (bb.minYear){
+    if (!year) return false;
+    if (year <= bb.minYear) return false;   // "after 1950" → strictly greater
+  }
+  if (bb.zips && bb.zips.length){
+    if (!zip || bb.zips.indexOf(zip) === -1) return false;
+  }
+  return true;
+};
+// ----- Editor modal -----
+window._uwBuyBoxEditZips = [];
+window._uwBuyBoxRenderZipChips = function(){
+  var box = document.getElementById('uwall-buybox-zips');
+  if (!box) return;
+  box.innerHTML = (window._uwBuyBoxEditZips || []).map(function(z){
+    return '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(59,130,246,0.15);border:1px solid #3b82f6;color:#93c5fd;border-radius:7px;padding:3px 8px;font-size:12px;font-weight:600">'
+      + z + '<span onclick="_uwBuyBoxRemoveZip(\'' + z + '\')" style="cursor:pointer;color:#f87171;font-weight:700">✕</span></span>';
+  }).join('') || '<span style="font-size:12px;color:var(--text-dim)">No ZIPs — all ZIP codes allowed.</span>';
+};
+window._uwBuyBoxAddZip = function(){
+  var inp = document.getElementById('uwall-buybox-zipinput');
+  if (!inp) return;
+  var z = String(inp.value || '').replace(/[^0-9]/g, '').slice(0, 5);
+  if (!/^\d{5}$/.test(z)){ if (typeof toast === 'function') toast('Enter a 5-digit ZIP code', 'warn'); return; }
+  window._uwBuyBoxEditZips = window._uwBuyBoxEditZips || [];
+  if (window._uwBuyBoxEditZips.indexOf(z) === -1) window._uwBuyBoxEditZips.push(z);
+  inp.value = '';
+  window._uwBuyBoxRenderZipChips();
+};
+window._uwBuyBoxRemoveZip = function(z){
+  window._uwBuyBoxEditZips = (window._uwBuyBoxEditZips || []).filter(function(x){ return x !== z; });
+  window._uwBuyBoxRenderZipChips();
+};
+window._uwBuyBoxOpenEditor = function(){
+  var bb = window._uwBuyBoxGet();
+  var set = function(id, v){ var e = document.getElementById(id); if (e) e.value = (v || v === 0) ? v : ''; };
+  set('uwall-buybox-minsqft', bb.minSqft || '');
+  set('uwall-buybox-maxsqft', bb.maxSqft || '');
+  set('uwall-buybox-minyear', bb.minYear || '');
+  window._uwBuyBoxEditZips = (bb.zips || []).slice();
+  window._uwBuyBoxRenderZipChips();
+  var m = document.getElementById('uwall-buybox-modal');
+  if (m) m.style.display = 'flex';
+};
+window._uwBuyBoxCloseEditor = function(){
+  var m = document.getElementById('uwall-buybox-modal');
+  if (m) m.style.display = 'none';
+};
+window._uwBuyBoxSaveEditor = function(){
+  var num = function(id){ var e = document.getElementById(id); var n = e ? parseInt(String(e.value).replace(/[^0-9]/g, ''), 10) : 0; return isFinite(n) ? n : 0; };
+  window._uwBuyBoxSet({
+    minSqft: num('uwall-buybox-minsqft'),
+    maxSqft: num('uwall-buybox-maxsqft'),
+    minYear: num('uwall-buybox-minyear'),
+    zips: (window._uwBuyBoxEditZips || []).slice()
+  });
+  window._uwBuyBoxCloseEditor();
+  if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
+  if (typeof toast === 'function') toast('🎯 Buy Box criteria saved', 'ok');
+};
+</script>
+
+<!-- ===== Buy Box criteria editor (centered modal) ===== -->
+<div id="uwall-buybox-modal" style="display:none;position:fixed;inset:0;z-index:2147483646;background:rgba(8,11,20,0.5);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--panel,#141a28);border:1px solid rgba(16,185,129,0.5);border-radius:16px;padding:26px 28px;max-width:440px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,0.55)">
+    <div style="font-size:18px;font-weight:800;color:var(--text,#fff);margin-bottom:4px">🎯 Buy Box Criteria</div>
+    <div style="font-size:12.5px;color:var(--text-dim);margin-bottom:18px;line-height:1.5">When Buy Box is on, the All Deals list shows only properties that match all of these.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;margin-bottom:16px">
+      <label class="text-xs" style="color:var(--text-dim)">Min SqFt
+        <input type="number" id="uwall-buybox-minsqft" placeholder="700" style="width:100%;margin-top:4px">
+      </label>
+      <label class="text-xs" style="color:var(--text-dim)">Max SqFt
+        <input type="number" id="uwall-buybox-maxsqft" placeholder="2200" style="width:100%;margin-top:4px">
+      </label>
+      <label class="text-xs" style="color:var(--text-dim);grid-column:1 / -1">Built after (year) — must be strictly greater
+        <input type="number" id="uwall-buybox-minyear" placeholder="1950" style="width:100%;margin-top:4px">
+      </label>
+    </div>
+    <div style="margin-bottom:16px">
+      <label class="text-xs" style="color:var(--text-dim)">ZIP codes (5 digits) — leave empty to allow all</label>
+      <div style="display:flex;gap:8px;margin-top:5px">
+        <input type="text" id="uwall-buybox-zipinput" inputmode="numeric" maxlength="5" placeholder="e.g. 47711" onkeydown="if(event.key==='Enter'){event.preventDefault();_uwBuyBoxAddZip();}" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,5)" style="flex:1">
+        <button type="button" onclick="_uwBuyBoxAddZip()" class="btn btn-ghost text-sm" style="white-space:nowrap">+ Add</button>
+      </div>
+      <div id="uwall-buybox-zips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button type="button" onclick="_uwBuyBoxCloseEditor()" class="btn btn-ghost text-sm">Cancel</button>
+      <button type="button" onclick="_uwBuyBoxSaveEditor()" style="background:#10b981;color:#fff;border:none;padding:9px 20px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer">Save</button>
+    </div>
+  </div>
+</div>
 
 <!-- ===== New-version notifier (suggest-only) =====
      Centered, transparent/frosted overlay — like the initial loader but see-through.

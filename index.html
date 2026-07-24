@@ -135,6 +135,12 @@
   .uw-tbctl { height: 36px; box-sizing: border-box; }
   .uw-tbchip { height: 36px; box-sizing: border-box; display: inline-flex; align-items: stretch; }
   .uw-tbchip > button { display: inline-flex; align-items: center; }
+  /* Ideal Flip Profit — tall slider track so the benchmark labels sit inside it */
+  #uw-ifp-slider { -webkit-appearance: none; appearance: none; display: block; width: 100%; margin: 0; height: 48px; background: transparent; cursor: pointer; }
+  #uw-ifp-slider::-webkit-slider-runnable-track { height: 48px; border-radius: 10px; border: 1px solid var(--border); background: linear-gradient(90deg, rgba(125,211,252,0.16) 0%, rgba(167,139,250,0.14) 42%, rgba(251,146,60,0.18) 76%, rgba(239,68,68,0.26) 100%); }
+  #uw-ifp-slider::-moz-range-track { height: 48px; border-radius: 10px; border: 1px solid var(--border); background: linear-gradient(90deg, rgba(125,211,252,0.16) 0%, rgba(167,139,250,0.14) 42%, rgba(251,146,60,0.18) 76%, rgba(239,68,68,0.26) 100%); }
+  #uw-ifp-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 40px; margin-top: 4px; border-radius: 6px; background: #fff; box-shadow: 0 0 0 2px #a855f7, 0 2px 6px rgba(0,0,0,0.35); cursor: pointer; }
+  #uw-ifp-slider::-moz-range-thumb { width: 12px; height: 40px; border: none; border-radius: 6px; background: #fff; box-shadow: 0 0 0 2px #a855f7, 0 2px 6px rgba(0,0,0,0.35); cursor: pointer; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand); }
   /* Compact "Choose File" button so file inputs render at the same height
      as regular text inputs (the native button chrome would otherwise add
@@ -4027,15 +4033,6 @@
         </div>
       </div>
 
-      <!-- ===== Material Recommendations (collapsible) ===== -->
-      <div class="panel p-4 mb-3" id="recsPanel" style="border-left:4px solid #c084fc;">
-        <div class="cat-header rc-int" id="recsTier" onclick="window._rcToggleRecs && window._rcToggleRecs()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none" title="Click to collapse/expand">
-          <span id="recsTierText">RECOMMENDED MATERIALS — BUILDER GRADE</span>
-          <span id="recsCaret" style="font-size:11px;color:var(--text-dim);font-weight:normal;margin-left:8px">▼</span>
-        </div>
-        <div id="recsContent" class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs" style="color:var(--text-dim)"></div>
-      </div>
-
       <!-- ===== Custom Presets (⭐ Custom is the permanent per-deal one; the
            rest are user-named, reusable across all deals) ===== -->
       <div id="rc-custom-presets-row" class="flex items-center gap-2 mb-2 flex-wrap" style="align-items:center">
@@ -4159,9 +4156,9 @@
         </div>
       </div>
 
-      <!-- ===== Totals ===== -->
-      <div class="panel p-5 mb-3">
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+      <!-- ===== Budget totals + schedule (combined + condensed) ===== -->
+      <div class="panel p-3 mb-2">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 mb-2">
           <div class="stat"><div class="stat-label">Material Cost</div><div class="stat-value" style="color:var(--good)" id="t-mat">$0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="t-mat-pct">—</div></div>
           <div class="stat"><div class="stat-label">Labor Cost</div><div class="stat-value" style="color:var(--warn)" id="t-lab">$0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="t-lab-pct">—</div></div>
           <div class="stat"><div class="stat-label">Total Labor Hours</div><div class="stat-value" style="color:#c4b5fd" id="t-hrs">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="t-days">~0 days</div></div>
@@ -4169,14 +4166,30 @@
           <div class="stat"><div class="stat-label">Budget Contingency</div><div class="stat-value" style="color:#a5b4fc" id="t-cont-budget">$0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="t-cont-budget-sub">20% standard</div></div>
           <div class="stat"><div class="stat-label">Occupancy Contingency</div><div class="stat-value" style="color:#fdba74" id="t-cont-occ">$0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="t-cont-occ-sub">+0% · vacant</div></div>
         </div>
-        <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-bottom:8px">
-          <div id="bar-mat" style="background:var(--good);width:50%"></div>
-          <div id="bar-lab" style="background:var(--warn);width:50%"></div>
+        <!-- Timeline tiles (under the budget tiles) -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+          <div class="stat"><div class="stat-label">Repossession</div><div class="stat-value" style="color:#fdba74" id="s-rep">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-rep-sub">vacant · none</div></div>
+          <div class="stat"><div class="stat-label" id="s-cal-label">Renovation w/ Crew</div><div class="stat-value" style="color:#fb923c" id="s-cal">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-cal-sub">0 work days + 30% buffer</div></div>
+          <div class="stat"><div class="stat-label">Listing Time</div><div class="stat-value" style="color:#a78bfa" id="s-listed">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-listed-sub">market default</div></div>
+          <div class="stat"><div class="stat-label">Total Time</div><div class="stat-value" style="color:#10b981" id="s-total">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-total-sub">~0 weeks</div></div>
+          <span id="s-raw" style="display:none">0</span>
+          <span id="s-crew" style="display:none">0</span>
+          <span id="s-crew-sub" style="display:none"></span>
+          <span id="s-fin" style="display:none">0</span>
+          <span id="s-weeks" style="display:none"></span>
         </div>
-        <div class="text-xs" style="color:var(--text-dim);display:flex;gap:14px;margin-bottom:14px">
-          <span>■ Material</span><span>■ Labor</span>
+        <!-- Budget bar (Material / Labor) — label + % centered inside each segment -->
+        <div style="display:flex;height:22px;border-radius:6px;overflow:hidden;margin-bottom:8px;font-size:11px;font-weight:700">
+          <div id="bar-mat" style="background:var(--good);width:50%;display:flex;align-items:center;justify-content:center;color:#0b1220;white-space:nowrap;overflow:hidden">Material 50%</div>
+          <div id="bar-lab" style="background:var(--warn);width:50%;display:flex;align-items:center;justify-content:center;color:#0b1220;white-space:nowrap;overflow:hidden">Labor 50%</div>
         </div>
-        <div style="padding:14px;background:rgba(99,102,241,0.10);border:1px solid #6366f1;border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+        <!-- Timeline bar (Repossession / Renovation / Listing) — cool scheme, distinct from the budget bar -->
+        <div style="display:flex;height:22px;border-radius:6px;overflow:hidden;margin-bottom:8px;font-size:11px;font-weight:700">
+          <div id="bar-repo" style="background:#0e7490;width:0%;display:flex;align-items:center;justify-content:center;color:#fff;white-space:nowrap;overflow:hidden"></div>
+          <div id="bar-reno" style="background:#4f46e5;width:0%;display:flex;align-items:center;justify-content:center;color:#fff;white-space:nowrap;overflow:hidden"></div>
+          <div id="bar-list" style="background:#9333ea;width:0%;display:flex;align-items:center;justify-content:center;color:#fff;white-space:nowrap;overflow:hidden"></div>
+        </div>
+        <div style="padding:9px 14px;background:rgba(99,102,241,0.10);border:1px solid #6366f1;border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
           <div class="text-xs" style="color:#a5b4fc;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <span>🎯 Grand Total + Cost Contingency</span>
             <span id="t-grand" style="font-family:monospace;font-weight:700;font-size:24px;color:#a5b4fc">$0</span>
@@ -4189,38 +4202,8 @@
             </span>
           </div>
         </div>
-        <div class="text-xs" style="color:var(--text-dim);margin-top:6px;text-align:right;font-style:italic">Override empty → exits use Grand Total. Type a number → exits use that.</div>
-      </div>
-
-      <!-- ===== Schedule ===== -->
-      <div class="panel p-5 mb-3">
-        <div class="cat-header" style="color:#67e8f9">PROJECT SCHEDULE ESTIMATE</div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-          <!-- Repossession → Calendar Days → Listing Time → Total Time -->
-          <div class="stat"><div class="stat-label">Repossession</div><div class="stat-value" style="color:#fdba74" id="s-rep">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-rep-sub">vacant · none</div></div>
-          <!-- Renovation w/ Crew — merged the old "With Crew" + "Calendar
-               Days" cards into one. Label shows the active crew size; value
-               is the calendar days (after the 30% bottleneck buffer);
-               subtext shows the underlying "X work days + 30% buffer" so
-               the user can see how the buffered value was derived. -->
-          <div class="stat"><div class="stat-label" id="s-cal-label">Renovation w/ Crew</div><div class="stat-value" style="color:#fb923c" id="s-cal">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-cal-sub">0 work days + 30% buffer</div></div>
-          <!-- Listing time — pulled from Strategy → Timeline (Flip + Refi)'s
-               "Listed time" input (uw-fl-listed-mo, default 2.5 mo). -->
-          <div class="stat"><div class="stat-label">Listing Time</div><div class="stat-value" style="color:#a78bfa" id="s-listed">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-listed-sub">market default</div></div>
-          <!-- Total Time — the WHOLE hold period: repossession + reno (with
-               time buffer) + listing. This is the headline number for the
-               full project schedule. -->
-          <div class="stat"><div class="stat-label">Total Time</div><div class="stat-value" style="color:#10b981" id="s-total">0</div><div class="text-xs" style="color:var(--text-dim);margin-top:2px" id="s-total-sub">~0 weeks</div></div>
-          <!-- Hidden elements kept for downstream code that still reads
-               them (s-raw, s-crew, s-fin, s-weeks). The renaming is purely
-               visual — the underlying calc still updates these. -->
-          <span id="s-raw"      style="display:none">0</span>
-          <span id="s-crew"     style="display:none">0</span>
-          <span id="s-crew-sub" style="display:none"></span>
-          <span id="s-fin"      style="display:none">0</span>
-          <span id="s-weeks"    style="display:none"></span>
-        </div>
-        <div style="padding:12px 14px;background:rgba(6,182,212,0.10);border:1px solid #06b6d4;border-radius:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">
+        <!-- Estimated Project Duration (under the Grand Total section) -->
+        <div style="padding:9px 14px;margin-top:10px;background:rgba(6,182,212,0.10);border:1px solid #06b6d4;border-radius:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">
           <div class="text-xs" style="color:#67e8f9">📅 Estimated Project Duration</div>
           <div id="s-display" style="font-family:monospace;font-weight:600;font-size:16px;color:#67e8f9">0 days · 0 weeks · 0 months</div>
         </div>
@@ -4235,6 +4218,15 @@
         <div id="hireRef-body" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
           <div id="hireRef" class="text-xs"></div>
         </div>
+      </div>
+
+      <!-- ===== Material Recommendations (collapsible) — moved under Who to Hire ===== -->
+      <div class="panel p-4 mb-3" id="recsPanel">
+        <div class="cat-header rc-int" id="recsTier" onclick="window._rcToggleRecs && window._rcToggleRecs()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;margin:0;padding:0" title="Click to collapse/expand">
+          <span id="recsTierText">RECOMMENDED MATERIALS — BUILDER GRADE</span>
+          <span id="recsCaret" style="font-size:11px;color:var(--text-dim);font-weight:normal;margin-left:8px">▼</span>
+        </div>
+        <div id="recsContent" class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs" style="color:var(--text-dim)"></div>
       </div>
 
       <!-- Hidden state mirrors — kept in DOM because other code reads them, but no longer
@@ -4368,53 +4360,57 @@
          groups. Sliding-scale tool for picking the profit margin you want
          on a flip. Benchmarks: cosmetic 8%, light 10%, medium 15%, heavy
          20%, complete 25% — slider extends past Complete for monster jobs. -->
-    <div class="panel p-5 mb-4" data-uw-section="ideal-flip-profit" data-uw-section-label="💰 Ideal Flip Profit" style="border:2px solid #a855f7;background:rgba(168,85,247,0.06)">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
-        <div class="font-semibold text-lg" style="color:#c4b5fd">💰 Ideal Flip Profit</div>
-        <button type="button" onclick="uwIfpAutoFromRehab()" class="btn btn-ghost text-xs" title="Snap the slider to whatever the rehab $/sqft implies (cosmetic ≤$10/sf · light $25 · medium $35 · heavy $50 · gut $70 · monster $85+).">↻ Auto from rehab</button>
-      </div>
-      <div class="text-xs text-[var(--text-dim)]" style="margin-bottom:14px">
-        Slide to dial in the profit you want before you'll do the deal. Worse condition + longer project = higher margin. Five benchmarks marked, smooth in-between and past Complete.
+    <div class="panel p-4 mb-4" data-uw-section="ideal-flip-profit" data-uw-section-label="💰 Ideal Flip Profit" style="border:2px solid #a855f7;background:rgba(168,85,247,0.06)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:8px">
+        <div class="font-semibold text-base" style="color:#c4b5fd">💰 Ideal Flip Profit</div>
+        <button type="button" onclick="uwIfpAutoFromRehab()" class="btn btn-ghost text-xs" title="Slide to dial in the minimum profit before you'll do the deal — worse condition + longer project = higher margin. Snap the slider to whatever the rehab $/sqft implies (cosmetic ≤$10/sf · light $25 · medium $35 · heavy $50 · gut $70 · monster $85+).">↻ Auto from rehab</button>
       </div>
 
-      <!-- Slider with benchmark tick marks -->
-      <div style="position:relative;padding:0 4px;margin-bottom:18px">
-        <input type="range" id="uw-ifp-slider" min="0" max="120" step="1" value="40" oninput="(typeof uwRecalc==='function')&&uwRecalc()"
-               style="width:100%;cursor:pointer;accent-color:#a855f7;height:6px">
-        <div style="position:relative;height:42px;margin-top:4px;font-size:10px;color:var(--text-dim)">
-          <div style="position:absolute;left:0%;transform:translateX(-50%);text-align:center"><div style="height:4px;width:1px;background:var(--border);margin:0 auto 2px"></div>Cosmetic<br><span style="color:#67e8f9">≤$10/sf</span><br><b style="color:#a5b4fc">8%</b></div>
-          <div style="position:absolute;left:16.67%;transform:translateX(-50%);text-align:center"><div style="height:4px;width:1px;background:var(--border);margin:0 auto 2px"></div>Light<br><span style="color:#67e8f9">$25/sf</span><br><b style="color:#a5b4fc">10%</b></div>
-          <div style="position:absolute;left:33.33%;transform:translateX(-50%);text-align:center"><div style="height:4px;width:1px;background:var(--border);margin:0 auto 2px"></div>Medium<br><span style="color:#67e8f9">$35/sf</span><br><b style="color:#a5b4fc">15%</b></div>
-          <div style="position:absolute;left:50%;transform:translateX(-50%);text-align:center"><div style="height:4px;width:1px;background:var(--border);margin:0 auto 2px"></div>Heavy<br><span style="color:#67e8f9">$50/sf</span><br><b style="color:#a5b4fc">20%</b></div>
-          <div style="position:absolute;left:66.67%;transform:translateX(-50%);text-align:center"><div style="height:4px;width:1px;background:var(--border);margin:0 auto 2px"></div>Gut<br><span style="color:#67e8f9">$70/sf</span><br><b style="color:#a5b4fc">25%</b></div>
-          <div style="position:absolute;left:100%;transform:translateX(-50%);text-align:center"><div style="height:4px;width:1px;background:var(--border);margin:0 auto 2px"></div>Monster<br><span style="color:#67e8f9">$85+/sf</span><br><b style="color:#a5b4fc">35%</b></div>
+      <!-- Slider with benchmark labels overlaid INSIDE the tall track -->
+      <div style="position:relative;margin-bottom:12px">
+        <input type="range" id="uw-ifp-slider" min="0" max="120" step="1" value="40" oninput="(typeof uwRecalc==='function')&&uwRecalc()">
+        <!-- Label overlay: pointer-events:none so the slider stays draggable underneath -->
+        <div style="position:absolute;inset:0;pointer-events:none;font-size:9.5px;line-height:1.3;color:#e2e8f0;font-weight:600">
+          <!-- benchmark tick marks (one per condition, inset from the ends) -->
+          <div style="position:absolute;left:5%;top:5px;transform:translateX(-50%);width:2px;height:10px;border-radius:1px;background:rgba(226,232,240,0.55)"></div>
+          <div style="position:absolute;left:20%;top:5px;transform:translateX(-50%);width:2px;height:10px;border-radius:1px;background:rgba(226,232,240,0.55)"></div>
+          <div style="position:absolute;left:35%;top:5px;transform:translateX(-50%);width:2px;height:10px;border-radius:1px;background:rgba(226,232,240,0.55)"></div>
+          <div style="position:absolute;left:50%;top:5px;transform:translateX(-50%);width:2px;height:10px;border-radius:1px;background:rgba(226,232,240,0.55)"></div>
+          <div style="position:absolute;left:65%;top:5px;transform:translateX(-50%);width:2px;height:10px;border-radius:1px;background:rgba(226,232,240,0.55)"></div>
+          <div style="position:absolute;left:95%;top:5px;transform:translateX(-50%);width:2px;height:10px;border-radius:1px;background:rgba(226,232,240,0.55)"></div>
+          <div style="position:absolute;left:5%;top:19px;transform:translateX(-50%);text-align:center">Cosmetic<br><span style="color:#67e8f9">≤$10/sf</span> · <b style="color:#c4b5fd">8%</b></div>
+          <div style="position:absolute;left:20%;top:19px;transform:translateX(-50%);text-align:center">Light<br><span style="color:#67e8f9">$25/sf</span> · <b style="color:#c4b5fd">10%</b></div>
+          <div style="position:absolute;left:35%;top:19px;transform:translateX(-50%);text-align:center">Medium<br><span style="color:#67e8f9">$35/sf</span> · <b style="color:#c4b5fd">15%</b></div>
+          <div style="position:absolute;left:50%;top:19px;transform:translateX(-50%);text-align:center">Heavy<br><span style="color:#67e8f9">$50/sf</span> · <b style="color:#c4b5fd">20%</b></div>
+          <div style="position:absolute;left:65%;top:19px;transform:translateX(-50%);text-align:center">Gut<br><span style="color:#67e8f9">$70/sf</span> · <b style="color:#c4b5fd">25%</b></div>
+          <div style="position:absolute;left:95%;top:19px;transform:translateX(-50%);text-align:center">Monster<br><span style="color:#67e8f9">$85+/sf</span> · <b style="color:#c4b5fd">35%</b></div>
         </div>
       </div>
 
       <!-- Result grid: condition, base margin, time bonus, final margin, $ -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:10px">
-        <div style="padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:6px">
+        <div style="padding:6px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">
           <div class="text-xs text-[var(--text-dim)]">Condition</div>
-          <div id="uw-ifp-condition" style="font-weight:600;font-size:14px;margin-top:2px">—</div>
+          <div id="uw-ifp-condition" style="font-weight:600;font-size:14px">—</div>
         </div>
-        <div style="padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">
+        <div style="padding:6px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">
           <div class="text-xs text-[var(--text-dim)]">Base margin</div>
-          <div id="uw-ifp-base-pct" style="font-weight:600;font-size:14px;margin-top:2px">—</div>
+          <div id="uw-ifp-base-pct" style="font-weight:600;font-size:14px">—</div>
         </div>
-        <div style="padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">
+        <div style="padding:6px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px">
           <div class="text-xs text-[var(--text-dim)]" title="Adds 0.5% per month past the 3-month baseline. Pulled from the Flip card's Renovation + Listed months.">Time bonus</div>
-          <div id="uw-ifp-time-bonus" style="font-weight:600;font-size:14px;margin-top:2px">—</div>
+          <div id="uw-ifp-time-bonus" style="font-weight:600;font-size:14px">—</div>
         </div>
-        <div style="padding:10px;background:rgba(168,85,247,0.10);border:1px solid #a855f7;border-radius:8px">
+        <div style="padding:6px 10px;background:rgba(168,85,247,0.10);border:1px solid #a855f7;border-radius:8px">
           <div class="text-xs" style="color:#c4b5fd">Final margin</div>
-          <div id="uw-ifp-final-pct" style="font-weight:700;font-size:16px;margin-top:2px;color:#c4b5fd">—</div>
+          <div id="uw-ifp-final-pct" style="font-weight:700;font-size:16px;color:#c4b5fd">—</div>
         </div>
-        <div style="padding:10px;background:rgba(16,185,129,0.10);border:1px solid #10b981;border-radius:8px">
+        <div style="padding:6px 10px;background:rgba(16,185,129,0.10);border:1px solid #10b981;border-radius:8px">
           <div class="text-xs" style="color:#6ee7b7">Ideal profit $</div>
-          <div id="uw-ifp-dollar" style="font-weight:700;font-size:18px;margin-top:2px;color:#10b981">—</div>
+          <div id="uw-ifp-dollar" style="font-weight:700;font-size:18px;color:#10b981">—</div>
         </div>
       </div>
-      <div class="text-xs text-[var(--text-dim)]" style="margin-top:10px" id="uw-ifp-explainer">—</div>
+      <div class="text-xs text-[var(--text-dim)]" style="margin-top:6px" id="uw-ifp-explainer">—</div>
     </div>
 
     <!-- ===== Equity per Dollar of Rehab =====
@@ -12066,14 +12062,14 @@ function uwIfpRecalc() {
   const v = parseFloat(slider.value) || 0;
   const { pct: basePct, label } = _uwIfpMarginPct(v);
   // Time bonus: Renovation + Listed months from the Flip card. Baseline is
-  // 3 months; each extra month adds 0.5% to the margin (so a 6-month flip
-  // gets +1.5%). Reads from the live wt-/fl- inputs if mounted, otherwise
+  // 3 months; each extra month adds 1.5% to the margin (so a 6-month flip
+  // gets +4.5%). Reads from the live wt-/fl- inputs if mounted, otherwise
   // falls back to defaults.
   const flReno   = parseFloat(document.getElementById('uw-fl-reno-mo')?.value)   || 1;
   const flListed = parseFloat(document.getElementById('uw-fl-listed-mo')?.value) || 2.5;
   const months   = flReno + flListed;
   const TIME_BASE = 3;
-  const timeBonus = Math.max(0, (months - TIME_BASE) * 0.5);
+  const timeBonus = Math.max(0, (months - TIME_BASE) * 1.5);
   const finalPct  = basePct + timeBonus;
   // Mode-aware ARV: use the override + display from the comp mode the deal
   // is currently set to. A Sold override on a Listed-mode deal shouldn't
@@ -16697,7 +16693,7 @@ function _uwComputeMaxOfferFromData(data) {
       break;
     }
   }
-  const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 0.5);
+  const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 1.5);
   const wsIdealProfit = arv * (finalPct / 100);
   const cashBuyerMAO = (arv - fRehab - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit) / 1.03;
   const wholesalePurchClose = cashBuyerMAO * 0.03;
@@ -16787,7 +16783,7 @@ function _uwComputeWholesaleProfitFromData(data) {
       break;
     }
   }
-  const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 0.5);
+  const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 1.5);
   const wsIdealProfit = arv * (finalPct / 100);
   // Cash buyer MAO (algebraic — closing = 3% × MAO) + wholesale fee
   const cashBuyerMAO = (arv - fRehab - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit) / 1.03;
@@ -18909,9 +18905,12 @@ const _UW_SECTION_TAB = {
   'condition-checklist':  'renovation',
   'big-ticket':           'renovation',
   'rehab-calc':           'renovation',
+  'budget-schedule':      'strategy',
   'ideal-flip-profit':    'strategy',
   'equity-per-rehab':     'strategy',
-  'timeline':             'strategy',
+  // 'timeline' removed from view — its info now lives in Budget & Schedule's
+  // Project Schedule Estimate. The DOM element stays (Budget & Schedule anchors
+  // to it); leaving it out of this map keeps it hidden on every tab.
   'exit-strategy':        'strategy',
   'budget-overview':      'budget',
   'scope-of-work':        'budget',
@@ -28935,7 +28934,7 @@ function _dispoCashFlipMaxFromData(d) {
       break;
     }
   }
-  const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 0.5);
+  const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 1.5);
   const wsIdealProfit = arv * (finalPct / 100);
   return Math.max(0, (arv - fRehab - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit) / 1.03);
 }
@@ -52578,7 +52577,12 @@ function recalc(){
   document.getElementById('t-mat-pct').textContent = total?Math.round(mat/total*100)+'% of total':'—';
   document.getElementById('t-lab-pct').textContent = total?Math.round(lab/total*100)+'% of total':'—';
   document.getElementById('t-days').textContent = '~'+Math.round(hrs/8).toLocaleString()+' days @ 8hr/day';
-  if(total){ document.getElementById('bar-mat').style.width = (mat/total*100)+'%'; document.getElementById('bar-lab').style.width = (lab/total*100)+'%'; }
+  if(total){
+    var _mp = mat/total*100, _lp = lab/total*100;
+    var _bm = document.getElementById('bar-mat'), _bl = document.getElementById('bar-lab');
+    if(_bm){ _bm.style.width = _mp+'%'; _bm.textContent = _mp >= 6 ? ('Material ' + Math.round(_mp) + '%') : ''; }
+    if(_bl){ _bl.style.width = _lp+'%'; _bl.textContent = _lp >= 6 ? ('Labor ' + Math.round(_lp) + '%') : ''; }
+  }
   const rawDays = hrs/8;
   const crewDays = rawDays/crew;
   // Convert crew work days (Mon–Fri schedule) to calendar days. 5 work days
@@ -52669,6 +52673,22 @@ function recalc(){
     _sTotalEl.textContent = _totalDays.toLocaleString();
     if (_sTotalSub) _sTotalSub.textContent = '~' + (_totalDays / 30).toFixed(1) + ' months · all-in';
   }
+  // Timeline phase bar widths (repossession / renovation / listing) — mirrors
+  // the Material/Labor budget bar, sized by each phase's share of total days.
+  (function(){
+    var _lm = parseFloat(document.getElementById('uw-fl-listed-mo')?.value || '2.5') || 2.5;
+    var _ld = Math.round(_lm * 30);
+    var _rd = _renoTotalDays;
+    var _od = occDays;
+    var _t = _od + _rd + _ld;
+    var seg = function(id, label, d){
+      var el = document.getElementById(id); if(!el) return;
+      var pct = _t > 0 ? (d / _t * 100) : 0;
+      el.style.width = pct + '%';
+      el.textContent = pct >= 6 ? (label + ' ' + Math.round(pct) + '%') : '';
+    };
+    seg('bar-repo', 'Repossession', _od); seg('bar-reno', 'Renovation', _rd); seg('bar-list', 'Listing', _ld);
+  })();
   // Estimated Project Duration — compact breakdown by phase. Reads the
   // listing time from the Strategy → Timeline input (uw-fl-listed-mo, default
   // 2.5 mo). Skips the repossession term when the property is vacant so the
@@ -53008,8 +53028,11 @@ try {
 function _rcApplyRecsCollapse(){
   const content = document.getElementById('recsContent');
   const caret = document.getElementById('recsCaret');
+  const header = document.getElementById('recsTier');
   if(content) content.style.display = _rcRecsCollapsed ? 'none' : '';
   if(caret) caret.textContent = _rcRecsCollapsed ? '▶' : '▼';
+  // Hide the header's underline when collapsed (so it matches Who to Hire).
+  if(header) header.style.borderBottom = _rcRecsCollapsed ? 'none' : '';
 }
 window._rcToggleRecs = function(){
   _rcRecsCollapsed = !_rcRecsCollapsed;
@@ -53452,6 +53475,59 @@ window._connFixHeaders = function(){
 };
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', window._connFixHeaders);
 else window._connFixHeaders();
+
+// ===== Split Budget & Schedule out of the Rehab Calculator into its own section =====
+// Moves the Totals/Grand-Total/Override block + the Project Schedule Estimate block
+// out of the calculator and into a standalone "💰 Budget & Schedule" section (like
+// Major Systems) placed right after it, and drops Condition Checklist to the bottom.
+// Nodes are MOVED (not copied) so all their handlers/IDs stay intact and the
+// calculator keeps updating them by ID. Runs once, before deals load, so the
+// reorder feature treats this as the canonical section order.
+window._uwSplitBudgetSchedule = function(){
+  if (document.querySelector('[data-uw-section="budget-schedule"]')) return;
+  var major = document.querySelector('[data-uw-section="big-ticket"]');
+  var rehab = document.querySelector('[data-uw-section="rehab-calc"]');
+  var cond  = document.querySelector('[data-uw-section="condition-checklist"]');
+  if (!major || !rehab) return;
+  var grand = document.getElementById('t-grand');
+  var sdisp = document.getElementById('s-display');
+  var totalsPanel = grand && grand.closest('.panel');
+  var schedPanel  = sdisp && sdisp.closest('.panel');
+  if (!totalsPanel || !schedPanel) return;
+  var sec = document.createElement('div');
+  sec.className = 'panel p-5 mb-4';
+  sec.setAttribute('data-uw-section', 'budget-schedule');
+  sec.setAttribute('data-uw-section-label', '💰 Budget & Schedule');
+  var title = document.createElement('div');
+  title.className = 'font-semibold text-base';
+  title.style.marginBottom = '12px';
+  title.innerHTML = '💰 Budget &amp; Schedule';
+  sec.appendChild(title);
+  // Place the new section at the TOP of the Strategy tab, just above Timeline.
+  var timeline = document.querySelector('[data-uw-section="timeline"]');
+  if (timeline) {
+    timeline.parentNode.insertBefore(sec, timeline);
+    sec.style.display = timeline.style.display;   // match Strategy-tab visibility
+  } else {
+    major.parentNode.insertBefore(sec, major.nextSibling);
+    sec.style.display = major.style.display;
+  }
+  // Move the Totals + Schedule blocks into the new section.
+  sec.appendChild(totalsPanel);
+  sec.appendChild(schedPanel);
+  // Move the "Final Rehab Amount (used by the exit math)" box to the TOP of the
+  // section (right under the title), so it's the first thing in Strategy.
+  // Hide the "Final Rehab Amount" box — it duplicates Grand Total + Cost
+  // Contingency. Kept in the DOM (just hidden) because the exit math reads
+  // its #uw-rehab-final value.
+  var finalEl = document.getElementById('uw-rehab-final');
+  var finalBox = finalEl && finalEl.parentElement;
+  if (finalBox) finalBox.style.display = 'none';
+  // Drop Condition Checklist to the bottom (after the Rehab Calculator).
+  if (cond) rehab.parentNode.insertBefore(cond, rehab.nextSibling);
+};
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', window._uwSplitBudgetSchedule);
+else window._uwSplitBudgetSchedule();
 
 // ===== Buy Box criteria (global, saved in this browser) =====
 // Defaults: 700–2200 SqFt, built after 1950, no ZIP restriction.

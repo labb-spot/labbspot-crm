@@ -4286,7 +4286,7 @@
       <div data-uw-slot="rt-rf-hm-rate"><label class="text-xs" title="Initial financing annual interest rate (interest-only during the hold).">Initial Financing Rate %/yr<input type="number" id="uw-rt-rf-hm-rate" value="12" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="rt-rf-hm-orig"><label class="text-xs" title="Initial financing origination fee in points (% of loan, paid up front).">Initial Financing Origination %<input type="number" id="uw-rt-rf-hm-orig" value="2" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="rt-rf-stab-mo"><label class="text-xs" title="Months you carry the initial financing: rehab + lease-up time before the property qualifies to refinance.">Stabilization (mo)<input type="number" id="uw-rt-rf-stab-mo" value="4" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-br-ltv"><label class="text-xs" title="Cash-out refi LTV. Loan = ARV × this %. Hard-capped at 70% (lender ceiling).">Refi LTV % (cap 70%)<input type="number" id="uw-rt-br-ltv" value="70" step="1" max="70" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="rt-br-ltv"><label class="text-xs" title="Cash-out refi LTV. Loan = ARV × this %. Hard-capped at 65% (lender ceiling).">Refi LTV % (cap 65%)<input type="number" id="uw-rt-br-ltv" value="65" step="1" max="65" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="rt-br-rate"><label class="text-xs">Refi Rate %/yr<input type="number" id="uw-rt-br-rate" value="7" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="rt-br-yrs"><label class="text-xs">Refi Term (yrs)<input type="number" id="uw-rt-br-yrs" value="30" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="tenant-elec"><label class="text-xs" title="Auto: SqFt × $0.16/mo when blank">Electricity &amp; Gas /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-tenant-elec" oninput="uwRecalc()" placeholder="auto: sqft × 0.16" style="width:100%"></span></label></div>
@@ -4314,7 +4314,7 @@
       <div data-uw-slot="fl-listed-mo"><label class="text-xs">Listed Time (mo)<input type="number" id="uw-fl-listed-mo" value="2.5" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="fl-elec"><label class="text-xs" title="Auto-defaults to 1% of ARV ÷ 12. Type a value to override.">Electric /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-fl-elec" placeholder="auto" oninput="uwRecalc()" style="width:100%"></span></label></div>
       <div data-uw-slot="fl-water"><label class="text-xs" title="Auto-defaults to 1% of ARV ÷ 12. Type a value to override.">Water / Sewer /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-fl-water" placeholder="auto" oninput="uwRecalc()" style="width:100%"></span></label></div>
-      <div data-uw-slot="fl-ins"><label class="text-xs">Builder's Risk Ins /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-fl-ins" value="200" oninput="uwRecalc()" style="width:100%"></span></label></div>
+      <div data-uw-slot="fl-ins"><label class="text-xs">Builder's Risk Insurance /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-fl-ins" value="150" oninput="uwRecalc()" style="width:100%"></span></label></div>
       <div data-uw-slot="fl-tax"><label class="text-xs" title="Auto-defaults to 1% of purchase price (Accepted if filled in, else Asking) ÷ 12. Type a value to override.">Property Tax /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-fl-tax" placeholder="auto" oninput="uwRecalc()" style="width:100%"></span></label></div>
       <!-- Flip FINANCED-mode hard money loan inputs (only shown when Financed toggle active) -->
       <div data-uw-slot="fl-hm-ltv"><label class="text-xs" title="Loan-to-cost. 90% = lender funds 90% of (buy + rehab); you put 10% down.">Financing LTV %<input type="number" id="uw-fl-hm-ltv" value="90" step="1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
@@ -10116,14 +10116,14 @@ function uwNewDeal() {
     // Full Flip defaults — utilities + tax auto-fill the same way as wholetail
     'uw-fl-reno-mo': '2', 'uw-fl-listed-mo': '2.5',
     'uw-fl-elec': '', 'uw-fl-water': '',
-    'uw-fl-ins': '200', 'uw-fl-tax': '',
+    'uw-fl-ins': '150', 'uw-fl-tax': '',
     // Hard money loan defaults (only used when Flip is in Financed mode)
     'uw-fl-hm-ltv': '90', 'uw-fl-hm-rate': '12', 'uw-fl-hm-orig': '2',
     // Rental operating + financing defaults
     'uw-rt-down-pct': '0', 'uw-rt-vac-pct': '10', 'uw-rt-maint-pct': '5', 'uw-rt-capex-pct': '5', 'uw-rt-pm-pct': '10', 'uw-rt-appr-pct': '3',
     // Refi rental defaults — initial financing hold + cash-out refi terms
     'uw-rt-rf-hm-ltv': '100', 'uw-rt-rf-hm-rate': '12', 'uw-rt-rf-hm-orig': '2',
-    'uw-rt-br-ltv': '70', 'uw-rt-br-rate': '6.5', 'uw-rt-br-yrs': '30',
+    'uw-rt-br-ltv': '65', 'uw-rt-br-rate': '6.5', 'uw-rt-br-yrs': '30',
     'uw-rt-rf-close-pct': '2',
     // Pre-rent timeline (applies to all rental modes)
     'uw-rt-reno-mo': '1', 'uw-rt-rent-mo': '2.5',
@@ -10150,7 +10150,7 @@ function uwNewDeal() {
   // Hide the Renovation phase mover for the brand-new deal
   if (typeof _uwUpdateRenoPhaseSelector === 'function') _uwUpdateRenoPhaseSelector();
   // Reset Cash/Financed toggles to cash for the brand-new deal
-  _uwFlipMode = 'cash'; _uwRentalMode = 'cash'; _uwWholetailMode = 'cash';
+  _uwFlipMode = 'cash'; _uwRentalMode = 'cash'; _uwWholetailMode = 'cash'; _uwWholesaleMode = 'assignment';
   // Reset Rehab Calculator layout to the default 3 columns (all unchecked)
   _uwRehabState = []; if (typeof window._rcResetToDefaults === 'function') window._rcResetToDefaults();
   if (typeof uwRenderRehabCalculator === 'function') uwRenderRehabCalculator();
@@ -11001,14 +11001,14 @@ function uwReset() {
     // Full Flip defaults — utilities + tax auto-fill the same way as wholetail
     'uw-fl-reno-mo': '2', 'uw-fl-listed-mo': '2.5',
     'uw-fl-elec': '', 'uw-fl-water': '',
-    'uw-fl-ins': '200', 'uw-fl-tax': '',
+    'uw-fl-ins': '150', 'uw-fl-tax': '',
     // Hard money loan defaults (only used when Flip is in Financed mode)
     'uw-fl-hm-ltv': '90', 'uw-fl-hm-rate': '12', 'uw-fl-hm-orig': '2',
     // Rental operating + financing defaults
     'uw-rt-down-pct': '0', 'uw-rt-vac-pct': '10', 'uw-rt-maint-pct': '5', 'uw-rt-capex-pct': '5', 'uw-rt-pm-pct': '10', 'uw-rt-appr-pct': '3',
     // Refi rental defaults — initial financing hold + cash-out refi terms
     'uw-rt-rf-hm-ltv': '100', 'uw-rt-rf-hm-rate': '12', 'uw-rt-rf-hm-orig': '2',
-    'uw-rt-br-ltv': '70', 'uw-rt-br-rate': '6.5', 'uw-rt-br-yrs': '30',
+    'uw-rt-br-ltv': '65', 'uw-rt-br-rate': '6.5', 'uw-rt-br-yrs': '30',
     'uw-rt-rf-close-pct': '2',
     // Pre-rent timeline (applies to all rental modes)
     'uw-rt-reno-mo': '1', 'uw-rt-rent-mo': '2.5',
@@ -11030,7 +11030,7 @@ function uwReset() {
   _uwInChecking = false;
   if (typeof _uwUpdateCheckingButton === 'function') _uwUpdateCheckingButton();
   // Reset Cash/Financed toggles to cash for the brand-new deal
-  _uwFlipMode = 'cash'; _uwRentalMode = 'cash'; _uwWholetailMode = 'cash';
+  _uwFlipMode = 'cash'; _uwRentalMode = 'cash'; _uwWholetailMode = 'cash'; _uwWholesaleMode = 'assignment';
   // Reset Rehab Calculator layout to the default 3 columns (all unchecked)
   _uwRehabState = []; if (typeof window._rcResetToDefaults === 'function') window._rcResetToDefaults();
   if (typeof uwRenderRehabCalculator === 'function') uwRenderRehabCalculator();
@@ -12252,6 +12252,7 @@ function uwComputeExits(ctx) {
   const wsHoldingMonthly      = (arv * 0.01 / 12)   // electric (1% ARV/yr)
                               + (arv * 0.01 / 12)   // water/sewer (1% ARV/yr)
                               + 150                 // builder's-risk insurance
+                              + 150                 // mowing / lawn upkeep
                               + (arv * 0.01 / 12);  // property tax (1% ARV/yr)
   const wsHolding             = wsHoldingMonthly * _wsFlMonths;
   // Ideal profit = ARV × IFP slider final margin %. Compute inline using the
@@ -12287,7 +12288,9 @@ function uwComputeExits(ctx) {
   // would pay = the wholesaler's ask).
   window._uwCashBuyerMAO = cashBuyerMAO;
   const wholesalePurchClose = cashBuyerMAO * (wholesaleClosingPct / 100);
-  let   wholesaleProfit = Math.max(0, cashBuyerMAO - buyPrice);
+  const wholesaleMode = (typeof _uwWholesaleMode !== 'undefined' && _uwWholesaleMode === 'doubleclose') ? 'doubleclose' : 'assignment';
+  const wholesaleDoubleCloseFee = wholesaleMode === 'doubleclose' ? buyPrice * 0.02 : 0; // 2% of purchase price closing on a double close — comes out of your fee
+  let   wholesaleProfit = Math.max(0, cashBuyerMAO - buyPrice - wholesaleDoubleCloseFee);
   window._3p_wholesale = wholesaleProfit;
   const wholesaleDays = 30; // typical assignment timeline
   let   wholesaleAnnualized = wholesaleProfit > 0 ? wholesaleProfit * (365 / wholesaleDays) : 0;
@@ -12370,7 +12373,8 @@ function uwComputeExits(ctx) {
   // Property tax — 1% of purchase price per year (different basis from utilities)
   const _wtT = _wtAutoFromBasis('uw-wt-tax', arv); // 1% ARV/yr
   const wtTax = _wtT.value;
-  const wtMonthly = wtElec + wtWater + wtSewer + wtUtil + wtIns + wtTax;
+  const wtMow = 150; // mowing / lawn upkeep while held
+  const wtMonthly = wtElec + wtWater + wtSewer + wtUtil + wtIns + wtTax + wtMow;
   const wholetailHolding = wtMonthly * wholetailMonths;
   // ===== Wholetail "Buying and Selling Costs" =====
   // PURCHASE side: 1.5% buyer + 1.5% seller of the AGREED purchase price
@@ -12512,9 +12516,10 @@ function uwComputeExits(ctx) {
   // fields so editing one updates both.
   const _preElec  = _wtAutoFromBasis('uw-fl-elec',  wtUtilBasis).value;
   const _preWater = _wtAutoFromBasis('uw-fl-water', wtUtilBasis).value;
-  const _preIns   = _wtVal('uw-fl-ins', 200);
+  const _preIns   = _wtVal('uw-fl-ins', 150);
   const _preTax   = _wtAutoFromBasis('uw-fl-tax',   arv).value; // 1% ARV/yr
-  const cashPreRentHolding = (_preElec + _preWater + _preIns + _preTax) * rtPreRentMo;
+  const _preMow   = 150; // mowing / lawn upkeep while vacant
+  const cashPreRentHolding = (_preElec + _preWater + _preIns + _preTax + _preMow) * rtPreRentMo;
   const cashInvestment     = buyPrice + rRehab + rtPurchClosingTotal + cashPreRentHolding;
   const cashRentMonthlyExp = rtTaxCash + rtIns + rtVac + rtMaint + rtCapex + rtPm;
   const cashRentalCashflow = rent > 0 ? rent - cashRentMonthlyExp : 0;
@@ -12618,7 +12623,7 @@ function uwComputeExits(ctx) {
   // HM stabilization holding uses the flip holding model (elec + water +
   // builder's risk + tax) — same as Cash Rental and Cash Flip. rfStabMo
   // equals rtPreRentMo in standard rental workflow.
-  const _rfPerMo = _preElec + _preWater + _preIns + _preTax;
+  const _rfPerMo = _preElec + _preWater + _preIns + _preTax + _preMow;
   const rfPreRentHolding = _rfPerMo * rfStabMo;
   // Break-out for display
   const rfPreRentElec  = _preElec  * rfStabMo;
@@ -12638,8 +12643,8 @@ function uwComputeExits(ctx) {
   // ----- Phase 2: long-term cash-out refi -----
   // Cash-out refi hard-capped at 70% of ARV — most investor lenders won't
   // exceed this regardless of what the user types in the input.
-  const RF_LTV_CAP_PCT = 70;
-  const rfLtvPct  = Math.min(RF_LTV_CAP_PCT, _wtVal('uw-rt-br-ltv', 70));
+  const RF_LTV_CAP_PCT = 65;
+  const rfLtvPct  = Math.min(RF_LTV_CAP_PCT, _wtVal('uw-rt-br-ltv', 65));
   const rfRatePct = _wtVal('uw-rt-br-rate',  6.5);
   const rfYrs     = _wtVal('uw-rt-br-yrs',  30);
   // DSCR refi fee structure — same shared inputs as Financed Rental.
@@ -12798,9 +12803,10 @@ function uwComputeExits(ctx) {
       : (flRenoMo + ' reno + ' + flListedMo + ' listed'));
   const _flElec = _wtAutoFromBasis('uw-fl-elec',  wtUtilBasis);  const flElec  = _flElec.value;
   const _flWS   = _wtAutoFromBasis('uw-fl-water', wtUtilBasis);  const flWater = _flWS.value;
-  const flIns   = _flVal('uw-fl-ins', 200); // builder's risk ins (higher than vacant)
+  const flIns   = _flVal('uw-fl-ins', 150); // builder's risk insurance
   const _flT    = _wtAutoFromBasis('uw-fl-tax',   arv);          const flTax   = _flT.value; // 1% ARV/yr
-  const flMonthly  = flElec + flWater + flIns + flTax;
+  const flMow   = 150; // mowing / lawn upkeep while held
+  const flMonthly  = flElec + flWater + flIns + flTax + flMow;
   const flipHolding = flMonthly * flipMonths;
   // Selling costs against the FULL ARV sale price
   const flipSale       = arv;                                  // 100% ARV retail sale
@@ -12886,7 +12892,7 @@ function uwComputeExits(ctx) {
   // Max baseline (matches wsBuyMax + headline Max Offer cascade). The original
   // cashBuyerMAO-based number set above is replaced; downstream cascade gates
   // (wholetail ≥ 2× wholesale, flip ≥ 3× wholesale, etc.) inherit the new value.
-  wholesaleProfit     = Math.max(0, flFinBuyMaxBasis - buyPrice);
+  wholesaleProfit     = Math.max(0, flFinBuyMaxBasis - buyPrice - wholesaleDoubleCloseFee);
   window._3p_wholesale = wholesaleProfit;
   wholesaleAnnualized = wholesaleProfit > 0 ? wholesaleProfit * (365 / wholesaleDays) : 0;
   // Cash vs financed differ ONLY by the financing-cost adjustments (origination + interest)
@@ -12980,6 +12986,7 @@ function uwComputeExits(ctx) {
   const _modeToggle = (which, currentMode, options, recommendedMode) => {
     const setFn = which === 'flip' ? 'uwSetFlipMode'
                 : which === 'wholetail' ? 'uwSetWholetailMode'
+                : which === 'wholesale' ? 'uwSetWholesaleMode'
                 : 'uwSetRentalMode';
     const buttons = options.map(opt => {
       const isActive = currentMode === opt.value;
@@ -13001,6 +13008,10 @@ function uwComputeExits(ctx) {
     { value: 'cash',     label: '💵 Cash',  color: '#10b981', title: 'Buy with cash, no mortgage' },
     { value: 'financed', label: '🏦 Fin',   color: '#3b82f6', title: 'Mortgage at purchase' },
     { value: 'refi',     label: '🔁 Refi',  color: '#f59e0b', title: 'Refinance out of initial financing into a long-term mortgage' },
+  ];
+  const _wholesaleOpts = [
+    { value: 'assignment',  label: '📄 Assign',  color: '#10b981', title: 'Assign the contract to a cash buyer — no closing costs to you' },
+    { value: 'doubleclose', label: '2️⃣ Double',  color: '#3b82f6', title: 'Double close — you buy then resell; adds 2% of purchase price in closing fees, taken out of your fee' },
   ];
 
   // ====== Recommended mode for each strategy's toggle (★ indicator) ======
@@ -13029,16 +13040,29 @@ function uwComputeExits(ctx) {
   // ====== Build cards =====
   // Each exit gets a `lines` summary (always shown on the card) and `details`
   // (sectioned breakdown shown only when the user clicks the card to expand).
+  // Minimum-threshold note helper for the exit cards. Green ▲ when over, red ▼ when under.
+  const _threshNote = (val, min) => {
+    const d = Math.round(val - min);
+    return d >= 0 ? '▲ ' + fmt(d) + ' over your ' + fmt(min) + ' minimum'
+                  : '▼ ' + fmt(Math.abs(d)) + ' under your ' + fmt(min) + ' minimum';
+  };
   const exits = [
     {
-      key: 'wholesale', icon: '🤝', name: 'Wholesale (Assignment)',
+      key: 'wholesale', icon: '🤝', name: 'Wholesale',
+      toggle: _modeToggle('wholesale', wholesaleMode, _wholesaleOpts, null),
+      mode: wholesaleMode === 'doubleclose' ? 'Double-Close' : 'Assignment',
       profit: wholesaleProfit, time: wholesaleDays + ' days', timeMo: wholesaleDays / 30,
       annualized: wholesaleAnnualized,
-      lines: [
-        ['Cash Buyer Max Offer', fmt(cashBuyerMAO)],
-        ['Your Contract Price', fmt(buyPrice)],
-        ['Assignment Fee', fmt(wholesaleProfit)],
-      ],
+      note: _threshNote(wholesaleProfit, 10000), noteOk: wholesaleProfit >= 10000,
+      lines: (() => {
+        const _rows = [
+          ['Cash Buyer Max Offer', fmt(cashBuyerMAO)],
+          ['Your Contract Price', fmt(buyPrice)],
+        ];
+        if (wholesaleMode === 'doubleclose') _rows.push(['Double-close closing (2% of purchase)', fmt(wholesaleDoubleCloseFee)]);
+        _rows.push([wholesaleMode === 'doubleclose' ? 'Net profit (after double close)' : 'Assignment Fee', fmt(wholesaleProfit)]);
+        return _rows;
+      })(),
       details: [
         { title: '💰 Cash Buyer\'s MAO', rows: [
           ['Target After Repair Value', fmt(arv)],
@@ -13050,7 +13074,8 @@ function uwComputeExits(ctx) {
           ['Ideal profit (' + _wsIfpFinalPct.toFixed(1) + '% of ARV)', '−' + fmt(wsIdealProfit)],
           ['Cash Buyer Max Offer', fmt(cashBuyerMAO)],
           ['Your Contract Price', '−' + fmt(buyPrice)],
-          ['Assignment Fee', fmt(wholesaleProfit), 'profit'],
+          ...(wholesaleMode === 'doubleclose' ? [['Double-close closing (2% of purchase)', '−' + fmt(wholesaleDoubleCloseFee)]] : []),
+          [wholesaleMode === 'doubleclose' ? 'Net profit (after double close)' : 'Assignment Fee', fmt(wholesaleProfit), 'profit'],
         ]},
         { title: '⏱️ Why this works', rows: [
           ['Days to close', wholesaleDays + ' days'],
@@ -13070,6 +13095,7 @@ function uwComputeExits(ctx) {
       mode: wholetailMode === 'financed' ? 'Financed' : 'Cash',
       profit: wholetailProfit, time: wholetailMonths + ' mo', timeMo: wholetailMonths,
       annualized: wholetailAnnualized,
+      note: _threshNote(wholetailProfit, 25000), noteOk: wholetailProfit >= 25000,
       // Unified layout for both Cash and Financed Wholetail:
       //   Resale Value → Capital Invested → Holding → Buying → Selling
       //   → (Financing costs, financed only) → Capital tied up.
@@ -13127,6 +13153,7 @@ function uwComputeExits(ctx) {
           ['Electric · $' + Math.round(wtElec).toLocaleString() + '/mo' + (_wtElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(wtElec * wholetailMonths).toLocaleString()],
           ['Water / Sewer · $' + Math.round(wtWater).toLocaleString() + '/mo' + (_wtWS.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(wtWater * wholetailMonths).toLocaleString()],
           ['Vacant insurance · $' + wtIns + '/mo', '$' + (wtIns * wholetailMonths).toLocaleString()],
+          ['Mowing · $' + wtMow + '/mo', '$' + (wtMow * wholetailMonths).toLocaleString()],
           ['Property tax · $' + Math.round(wtTax).toLocaleString() + '/mo' + (_wtT.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(wtTax * wholetailMonths).toLocaleString()],
           ['Total holding', '$' + Math.round(wholetailHolding).toLocaleString(), 'profit'],
         ]},
@@ -13156,6 +13183,7 @@ function uwComputeExits(ctx) {
           ['Electric · $' + Math.round(wtElec).toLocaleString() + '/mo' + (_wtElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(wtElec * wholetailMonths).toLocaleString()],
           ['Water / Sewer · $' + Math.round(wtWater).toLocaleString() + '/mo' + (_wtWS.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(wtWater * wholetailMonths).toLocaleString()],
           ['Vacant insurance · $' + wtIns + '/mo', '$' + (wtIns * wholetailMonths).toLocaleString()],
+          ['Mowing · $' + wtMow + '/mo', '$' + (wtMow * wholetailMonths).toLocaleString()],
           ['Property tax · $' + Math.round(wtTax).toLocaleString() + '/mo' + (_wtT.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(wtTax * wholetailMonths).toLocaleString()],
           ['Total holding', '$' + Math.round(wholetailHolding).toLocaleString(), 'profit'],
         ]},
@@ -13181,6 +13209,7 @@ function uwComputeExits(ctx) {
       mode: flipMode === 'financed' ? 'Financed' : 'Cash',
       profit: flipProfit, time: flipMonths.toFixed(1) + ' mo', timeMo: flipMonths,
       annualized: flipAnnualized,
+      note: _threshNote(flipProfit, 40000), noteOk: flipProfit >= 40000,
       // Unified layout for both Cash and Financed Flip — same shape as the
       // Wholetail card so the user can compare exits at a glance.
       //   Resale Value → Capital Invested → Holding → Buying → Selling
@@ -13224,7 +13253,7 @@ function uwComputeExits(ctx) {
           ['Loan basis', fmt(flBaseCost)],
           ['100% of basis', fmt(flHmLoanByLtv)],
           ['Loan cap (' + FL_HM_ARV_CAP_PCT + '% × ARV)', fmt(flHmLoanByArv)],
-          ['Loan — ' + (arv > 0 ? (flHmLoan / arv * 100).toFixed(1) : '0') + '% of ARV' + (flHmCapBinds ? ' ⚠ cap binds' : ' ✓ full basis'), fmt(flHmLoan)],
+          ['Loan — ' + (arv > 0 ? (flHmLoan / arv * 100).toFixed(1) : '0') + '% of ARV' + (flHmCapBinds ? ' ⚠ cap binds' : ' ✓ full basis'), fmt(flHmLoan), ((arv > 0 ? (flHmLoan / arv) : 0) <= 0.65) ? 'greenhl' : 'redhl'],
           ['Down payment', fmt(flHmDown)],
           ['Origination (' + flHmOrigPct + ' pts)', fmt(flHmOrig)],
           ['Monthly interest', fmt(flHmMonthlyInt)],
@@ -13240,7 +13269,8 @@ function uwComputeExits(ctx) {
         { title: '🏠 Holding<br>(' + flipMonths.toFixed(1) + ' mo · ' + flipHoldBreakdown + ')', rows: [
           ['Electric · $' + Math.round(flElec).toLocaleString() + '/mo' + (_flElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flElec * flipMonths).toLocaleString()],
           ['Water / Sewer · $' + Math.round(flWater).toLocaleString() + '/mo' + (_flWS.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flWater * flipMonths).toLocaleString()],
-          ['Builder\'s risk · $' + flIns + '/mo', '$' + (flIns * flipMonths).toLocaleString()],
+          ['Builder\'s risk insurance · $' + flIns + '/mo', '$' + (flIns * flipMonths).toLocaleString()],
+          ['Mowing · $' + flMow + '/mo', '$' + (flMow * flipMonths).toLocaleString()],
           ['Property tax · $' + Math.round(flTax).toLocaleString() + '/mo' + (_flT.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flTax * flipMonths).toLocaleString()],
           ['Total holding', '$' + Math.round(flipHolding).toLocaleString(), 'profit'],
         ]},
@@ -13269,7 +13299,8 @@ function uwComputeExits(ctx) {
         { title: '🏠 Holding<br>(' + flipMonths.toFixed(1) + ' mo · ' + flipHoldBreakdown + ')', rows: [
           ['Electric · $' + Math.round(flElec).toLocaleString() + '/mo' + (_flElec.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flElec * flipMonths).toLocaleString()],
           ['Water / Sewer · $' + Math.round(flWater).toLocaleString() + '/mo' + (_flWS.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flWater * flipMonths).toLocaleString()],
-          ['Builder\'s risk · $' + flIns + '/mo', '$' + (flIns * flipMonths).toLocaleString()],
+          ['Builder\'s risk insurance · $' + flIns + '/mo', '$' + (flIns * flipMonths).toLocaleString()],
+          ['Mowing · $' + flMow + '/mo', '$' + (flMow * flipMonths).toLocaleString()],
           ['Property tax · $' + Math.round(flTax).toLocaleString() + '/mo' + (_flT.isAuto ? ' (1% ARV/yr)' : ''), '$' + Math.round(flTax * flipMonths).toLocaleString()],
           ['Total holding', '$' + Math.round(flipHolding).toLocaleString(), 'profit'],
         ]},
@@ -13306,6 +13337,25 @@ function uwComputeExits(ctx) {
       // panel renders, so the user can browse any scenario without changing
       // which rental mode is "best" for the deal.
       annualized: bestRentalAnnualized,
+      note: (() => {
+        if (rentalMode === 'cash') {
+          const y = _cashYieldPct * 100, d = y - 20;
+          return d >= 0 ? '▲ ' + y.toFixed(1) + '% yield · ' + d.toFixed(1) + '% above your 20% min'
+                        : '▼ ' + y.toFixed(1) + '% yield · needs +' + Math.abs(d).toFixed(1) + '% to hit 20%';
+        }
+        if (finTargetPi <= 0) return '⚠ $200/mo cashflow not reachable — rent vs. expenses too tight';
+        const leaveIn = rentalMode === 'refi' ? rfTargetLeftIn : finExtraDownIn;
+        const takeOut = rentalMode === 'refi' ? rfTargetCashOut : finCashCouldPull;
+        if (leaveIn > 0) return '💰 Leave in ' + fmt(Math.round(leaveIn)) + ' of your cash → $200/mo cashflow';
+        if (takeOut > 0) return '💵 Can pull out ' + fmt(Math.round(takeOut)) + ' extra & still keep $200/mo';
+        return '✓ Exactly $200/mo at full pull-out';
+      })(),
+      noteOk: (() => {
+        if (rentalMode === 'cash') return _cashYieldPct >= 0.20;
+        if (finTargetPi <= 0) return false;
+        const leaveIn = rentalMode === 'refi' ? rfTargetLeftIn : finExtraDownIn;
+        return leaveIn <= 0;
+      })(),
       lines: (() => {
         // Immediate equity = ARV − loan balance at day 1. Differs by mode:
         //   • Cash rental:  no loan → equity = full ARV (you own it all)
@@ -13356,7 +13406,8 @@ function uwComputeExits(ctx) {
           ['Purchase Closing', fmt(rtPurchClosingTotal)],
           ['Pre-Rent Electric (' + rfStabMo + ' mo)', fmt(rfPreRentElec)],
           ['Pre-Rent Water/Sewer (' + rfStabMo + ' mo)', fmt(rfPreRentWater)],
-          ['Pre-Rent Builder\'s Risk Ins (' + rfStabMo + ' mo)', fmt(rfPreRentIns)],
+          ['Pre-Rent Builder\'s Risk Insurance (' + rfStabMo + ' mo)', fmt(rfPreRentIns)],
+          ['Pre-Rent Mowing (' + rfStabMo + ' mo)', fmt(_preMow * rfStabMo)],
           ['Pre-Rent Property Tax (' + rfStabMo + ' mo)', fmt(rfPreRentTax)],
           ['Loan basis (HM funds the project)', fmt(rfBaseCost)],
           ['HM loan (' + rfHmLtvPct + '% of basis)', fmt(rfHmLoan)],
@@ -13368,7 +13419,7 @@ function uwComputeExits(ctx) {
         ]},
         { title: '🔁 Long-Term DSCR Refinance <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· ' + rfLtvPct + '% · ' + rfRatePct + '%/yr · ' + rfYrs + ' yr · ' + RF_LTV_CAP_PCT + '% LTV cap</span>', rows: [
           ['ARV (after rehab + rented)', fmt(arv)],
-          ['Smart loan needed (full payoff)', fmt(_rfLoanNeededForOut)],
+          ['Smart loan needed (full payoff)', fmt(_rfLoanNeededForOut), (rfLeftInMax <= 0) ? 'greenhl' : 'redhl'],
           ['LTV cap (' + RF_LTV_CAP_PCT + '% of ARV)', fmt(_rfLtvCapLoan)],
           ['Long-term refi loan (smart-sized, capped at LTV)', fmt(rfLoan)],
           ['− Pays off HM loan', '−' + fmt(rfHmLoan)],
@@ -13393,11 +13444,12 @@ function uwComputeExits(ctx) {
           ['Monthly Refinanced Principal', '−' + fmt(rfPrincipal)],
           ['Property tax (1% ARV/yr)', '−' + fmt(rtTaxFin)],
           ['Insurance (1% ARV/yr)', '−' + fmt(rtIns)],
+          ['Cashflow after PITI', fmt(rent - rfInterest - rfPrincipal - rtTaxFin - rtIns), 'amber'],
+          ['Management fee (' + rtPmPct + '%)', '−' + fmt(rtPm)],
           ['Vacancy (' + rtVacPct + '%)', '−' + fmt(rtVac)],
           ['Maintenance (' + rtMaintPct + '%)', '−' + fmt(rtMaint)],
           ['CapEx (' + rtCapexPct + '%)', '−' + fmt(rtCapex)],
-          ['Management fee (' + rtPmPct + '%)', '−' + fmt(rtPm)],
-          ['Monthly cashflow', fmt(rfCashflow), 'profit'],
+          ['Cashflow after Reserves', fmt(rfCashflow), 'purple'],
           ['Annual cashflow', fmt(rfAnnualCashflow), 'profit'],
           ['Cash-on-cash', rfLeftIn < 1 ? '∞ (all capital out)' : rfCoC.toFixed(1) + '%', 'profit'],
         ]},
@@ -13421,9 +13473,8 @@ function uwComputeExits(ctx) {
           ['Target loan size', fmt(rfTargetLoanLtvLimited)],
           ['Target LTV', rfTargetLtvPct.toFixed(1) + '% of ARV'],
           ['Net cash from refi at target', fmt(rfTargetCashFromRefi)],
-          rfTargetCashOut > 0
-            ? ['💵 Cash you could TAKE OUT (above what you put in)', fmt(rfTargetCashOut), 'profit']
-            : ['💰 Capital you\'d need to LEAVE IN the deal', fmt(rfTargetLeftIn), 'profit'],
+          ['💰 Cash Required to LEAVE IN', fmt(rfTargetLeftIn), 'redhl'],
+          ['💵 Cash Available to PULL OUT', fmt(rfTargetCashOut), 'greenhl'],
           // Equity gain at the max-LTV refi loan — useful context next to
           // the $200/mo target so the user sees the full monthly return.
           ['📈 Equity gain /mo at max-LTV', fmt((rfPrincipalMax || 0) + ((rtAnnualAppreciation || 0) / 12)), 'profit'],
@@ -13434,7 +13485,7 @@ function uwComputeExits(ctx) {
         ]},
         { title: '📈 Equity Gain', rows: [
           ['Day-1 forced equity (ARV − buy − rehab)', fmt(rtForcedEquity)],
-          ['Day-1 leveraged equity (ARV − refi loan)', fmt(Math.max(0, arv - rfLoan))],
+          ['Day-1 leveraged equity (ARV − refi loan)', fmt(Math.max(0, arv - rfLoan)), 'blue'],
           ['Year-1 loan paydown (refi principal × 12)', fmt(rfPrincipal * 12)],
           ['Year-1 appreciation (' + rtApprPct + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(rtForcedEquity + (rfPrincipal * 12) + rtAnnualAppreciation), 'profit'],
@@ -13456,13 +13507,14 @@ function uwComputeExits(ctx) {
           ['Purchase Closing', fmt(rtPurchClosingTotal)],
           ['Pre-Rent Electric (' + rtPreRentMo + ' mo)', fmt(finPreRentElec)],
           ['Pre-Rent Water/Sewer (' + rtPreRentMo + ' mo)', fmt(finPreRentWater)],
-          ['Pre-Rent Builder\'s Risk Ins (' + rtPreRentMo + ' mo)', fmt(finPreRentIns)],
+          ['Pre-Rent Builder\'s Risk Insurance (' + rtPreRentMo + ' mo)', fmt(finPreRentIns)],
+          ['Pre-Rent Mowing (' + rtPreRentMo + ' mo)', fmt(_preMow * rtPreRentMo)],
           ['Pre-Rent Property Tax (' + rtPreRentMo + ' mo)', fmt(finPreRentTax)],
           ['Total cash put up', fmt(finCashPutUp), 'profit'],
         ]},
         { title: '🔁 Long-Term DSCR Financing <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· ' + finRatePct + '%/yr · ' + finYrs + ' yr · ' + FIN_LTV_CAP_PCT + '% LTV cap</span>', rows: [
           ['ARV (after rehab + rented)', fmt(arv)],
-          ['Smart loan needed (cash put up ÷ (1 − orig%))', fmt(_finLoanNeeded)],
+          ['Smart loan needed (full payoff)', fmt(_finLoanNeeded), (finLeftIn <= 0) ? 'greenhl' : 'redhl'],
           ['LTV cap (' + FIN_LTV_CAP_PCT + '% of ARV)', fmt(_finLtvCapLoan)],
           ['Long-term loan (smart-sized, capped at LTV)', fmt(finLoan)],
           ['− DSCR origination (' + finOrigPct + '% of loan)', '−' + fmt(finOrig)],
@@ -13472,10 +13524,7 @@ function uwComputeExits(ctx) {
           finCashOut > 0
             ? ['💵 Bonus cash pulled out (above what you put in)', fmt(finCashOut), 'profit']
             : ['💰 Capital LEFT IN deal', fmt(finLeftIn), finLeftIn === 0 ? 'profit' : ''],
-          ['Monthly Financing Interest', fmt(finInterest)],
-          ['Monthly Financing Principal', fmt(finPrincipal)],
-          ['DSCR (NOI ÷ debt service) — must be ≥ 1.00', dscr > 0 ? dscr.toFixed(2) : '—',
-            dscr >= 1.0 ? 'profit' : 'cost'],
+          ['DSCR (NOI ÷ debt service) — must be ≥ 1.00', dscr > 0 ? dscr.toFixed(2) : '—', dscr >= 1.0 ? 'profit' : 'cost'],
         ]},
         { title: '🏠 Monthly Cashflow & Returns', rows: [
           ['Rent', fmt(rent)],
@@ -13483,11 +13532,12 @@ function uwComputeExits(ctx) {
           ['Monthly Financing Principal', '−' + fmt(finPrincipal)],
           ['Property tax (1% ARV/yr)', '−' + fmt(rtTaxFin)],
           ['Insurance (1% ARV/yr)', '−' + fmt(rtIns)],
+          ['Cashflow after PITI', fmt(rent - finInterest - finPrincipal - rtTaxFin - rtIns), 'amber'],
+          ['Management fee (' + rtPmPct + '%)', '−' + fmt(rtPm)],
           ['Vacancy (' + rtVacPct + '%)', '−' + fmt(rtVac)],
           ['Maintenance (' + rtMaintPct + '%)', '−' + fmt(rtMaint)],
           ['CapEx (' + rtCapexPct + '%)', '−' + fmt(rtCapex)],
-          ['Management fee (' + rtPmPct + '%)', '−' + fmt(rtPm)],
-          ['Monthly cashflow', fmt(finCashflow), 'profit'],
+          ['Cashflow after Reserves', fmt(finCashflow), 'purple'],
           ['Annual cashflow', fmt(finAnnualCashflow), 'profit'],
           ['Cash-on-cash', finLeftIn < 1 ? '∞ (all capital out)' : finCoC.toFixed(1) + '%', 'profit'],
         ]},
@@ -13497,9 +13547,8 @@ function uwComputeExits(ctx) {
           ['Target P&I that hits $200/mo', fmt(finTargetPi)],
           ['Target loan size', fmt(finTargetLoan)],
           ['Current loan size', fmt(finLoan)],
-          finExtraDownIn > 0
-            ? ['💰 Extra down payment to LEAVE IN deal', fmt(finExtraDownIn), 'profit']
-            : ['💵 Cash you could TAKE OUT (smaller down + bigger loan)', fmt(finCashCouldPull), 'profit'],
+          ['💰 Cash Required to LEAVE IN', fmt(finExtraDownIn), 'redhl'],
+          ['💵 Cash Available to PULL OUT', fmt(finCashCouldPull), 'greenhl'],
           // Equity gain at the CURRENT loan size — useful context alongside
           // the $200/mo cashflow target so the user sees both the visible
           // cashflow AND the invisible monthly equity build.
@@ -13513,7 +13562,7 @@ function uwComputeExits(ctx) {
         ]},
         { title: '📈 Equity Gain', rows: [
           ['Day-1 forced equity (ARV − buy − rehab)', fmt(rtForcedEquity)],
-          ['Day-1 leveraged equity (ARV − loan)', fmt(Math.max(0, arv - finLoan))],
+          ['Day-1 leveraged equity (ARV − loan)', fmt(Math.max(0, arv - finLoan)), 'blue'],
           ['Year-1 loan paydown (principal × 12)', fmt(finPrincipal * 12)],
           ['Year-1 appreciation (' + rtApprPct + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(rtForcedEquity + (finPrincipal * 12) + rtAnnualAppreciation), 'profit'],
@@ -13540,11 +13589,12 @@ function uwComputeExits(ctx) {
           ['Rent', fmt(rent)],
           ['Property tax (1% ARV/yr)', '−' + fmt(rtTaxCash)],
           ['Insurance (1% ARV/yr)', '−' + fmt(rtIns)],
+          ['Cashflow after PITI', fmt(rent - rtTaxCash - rtIns), 'amber'],
+          ['Management fee (' + rtPmPct + '%)', '−' + fmt(rtPm)],
           ['Vacancy (' + rtVacPct + '%)', '−' + fmt(rtVac)],
           ['Maintenance (' + rtMaintPct + '%)', '−' + fmt(rtMaint)],
           ['CapEx (' + rtCapexPct + '%)', '−' + fmt(rtCapex)],
-          ['Management fee (' + rtPmPct + '%)', '−' + fmt(rtPm)],
-          ['Monthly cashflow', fmt(cashRentalCashflow), 'profit'],
+          ['Cashflow after Reserves', fmt(cashRentalCashflow), 'purple'],
         ]},
         { title: '📊 Returns', rows: [
           ['Annual cashflow', fmt(cashAnnualCashflow)],
@@ -13555,6 +13605,7 @@ function uwComputeExits(ctx) {
         ]},
         { title: '📈 Equity Gain', rows: [
           ['Day-1 forced equity (ARV − buy − rehab)', fmt(rtForcedEquity)],
+          ['Day-1 equity (ARV − Total Invested)', fmt(arv - _cashAllIn), 'blue'],
           ['Year-1 loan paydown', '$0 (no loan)'],
           ['Year-1 appreciation (' + rtApprPct + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(rtForcedEquity + rtAnnualAppreciation), 'profit'],
@@ -13881,7 +13932,9 @@ function uwComputeExits(ctx) {
       }
       // Toggle (if present) renders on its own line below the title — keeps
       // the title row clean and prevents the buttons from squishing the card.
-      const toggleRow = e.toggle ? `<div style="margin-bottom:8px">${e.toggle}</div>` : '';
+      // Cards without a Cash/Fin toggle (e.g. Wholesale) get an empty spacer of
+      // the same height so their content lines up with the toggle cards.
+      const toggleRow = e.toggle ? `<div style="margin-bottom:8px">${e.toggle}</div>` : '<div style="height:24px;margin-bottom:8px"></div>';
       return `<div onclick="uwToggleExit('${e.key}')" data-exit-key="${e.key}"${isBest ? ' data-is-best="true"' : ''}${e.bestMode ? ` data-best-mode="${e.bestMode}"` : ''}${typeof e.annualized === 'number' ? ` data-annualized="${Math.round(e.annualized)}"` : ''}${typeof e.bestModeProfit === 'number' ? ` data-best-profit="${Math.round(e.bestModeProfit)}"` : ''} style="padding:12px 14px;background:${bg};border:${border};border-radius:10px;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''" title="Click to ${isOpen ? 'collapse' : 'view full breakdown'}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <span style="font-weight:600;font-size:13px">${e.icon} ${e.name}${e.mode ? ' <span style=\'color:var(--text-dim);font-weight:500\'>(' + e.mode + ')</span>' : ''}${badge}</span>
@@ -13890,6 +13943,7 @@ function uwComputeExits(ctx) {
         ${toggleRow}
         <div style="font-size:20px;font-weight:700;color:${profitColor};margin-bottom:2px"><span class="uw-exit-profit-num">${e.profit > 0 ? '$' + Math.round(e.profit).toLocaleString() : (e.profit < 0 ? '−$' + Math.round(Math.abs(e.profit)).toLocaleString() : '$0')}</span>${monthlyProfitInline}</div>
         <div style="font-size:10px;color:var(--text-dim);margin-bottom:8px">${profitLabel} · ${e.time}${e.type === 'oneTime' && e.profit > 0 ? ' · ' + annLabel + ' $' + Math.round(e.annualized).toLocaleString() : ''}</div>
+        ${e.note ? `<div style="font-size:10.5px;font-weight:600;margin-bottom:8px;line-height:1.35;color:${e.noteOk ? '#10b981' : '#fca5a5'}">${e.note}</div>` : ''}
         <div style="font-size:11px;line-height:1.5;color:var(--text-dim)">
           ${e.lines.map(l => `<div style="display:flex;justify-content:space-between"><span>${l[0]}</span><b style="color:var(--text)">${l[1]}</b></div>`).join('')}
         </div>
@@ -13962,18 +14016,44 @@ function uwComputeExits(ctx) {
               const isCost   = r[2] === 'cost';
               const isWarn   = r[2] === 'warn';
               const isStruck = r[2] === 'struck';
+              const isAmber   = r[2] === 'amber';
+              const isPurple  = r[2] === 'purple';
+              const isRedHl   = r[2] === 'redhl';
+              const isGreenHl = r[2] === 'greenhl';
+              const isBlue    = r[2] === 'blue';
               const valueStyle = isCost
                 ? 'font-weight:700;color:#ef4444'
                 : isWarn
                   ? 'font-weight:700;color:#f59e0b'
                   : isStruck
                     ? 'font-weight:700;color:var(--text-dim);text-decoration:line-through;opacity:0.7'
-                    : isProfit
-                      ? 'font-weight:700;color:' + ((parseFloat(String(r[1]).replace(/[^\d.\-−]/g,'').replace('−','-')) >= 0) ? '#10b981' : '#ef4444')
-                      : 'color:var(--text);font-weight:500';
+                    : isAmber
+                      ? 'font-weight:700;color:#fbbf24'
+                      : isPurple
+                        ? 'font-weight:700;color:#c4b5fd'
+                        : isRedHl
+                          ? 'font-weight:700;color:#fca5a5'
+                          : isGreenHl
+                            ? 'font-weight:700;color:#6ee7b7'
+                            : isBlue
+                            ? 'font-weight:700;color:#93c5fd'
+                            : isProfit
+                              ? 'font-weight:700;color:' + ((parseFloat(String(r[1]).replace(/[^\d.\-−]/g,'').replace('−','-')) >= 0) ? '#10b981' : '#ef4444')
+                              : 'color:var(--text);font-weight:500';
               // When the row is "struck" (LTV cap binds, etc.), also dim/strike the label.
-              const labelStyle = isStruck ? 'color:var(--text-dim);text-decoration:line-through;opacity:0.7' : 'color:var(--text-dim)';
-              return `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dotted var(--border)"><span style="${labelStyle}">${r[0]}</span><span style="${valueStyle}">${r[1]}</span></div>`;
+              const labelStyle = isStruck ? 'color:var(--text-dim);text-decoration:line-through;opacity:0.7'
+                               : isAmber   ? 'color:#fbbf24;font-weight:600'
+                               : isPurple  ? 'color:#c4b5fd;font-weight:600'
+                               : isRedHl   ? 'color:#fca5a5;font-weight:600'
+                               : isGreenHl ? 'color:#6ee7b7;font-weight:600'
+                               : isBlue    ? 'color:#93c5fd;font-weight:600'
+                               : 'color:var(--text-dim)';
+              const rowExtra = isAmber   ? ';background:rgba(245,158,11,0.12);border-radius:5px;padding-left:6px;padding-right:6px'
+                             : isPurple  ? ';background:rgba(168,85,247,0.14);border-radius:5px;padding-left:6px;padding-right:6px'
+                             : isRedHl   ? ';background:rgba(239,68,68,0.12);border-radius:5px;padding-left:6px;padding-right:6px'
+                             : isGreenHl ? ';background:rgba(16,185,129,0.12);border-radius:5px;padding-left:6px;padding-right:6px'
+                             : isBlue    ? ';background:rgba(59,130,246,0.14);border-radius:5px;padding-left:6px;padding-right:6px' : '';
+              return `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dotted var(--border)${rowExtra}"><span style="${labelStyle}">${r[0]}</span><span style="${valueStyle}">${r[1]}</span></div>`;
             }).join('')}
           </div>
         </div>`).join('');
@@ -14623,6 +14703,7 @@ function uwComputeExits(ctx) {
           </div>
         </div>
         <div style="font-size:10px;color:var(--text-dim);margin-top:6px;line-height:1.3">${_rtBrLtvPct}% refi LTV × ARV (${fmt$(arv)}) · pull-out + ≥$200 cashflow both required</div>
+        ${(rfTargetPi > 0) ? '<div style="font-size:10.5px;color:#c4b5fd;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);line-height:1.35">💰 Leave in <b>' + fmt$(rfTargetLeftIn) + '</b> of your own cash → hits $200/mo cashflow at this buy price</div>' : '<div style="font-size:10.5px;color:var(--text-dim);margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);line-height:1.35">💰 $200/mo cashflow not reachable — rent vs. expenses too tight</div>'}
         ${diagInfo ? '<div style="font-size:10px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);color:' + diagColor + ';line-height:1.3">' + diagInfo.msg + '</div>' : ''}
       </div>`;
     })();
@@ -14663,6 +14744,7 @@ function uwComputeExits(ctx) {
           </div>
         </div>
         <div style="font-size:10px;color:var(--text-dim);margin-top:6px;line-height:1.3">Cash purchase + rehab, then DSCR loan to recoup. Cheaper than BRRR (no HM round-trip).</div>
+        ${(finTargetPi > 0) ? '<div style="font-size:10.5px;color:#c4b5fd;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);line-height:1.35">💰 Leave in <b>' + fmt$(finExtraDownIn) + '</b> of your own cash → hits $200/mo cashflow at this buy price</div>' : '<div style="font-size:10.5px;color:var(--text-dim);margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);line-height:1.35">💰 $200/mo cashflow not reachable — rent vs. expenses too tight</div>'}
         ${diagInfo ? '<div style="font-size:10px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);color:' + diagColor + ';line-height:1.3">' + diagInfo.msg + '</div>' : ''}
       </div>`;
     })();
@@ -16680,7 +16762,7 @@ function _uwComputeMaxOfferFromData(data) {
   const wsSellClose = arv * 0.03;
   const wsSellAgents = arv * 0.05;
   const wsFlMonths = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
-  const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 150;
+  const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 300;
   const wsHolding = wsHoldingMonthly * wsFlMonths;
   const ifpVal = N('uw-ifp-slider', 60);
   const stops = [{x:0,pct:8},{x:20,pct:10},{x:40,pct:15},{x:60,pct:20},{x:80,pct:25},{x:120,pct:35}];
@@ -16769,7 +16851,7 @@ function _uwComputeWholesaleProfitFromData(data) {
   // Holding: cash buyer's flip months = uw-fl-reno-mo + uw-fl-listed-mo
   // (defaults: 2 reno + 3 listed = 5 months)
   const wsFlMonths = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
-  const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 150;
+  const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 300;
   const wsHolding        = wsHoldingMonthly * wsFlMonths;
   // Ideal Flip Profit slider → margin %. Stops match the live slider.
   const ifpVal = N('uw-ifp-slider', 60); // 60 = Heavy benchmark = 20%
@@ -17502,6 +17584,7 @@ function _uwCollect() {
   // Persist the Cash/Financed mode for the combined Flip and Rental cards
   data._flipMode      = _uwFlipMode      === 'financed' ? 'financed' : 'cash';
   data._wholetailMode = _uwWholetailMode === 'financed' ? 'financed' : 'cash';
+  data._wholesaleMode = _uwWholesaleMode === 'doubleclose' ? 'doubleclose' : 'assignment';
   // Normalize: legacy 'brrr' value persists as 'refi' going forward.
   const _rmOut = (_uwRentalMode === 'brrr') ? 'refi' : _uwRentalMode;
   data._rentalMode = (_rmOut === 'financed' || _rmOut === 'refi') ? _rmOut : 'cash';
@@ -17737,6 +17820,7 @@ function _uwApply(data) {
   // Restore the Cash/Financed toggle for Flip + Rental (defaults to cash)
   _uwFlipMode      = data._flipMode      === 'financed' ? 'financed' : 'cash';
   _uwWholetailMode = data._wholetailMode === 'financed' ? 'financed' : 'cash';
+  _uwWholesaleMode = data._wholesaleMode === 'doubleclose' ? 'doubleclose' : 'assignment';
   // Migrate any legacy 'brrr' state to the renamed 'refi' on load.
   const _rmIn = (data._rentalMode === 'brrr') ? 'refi' : data._rentalMode;
   _uwRentalMode = (_rmIn === 'financed' || _rmIn === 'refi') ? _rmIn : 'cash';
@@ -18349,6 +18433,13 @@ let _uwIsPriority = false;
 let _uwFlipMode      = 'cash'; // 'cash' | 'financed' — Flip card
 let _uwRentalMode    = 'cash'; // 'cash' | 'financed' — Rental card
 let _uwWholetailMode = 'cash'; // 'cash' | 'financed' — Wholetail card
+let _uwWholesaleMode = 'assignment'; // 'assignment' | 'doubleclose' — Wholesale card
+function uwSetWholesaleMode(mode) {
+  if (mode !== 'assignment' && mode !== 'doubleclose') return;
+  _uwWholesaleMode = mode;
+  if (typeof uwRecalc === 'function') uwRecalc();
+  if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+}
 function uwSetFlipMode(mode) {
   if (mode !== 'cash' && mode !== 'financed') return;
   _uwFlipMode = mode;
@@ -18372,6 +18463,7 @@ function uwSetWholetailMode(mode) {
 window.uwSetFlipMode      = uwSetFlipMode;
 window.uwSetRentalMode    = uwSetRentalMode;
 window.uwSetWholetailMode = uwSetWholetailMode;
+window.uwSetWholesaleMode = uwSetWholesaleMode;
 
 // ----- Budget tab (Holdings/Renovation only) -----
 // Reads every rehab item (factored-in shown first, unplanned in a collapsible
@@ -28921,7 +29013,7 @@ function _dispoCashFlipMaxFromData(d) {
   const wsSellClose  = arv * 0.03;
   const wsSellAgents = arv * 0.05;
   const wsFlMonths   = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
-  const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 150;
+  const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 300;
   const wsHolding    = wsHoldingMonthly * wsFlMonths;
   const ifpVal = N('uw-ifp-slider', 60);
   const stops = [{x:0,pct:8},{x:20,pct:10},{x:40,pct:15},{x:60,pct:20},{x:80,pct:25},{x:120,pct:35}];
@@ -30746,7 +30838,7 @@ function buyerRenderContractsPanel() {
     const wsSellClose  = arv * 0.03;
     const wsSellAgents = arv * 0.05;
     const wsFlMonths   = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
-    const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 150;
+    const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 300;
     const wsHolding    = wsHoldingMonthly * wsFlMonths;
     // IFP slider → finalPct (same piecewise stops as live)
     const ifpVal = N('uw-ifp-slider', 60);

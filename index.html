@@ -12576,6 +12576,11 @@ function uwComputeExits(ctx) {
   const finPrincipal = Math.max(0, finPi - finInterest);
   const finMonthlyExp     = finPi + rtTaxFin + rtIns + rtVac + rtMaint + rtCapex + rtPm;
   const finCashflow       = rent - finMonthlyExp;
+  // DSCR, lender convention: gross rent ÷ PITI (P&I + taxes + insurance).
+  const finPiti   = finPi + rtTaxFin + rtIns;
+  const finDscr   = finPiti > 0 ? rent / finPiti : 0;
+  // DSCR with reserves: rent ÷ full monthly cost (PITI + vacancy/maint/capex/mgmt).
+  const finDscrRes = finMonthlyExp > 0 ? rent / finMonthlyExp : 0;
   // Track whether the smart-sized loan exceeds the LTV cap — used to strike
   // through the cashflow + CoC rows in the breakdown the same way wholetail
   // gets struck out when its rehab/sqft cap binds.
@@ -12670,6 +12675,9 @@ function uwComputeExits(ctx) {
   const rfPi      = rfRate > 0 ? rfLoan * (rfRate * Math.pow(1 + rfRate, rfN)) / (Math.pow(1 + rfRate, rfN) - 1) : 0;
   const rfInterest  = rfLoan * rfRate;
   const rfPrincipal = Math.max(0, rfPi - rfInterest);
+  // DSCR, lender convention: gross rent ÷ PITI (P&I + taxes + insurance).
+  const rfPiti  = rfPi + rtTaxFin + rtIns;
+  const rfDscr  = rfPiti > 0 ? rent / rfPiti : 0;
   // Track whether the smart-sized refi loan exceeds the LTV cap.
   const _rfLtvBinds = (_rfLoanNeededForOut - _rfLtvCapLoan) > 10000;
   window._3p_rfLtvBinds = !!_rfLtvBinds;
@@ -12685,6 +12693,8 @@ function uwComputeExits(ctx) {
   // ----- Ongoing monthly cashflow (post-refi) -----
   const rfMonthlyExp     = rfPi + rtTaxFin + rtIns + rtVac + rtMaint + rtCapex + rtPm;
   const rfCashflow       = rent - rfMonthlyExp;
+  // DSCR with reserves: rent ÷ full monthly cost (PITI + vacancy/maint/capex/mgmt).
+  const rfDscrRes = rfMonthlyExp > 0 ? rent / rfMonthlyExp : 0;
   const rfAnnualCashflow = rfCashflow * 12;
   window._3p_refiAnnual = rfAnnualCashflow;
   // ===== MAX-LTV variants (informational — what you COULD pull out) =====
@@ -13436,7 +13446,8 @@ function uwComputeExits(ctx) {
           ['Monthly Refinanced Interest', fmt(rfInterest)],
           ['Monthly Refinanced Principal', fmt(rfPrincipal)],
           ['Total Project Cost (no sale/agent costs)', fmt(buyPrice + rtPurchClosingTotal + rRehab + rfPreRentHolding + rfHmOrig + rfHmTotalInt + rfCloseCost), 'cost'],
-          ['DSCR (NOI ÷ debt service) — must be ≥ 1.00', dscr > 0 ? dscr.toFixed(2) : '—', dscr >= 1.0 ? 'profit' : 'cost'],
+          ['DSCR (PITI) — must be ≥ 1.25', rfDscr > 0 ? rfDscr.toFixed(2) : '—', rfDscr >= 1.25 ? 'cyangreen' : 'cyanred'],
+          ['DSCR (PITI + Reserves)', rfDscrRes > 0 ? rfDscrRes.toFixed(2) : '—', rfDscrRes >= 1.0 ? 'profit' : 'cost'],
         ]},
         { title: '🏠 Monthly Cashflow & Returns', rows: [
           ['Rent', fmt(rent)],
@@ -13524,7 +13535,8 @@ function uwComputeExits(ctx) {
           finCashOut > 0
             ? ['💵 Bonus cash pulled out (above what you put in)', fmt(finCashOut), 'profit']
             : ['💰 Capital LEFT IN deal', fmt(finLeftIn), finLeftIn === 0 ? 'profit' : ''],
-          ['DSCR (NOI ÷ debt service) — must be ≥ 1.00', dscr > 0 ? dscr.toFixed(2) : '—', dscr >= 1.0 ? 'profit' : 'cost'],
+          ['DSCR (PITI) — must be ≥ 1.25', finDscr > 0 ? finDscr.toFixed(2) : '—', finDscr >= 1.25 ? 'cyangreen' : 'cyanred'],
+          ['DSCR (PITI + Reserves)', finDscrRes > 0 ? finDscrRes.toFixed(2) : '—', finDscrRes >= 1.0 ? 'profit' : 'cost'],
         ]},
         { title: '🏠 Monthly Cashflow & Returns', rows: [
           ['Rent', fmt(rent)],
@@ -14021,6 +14033,9 @@ function uwComputeExits(ctx) {
               const isRedHl   = r[2] === 'redhl';
               const isGreenHl = r[2] === 'greenhl';
               const isBlue    = r[2] === 'blue';
+              const isCyan    = r[2] === 'cyan';
+              const isCyanGreen = r[2] === 'cyangreen';
+              const isCyanRed   = r[2] === 'cyanred';
               const valueStyle = isCost
                 ? 'font-weight:700;color:#ef4444'
                 : isWarn
@@ -14037,6 +14052,12 @@ function uwComputeExits(ctx) {
                             ? 'font-weight:700;color:#6ee7b7'
                             : isBlue
                             ? 'font-weight:700;color:#93c5fd'
+                            : isCyan
+                            ? 'font-weight:700;color:#67e8f9'
+                            : isCyanGreen
+                            ? 'font-weight:700;color:#10b981'
+                            : isCyanRed
+                            ? 'font-weight:700;color:#ef4444'
                             : isProfit
                               ? 'font-weight:700;color:' + ((parseFloat(String(r[1]).replace(/[^\d.\-−]/g,'').replace('−','-')) >= 0) ? '#10b981' : '#ef4444')
                               : 'color:var(--text);font-weight:500';
@@ -14047,12 +14068,16 @@ function uwComputeExits(ctx) {
                                : isRedHl   ? 'color:#fca5a5;font-weight:600'
                                : isGreenHl ? 'color:#6ee7b7;font-weight:600'
                                : isBlue    ? 'color:#93c5fd;font-weight:600'
+                               : isCyan    ? 'color:#67e8f9;font-weight:600'
+                               : (isCyanGreen || isCyanRed) ? 'color:#67e8f9;font-weight:600'
                                : 'color:var(--text-dim)';
               const rowExtra = isAmber   ? ';background:rgba(245,158,11,0.12);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isPurple  ? ';background:rgba(168,85,247,0.14);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isRedHl   ? ';background:rgba(239,68,68,0.12);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isGreenHl ? ';background:rgba(16,185,129,0.12);border-radius:5px;padding-left:6px;padding-right:6px'
-                             : isBlue    ? ';background:rgba(59,130,246,0.14);border-radius:5px;padding-left:6px;padding-right:6px' : '';
+                             : isBlue    ? ';background:rgba(59,130,246,0.14);border-radius:5px;padding-left:6px;padding-right:6px'
+                             : isCyan    ? ';background:rgba(34,211,238,0.14);border-radius:5px;padding-left:6px;padding-right:6px'
+                             : (isCyanGreen || isCyanRed) ? ';background:rgba(34,211,238,0.14);border-radius:5px;padding-left:6px;padding-right:6px' : '';
               return `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dotted var(--border)${rowExtra}"><span style="${labelStyle}">${r[0]}</span><span style="${valueStyle}">${r[1]}</span></div>`;
             }).join('')}
           </div>

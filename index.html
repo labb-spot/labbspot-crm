@@ -52152,6 +52152,92 @@ function _rcSaveUserAuto(){
   if (typeof _rcUserAutoSyncToCloud === 'function') _rcUserAutoSyncToCloud(out);
 }
 
+// ===== USER-RENAMED ITEMS (built-in + custom) =====
+// Lets the user rename ANY item in Edit Mode. Custom-item renames persist via
+// USER_ITEMS_KEY (they're stored by name). Built-in renames can't be stored
+// that way (the code re-creates them under their default name every load), so
+// we keep a separate override map keyed by the item's ORIGINAL name:
+//   { "cat:Original Name": "New Name" }
+// and re-apply it on every boot, migrating all name-keyed references.
+const USER_RENAMES_KEY = 'rehab-user-renames-v1';
+function _rcSaveUserRename(cat, origName, newName){
+  try{
+    const map = JSON.parse(localStorage.getItem(USER_RENAMES_KEY) || '{}');
+    if(newName && newName !== origName) map[cat+':'+origName] = newName;
+    else delete map[cat+':'+origName];
+    localStorage.setItem(USER_RENAMES_KEY, JSON.stringify(map));
+    if(typeof _rcUserRenamesSyncToCloud === 'function') _rcUserRenamesSyncToCloud(map);
+  }catch(e){ console.warn('[_rcSaveUserRename]', e); }
+}
+// Rewire every place an item is referenced by name when it gets renamed.
+function _rcRewireName(cat, oldName, newName){
+  if(oldName === newName) return;
+  // Basic group membership + auto lists
+  basicGroups.forEach(g=>{
+    if(Array.isArray(g.items)){ const i=g.items.indexOf(oldName); if(i>=0) g.items[i]=newName; }
+    if(Array.isArray(g.auto)){  const a=g.auto.indexOf(oldName);  if(a>=0) g.auto[a]=newName; }
+  });
+  // Mutually-exclusive groups
+  if(typeof mutexGroups !== 'undefined' && Array.isArray(mutexGroups)){
+    mutexGroups.forEach(grp=>{ const i=grp.indexOf(oldName); if(i>=0) grp[i]=newName; });
+  }
+  // No-scale exemption list
+  if(typeof noScaleItems !== 'undefined' && Array.isArray(noScaleItems)){
+    const i=noScaleItems.indexOf(oldName); if(i>=0) noScaleItems[i]=newName;
+  }
+  // Migrate any saved LAB rate override (keyed cat:name)
+  try{
+    const rates = JSON.parse(localStorage.getItem(LAB_STORAGE_KEY) || '{}');
+    const ok = cat+':'+oldName, nk = cat+':'+newName;
+    if(rates[ok] !== undefined){ rates[nk] = rates[ok]; delete rates[ok]; localStorage.setItem(LAB_STORAGE_KEY, JSON.stringify(rates)); if(typeof _labRatesSyncToCloud==='function') _labRatesSyncToCloud(rates); }
+  }catch(_){}
+}
+// Re-apply saved built-in renames on boot (custom-item renames are already
+// baked into USER_ITEMS_KEY). Keyed by original name so it's stable across
+// repeated renames and code updates.
+function _rcApplyUserRenames(){
+  try{
+    const map = JSON.parse(localStorage.getItem(USER_RENAMES_KEY) || '{}');
+    Object.keys(map).forEach(fullKey=>{
+      const ci = fullKey.indexOf(':'); if(ci < 0) return;
+      const cat = fullKey.slice(0, ci), origName = fullKey.slice(ci+1), newName = map[fullKey];
+      if(!items[cat] || !newName) return;
+      const it = items[cat].find(x => (x._origN !== undefined ? x._origN : x.n) === origName);
+      if(!it) return;
+      const oldName = it.n;
+      if(oldName === newName) return;
+      it.n = newName;
+      _rcRewireName(cat, oldName, newName);
+    });
+  }catch(e){ console.warn('[_rcApplyUserRenames]', e); }
+}
+// Interactive rename from Edit Mode.
+window._rcRenameItem = function(cat, idx, newName){
+  if(!items[cat] || !items[cat][idx]){ return; }
+  const it = items[cat][idx];
+  const oldName = it.n;
+  if(!newName || newName === oldName){ recalc(); return; }
+  if(items[cat].some((x,i)=> i!==idx && x.n === newName)){
+    alert('An item named "'+newName+'" already exists in this category. Pick a different name.');
+    recalc(); return;
+  }
+  const origKey = (it._origN !== undefined) ? it._origN : oldName;
+  it.n = newName;
+  _rcRewireName(cat, oldName, newName);
+  if(it._user){
+    // Custom item — stored by name, so the new name persists directly.
+    _rcSaveUserItems();
+    _rcSaveUserGroups();
+    _rcSaveUserAuto();
+  } else {
+    // Built-in — record the override keyed by the item's original name.
+    _rcSaveUserRename(cat, origKey, newName);
+    _rcSaveUserGroups();
+    _rcSaveUserAuto();
+  }
+  recalc();
+};
+
 // ===== Custom Rehab (Items + Groups + Auto) — cloud sync =====
 // Three separate sub-keys inside app_config.column_mappings so we can update
 // them independently. Each push is debounced 600ms so rapid edits coalesce.
@@ -52192,6 +52278,13 @@ function _rcUserAutoSyncToCloud(payload) {
 }
 window._rcUserAutoSyncToCloud = _rcUserAutoSyncToCloud;
 
+let _rcUserRenamesCloudTimer = null;
+function _rcUserRenamesSyncToCloud(payload) {
+  if (_rcUserRenamesCloudTimer) clearTimeout(_rcUserRenamesCloudTimer);
+  _rcUserRenamesCloudTimer = setTimeout(() => { _rcUserRenamesCloudTimer = null; _rcPushToAppConfig('rehab_user_renames', payload); }, 600);
+}
+window._rcUserRenamesSyncToCloud = _rcUserRenamesSyncToCloud;
+
 // Pull all three from cloud on boot. Mirrors values into localStorage so the
 // existing load functions (_rcLoadUserItems etc.) pick them up. If the calc
 // is already initialized, re-runs the load functions so customizations apply
@@ -52199,9 +52292,10 @@ window._rcUserAutoSyncToCloud = _rcUserAutoSyncToCloud;
 function _rcUserCustomHydrateFromCloud() {
   try {
     const map = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings) || {};
-    const cloudItems  = map.rehab_user_items  || null;
-    const cloudGroups = map.rehab_user_groups || null;
-    const cloudAuto   = map.rehab_user_auto   || null;
+    const cloudItems   = map.rehab_user_items   || null;
+    const cloudGroups  = map.rehab_user_groups  || null;
+    const cloudAuto    = map.rehab_user_auto    || null;
+    const cloudRenames = map.rehab_user_renames || null;
     // MERGE, never overwrite. A blind overwrite here used to wipe custom items
     // that were added on this device but hadn't finished syncing to the cloud
     // yet (the sync is debounced 600ms — a quick push+reload beats it, and the
@@ -52236,12 +52330,19 @@ function _rcUserCustomHydrateFromCloud() {
     // Auto overrides are a per-group replace (not an accretion), so cloud stays
     // authoritative when present — but we no longer wipe local when cloud is absent.
     if (cloudAuto && typeof cloudAuto === 'object') try { localStorage.setItem(USER_AUTO_KEY, JSON.stringify(cloudAuto)); } catch (_) {}
+    // Built-in renames: merge (union) the flat { "cat:orig": "new" } maps so a
+    // rename made here but not yet synced isn't clobbered by a stale cloud copy.
+    if (cloudRenames || Object.keys(_readLS(USER_RENAMES_KEY)).length) {
+      const merged = Object.assign({}, _readLS(USER_RENAMES_KEY), (cloudRenames && typeof cloudRenames === 'object') ? cloudRenames : {});
+      try { localStorage.setItem(USER_RENAMES_KEY, JSON.stringify(merged)); } catch (_) {}
+    }
     // If the rehab calc has already initialized, re-apply now so the UI updates
     // without a reload. Load functions are idempotent (dedupe checks inside).
     if (typeof items === 'object' && items && typeof basicGroups !== 'undefined') {
-      if (typeof _rcLoadUserItems  === 'function') _rcLoadUserItems();
-      if (typeof _rcLoadUserGroups === 'function') _rcLoadUserGroups();
-      if (typeof _rcLoadUserAuto   === 'function') _rcLoadUserAuto();
+      if (typeof _rcLoadUserItems   === 'function') _rcLoadUserItems();
+      if (typeof _rcLoadUserGroups  === 'function') _rcLoadUserGroups();
+      if (typeof _rcLoadUserAuto    === 'function') _rcLoadUserAuto();
+      if (typeof _rcApplyUserRenames === 'function') _rcApplyUserRenames();
       if (typeof renderCategoryRows === 'function') renderCategoryRows();
       if (typeof recalc === 'function') recalc();
     }
@@ -52607,9 +52708,14 @@ function renderBasic(){
         const autoSetForBtn = new Set(g.auto || g.items);
         const isAutoForItem = autoSetForBtn.has(name);
         const autoToggleBtn = (labMode && labEditMode) ? `<button type="button" data-toggle-auto-group="${idx}" data-toggle-auto-name="${name.replace(/"/g,'&quot;')}" style="background:${isAutoForItem?'rgba(16,185,129,0.18)':'rgba(148,163,184,0.10)'};border:1px solid ${isAutoForItem?'#10b981':'var(--border)'};color:${isAutoForItem?'#6ee7b7':'var(--text-dim)'};cursor:pointer;font-size:8px;padding:1px 5px;border-radius:3px;flex-shrink:0;font-weight:700;letter-spacing:0.5px" title="${isAutoForItem?'AUTO — included when master checkbox is clicked. Click to make optional.':'OPTIONAL — only included when manually checked. Click to make auto.'}">${isAutoForItem?'AUTO':'OPT'}</button>` : '';
+        // In Edit Mode the item name becomes an editable field (rename any item,
+        // built-in or custom). Commits on blur / Enter via the data-name-cat handler.
+        const nameCell = (labMode && labEditMode)
+          ? `<input type="text" data-name-cat="${f.cat}" data-name-idx="${itemIdx}" value="${name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation()" style="flex:1;min-width:60px;background:var(--panel-2);border:1px solid #c084fc;color:var(--text);font-size:12px;padding:1px 5px;border-radius:3px;font-family:inherit" title="Edit this item's name — press Enter or click away to save">`
+          : `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>`;
         const rowHtml = `<label style="display:flex;align-items:center;gap:6px;padding:5px 0;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)">
           <input type="checkbox" data-cat="${f.cat}" data-idx="${itemIdx}" ${onState?'checked':''} style="accent-color:#10b981;width:13px;height:13px;flex-shrink:0" onclick="event.stopPropagation()">
-          <span style="flex:1;color:${onState?'var(--text)':'var(--text-dim)'};${onState?'':'opacity:0.6'};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:5px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>${userBadge}${autoToggleBtn}${countBadge}${deleteBtn}</span>
+          <span style="flex:1;color:${onState?'var(--text)':'var(--text-dim)'};${onState?'':'opacity:0.6'};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:5px">${nameCell}${userBadge}${autoToggleBtn}${countBadge}${deleteBtn}</span>
           ${rateCell}
           <span style="width:52px;text-align:right;color:#6ee7b7;font-family:monospace;font-size:11px;${dimStyle}">${fmt(c.mat)}</span>
           <span style="width:52px;text-align:right;color:#fcd34d;font-family:monospace;font-size:11px;${dimStyle}">${fmt(c.lab)}</span>
@@ -52921,6 +53027,11 @@ _rcRoot.addEventListener('change', e=>{
     items[cat][idx].r = parseFloat(e.target.value) || 0;
     saveLabRates();
     recalc();
+  }
+  if(e.target.matches('input[data-name-cat]')){
+    const cat = e.target.dataset.nameCat;
+    const idx = parseInt(e.target.dataset.nameIdx);
+    _rcRenameItem(cat, idx, (e.target.value || '').trim());
   }
   if(e.target.matches('input[type="checkbox"][data-basic]')){
     const idx = parseInt(e.target.dataset.basic);
@@ -53418,8 +53529,12 @@ if (_rcRoot && document.getElementById('basicGroups')) {
   _rcSnapshotGroupOrigItems();
   _rcSnapshotGroupOrigAuto();
   _rcLoadUserItems();
+  // Snapshot each item's original name so built-in renames can be keyed/re-keyed
+  // by it — must happen before any rename is applied.
+  Object.keys(items).forEach(cat => items[cat].forEach(it => { if(it._origN === undefined) it._origN = it.n; }));
   _rcLoadUserGroups();
   _rcLoadUserAuto();
+  _rcApplyUserRenames();
   loadLabRates();
   renderCategoryRows();
   recalc();

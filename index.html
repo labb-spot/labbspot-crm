@@ -52202,9 +52202,40 @@ function _rcUserCustomHydrateFromCloud() {
     const cloudItems  = map.rehab_user_items  || null;
     const cloudGroups = map.rehab_user_groups || null;
     const cloudAuto   = map.rehab_user_auto   || null;
-    if (cloudItems  && typeof cloudItems  === 'object') try { localStorage.setItem(USER_ITEMS_KEY,  JSON.stringify(cloudItems));  } catch (_) {}
-    if (cloudGroups && typeof cloudGroups === 'object') try { localStorage.setItem(USER_GROUPS_KEY, JSON.stringify(cloudGroups)); } catch (_) {}
-    if (cloudAuto   && typeof cloudAuto   === 'object') try { localStorage.setItem(USER_AUTO_KEY,   JSON.stringify(cloudAuto));   } catch (_) {}
+    // MERGE, never overwrite. A blind overwrite here used to wipe custom items
+    // that were added on this device but hadn't finished syncing to the cloud
+    // yet (the sync is debounced 600ms — a quick push+reload beats it, and the
+    // stale cloud copy would clobber the local one). Union the two so a custom
+    // field is never lost: cloud is authoritative on name conflicts, and any
+    // local-only extras are preserved.
+    const _readLS = (k) => { try { return JSON.parse(localStorage.getItem(k) || '{}'); } catch (_) { return {}; } };
+    const _mergeLists = (cloudObj, localObj, byName) => {
+      const out = {};
+      const keys = new Set([].concat(Object.keys(cloudObj || {}), Object.keys(localObj || {})));
+      keys.forEach(k => {
+        const arr = [], seen = new Set();
+        const push = (v) => {
+          const id = byName ? (v && v.n) : v;
+          if (id === undefined || id === null || seen.has(id)) return;
+          seen.add(id); arr.push(v);
+        };
+        ((cloudObj && cloudObj[k]) || []).forEach(push); // cloud first (wins on conflict)
+        ((localObj && localObj[k]) || []).forEach(push); // then local-only extras
+        out[k] = arr;
+      });
+      return out;
+    };
+    const _localItems  = _readLS(USER_ITEMS_KEY);
+    const _localGroups = _readLS(USER_GROUPS_KEY);
+    if (cloudItems || Object.keys(_localItems).length) {
+      try { localStorage.setItem(USER_ITEMS_KEY,  JSON.stringify(_mergeLists(cloudItems,  _localItems,  true)));  } catch (_) {}
+    }
+    if (cloudGroups || Object.keys(_localGroups).length) {
+      try { localStorage.setItem(USER_GROUPS_KEY, JSON.stringify(_mergeLists(cloudGroups, _localGroups, false))); } catch (_) {}
+    }
+    // Auto overrides are a per-group replace (not an accretion), so cloud stays
+    // authoritative when present — but we no longer wipe local when cloud is absent.
+    if (cloudAuto && typeof cloudAuto === 'object') try { localStorage.setItem(USER_AUTO_KEY, JSON.stringify(cloudAuto)); } catch (_) {}
     // If the rehab calc has already initialized, re-apply now so the UI updates
     // without a reload. Load functions are idempotent (dedupe checks inside).
     if (typeof items === 'object' && items && typeof basicGroups !== 'undefined') {

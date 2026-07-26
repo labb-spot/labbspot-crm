@@ -11989,9 +11989,15 @@ window._uwRehabCascade = _uwRehabCascade;
       const t = e.target;
       if (!t) return;
       const id = t.id || '';
+      // LAB Custom rate boxes: only cascade on 'change' (blur / Enter), never
+      // per-keystroke. The cascade re-renders the calculator, which would
+      // destroy the focused input and force a re-click after every digit.
+      if (t.matches && t.matches('input[data-rate-cat]')) {
+        if (e.type === 'change') _uwRehabCascade();
+        return;
+      }
       if (id.startsWith('rc-') ||
-          id === 'costContingency' || id === 'timeContingency' || id === 'crew' ||
-          (t.matches && t.matches('input[data-rate-cat]'))) {
+          id === 'costContingency' || id === 'timeContingency' || id === 'crew') {
         _uwRehabCascade();
       }
     };

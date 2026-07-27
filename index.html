@@ -51901,10 +51901,20 @@ function toggleLabEditMode(){
   recalc();
 }
 function saveLabRates(){
+  // Stores a full cost override object {r,mp,lp,hr} per built-in item whenever
+  // ANY of rate / material-split / labor-split / $-per-hour differs from the
+  // code default. Legacy entries were a bare number (rate only) — still read.
   const rates = {};
   Object.keys(items).forEach(k=>{
     items[k].forEach(it=>{
-      if(it._origR !== undefined && it.r !== it._origR) rates[k+':'+it.n] = it.r;
+      if(it._origR === undefined) return;
+      const rChanged  = it.r  !== it._origR;
+      const mpChanged = (it._origMp !== undefined) && (it.mp !== it._origMp);
+      const lpChanged = (it._origLp !== undefined) && (it.lp !== it._origLp);
+      const hrChanged = (it._origHr !== undefined) && (it.hr !== it._origHr);
+      if(rChanged || mpChanged || lpChanged || hrChanged){
+        rates[k+':'+it.n] = { r: it.r, mp: it.mp, lp: it.lp, hr: it.hr };
+      }
     });
   });
   try{ localStorage.setItem(LAB_STORAGE_KEY, JSON.stringify(rates)); }catch(e){}
@@ -51916,9 +51926,19 @@ function loadLabRates(){
     const stored = JSON.parse(localStorage.getItem(LAB_STORAGE_KEY) || '{}');
     Object.keys(items).forEach(k=>{
       items[k].forEach(it=>{
-        if(it._origR === undefined) it._origR = it.r;
-        const key = k+':'+it.n;
-        if(stored[key] !== undefined) it.r = stored[key];
+        if(it._origR  === undefined) it._origR  = it.r;
+        if(it._origMp === undefined) it._origMp = it.mp;
+        if(it._origLp === undefined) it._origLp = it.lp;
+        if(it._origHr === undefined) it._origHr = it.hr;
+        const v = stored[k+':'+it.n];
+        if(v === undefined) return;
+        if(typeof v === 'number'){ it.r = v; }             // legacy: rate only
+        else if(v && typeof v === 'object'){
+          if(v.r  !== undefined) it.r  = v.r;
+          if(v.mp !== undefined) it.mp = v.mp;
+          if(v.lp !== undefined) it.lp = v.lp;
+          if(v.hr !== undefined) it.hr = v.hr;
+        }
       });
     });
   }catch(e){}
@@ -51926,12 +51946,20 @@ function loadLabRates(){
 function resetLabRates(){
   Object.keys(items).forEach(k=>{
     items[k].forEach(it=>{
-      if(it._origR !== undefined) it.r = it._origR;
+      if(it._origR  !== undefined) it.r  = it._origR;
+      if(it._origMp !== undefined) it.mp = it._origMp;
+      if(it._origLp !== undefined) it.lp = it._origLp;
+      if(it._origHr !== undefined) it.hr = it._origHr;
     });
   });
   try{ localStorage.removeItem(LAB_STORAGE_KEY); }catch(e){}
+  // Also un-hide any built-in items deleted in Edit Mode (full factory reset of
+  // built-in customizations). Renames are left intact.
+  try{ localStorage.removeItem(USER_HIDDEN_KEY); }catch(e){}
+  if (typeof _rcUserHiddenSyncToCloud === 'function') _rcUserHiddenSyncToCloud({});
   // Wipe the cloud copy too so other devices revert on next load.
   if (typeof _labRatesSyncToCloud === 'function') _labRatesSyncToCloud({});
+  alert('Built-in rates, material/labor splits, and deletions reset to defaults. Reload to restore any deleted built-in items.');
   recalc();
 }
 
@@ -51971,9 +51999,19 @@ function _labRatesHydrateFromCloud() {
     if (typeof items === 'object' && items) {
       Object.keys(items).forEach(k => {
         items[k].forEach(it => {
-          if (it._origR === undefined) it._origR = it.r;
-          const key = k + ':' + it.n;
-          if (cloud[key] !== undefined) it.r = cloud[key];
+          if (it._origR  === undefined) it._origR  = it.r;
+          if (it._origMp === undefined) it._origMp = it.mp;
+          if (it._origLp === undefined) it._origLp = it.lp;
+          if (it._origHr === undefined) it._origHr = it.hr;
+          const v = cloud[k + ':' + it.n];
+          if (v === undefined) return;
+          if (typeof v === 'number') { it.r = v; }             // legacy: rate only
+          else if (v && typeof v === 'object') {
+            if (v.r  !== undefined) it.r  = v.r;
+            if (v.mp !== undefined) it.mp = v.mp;
+            if (v.lp !== undefined) it.lp = v.lp;
+            if (v.hr !== undefined) it.hr = v.hr;
+          }
         });
       });
       if (typeof recalc === 'function') recalc();
@@ -52238,6 +52276,87 @@ window._rcRenameItem = function(cat, idx, newName){
   recalc();
 };
 
+// ===== Editable Material / Labor / $-per-hour (Edit Mode) =====
+// The three fundamental cost quantities are material $, labor $, and the labor
+// $/hr rate. Rate and hours are derived (rate = mat+lab, hours = lab ÷ $/hr).
+// Editing mat or lab reconciles the stored rate + material/labor split so the
+// compute() output matches what the user typed. Persists for built-ins via the
+// LAB override and for custom items via USER_ITEMS_KEY.
+window._rcSetItemCost = function(cat, idx, field, rawVal){
+  if(!items[cat] || !items[cat][idx]){ return; }
+  const it = items[cat][idx];
+  const sqft = (typeof _rcGetN === 'function') ? _rcGetN('uw-sqft', 0) : 0;
+  const count = getCountMult(cat) || 1;
+  const val = parseFloat(String(rawVal == null ? '' : rawVal).replace(/[^\d.]/g,''));
+  if(!isFinite(val) || val < 0){ recalc(); return; }
+  if(field === 'hr'){
+    it.hr = Math.max(0.01, val);
+  } else if(field === 'rate'){
+    it.r = val;
+  } else {
+    // mat or lab — hold the other constant at its current displayed value.
+    const cur = compute(it, sqft, cat);
+    let Md = cur.mat, Ld = cur.lab;
+    if(field === 'mat') Md = val; else Ld = val;
+    const dispTotal = Md + Ld;
+    const baseTotal = dispTotal / count;                 // per-unit total $
+    const per = (it.u === '$/SF') ? (sqft > 0 ? sqft : 1) : 1;
+    it.r  = baseTotal / per;
+    it.lp = dispTotal > 0 ? Ld / dispTotal : 0;
+    it.mp = 1 - it.lp;
+  }
+  if(it._user) _rcSaveUserItems(); else saveLabRates();
+  recalc();
+};
+
+// ===== USER-HIDDEN (deleted) BUILT-IN ITEMS =====
+// Built-in items can't be truly removed from code, so a deletion is recorded in
+// an override keyed by the item's ORIGINAL name and re-applied on every load.
+// (Custom items are deleted outright via _rcDeleteCustomItem.)
+const USER_HIDDEN_KEY = 'rehab-user-hidden-v1';
+function _rcSaveHidden(cat, origName, hidden){
+  try{
+    const map = JSON.parse(localStorage.getItem(USER_HIDDEN_KEY) || '{}');
+    if(hidden === false) delete map[cat+':'+origName];
+    else map[cat+':'+origName] = 1;
+    localStorage.setItem(USER_HIDDEN_KEY, JSON.stringify(map));
+    if(typeof _rcUserHiddenSyncToCloud === 'function') _rcUserHiddenSyncToCloud(map);
+  }catch(e){ console.warn('[_rcSaveHidden]', e); }
+}
+function _rcApplyUserHidden(){
+  try{
+    const map = JSON.parse(localStorage.getItem(USER_HIDDEN_KEY) || '{}');
+    Object.keys(map).forEach(fullKey=>{
+      const ci = fullKey.indexOf(':'); if(ci < 0) return;
+      const cat = fullKey.slice(0, ci), origName = fullKey.slice(ci+1);
+      if(!items[cat]) return;
+      const idx = items[cat].findIndex(x => (x._origN !== undefined ? x._origN : x.n) === origName && !x._user);
+      if(idx < 0) return;
+      const nm = items[cat][idx].n;
+      items[cat].splice(idx, 1);
+      basicGroups.forEach(g=>{
+        const i = g.items.indexOf(nm); if(i >= 0) g.items.splice(i, 1);
+        if(g.auto){ const a = g.auto.indexOf(nm); if(a >= 0) g.auto.splice(a, 1); }
+      });
+    });
+  }catch(e){ console.warn('[_rcApplyUserHidden]', e); }
+}
+window._rcDeleteBuiltinItem = function(cat, idx){
+  if(!items[cat] || !items[cat][idx]) return;
+  const it = items[cat][idx];
+  if(it._user){ return; } // custom items use _rcDeleteCustomItem
+  const nm = it.n;
+  if(!confirm('Delete built-in item "'+nm+'"? It will stay hidden across reloads. Use Reset in the Recommendations panel (then reload) to bring built-ins back.')) return;
+  const origKey = (it._origN !== undefined) ? it._origN : nm;
+  items[cat].splice(idx, 1);
+  basicGroups.forEach(g=>{
+    const i = g.items.indexOf(nm); if(i >= 0) g.items.splice(i, 1);
+    if(g.auto){ const a = g.auto.indexOf(nm); if(a >= 0) g.auto.splice(a, 1); }
+  });
+  _rcSaveHidden(cat, origKey, true);
+  recalc();
+};
+
 // ===== Custom Rehab (Items + Groups + Auto) — cloud sync =====
 // Three separate sub-keys inside app_config.column_mappings so we can update
 // them independently. Each push is debounced 600ms so rapid edits coalesce.
@@ -52285,6 +52404,13 @@ function _rcUserRenamesSyncToCloud(payload) {
 }
 window._rcUserRenamesSyncToCloud = _rcUserRenamesSyncToCloud;
 
+let _rcUserHiddenCloudTimer = null;
+function _rcUserHiddenSyncToCloud(payload) {
+  if (_rcUserHiddenCloudTimer) clearTimeout(_rcUserHiddenCloudTimer);
+  _rcUserHiddenCloudTimer = setTimeout(() => { _rcUserHiddenCloudTimer = null; _rcPushToAppConfig('rehab_user_hidden', payload); }, 600);
+}
+window._rcUserHiddenSyncToCloud = _rcUserHiddenSyncToCloud;
+
 // Pull all three from cloud on boot. Mirrors values into localStorage so the
 // existing load functions (_rcLoadUserItems etc.) pick them up. If the calc
 // is already initialized, re-runs the load functions so customizations apply
@@ -52296,6 +52422,7 @@ function _rcUserCustomHydrateFromCloud() {
     const cloudGroups  = map.rehab_user_groups  || null;
     const cloudAuto    = map.rehab_user_auto    || null;
     const cloudRenames = map.rehab_user_renames || null;
+    const cloudHidden  = map.rehab_user_hidden  || null;
     // MERGE, never overwrite. A blind overwrite here used to wipe custom items
     // that were added on this device but hadn't finished syncing to the cloud
     // yet (the sync is debounced 600ms — a quick push+reload beats it, and the
@@ -52336,6 +52463,11 @@ function _rcUserCustomHydrateFromCloud() {
       const merged = Object.assign({}, _readLS(USER_RENAMES_KEY), (cloudRenames && typeof cloudRenames === 'object') ? cloudRenames : {});
       try { localStorage.setItem(USER_RENAMES_KEY, JSON.stringify(merged)); } catch (_) {}
     }
+    // Built-in deletions: same merge treatment (flat { "cat:orig": 1 } map).
+    if (cloudHidden || Object.keys(_readLS(USER_HIDDEN_KEY)).length) {
+      const merged = Object.assign({}, _readLS(USER_HIDDEN_KEY), (cloudHidden && typeof cloudHidden === 'object') ? cloudHidden : {});
+      try { localStorage.setItem(USER_HIDDEN_KEY, JSON.stringify(merged)); } catch (_) {}
+    }
     // If the rehab calc has already initialized, re-apply now so the UI updates
     // without a reload. Load functions are idempotent (dedupe checks inside).
     if (typeof items === 'object' && items && typeof basicGroups !== 'undefined') {
@@ -52343,6 +52475,7 @@ function _rcUserCustomHydrateFromCloud() {
       if (typeof _rcLoadUserGroups  === 'function') _rcLoadUserGroups();
       if (typeof _rcLoadUserAuto    === 'function') _rcLoadUserAuto();
       if (typeof _rcApplyUserRenames === 'function') _rcApplyUserRenames();
+      if (typeof _rcApplyUserHidden  === 'function') _rcApplyUserHidden();
       if (typeof renderCategoryRows === 'function') renderCategoryRows();
       if (typeof recalc === 'function') recalc();
     }
@@ -52390,13 +52523,20 @@ function compute(it,sqft,catKey){
   const labMult = 1 + (fm - 1) * 0.3;
   const countMult = getCountMult(catKey);
   const origBaseTotal = (it.u==='$/SF'?it._origR*sqft:it._origR);
-  const labBase = origBaseTotal * it.lp;
-  let lab = labBase * labMult;
-  let mat;
+  let mat, lab;
   if(isLabCustom()){
+    // LAB Custom: split the current (possibly edited) rate by the item's own
+    // material/labor fractions so MAT and LABOR can be edited independently.
+    // For an un-edited item (r === _origR) this yields the exact same numbers
+    // as before; only rate-customized items see a different mat/labor split
+    // (their TOTAL is unchanged either way).
     const baseTotal = (it.u==='$/SF'?it.r*sqft:it.r);
-    mat = Math.max(0, baseTotal - labBase);
+    const lp = (it.lp !== undefined) ? it.lp : 0;
+    lab = baseTotal * lp;
+    mat = Math.max(0, baseTotal - lab);
   } else {
+    const labBase = origBaseTotal * it.lp;
+    lab = labBase * labMult;
     mat = origBaseTotal * it.mp * fm;
   }
   mat *= countMult;
@@ -52661,13 +52801,14 @@ function renderBasic(){
     if(isExpanded){
       let sfRows = '';
       let flatRows = '';
+      const _editHead = isLabCustom() && labEditMode;
       let dHead = `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;border-bottom:1px solid var(--border)">
-        <span style="width:13px;flex-shrink:0"></span>
+        <span style="width:${_editHead?'15':'13'}px;flex-shrink:0"></span>
         <span style="flex:1">Item</span>
-        <span style="width:58px;text-align:right">Rate</span>
-        <span style="width:52px;text-align:right;color:#6ee7b7">Mat</span>
-        <span style="width:52px;text-align:right;color:#fcd34d">Labor</span>
-        <span style="width:28px;text-align:right;color:#c4b5fd">Hrs</span>
+        <span style="width:${_editHead?'66':'58'}px;text-align:right">Rate</span>
+        <span style="width:${_editHead?'74':'52'}px;text-align:right;color:#6ee7b7">Mat</span>
+        <span style="width:${_editHead?'74':'52'}px;text-align:right;color:#fcd34d">Labor</span>
+        <span style="width:${_editHead?'60':'28'}px;text-align:right;color:#c4b5fd">${_editHead?'$/hr':'Hrs'}</span>
         <span style="width:58px;text-align:right">Total</span>
       </div>`;
       const labMode = isLabCustom();
@@ -52688,7 +52829,7 @@ function renderBasic(){
         const labLockedRate = f.item.u==='$/SF' ? '$'+rateDisplay+'/SF' : 'flat';
         let rateCell;
         if(labMode && labEditMode){
-          rateCell = `<input type="text" inputmode="decimal" data-rate-cat="${f.cat}" data-rate-idx="${itemIdx}" value="${rateDisplay}" style="width:62px;background:var(--panel-2);border:1px solid #c084fc;color:var(--text);font-size:10px;padding:1px 4px;text-align:right;border-radius:3px;font-family:monospace" onclick="event.stopPropagation()" title="LAB Custom edit mode — rates are unlocked">`;
+          rateCell = `<input type="text" inputmode="decimal" data-rate-cat="${f.cat}" data-rate-idx="${itemIdx}" value="${rateDisplay}" style="width:66px;background:var(--panel-2);border:1px solid #c084fc;color:var(--text);font-size:12px;padding:2px 5px;text-align:right;border-radius:3px;font-family:monospace" onclick="event.stopPropagation()" title="LAB Custom edit mode — total rate (Material + Labor). Editing this scales the split.">`;
         } else if(labMode){
           rateCell = `<span style="width:62px;text-align:right;color:#c4b5fd;font-size:10px;font-family:monospace" title="LAB Custom — rates locked. Toggle Edit Mode in the Recommendations panel to change.">${labLockedRate}</span>`;
         } else {
@@ -52702,7 +52843,11 @@ function renderBasic(){
         // delete (✕) button next to user-added items only.
         const isUserItem = !!f.item._user;
         const userBadge = isUserItem ? `<span style="font-size:9px;color:#fcd34d;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);padding:0 4px;border-radius:3px;font-weight:700;font-family:monospace;flex-shrink:0" title="Custom item you added. Persisted in this browser's localStorage.">CUSTOM</span>` : '';
-        const deleteBtn = (labMode && labEditMode && isUserItem) ? `<button type="button" data-delete-custom-item="${name.replace(/"/g,'&quot;')}" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:2px 6px;flex-shrink:0;line-height:1;font-weight:700" title="Delete this custom item">✕</button>` : '';
+        const deleteBtn = (labMode && labEditMode)
+          ? (isUserItem
+              ? `<button type="button" data-delete-custom-item="${name.replace(/"/g,'&quot;')}" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:2px 6px;flex-shrink:0;line-height:1;font-weight:700" title="Delete this custom item">✕</button>`
+              : `<button type="button" data-delete-builtin-cat="${f.cat}" data-delete-builtin-idx="${itemIdx}" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:2px 6px;flex-shrink:0;line-height:1;font-weight:700" title="Delete this built-in item (stays hidden across reloads; use Reset to restore)">✕</button>`)
+          : '';
         // AUTO/OPTIONAL toggle — shown in Edit Mode for ALL items (built-in + custom).
         // Click to flip whether this item is part of the master-checkbox auto-select.
         const autoSetForBtn = new Set(g.auto || g.items);
@@ -52713,13 +52858,25 @@ function renderBasic(){
         const nameCell = (labMode && labEditMode)
           ? `<input type="text" data-name-cat="${f.cat}" data-name-idx="${itemIdx}" value="${name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation()" style="flex:1;min-width:60px;background:var(--panel-2);border:1px solid #c084fc;color:var(--text);font-size:12px;padding:1px 5px;border-radius:3px;font-family:inherit" title="Edit this item's name — press Enter or click away to save">`
           : `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>`;
-        const rowHtml = `<label style="display:flex;align-items:center;gap:6px;padding:5px 0;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)">
-          <input type="checkbox" data-cat="${f.cat}" data-idx="${itemIdx}" ${onState?'checked':''} style="accent-color:#10b981;width:13px;height:13px;flex-shrink:0" onclick="event.stopPropagation()">
+        const editing = labMode && labEditMode;
+        // Editable Material / Labor / $-per-hour cells in Edit Mode (wider so
+        // they're easy to tap); read-only otherwise.
+        const matCell = editing
+          ? `<input type="text" inputmode="decimal" data-cost-cat="${f.cat}" data-cost-idx="${itemIdx}" data-cost-field="mat" value="${Math.round(c.mat)}" onclick="event.stopPropagation()" style="width:74px;background:var(--panel-2);border:1px solid #34d399;color:#6ee7b7;font-size:12px;padding:2px 5px;text-align:right;border-radius:3px;font-family:monospace" title="Material $ — edit to set material cost directly">`
+          : `<span style="width:52px;text-align:right;color:#6ee7b7;font-family:monospace;font-size:11px;${dimStyle}">${fmt(c.mat)}</span>`;
+        const labCell = editing
+          ? `<input type="text" inputmode="decimal" data-cost-cat="${f.cat}" data-cost-idx="${itemIdx}" data-cost-field="lab" value="${Math.round(c.lab)}" onclick="event.stopPropagation()" style="width:74px;background:var(--panel-2);border:1px solid #fbbf24;color:#fcd34d;font-size:12px;padding:2px 5px;text-align:right;border-radius:3px;font-family:monospace" title="Labor $ — edit to set labor cost directly">`
+          : `<span style="width:52px;text-align:right;color:#fcd34d;font-family:monospace;font-size:11px;${dimStyle}">${fmt(c.lab)}</span>`;
+        const hrCell = editing
+          ? `<input type="text" inputmode="decimal" data-cost-cat="${f.cat}" data-cost-idx="${itemIdx}" data-cost-field="hr" value="${Math.round(f.item.hr||0)}" onclick="event.stopPropagation()" style="width:60px;background:var(--panel-2);border:1px solid #a5b4fc;color:#c4b5fd;font-size:12px;padding:2px 5px;text-align:right;border-radius:3px;font-family:monospace" title="Labor $/hr (crew rate). Hours = Labor ÷ this — currently ${f.item.hr>0?Math.round(c.hrs)+'h':'—'}">`
+          : `<span style="width:28px;text-align:right;color:#c4b5fd;font-family:monospace;font-size:11px;${dimStyle}">${f.item.hr>0?Math.round(c.hrs)+'h':'—'}</span>`;
+        const rowHtml = `<label style="display:flex;align-items:center;gap:6px;padding:${editing?'7px':'5px'} 0;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)">
+          <input type="checkbox" data-cat="${f.cat}" data-idx="${itemIdx}" ${onState?'checked':''} style="accent-color:#10b981;width:${editing?'15':'13'}px;height:${editing?'15':'13'}px;flex-shrink:0" onclick="event.stopPropagation()">
           <span style="flex:1;color:${onState?'var(--text)':'var(--text-dim)'};${onState?'':'opacity:0.6'};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:5px">${nameCell}${userBadge}${autoToggleBtn}${countBadge}${deleteBtn}</span>
           ${rateCell}
-          <span style="width:52px;text-align:right;color:#6ee7b7;font-family:monospace;font-size:11px;${dimStyle}">${fmt(c.mat)}</span>
-          <span style="width:52px;text-align:right;color:#fcd34d;font-family:monospace;font-size:11px;${dimStyle}">${fmt(c.lab)}</span>
-          <span style="width:28px;text-align:right;color:#c4b5fd;font-family:monospace;font-size:11px;${dimStyle}">${f.item.hr>0?Math.round(c.hrs)+'h':'—'}</span>
+          ${matCell}
+          ${labCell}
+          ${hrCell}
           <span style="width:58px;text-align:right;color:var(--text);font-family:monospace;font-weight:600;${dimStyle}">${fmt(c.total)}</span>
         </label>`;
         if(f.item.u === '$/SF') sfRows += rowHtml;
@@ -52733,8 +52890,13 @@ function renderBasic(){
         <div style="font-size:9px;color:#fb923c;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:4px;padding:2px 6px;background:rgba(251,146,60,0.10);border-radius:3px">📦 Flat Rate</div>
         ${dHead}${flatRows}
       </div>` : '';
-      const gridCols = (sfRows && flatRows) ? '1fr 1fr' : '1fr';
-      const dropdownWidth = (sfRows && flatRows) ? 'min-width:760px;max-width:90vw' : 'min-width:100%';
+      // In Edit Mode the rows carry extra input boxes, so give the dropdown more
+      // room: force a single wide column (rows are taller) and a bigger min-width.
+      const _editWide = isLabCustom() && labEditMode;
+      const gridCols = _editWide ? '1fr' : ((sfRows && flatRows) ? '1fr 1fr' : '1fr');
+      const dropdownWidth = _editWide
+        ? 'min-width:620px;max-width:94vw'
+        : ((sfRows && flatRows) ? 'min-width:760px;max-width:90vw' : 'min-width:100%');
       const anchor = g.col === 3 ? 'right:0;left:auto;' : 'left:0;';
       // "+ Add Custom Item" button shows only when LAB Custom + Edit Mode on
       const addItemBtn = (isLabCustom() && labEditMode) ? `<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);text-align:center"><button type="button" onclick="event.stopPropagation();window._rcAddCustomItem&&window._rcAddCustomItem(${idx})" class="btn btn-ghost text-xs" style="padding:4px 12px;font-size:11px;border-color:#fcd34d;color:#fcd34d;background:rgba(245,158,11,0.08)" title="Add a custom item to this group. Saved to your browser's localStorage and persists across code updates.">+ Add Custom Item</button><div style="font-size:9px;color:var(--text-dim);margin-top:4px">Custom items save to this browser only — they survive future code updates.</div></div>` : '';
@@ -53033,6 +53195,12 @@ _rcRoot.addEventListener('change', e=>{
     const idx = parseInt(e.target.dataset.nameIdx);
     _rcRenameItem(cat, idx, (e.target.value || '').trim());
   }
+  if(e.target.matches('input[data-cost-cat]')){
+    const cat = e.target.dataset.costCat;
+    const idx = parseInt(e.target.dataset.costIdx);
+    const field = e.target.dataset.costField;
+    _rcSetItemCost(cat, idx, field, e.target.value);
+  }
   if(e.target.matches('input[type="checkbox"][data-basic]')){
     const idx = parseInt(e.target.dataset.basic);
     const group = basicGroups[idx];
@@ -53240,6 +53408,16 @@ _rcRoot.addEventListener('click', e=>{
     if(name && confirm('Delete custom item: ' + name + '?')){
       window._rcDeleteCustomItem && window._rcDeleteCustomItem(name);
     }
+    return;
+  }
+  // Delete a built-in item (button has data-delete-builtin-cat + -idx)
+  const delBuiltin = e.target.closest('[data-delete-builtin-cat]');
+  if(delBuiltin){
+    e.stopPropagation();
+    e.preventDefault();
+    const cat = delBuiltin.getAttribute('data-delete-builtin-cat');
+    const idx = parseInt(delBuiltin.getAttribute('data-delete-builtin-idx'));
+    window._rcDeleteBuiltinItem && window._rcDeleteBuiltinItem(cat, idx);
     return;
   }
   // Toggle AUTO/OPTIONAL on an item (button has data-toggle-auto-name + data-toggle-auto-group)
@@ -53535,6 +53713,7 @@ if (_rcRoot && document.getElementById('basicGroups')) {
   _rcLoadUserGroups();
   _rcLoadUserAuto();
   _rcApplyUserRenames();
+  _rcApplyUserHidden();
   loadLabRates();
   renderCategoryRows();
   recalc();

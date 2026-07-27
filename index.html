@@ -17463,7 +17463,13 @@ function uwRenoBudgetCell(u) {
   if (!u) return '—';
   const v = parseFloat(u.renovation_budget);
   if (!isFinite(v) || v <= 0) return '—';
-  return '<span style="color:#f59e0b;font-weight:600">$' + Math.round(v).toLocaleString() + '</span>';
+  // Yellow when the budget is a manual OVERRIDE (uw-rehab-override > 0), neutral
+  // when it comes straight from the rehab calculator.
+  const ov = parseFloat(String((u.data && u.data['uw-rehab-override']) || '').replace(/,/g, '')) || 0;
+  const isOverride = ov > 0;
+  const color = isOverride ? '#fbbf24' : 'var(--text)';
+  const title = isOverride ? 'Manual override amount (not straight from the calculator)' : 'From the rehab calculator';
+  return '<span style="color:' + color + ';font-weight:600" title="' + title + '">$' + Math.round(v).toLocaleString() + '</span>';
 }
 
 // uwThreePlaysHtml — renders compact pills for Wholesale / Financed Flip /

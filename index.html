@@ -52268,11 +52268,14 @@ window._rcRenameItem = function(cat, idx, newName){
     _rcSaveUserGroups();
     _rcSaveUserAuto();
   } else {
-    // Built-in — record the override keyed by the item's original name.
+    // Built-in — record the override keyed by the item's original name. Do NOT
+    // save the renamed name as a group "extra": the rename map + _rcRewireName
+    // already reposition it on load, and saving it as an extra caused a
+    // duplicate (extra re-added, then the original renamed to the same name).
     _rcSaveUserRename(cat, origKey, newName);
-    _rcSaveUserGroups();
     _rcSaveUserAuto();
   }
+  _rcDedupeGroups();
   recalc();
 };
 
@@ -52340,6 +52343,20 @@ function _rcApplyUserHidden(){
       });
     });
   }catch(e){ console.warn('[_rcApplyUserHidden]', e); }
+}
+// Remove any accidental duplicate item names from each basic group's items +
+// auto lists (keeps the first occurrence). Guards against a rename/extra race
+// that could list the same item twice.
+function _rcDedupeGroups(){
+  if(typeof basicGroups === 'undefined') return;
+  basicGroups.forEach(g=>{
+    if(Array.isArray(g.items)){
+      const seen = new Set(); g.items = g.items.filter(n=>{ if(seen.has(n)) return false; seen.add(n); return true; });
+    }
+    if(Array.isArray(g.auto)){
+      const s2 = new Set(); g.auto = g.auto.filter(n=>{ if(s2.has(n)) return false; s2.add(n); return true; });
+    }
+  });
 }
 window._rcDeleteBuiltinItem = function(cat, idx){
   if(!items[cat] || !items[cat][idx]) return;
@@ -52472,10 +52489,14 @@ function _rcUserCustomHydrateFromCloud() {
     // without a reload. Load functions are idempotent (dedupe checks inside).
     if (typeof items === 'object' && items && typeof basicGroups !== 'undefined') {
       if (typeof _rcLoadUserItems   === 'function') _rcLoadUserItems();
+      // Snapshot original names for any newly pulled items, then apply renames
+      // BEFORE loading group extras (see init note) to avoid duplicate rows.
+      Object.keys(items).forEach(cat => items[cat].forEach(it => { if(it._origN === undefined) it._origN = it.n; }));
+      if (typeof _rcApplyUserRenames === 'function') _rcApplyUserRenames();
       if (typeof _rcLoadUserGroups  === 'function') _rcLoadUserGroups();
       if (typeof _rcLoadUserAuto    === 'function') _rcLoadUserAuto();
-      if (typeof _rcApplyUserRenames === 'function') _rcApplyUserRenames();
       if (typeof _rcApplyUserHidden  === 'function') _rcApplyUserHidden();
+      if (typeof _rcDedupeGroups     === 'function') _rcDedupeGroups();
       if (typeof renderCategoryRows === 'function') renderCategoryRows();
       if (typeof recalc === 'function') recalc();
     }
@@ -53710,10 +53731,14 @@ if (_rcRoot && document.getElementById('basicGroups')) {
   // Snapshot each item's original name so built-in renames can be keyed/re-keyed
   // by it — must happen before any rename is applied.
   Object.keys(items).forEach(cat => items[cat].forEach(it => { if(it._origN === undefined) it._origN = it.n; }));
+  // Renames MUST run before loading group extras: otherwise a renamed built-in's
+  // new name (stored as a group extra by older builds) gets added first, then the
+  // original is renamed to the same name → a duplicate row.
+  _rcApplyUserRenames();
   _rcLoadUserGroups();
   _rcLoadUserAuto();
-  _rcApplyUserRenames();
   _rcApplyUserHidden();
+  _rcDedupeGroups();
   loadLabRates();
   renderCategoryRows();
   recalc();

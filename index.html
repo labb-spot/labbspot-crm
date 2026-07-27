@@ -4010,6 +4010,7 @@
         <div class="font-semibold text-base">🛠️ Rehab Calculator <span id="uw-rehab-mode-badge" class="text-xs" style="color:var(--text-dim);font-weight:normal"></span></div>
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-xs" style="color:var(--text-dim)" id="uw-rehab-header-info">Multiplier: Total Livable SqFt</span>
+          <button type="button" id="rc-trash-btn" onclick="window._rcOpenTrash && window._rcOpenTrash()" class="btn btn-ghost text-xs" style="display:none;padding:4px 10px;font-size:11px;font-weight:600;border-color:#22d3ee;color:#67e8f9" title="Trash bin — restore items you deleted. Trashed items are never counted in any estimate.">🗑 Trash</button>
           <button type="button" id="rc-lab-edit-btn" onclick="window._rcToggleLabEditMode && window._rcToggleLabEditMode()" class="btn btn-ghost text-xs" style="display:none;padding:4px 10px;font-size:11px;font-weight:600" title="Toggle LAB Custom Edit Mode — unlocks rate cells for editing">🔒 Edit Mode: OFF</button>
         </div>
       </div>
@@ -4085,9 +4086,9 @@
           </div>
         </div>
         <div id="basicGroups" class="grid grid-cols-1 md:grid-cols-3 gap-2" style="align-items: stretch;">
-          <div id="basic-col-1" style="display:grid;grid-template-rows:repeat(4, 1fr);gap:8px;height:100%"></div>
-          <div id="basic-col-2" style="display:grid;grid-template-rows:repeat(4, 1fr);gap:8px;height:100%"></div>
-          <div id="basic-col-3" style="display:grid;grid-template-rows:repeat(4, 1fr);gap:8px;height:100%"></div>
+          <div id="basic-col-1" style="display:grid;grid-template-rows:repeat(3, 1fr);gap:8px;height:100%"></div>
+          <div id="basic-col-2" style="display:grid;grid-template-rows:repeat(3, 1fr);gap:8px;height:100%"></div>
+          <div id="basic-col-3" style="display:grid;grid-template-rows:repeat(3, 1fr);gap:8px;height:100%"></div>
         </div>
       </div>
 
@@ -51843,16 +51844,13 @@ const hireData = {
 };
 
 const basicGroups = [
-  {col:1, n:'Update Kitchen',          icon:'🍳', items:['Cabinets','Countertops','Backsplash','Appliances','Sink/Faucet','Range Hood / Vent','Garbage Disposal','Kitchen Island'], auto:['Cabinets','Countertops','Backsplash','Appliances','Sink/Faucet','Range Hood / Vent','Garbage Disposal'], note:'Finish only. Check Update Plumbing if moving sink location.'},
-  {col:1, n:'Update Bathrooms',        icon:'🛁', items:['Tub/Shower','Tiling','Vanity','Toilets','Exhaust Fans','Mirrors / Medicine Cabinets'], note:'Finish only. Plumbing/electrical fixtures moved to Flooring, Trim, Paint & Fixtures.'},
-  {col:1, n:'Insulation, Drywall, & Interior Doors', icon:'🧱', items:['Insulation','Drywall','Interior Doors'], note:'Wall buildup sequence — insulation → drywall → doors hung in framed openings.'},
-  {col:1, n:'Flooring, Trim, Paint, & Fixtures', icon:'🪵', items:['Flooring (LVP/laminate)','Trim & Molding','Stairs/Railings','Paint','Plumbing Fixtures','Electrical Fixtures','Lighting','Smoke/CO Detectors (hardwired)'], auto:['Flooring (LVP/laminate)','Trim & Molding','Paint','Plumbing Fixtures','Electrical Fixtures','Lighting','Smoke/CO Detectors (hardwired)'], note:'Final finish-out — flooring, trim, paint, then fixtures (faucets, outlets, switches, plates), lighting, and hardwired smoke/CO detectors. Stairs/Railings only if home has stairs.'},
+  {col:1, n:'Update Kitchen',          icon:'🍳', items:['Cabinets','Countertops','Backsplash','Appliances','Sink/Faucet','Range Hood / Vent','Garbage Disposal','Kitchen Island'], auto:['Cabinets','Countertops','Backsplash','Appliances','Sink/Faucet','Range Hood / Vent','Garbage Disposal'], note:'Finish only. Check Update Electrical & Plumbing if moving sink location.'},
+  {col:1, n:'Update Bathrooms',        icon:'🛁', items:['Tub/Shower','Tiling','Vanity','Toilets','Exhaust Fans','Mirrors / Medicine Cabinets'], note:'Finish only. Plumbing/electrical fixtures moved to Update Basic Cosmetics.'},
+  {col:1, n:'Update Basic Cosmetics', icon:'🪵', items:['Flooring (LVP/laminate)','Trim & Molding','Stairs/Railings','Paint','Plumbing Fixtures','Electrical Fixtures','Lighting','Smoke/CO Detectors (hardwired)'], auto:['Flooring (LVP/laminate)','Trim & Molding','Paint','Plumbing Fixtures','Electrical Fixtures','Lighting','Smoke/CO Detectors (hardwired)'], note:'Final finish-out — flooring, trim, paint, then fixtures (faucets, outlets, switches, plates), lighting, and hardwired smoke/CO detectors. Stairs/Railings only if home has stairs.'},
   {col:2, n:'Update Heating, Cooling, & Ventilation', icon:'❄️', items:['Furnace','AC Condenser','Ductwork','Heat Pump','Mini-Split System','Smart Thermostat'], auto:['Furnace','AC Condenser','Ductwork','Smart Thermostat'], note:'Heat Pump replaces Furnace + AC Condenser. Mini-Split is for additions or no-duct homes. Don\'t double up.'},
-  {col:2, n:'Update Electrical',       icon:'⚡', items:['Electrical Wiring','Panel Upgrade (200A)']},
-  {col:2, n:'Update Plumbing',         icon:'🚰', items:['Supply Lines','Drain Lines','Plumbing Vent Stack','Water Heater','Tankless Water Heater','Water Softener / Filter','Septic Tank','Leach Field','Well Drilling','Sewer Line (replace)','Sump Pump','French Drain'], auto:['Supply Lines','Water Heater'], note:'Pipes, lines, vent stack, water heater, and water management. Tankless replaces standard Water Heater (don\'t double up). Septic Tank + Leach Field together = full septic system.'},
-  {col:2, n:'Update Exterior',         icon:'🏠', items:['Roof','Gutters','Soffit','Fascia','Siding','Windows','Window Casing','Exterior Doors'], note:'Full exterior envelope — roof, siding, windows, casing, doors, trim. Replace any/all together.'},
+  {col:2, n:'Update Electrical & Plumbing', icon:'⚡', items:['Electrical Wiring','Panel Upgrade (200A)','Supply Lines','Drain Lines','Plumbing Vent Stack','Water Heater','Tankless Water Heater','Water Softener / Filter','Septic Tank','Leach Field','Well Drilling','Sewer Line (replace)','Sump Pump','French Drain'], auto:['Electrical Wiring','Panel Upgrade (200A)','Supply Lines','Water Heater'], note:'Electrical (wiring, panel) + plumbing (pipes, lines, vent stack, water heater, water management). Tankless replaces standard Water Heater (don\'t double up). Septic Tank + Leach Field together = full septic system.'},
+  {col:2, n:'Update Exterior & Curb Appeal', icon:'🏠', items:['Roof','Gutters','Soffit','Fascia','Siding','Windows','Window Casing','Exterior Doors','Landscaping','Driveway','Fence','Porch/Patio','Garage Door','Garage Door Opener','Outdoor Lighting','Tree Removal'], auto:['Roof','Gutters','Soffit','Fascia','Siding','Windows','Window Casing','Exterior Doors','Landscaping','Outdoor Lighting'], note:'Full exterior envelope (roof, siding, windows, casing, doors, trim) plus curb appeal (landscaping, driveway, fence, garage doors, outdoor lighting, tree removal).'},
   {col:3, n:'Demo & Cleanup',          icon:'🧹', items:['Trash Clean-Out','Demolition','Permits','Dumpsters','Odor Remediation','Deck Removal'], auto:['Trash Clean-Out','Demolition','Permits','Dumpsters']},
-  {col:3, n:'Curb Appeal',             icon:'🌿', items:['Landscaping','Driveway','Fence','Porch/Patio','Garage Door','Garage Door Opener','Outdoor Lighting','Tree Removal'], auto:['Landscaping','Outdoor Lighting']},
   {col:3, n:'Foundation Repair',       icon:'🏗️', items:['Foundation Wall Repair','Foundation Waterproofing','Foundation Piers/Underpinning','Re-Pointing Mortar','Load-Bearing Wall Removal','Carbon Fiber Straps','Steel I-Beam Wall Bracing','Wall Anchors / Helical Tiebacks','Steel Beam / Lally Column','Joist Sistering','Sill Plate Replacement','Crawl Space Encapsulation','Subfloor','Floor Leveling','Egress Windows (basement)','Chimney Repair','Chimney Removal'], auto:['Foundation Piers/Underpinning','Subfloor','Floor Leveling'], note:'Includes piers, tuck-pointing, carbon fiber + steel beam bracing, wall anchors, lally columns, sill plate, crawl space, joist sistering, subfloor, floor leveling, egress windows, chimney work.'},
   {col:3, n:'Additions',               icon:'➕', items:['Garage Add (24x24)','Room Add (12x16)','Basement Finish (1000sf)','Attic Conversion','Pop-Top (2nd story)','ADU (600 sqft)','Radon Mitigation','EV Charger','Generator + Transfer'], note:'Expand square footage + premium add-ons (radon, EV charger, generator). Major projects — usually only one structural at a time.'}
 ];
@@ -51953,13 +51951,9 @@ function resetLabRates(){
     });
   });
   try{ localStorage.removeItem(LAB_STORAGE_KEY); }catch(e){}
-  // Also un-hide any built-in items deleted in Edit Mode (full factory reset of
-  // built-in customizations). Renames are left intact.
-  try{ localStorage.removeItem(USER_HIDDEN_KEY); }catch(e){}
-  if (typeof _rcUserHiddenSyncToCloud === 'function') _rcUserHiddenSyncToCloud({});
   // Wipe the cloud copy too so other devices revert on next load.
   if (typeof _labRatesSyncToCloud === 'function') _labRatesSyncToCloud({});
-  alert('Built-in rates, material/labor splits, and deletions reset to defaults. Reload to restore any deleted built-in items.');
+  alert('Built-in rates and material/labor splits reset to defaults. (Deleted items are managed separately in the 🗑 Trash.)');
   recalc();
 }
 
@@ -52086,14 +52080,11 @@ function _rcSnapshotGroupOrigItems(){
 const _rcGroupCat = {
   'Update Kitchen': 'kitchen',
   'Update Bathrooms': 'bath',
-  'Insulation, Drywall, & Interior Doors': 'interior',
-  'Flooring, Trim, Paint, & Fixtures': 'interior',
+  'Update Basic Cosmetics': 'interior',
   'Update Heating, Cooling, & Ventilation': 'mech',
-  'Update Electrical': 'mech',
-  'Update Plumbing': 'mech',
-  'Update Exterior': 'exterior',
+  'Update Electrical & Plumbing': 'mech',
+  'Update Exterior & Curb Appeal': 'exterior',
   'Demo & Cleanup': 'demo',
-  'Curb Appeal': 'site',
   'Foundation Repair': 'structural',
   'Additions': 'additions',
 };
@@ -52126,22 +52117,28 @@ window._rcAddCustomItem = function(groupIdx){
   recalc();
 };
 window._rcDeleteCustomItem = function(itemName){
-  // Find which category this item lives in
-  let removedCat = null;
+  // Soft-delete: capture the item + its group memberships, then move to Trash so
+  // it can be restored later (instead of destroying it outright).
+  let removedCat = null, removedItem = null;
   Object.keys(items).forEach(cat => {
     const idx = items[cat].findIndex(it => it.n === itemName && it._user === true);
-    if(idx >= 0){ items[cat].splice(idx, 1); removedCat = cat; }
+    if(idx >= 0){ removedItem = items[cat][idx]; items[cat].splice(idx, 1); removedCat = cat; }
   });
-  if(!removedCat){ return; }
-  // Remove from any basic group's items list (and auto list if present)
+  if(!removedCat || !removedItem){ return; }
+  const groups = [];
   basicGroups.forEach(g => {
     const i = g.items.indexOf(itemName);
-    if(i >= 0) g.items.splice(i, 1);
+    if(i >= 0){ g.items.splice(i, 1); groups.push(g.n); }
     if(g.auto){
       const ai = g.auto.indexOf(itemName);
       if(ai >= 0) g.auto.splice(ai, 1);
     }
   });
+  const trash = _rcLoadTrash();
+  trash.push({ id:_rcTrashId(), type:'custom', cat:removedCat, name:itemName,
+    item:{ n:removedItem.n, u:removedItem.u, r:removedItem.r, mp:removedItem.mp, lp:removedItem.lp, hr:removedItem.hr },
+    groups, at:Date.now() });
+  _rcSaveTrash(trash);
   _rcSaveUserItems();
   _rcSaveUserGroups();
   _rcSaveUserAuto();
@@ -52312,37 +52309,70 @@ window._rcSetItemCost = function(cat, idx, field, rawVal){
   recalc();
 };
 
-// ===== USER-HIDDEN (deleted) BUILT-IN ITEMS =====
-// Built-in items can't be truly removed from code, so a deletion is recorded in
-// an override keyed by the item's ORIGINAL name and re-applied on every load.
-// (Custom items are deleted outright via _rcDeleteCustomItem.)
-const USER_HIDDEN_KEY = 'rehab-user-hidden-v1';
-function _rcSaveHidden(cat, origName, hidden){
-  try{
-    const map = JSON.parse(localStorage.getItem(USER_HIDDEN_KEY) || '{}');
-    if(hidden === false) delete map[cat+':'+origName];
-    else map[cat+':'+origName] = 1;
-    localStorage.setItem(USER_HIDDEN_KEY, JSON.stringify(map));
-    if(typeof _rcUserHiddenSyncToCloud === 'function') _rcUserHiddenSyncToCloud(map);
-  }catch(e){ console.warn('[_rcSaveHidden]', e); }
+// ===== TRASH BIN — soft-deleted items (built-in + custom) =====
+// Deleting anything (built-in or custom) moves it to a recoverable Trash instead
+// of destroying it. Built-in entries are re-removed from the code-rebuilt lists
+// on each load; custom entries store the full item so they can be re-created.
+// Legacy USER_HIDDEN_KEY (built-in-only) is migrated into the trash on first run.
+const USER_HIDDEN_KEY = 'rehab-user-hidden-v1'; // legacy — migrated then removed
+const USER_TRASH_KEY  = 'rehab-user-trash-v1';
+function _rcLoadTrash(){ try{ const a = JSON.parse(localStorage.getItem(USER_TRASH_KEY) || '[]'); return Array.isArray(a) ? a : []; }catch(_){ return []; } }
+function _rcSaveTrash(arr){
+  try{ localStorage.setItem(USER_TRASH_KEY, JSON.stringify(arr)); }catch(_){}
+  if(typeof _rcUserTrashSyncToCloud === 'function') _rcUserTrashSyncToCloud(arr);
 }
-function _rcApplyUserHidden(){
+function _rcTrashId(){ return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function _rcTrashCount(){ return _rcLoadTrash().length; }
+// Re-apply built-in deletions (and migrate the legacy hidden map) on load.
+function _rcApplyTrash(){
   try{
-    const map = JSON.parse(localStorage.getItem(USER_HIDDEN_KEY) || '{}');
-    Object.keys(map).forEach(fullKey=>{
-      const ci = fullKey.indexOf(':'); if(ci < 0) return;
-      const cat = fullKey.slice(0, ci), origName = fullKey.slice(ci+1);
-      if(!items[cat]) return;
-      const idx = items[cat].findIndex(x => (x._origN !== undefined ? x._origN : x.n) === origName && !x._user);
+    let trash = _rcLoadTrash();
+    // One-time migration of the old hidden map → trash entries.
+    try{
+      const legacy = JSON.parse(localStorage.getItem(USER_HIDDEN_KEY) || '{}');
+      const keys = Object.keys(legacy);
+      if(keys.length){
+        keys.forEach(fk=>{
+          const ci = fk.indexOf(':'); if(ci < 0) return;
+          const cat = fk.slice(0, ci), origName = fk.slice(ci+1);
+          if(!trash.some(e=>e.type==='builtin' && e.cat===cat && e.origName===origName)){
+            trash.push({ id:_rcTrashId(), type:'builtin', cat, origName, name:origName, at:Date.now() });
+          }
+        });
+        localStorage.removeItem(USER_HIDDEN_KEY);
+        _rcSaveTrash(trash);
+      }
+    }catch(_){}
+    // Remove trashed built-ins from the freshly code-built lists.
+    trash.filter(e=>e.type==='builtin').forEach(e=>{
+      if(!items[e.cat]) return;
+      const idx = items[e.cat].findIndex(x => (x._origN !== undefined ? x._origN : x.n) === e.origName && !x._user);
       if(idx < 0) return;
-      const nm = items[cat][idx].n;
-      items[cat].splice(idx, 1);
+      const nm = items[e.cat][idx].n;
+      items[e.cat].splice(idx, 1);
       basicGroups.forEach(g=>{
         const i = g.items.indexOf(nm); if(i >= 0) g.items.splice(i, 1);
         if(g.auto){ const a = g.auto.indexOf(nm); if(a >= 0) g.auto.splice(a, 1); }
       });
     });
-  }catch(e){ console.warn('[_rcApplyUserHidden]', e); }
+  }catch(e){ console.warn('[_rcApplyTrash]', e); }
+}
+// Every custom item must live in at least one group, otherwise it exists in
+// items{} but never renders in the Basic quick-select. Group renames (which
+// re-key the group-extras storage) used to orphan customs — this re-attaches
+// any orphan to the group that matches its category.
+function _rcHealCustomGroups(){
+  let healed = false;
+  Object.keys(items).forEach(cat=>{
+    items[cat].forEach(it=>{
+      if(!it._user) return;
+      if(basicGroups.some(g=>Array.isArray(g.items) && g.items.includes(it.n))) return;
+      const gname = Object.keys(_rcGroupCat).find(k=>_rcGroupCat[k]===cat);
+      const g = gname ? basicGroups.find(b=>b.n===gname) : null;
+      if(g && !g.items.includes(it.n)){ g.items.push(it.n); healed = true; }
+    });
+  });
+  if(healed && typeof _rcSaveUserGroups === 'function') _rcSaveUserGroups();
 }
 // Remove any accidental duplicate item names from each basic group's items +
 // auto lists (keeps the first occurrence). Guards against a rename/extra race
@@ -52363,15 +52393,93 @@ window._rcDeleteBuiltinItem = function(cat, idx){
   const it = items[cat][idx];
   if(it._user){ return; } // custom items use _rcDeleteCustomItem
   const nm = it.n;
-  if(!confirm('Delete built-in item "'+nm+'"? It will stay hidden across reloads. Use Reset in the Recommendations panel (then reload) to bring built-ins back.')) return;
   const origKey = (it._origN !== undefined) ? it._origN : nm;
   items[cat].splice(idx, 1);
   basicGroups.forEach(g=>{
     const i = g.items.indexOf(nm); if(i >= 0) g.items.splice(i, 1);
     if(g.auto){ const a = g.auto.indexOf(nm); if(a >= 0) g.auto.splice(a, 1); }
   });
-  _rcSaveHidden(cat, origKey, true);
+  const trash = _rcLoadTrash();
+  if(!trash.some(e=>e.type==='builtin' && e.cat===cat && e.origName===origKey)){
+    trash.push({ id:_rcTrashId(), type:'builtin', cat, origName:origKey, name:nm, at:Date.now() });
+    _rcSaveTrash(trash);
+  }
   recalc();
+};
+// Restore a single trashed item by id.
+window._rcRestoreTrashItem = function(id){
+  const trash = _rcLoadTrash();
+  const e = trash.find(x=>x.id===id);
+  if(!e) return;
+  if(e.type === 'custom'){
+    const cat = e.cat;
+    if(!items[cat]) items[cat] = [];
+    if(!items[cat].some(x=>x.n===e.item.n)){
+      items[cat].push(Object.assign({}, e.item, { _user:true, on:false, _origN:e.item.n }));
+    }
+    (e.groups||[]).forEach(gn=>{ const g=basicGroups.find(b=>b.n===gn); if(g && !g.items.includes(e.item.n)) g.items.push(e.item.n); });
+    _rcSaveTrash(trash.filter(x=>x.id!==id));
+    _rcSaveUserItems(); _rcSaveUserGroups();
+    _rcDedupeGroups();
+    recalc();
+    if(document.getElementById('rc-trash-overlay')) window._rcOpenTrash();
+  } else {
+    // Built-in: dropping it from the trash means it rebuilds from code next load.
+    _rcSaveTrash(trash.filter(x=>x.id!==id));
+    location.reload();
+  }
+};
+// Permanently remove a trashed item (custom items are then unrecoverable).
+window._rcEmptyTrashItem = function(id){
+  const trash = _rcLoadTrash();
+  const e = trash.find(x=>x.id===id);
+  if(!e) return;
+  if(!confirm('Permanently delete "'+e.name+'"? This can\'t be undone.')) return;
+  _rcSaveTrash(trash.filter(x=>x.id!==id));
+  if(document.getElementById('rc-trash-overlay')) window._rcOpenTrash();
+};
+window._rcRestoreAllTrash = function(){
+  const trash = _rcLoadTrash();
+  if(!trash.length){ return; }
+  trash.filter(e=>e.type==='custom').forEach(e=>{
+    const cat = e.cat; if(!items[cat]) items[cat] = [];
+    if(!items[cat].some(x=>x.n===e.item.n)) items[cat].push(Object.assign({}, e.item, { _user:true, on:false, _origN:e.item.n }));
+    (e.groups||[]).forEach(gn=>{ const g=basicGroups.find(b=>b.n===gn); if(g && !g.items.includes(e.item.n)) g.items.push(e.item.n); });
+  });
+  _rcSaveTrash([]);
+  if(typeof _rcSaveUserItems === 'function') _rcSaveUserItems();
+  if(typeof _rcSaveUserGroups === 'function') _rcSaveUserGroups();
+  location.reload(); // reload so trashed built-ins rebuild from code
+};
+// The Trash Bin overlay — lists deleted items with Restore / Delete-forever.
+window._rcOpenTrash = function(){
+  const trash = _rcLoadTrash();
+  const old = document.getElementById('rc-trash-overlay'); if(old) old.remove();
+  const ov = document.createElement('div');
+  ov.id = 'rc-trash-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:20px';
+  const esc = s => String(s).replace(/'/g,"\\'");
+  const rows = trash.length ? trash.map(e=>{
+    const icon = e.type==='builtin' ? '🔧' : '⭐';
+    const tag  = e.type==='builtin' ? 'built-in' : 'custom';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px;color:var(--text)">${icon} ${e.name} <span style="color:var(--text-dim);font-size:10px">· ${e.cat} · ${tag}</span></span>
+      <span style="display:flex;gap:6px;flex-shrink:0">
+        <button onclick="window._rcRestoreTrashItem('${esc(e.id)}')" class="btn btn-ghost text-xs" style="border-color:#10b981;color:#6ee7b7;padding:3px 10px">↩ Restore</button>
+        <button onclick="window._rcEmptyTrashItem('${esc(e.id)}')" class="btn btn-ghost text-xs" style="border-color:#ef4444;color:#fca5a5;padding:3px 10px">Delete forever</button>
+      </span>
+    </div>`;
+  }).join('') : '<div style="color:var(--text-dim);padding:20px;text-align:center">Trash is empty.</div>';
+  ov.innerHTML = `<div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;max-width:600px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,0.6)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel)">
+      <div style="font-weight:700;color:var(--text)">🗑 Trash — ${trash.length} deleted item${trash.length===1?'':'s'}</div>
+      <button onclick="document.getElementById('rc-trash-overlay').remove()" class="btn btn-ghost text-xs" style="padding:3px 10px">✕ Close</button>
+    </div>
+    ${rows}
+    ${trash.length ? '<div style="padding:10px 14px;border-top:1px solid var(--border);text-align:right"><button onclick="window._rcRestoreAllTrash()" class="btn btn-ghost text-xs" style="border-color:#22d3ee;color:#67e8f9;padding:3px 12px">↩ Restore all</button></div>' : ''}
+  </div>`;
+  ov.addEventListener('click', ev=>{ if(ev.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
 };
 
 // ===== Custom Rehab (Items + Groups + Auto) — cloud sync =====
@@ -52421,12 +52529,12 @@ function _rcUserRenamesSyncToCloud(payload) {
 }
 window._rcUserRenamesSyncToCloud = _rcUserRenamesSyncToCloud;
 
-let _rcUserHiddenCloudTimer = null;
-function _rcUserHiddenSyncToCloud(payload) {
-  if (_rcUserHiddenCloudTimer) clearTimeout(_rcUserHiddenCloudTimer);
-  _rcUserHiddenCloudTimer = setTimeout(() => { _rcUserHiddenCloudTimer = null; _rcPushToAppConfig('rehab_user_hidden', payload); }, 600);
+let _rcUserTrashCloudTimer = null;
+function _rcUserTrashSyncToCloud(payload) {
+  if (_rcUserTrashCloudTimer) clearTimeout(_rcUserTrashCloudTimer);
+  _rcUserTrashCloudTimer = setTimeout(() => { _rcUserTrashCloudTimer = null; _rcPushToAppConfig('rehab_user_trash', payload); }, 600);
 }
-window._rcUserHiddenSyncToCloud = _rcUserHiddenSyncToCloud;
+window._rcUserTrashSyncToCloud = _rcUserTrashSyncToCloud;
 
 // Pull all three from cloud on boot. Mirrors values into localStorage so the
 // existing load functions (_rcLoadUserItems etc.) pick them up. If the calc
@@ -52439,7 +52547,7 @@ function _rcUserCustomHydrateFromCloud() {
     const cloudGroups  = map.rehab_user_groups  || null;
     const cloudAuto    = map.rehab_user_auto    || null;
     const cloudRenames = map.rehab_user_renames || null;
-    const cloudHidden  = map.rehab_user_hidden  || null;
+    const cloudTrash   = map.rehab_user_trash   || null;
     // MERGE, never overwrite. A blind overwrite here used to wipe custom items
     // that were added on this device but hadn't finished syncing to the cloud
     // yet (the sync is debounced 600ms — a quick push+reload beats it, and the
@@ -52480,10 +52588,17 @@ function _rcUserCustomHydrateFromCloud() {
       const merged = Object.assign({}, _readLS(USER_RENAMES_KEY), (cloudRenames && typeof cloudRenames === 'object') ? cloudRenames : {});
       try { localStorage.setItem(USER_RENAMES_KEY, JSON.stringify(merged)); } catch (_) {}
     }
-    // Built-in deletions: same merge treatment (flat { "cat:orig": 1 } map).
-    if (cloudHidden || Object.keys(_readLS(USER_HIDDEN_KEY)).length) {
-      const merged = Object.assign({}, _readLS(USER_HIDDEN_KEY), (cloudHidden && typeof cloudHidden === 'object') ? cloudHidden : {});
-      try { localStorage.setItem(USER_HIDDEN_KEY, JSON.stringify(merged)); } catch (_) {}
+    // Trash (deleted items): union by entry id so a delete made here but not yet
+    // synced isn't clobbered by a stale cloud copy.
+    {
+      const _readArr = (k) => { try { const a = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(a) ? a : []; } catch (_) { return []; } };
+      const localTrash = _readArr(USER_TRASH_KEY);
+      if ((Array.isArray(cloudTrash) && cloudTrash.length) || localTrash.length) {
+        const byId = new Map();
+        (Array.isArray(cloudTrash) ? cloudTrash : []).forEach(e => { if (e && e.id) byId.set(e.id, e); });
+        localTrash.forEach(e => { if (e && e.id && !byId.has(e.id)) byId.set(e.id, e); });
+        try { localStorage.setItem(USER_TRASH_KEY, JSON.stringify([...byId.values()])); } catch (_) {}
+      }
     }
     // If the rehab calc has already initialized, re-apply now so the UI updates
     // without a reload. Load functions are idempotent (dedupe checks inside).
@@ -52495,7 +52610,8 @@ function _rcUserCustomHydrateFromCloud() {
       if (typeof _rcApplyUserRenames === 'function') _rcApplyUserRenames();
       if (typeof _rcLoadUserGroups  === 'function') _rcLoadUserGroups();
       if (typeof _rcLoadUserAuto    === 'function') _rcLoadUserAuto();
-      if (typeof _rcApplyUserHidden  === 'function') _rcApplyUserHidden();
+      if (typeof _rcApplyTrash       === 'function') _rcApplyTrash();
+      if (typeof _rcHealCustomGroups === 'function') _rcHealCustomGroups();
       if (typeof _rcDedupeGroups     === 'function') _rcDedupeGroups();
       if (typeof renderCategoryRows === 'function') renderCategoryRows();
       if (typeof recalc === 'function') recalc();
@@ -52660,10 +52776,12 @@ function renderRecs(){
   let html = '';
   Object.entries(data.recs).forEach(([k,v])=>{ html += `<div><strong style="color:var(--text)">${k}:</strong> ${v}</div>`; });
   if(tier === 'lab'){
+    let trashCount = 0; try{ trashCount = (typeof _rcTrashCount==='function') ? _rcTrashCount() : 0; }catch(_){}
     html += `<div style="grid-column:1/-1;display:flex;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);align-items:center;flex-wrap:wrap">
       <button onclick="window._rcExportLabRates && window._rcExportLabRates()" class="btn btn-ghost text-xs" style="padding:4px 10px;font-size:11px;border-color:#a855f7;color:#c4b5fd" title="Copy your custom rates as JSON to share with Claude">📋 Export Custom Rates ${editCount?'('+editCount+')':''}</button>
       ${editCount>0?'<button onclick="window._rcResetLabRates && window._rcResetLabRates()" class="btn btn-ghost text-xs" style="padding:4px 10px;font-size:11px;border-color:#ef4444;color:#fca5a5" title="Reset all rates back to Builder Grade defaults">↺ Reset All to Defaults</button>':''}
-      <span style="color:var(--text-dim);font-size:10px">Edits auto-save to your browser. Click Export to share with Claude. Use the Edit Mode button at the top to unlock rates.</span>
+      <button onclick="window._rcOpenTrash && window._rcOpenTrash()" class="btn btn-ghost text-xs" style="padding:4px 10px;font-size:11px;border-color:#22d3ee;color:#67e8f9" title="View deleted items — restore anything you removed (built-in or custom), or delete it permanently.">🗑 Trash${trashCount>0?' ('+trashCount+')':''}</button>
+      <span style="color:var(--text-dim);font-size:10px">Edits auto-save to your browser. Deleted items go to Trash — restore them anytime.</span>
     </div>`;
   }
   document.getElementById('recsContent').innerHTML = html;
@@ -52680,6 +52798,21 @@ function renderRecs(){
       labBtn.style.background = editOn ? 'rgba(168,85,247,0.15)' : '';
     } else {
       labBtn.style.display = 'none';
+    }
+  }
+  // Trash button sits to the LEFT of Edit Mode. In LAB Custom it always occupies
+  // its slot (reserving space) and only fades in/out with Edit Mode — so toggling
+  // Edit never shifts the Edit Mode button.
+  const trashBtn = document.getElementById('rc-trash-btn');
+  if(trashBtn){
+    let tc = 0; try{ tc = (typeof _rcTrashCount === 'function') ? _rcTrashCount() : 0; }catch(_){}
+    trashBtn.textContent = tc > 0 ? '🗑 Trash (' + tc + ')' : '🗑 Trash';
+    if(tier === 'lab'){
+      trashBtn.style.display = '';
+      trashBtn.style.visibility = labEditMode ? 'visible' : 'hidden';
+      trashBtn.style.pointerEvents = labEditMode ? 'auto' : 'none';
+    } else {
+      trashBtn.style.display = 'none';
     }
   }
 }
@@ -52812,7 +52945,7 @@ function renderBasic(){
     const sfPart = sfItemNames.length ? `<span style="color:#10b981;font-weight:600;font-size:9px">📐</span> ${sfItemNames.map(renderSpan).join(' <span style="color:#475569">·</span> ')}` : '';
     const flatPart = flatItemNames.length ? `<span style="color:#fb923c;font-weight:600;font-size:9px">📦</span> ${flatItemNames.map(renderSpan).join(' <span style="color:#475569">·</span> ')}` : '';
     const sep = (sfPart && flatPart) ? '<div style="margin-top:2px"></div>' : '';
-    const itemsHtml = `<div class="basic-items-scroll" style="font-size:10px;margin-top:3px;line-height:1.4;max-height:48px;overflow-y:auto;overflow-x:hidden;padding-right:3px;scrollbar-width:thin;scrollbar-color:rgba(148,163,184,0.30) transparent">${sfPart}${sep}${flatPart}</div>`;
+    const itemsHtml = `<div class="basic-items-scroll" style="font-size:10px;margin-top:3px;line-height:1.4;max-height:72px;overflow-y:auto;overflow-x:hidden;padding-right:3px;scrollbar-width:thin;scrollbar-color:rgba(148,163,184,0.30) transparent">${sfPart}${sep}${flatPart}</div>`;
     let fracBg, fracBd, fracTx;
     if(allOn)       { fracBg='rgba(16,185,129,0.18)';  fracBd='rgba(16,185,129,0.4)';  fracTx='#6ee7b7'; }
     else if(someOn) { fracBg='rgba(245,158,11,0.15)';  fracBd='rgba(245,158,11,0.3)';  fracTx='#fcd34d'; }
@@ -52931,7 +53064,7 @@ function renderBasic(){
         +'</div>';
     }
     const labelHtml = `<div style="position:relative;height:100%;min-width:0">
-      <div class="panel-2" data-basic-box="${idx}" onclick="if(!event.target.closest('input,a,button'))window._rcToggleBasicExpand&&window._rcToggleBasicExpand(${idx}, event);" style="padding:8px 11px;display:flex;flex-direction:column;gap:4px;cursor:pointer;border-color:${allOn?'#10b981':'var(--border)'};${allOn?'background:rgba(16,185,129,0.08);':''};min-height:72px;height:100%;overflow:hidden;box-sizing:border-box;width:100%;${isExpanded?'border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom-color:transparent;overflow:visible;':''}" title="Click anywhere in the box (except the checkbox) to open the detailed breakdown.">
+      <div class="panel-2" data-basic-box="${idx}" onclick="if(!event.target.closest('input,a,button'))window._rcToggleBasicExpand&&window._rcToggleBasicExpand(${idx}, event);" style="padding:8px 11px;display:flex;flex-direction:column;gap:4px;cursor:pointer;border-color:${allOn?'#10b981':'var(--border)'};${allOn?'background:rgba(16,185,129,0.08);':''};min-height:108px;height:100%;overflow:hidden;box-sizing:border-box;width:100%;${isExpanded?'border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom-color:transparent;overflow:visible;':''}" title="Click anywhere in the box (except the checkbox) to open the detailed breakdown.">
         <div style="display:flex;align-items:center;gap:5px;width:100%;min-width:0;overflow:hidden">
           <input type="checkbox" data-basic="${idx}" ${allOn?'checked':''} ${someOn?'data-indeterminate="1"':''} onclick="event.stopPropagation()" style="width:16px;height:16px;accent-color:#10b981;flex-shrink:0;cursor:pointer" title="Toggle the auto-selected items in this group on/off.">
           <span style="font-size:13px;flex-shrink:0">${g.icon}</span>
@@ -53737,7 +53870,8 @@ if (_rcRoot && document.getElementById('basicGroups')) {
   _rcApplyUserRenames();
   _rcLoadUserGroups();
   _rcLoadUserAuto();
-  _rcApplyUserHidden();
+  _rcApplyTrash();
+  _rcHealCustomGroups();
   _rcDedupeGroups();
   loadLabRates();
   renderCategoryRows();

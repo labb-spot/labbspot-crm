@@ -20927,8 +20927,8 @@ function _sopDragMove(ev) {
     if (parW < needRight)  par.style.width  = needRight  + 'px';
     if (parH < needBottom) par.style.height = needBottom + 'px';
   }
-  // Live-update arrows that touch this box so they follow the drag
-  if (typeof _sopRenderArrows === 'function') _sopRenderArrows();
+  // Live-update arrows that touch this box so they follow the drag (throttled)
+  _sopRenderArrowsRAF();
 }
 
 function _sopDragEnd() {
@@ -20992,8 +20992,8 @@ function _sopResizeMove(ev) {
   if (typeof _sopUpdateBoxScale === 'function') _sopUpdateBoxScale(_sopResizeBox);
   // Live-fit text as the box shrinks so the user sees content scale smoothly.
   _sopFitText(_sopResizeBox);
-  // Live-update arrows that touch this box so they follow the resize
-  if (typeof _sopRenderArrows === 'function') _sopRenderArrows();
+  // Live-update arrows that touch this box so they follow the resize (throttled)
+  _sopRenderArrowsRAF();
 }
 
 function _sopResizeEnd() {
@@ -21263,6 +21263,21 @@ function _sopRenderArrows() {
   Array.from(svg.querySelectorAll('.sop-arrow-group')).forEach(g => g.remove());
   _sopState.arrows.forEach(arrow => _sopRenderOneArrow(arrow, svg));
 }
+// Throttled arrow re-render for continuous drag/resize — coalesces the flood of
+// mousemove events into at most one rebuild per animation frame. Visually
+// identical (arrows still follow live), just far less DOM churn. Drag/resize END
+// handlers still call _sopRenderArrows() directly for the final state.
+let _sopArrowsRAF = 0;
+function _sopRenderArrowsRAF() {
+  if (_sopArrowsRAF) return;
+  _sopArrowsRAF = requestAnimationFrame(function () { _sopArrowsRAF = 0; _sopRenderArrows(); });
+}
+// Same coalescing for the mini-map, which otherwise redraws on every scroll tick.
+let _sopMinimapRAF = 0;
+function _sopRenderMinimapRAF() {
+  if (_sopMinimapRAF) return;
+  _sopMinimapRAF = requestAnimationFrame(function () { _sopMinimapRAF = 0; if (typeof _sopRenderMinimap === 'function') _sopRenderMinimap(); });
+}
 
 function _sopRenderOneArrow(arrow, svg) {
   const fromBox = document.querySelector('#sop-canvas .sop-box[data-sop-id="' + arrow.from + '"]');
@@ -21362,7 +21377,7 @@ function _sopCpDragMove(ev) {
   const arrow = (_sopState.arrows || []).find(a => a.id === _sopCpArrowId);
   if (!arrow) return;
   arrow.cp = { x: Math.round(x), y: Math.round(y) };
-  _sopRenderArrows();
+  _sopRenderArrowsRAF();
 }
 function _sopCpDragEnd() {
   if (!_sopCpArrowId) return;
@@ -22225,7 +22240,7 @@ function _sopMinimapHookListeners() {
   const vp = document.getElementById('sop-viewport');
   if (!vp || vp._sopMinimapHooked) return;
   vp._sopMinimapHooked = true;
-  vp.addEventListener('scroll', () => { if (!_sopMinimapCollapsed) _sopRenderMinimap(); }, { passive: true });
+  vp.addEventListener('scroll', () => { if (!_sopMinimapCollapsed) _sopRenderMinimapRAF(); }, { passive: true });
   window.addEventListener('resize', () => { if (!_sopMinimapCollapsed) _sopRenderMinimap(); });
 }
 

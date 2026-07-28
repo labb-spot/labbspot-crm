@@ -38748,11 +38748,13 @@ function openPhotoDrawer(id) {
   // items the photographer checked and ✗ for items they didn't. Keep in
   // sync with the CHECKLISTS object in submit-photos.html.
   const PS_OPTIONS = {
-    exterior_checklist: ['Whole house — each side wide','Roof + gutters + soffit/fascia','Windows + doors','Foundation perimeter','Utility meters + service mast','Decks, porches, fences','Yard, driveway, outbuildings','Standing water / drainage','Basement / crawl entry from outside','Street view'],
-    interior_checklist: ['Walk every room, every floor','Floor / walls / ceiling each room','Closets — open every door','Water damage, stains, mold','Under sinks, showers, tubs','Appliances + labels','Windows, outlets, switches','Elevation changes / sagging','Basement walkthrough','Attic (if accessible)'],
-    kitchen_checklist: ['Wide shot of whole kitchen','Cabinets + countertops + backsplash','Sink + faucet + under-sink','Stove / oven / range hood + labels','Refrigerator + dishwasher + labels','Floor close-up','Property doesn\u2019t have a kitchen'],
-    bathroom_checklist: ['Wide shot of each bathroom','Toilet + base','Tub / shower (each)','Vanity + sink + under-sink','Floor + walls + ventilation','Property doesn\u2019t have a bathroom'],
-    mechanicals_checklist: ['Water heater + label','Furnace + label','A/C + label','Open electrical panel + label','Visible plumbing + wiring','Couldn\u2019t locate one'],
+    videos_checklist: ['Full Exterior Video(s)', 'Full Interior Video(s)'],
+    exterior_checklist: ['Roof', 'Soffit', 'Fascia', 'Windows', 'Exterior Doors', 'Foundation Perimeter', 'Decks / Porches / Fences', 'Driveway', 'Front Yard / Back Yard / Side Yards', 'Additional Buildings / Sheds / Garages', 'Basement / Crawlspace Entryway', 'Street View from Property — Mailbox Left + Right'],
+    interior_checklist: ['Wide Shot of Every Room', 'Floors of Every Room', 'Ceilings in Every Room', 'Closets in Every Room', 'Close Up of Windows in Every Room', 'Close Up of Light Switches', 'Close Up of Electrical Outlets', 'Wide Shots of Attic', 'Wide Shots of Basement'],
+    kitchen_checklist: ['Wide Shots of Entire Kitchen', 'Cabinet Exteriors', 'Cabinet Interiors', 'Countertops', 'Backsplash', 'Sink Basin & Faucet', 'Under-Sink Plumbing', 'Stove / Oven & Range Vent', 'Microwave', 'Dishwasher', 'Refrigerator', 'Floor / Tile Close Ups'],
+    bathroom_checklist: ['Wide shot of Every Bathroom', 'Toilet in Every Bathroom', 'Tub / Shower in Every Bathroom', 'Vanity Exterior of Every Bathroom', 'Vanity Interior Plumbing in Every Bathroom', 'Close up of Floors / Tiling in Every Bathroom', 'Bathroom Vents', 'Bathroom Storages', 'Bathroom Hardware'],
+    mechanicals_checklist: ['Water Heater + Water Heater Label', 'Furnace + Furnace Label', 'AC Condenser + AC Condenser Label', 'Open & Closed Electrical Panel + Interior Panel Label', 'Electrical Service Mast', 'Other Visible Plumbing at Property', 'Other Visible Electrical Wiring in Property'],
+    damages_checklist: ['Water Damage / Water Stains / Mold', 'Elevation Changes / Sagging Ceilings', 'Unlisted Damages & Extra Pictures'],
     odors: ['None — smelled fine','Musty, damp, mildew','Sewage / feces','Smokey / burning','Rotten eggs','Bleachy / perfume','Animal smell','Creaky floors / loud sounds'],
   };
   // Simple list (used for legacy split fields — those don't have a stable
@@ -38790,8 +38792,70 @@ function openPhotoDrawer(id) {
         }).join('')
       + '</ul>';
   };
+  // Photo-section status: parses "Title ::: uploaded_N | missing | inaccessible"
+  // and shows a colored status per line — green "(N) Uploaded", red Incomplete,
+  // yellow Missing, orange Inaccessible.
+  const statusList = (fieldKey, storedArr) => {
+    const all = PS_OPTIONS[fieldKey];
+    if (!all) return list(storedArr);
+    const SEP = ' ::: ';
+    const byTitle = {};
+    (Array.isArray(storedArr) ? storedArr : []).forEach(entry => {
+      const s = String(entry);
+      const k = s.indexOf(SEP);
+      if (k >= 0) byTitle[s.slice(0, k)] = s.slice(k + SEP.length);
+      else byTitle[s] = 'uploaded_0';   // legacy bare title = uploaded
+    });
+    const reviewState = _psLoadReview(row.id);
+    return '<ul style="list-style:none;margin:6px 0 0;padding:0;font-size:13px;line-height:1.9">'
+      + all.map((item, idx) => {
+          const st = byTitle[item];
+          let label, color;
+          if (st == null)                       { label = 'Incomplete';   color = '#ef4444'; }
+          else if (st === 'missing')            { label = 'Missing';      color = '#eab308'; }
+          else if (st === 'inaccessible')       { label = 'Inaccessible'; color = '#f97316'; }
+          else if (st.indexOf('uploaded_') === 0) {
+            const n = parseInt(st.slice(9), 10);
+            label = (n > 0 ? '(' + n + ') Uploaded' : 'Uploaded'); color = '#22c55e';
+          } else                                { label = 'Uploaded';     color = '#22c55e'; }
+          const itemKey = fieldKey + ':' + idx;
+          const verified = !!reviewState[itemKey];
+          const cb = '<input type="checkbox" class="ps-review-cb" id="' + _psItemId(row.id, fieldKey, idx) + '" '
+            + (verified ? 'checked ' : '')
+            + 'onchange="_psToggleReview(\''+row.id+'\',\''+fieldKey+'\','+idx+',this)" '
+            + 'title="Tick when you have verified this item in the photos/video" '
+            + 'style="width:14px;height:14px;margin-right:8px;cursor:pointer;accent-color:#10b981;vertical-align:middle;flex-shrink:0">';
+          return '<li style="display:flex;align-items:center;gap:8px;color:var(--text)">'
+            + cb + '<span style="flex:1;min-width:0">' + esc(item) + '</span>'
+            + '<span style="color:' + color + ';font-weight:700;font-size:12px;white-space:nowrap;flex-shrink:0">' + label + '</span></li>';
+        }).join('')
+      + '</ul>';
+  };
+  // Smells & Sounds: green "Selected" for checked options, red "Not Selected" otherwise.
+  const selectList = (fieldKey, selectedArr) => {
+    const all = PS_OPTIONS[fieldKey];
+    if (!all) return list(selectedArr);
+    const sel = new Set(Array.isArray(selectedArr) ? selectedArr.map(String) : []);
+    const reviewState = _psLoadReview(row.id);
+    return '<ul style="list-style:none;margin:6px 0 0;padding:0;font-size:13px;line-height:1.9">'
+      + all.map((item, idx) => {
+          const hit = sel.has(item);
+          const label = hit ? 'Selected' : 'Not Selected';
+          const color = hit ? '#22c55e' : '#ef4444';
+          const verified = !!reviewState[fieldKey + ':' + idx];
+          const cb = '<input type="checkbox" class="ps-review-cb" id="' + _psItemId(row.id, fieldKey, idx) + '" '
+            + (verified ? 'checked ' : '')
+            + 'onchange="_psToggleReview(\''+row.id+'\',\''+fieldKey+'\','+idx+',this)" '
+            + 'title="Tick when you have verified this item" '
+            + 'style="width:14px;height:14px;margin-right:8px;cursor:pointer;accent-color:#10b981;vertical-align:middle;flex-shrink:0">';
+          return '<li style="display:flex;align-items:center;gap:8px;color:var(--text)">'
+            + cb + '<span style="flex:1;min-width:0">' + esc(item) + '</span>'
+            + '<span style="color:' + color + ';font-weight:700;font-size:12px;white-space:nowrap;flex-shrink:0">' + label + '</span></li>';
+        }).join('')
+      + '</ul>';
+  };
   const block = (title, body) => '<div style="margin-bottom:18px"><div style="font-size:12px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">' + title + '</div>' + body + '</div>';
-  const para = (txt) => txt ? '<div style="font-size:13.5px;line-height:1.5;white-space:pre-wrap;background:var(--panel-2);padding:10px 12px;border-radius:6px;border:1px solid var(--border)">' + esc(txt) + '</div>' : '<div style="color:var(--text-dim);font-size:13px;padding:6px 0">— none —</div>';
+  const para = (txt) => txt ? '<div style="font-size:13.5px;line-height:1.5;white-space:pre-wrap;background:rgba(34,197,94,0.10);padding:10px 12px;border-radius:6px;border:1px solid #22c55e;color:var(--text)">' + esc(txt) + '</div>' : '<div style="color:var(--text-dim);font-size:13px;padding:6px 0">— none —</div>';
   const body = document.getElementById('ps-drawer-body');
   // Prefer the new split checklist columns (added in the v2 form). Fall
   // back to the legacy combined columns so old submissions still render.
@@ -38808,7 +38872,7 @@ function openPhotoDrawer(id) {
   // Count every item that could be reviewer-checked, so we can show progress.
   const _psCountItems = () => {
     let n = 0;
-    const counts = ['exterior_checklist','interior_checklist','kitchen_checklist','bathroom_checklist','mechanicals_checklist','odors'];
+    const counts = ['videos_checklist','exterior_checklist','interior_checklist','kitchen_checklist','bathroom_checklist','mechanicals_checklist','damages_checklist','odors'];
     counts.forEach(k => { if (PS_OPTIONS[k]) n += PS_OPTIONS[k].length; });
     return n;
   };
@@ -38823,16 +38887,18 @@ function openPhotoDrawer(id) {
     + block('Dropbox folder', row.dropbox_url ? '<a href="' + esc(row.dropbox_url) + '" target="_blank" rel="noopener" class="btn btn-primary text-sm" style="display:inline-block">📷 Open folder</a>' : '<div style="color:var(--text-dim);font-size:13px">— no link —</div>')
     + block('Wants repeat work?', '<div style="font-size:13.5px">' + esc(row.want_repeat || '—') + '</div>')
     + block('Neighborhood safety', '<div style="font-size:13.5px">' + esc(row.neighborhood_safety || '—') + '</div>')
-    + (ext ? block('Exterior — video + pictures', checkedList('exterior_checklist', ext)) : '')
-    + (intr ? block('Interior — video + pictures', checkedList('interior_checklist', intr)) : '')
+    + (row.videos_checklist ? block('Exterior & Interior Videos', statusList('videos_checklist', row.videos_checklist)) : '')
+    + (ext ? block('Exterior Pictures', statusList('exterior_checklist', ext)) : '')
+    + (intr ? block('Bedrooms, Attic, & Basement', statusList('interior_checklist', intr)) : '')
     + (extVid ? block('Exterior video (legacy)', list(extVid)) : '')
     + (extPic ? block('Exterior pictures (legacy)', list(extPic)) : '')
     + (intVid ? block('Interior video (legacy)', list(intVid)) : '')
     + (intPic ? block('Interior pictures (legacy)', list(intPic)) : '')
-    + (row.kitchen_checklist  ? block('Kitchen close-ups',  checkedList('kitchen_checklist',  row.kitchen_checklist))  : '')
-    + (row.bathroom_checklist ? block('Bathroom close-ups', checkedList('bathroom_checklist', row.bathroom_checklist)) : '')
-    + block('Mechanicals checklist', checkedList('mechanicals_checklist', row.mechanicals_checklist))
-    + block('Smells & sounds', checkedList('odors', row.odors))
+    + (row.kitchen_checklist  ? block('Kitchen Pictures',  statusList('kitchen_checklist',  row.kitchen_checklist))  : '')
+    + (row.bathroom_checklist ? block('Bathroom Pictures', statusList('bathroom_checklist', row.bathroom_checklist)) : '')
+    + block('Mechanicals', statusList('mechanicals_checklist', row.mechanicals_checklist))
+    + (row.damages_checklist ? block('Additional Damages & Concerns', statusList('damages_checklist', row.damages_checklist)) : '')
+    + block('Smells & sounds', selectList('odors', row.odors))
     + block('Access issues', para(row.access_issues))
     + block('Unusual notes', para(row.unusual_notes))
     + block('Submitted', '<div style="font-size:13px;color:var(--text-dim)">' + esc(new Date(row.created_at || row.submitted_at).toLocaleString()) + '</div>');

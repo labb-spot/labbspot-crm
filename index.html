@@ -54415,6 +54415,11 @@ window._uwBuyBoxSaveEditor = function(){
   .plan-modal { width:100%; max-width:1500px; display:flex; flex-direction:column; background:var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:0 14px 50px rgba(0,0,0,0.5); }
   .plan-head { display:flex; align-items:center; gap:22px; flex-wrap:wrap; padding:14px 18px; border-bottom:1px solid var(--border); }
   .plan-title { font-size:18px; font-weight:800; color:var(--text); }
+  .plan-summary { display:flex; justify-content:center; align-items:center; gap:30px; flex-wrap:wrap; padding:7px 16px; border-bottom:1px solid var(--border); }
+  .plan-sum-cell { display:inline-flex; align-items:baseline; gap:6px; }
+  .plan-sum-lbl { font-size:11.5px; text-transform:uppercase; letter-spacing:0.4px; font-weight:800; }
+  .plan-sum-val { font-size:13.5px; font-weight:800; color:var(--text); }
+  .plan-sum-val span { color:var(--text-dim); font-weight:600; margin:0 3px; }
   .plan-board { flex:1; overflow:auto; padding:16px; display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
   .plan-bucket { display:flex; flex-direction:column; background:var(--panel-2); border:1px solid var(--border); border-top:3px solid var(--border); border-radius:10px; overflow:hidden; min-height:300px; }
   .plan-bucket-head { padding:11px 12px; font-weight:700; font-size:14px; color:var(--text); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:7px; }
@@ -54531,7 +54536,7 @@ function _planFmtMoney(v){
   return parts.length > 1 ? parts[0] + '.' + parts[1].slice(0, 2) : parts[0];
 }
 // Comma-format as the user types, then save.
-function _planGoalInput(el, bucket, key){ el.value = _planFmtMoney(el.value); _planGoalSet(bucket, key, el.value); }
+function _planGoalInput(el, bucket, key){ el.value = _planFmtMoney(el.value); _planGoalSet(bucket, key, el.value); _planRefreshStatus(); }
 function _planCardValInput(el, id, field){ el.value = _planFmtMoney(el.value); _planSetVal(id, field, el.value); _planRefreshStatus(); }
 window._planGoalInput = _planGoalInput; window._planCardValInput = _planCardValInput;
 function _planParse(v){ const n = parseFloat(String(v == null ? '' : v).replace(/[^\d.]/g, '')); return isFinite(n) ? n : 0; }
@@ -54557,13 +54562,31 @@ function _planGrouped(){
 // Recompute the read-only status boxes in place (no full re-render, so card inputs keep focus).
 function _planRefreshStatus(){
   const grouped = _planGrouped();
+  const goals = _planGoalsLoad();
   const statuses = {}; PLAN_BUCKETS.forEach(b => statuses[b.key] = _planBucketStatus(grouped[b.key] || []));
   document.querySelectorAll('#plan-board input[data-auto]').forEach(inp => {
     const parts = (inp.getAttribute('data-auto') || '').split(':');
     if (statuses[parts[0]]) inp.value = _planFmtMoney(String(Math.round(statuses[parts[0]][parts[1]] || 0)));
   });
+  _planRenderSummary(grouped, goals);
 }
 window._planRefreshStatus = _planRefreshStatus;
+// Centered totals row above the buckets: combined Revenue (wholesale+wholetail+flip) and Hold Equity/Cashflow.
+function _planRenderSummary(grouped, goals){
+  const el = document.getElementById('plan-summary'); if (!el) return;
+  let revStatus = 0, revGoal = 0;
+  ['wholesale', 'wholetail', 'flip'].forEach(k => {
+    revStatus += _planBucketStatus(grouped[k] || []).revenue;
+    revGoal += _planParse((goals[k] || {}).revenue_g);
+  });
+  const hold = _planBucketStatus(grouped['hold'] || []);
+  const hg = goals['hold'] || {};
+  const cell = (label, s, g, color) => '<div class="plan-sum-cell"><span class="plan-sum-lbl" style="color:' + color + '">' + label + ':</span>'
+    + '<span class="plan-sum-val">$' + _planFmtMoney(String(Math.round(s))) + ' <span>/</span> $' + _planFmtMoney(String(Math.round(g))) + '</span></div>';
+  el.innerHTML = cell('Overall Revenue', revStatus, revGoal, '#3b82f6')
+    + cell('Equity', hold.equity, _planParse(hg.equity_g), '#a855f7')
+    + cell('Cashflow', hold.cashflow, _planParse(hg.cashflow_g), '#eab308');
+}
 function _planSetYear(y){ _planYear = String(y); const s = document.getElementById('plan-search'); if (s){ s.value = ''; _planSearch(''); } renderPlanBuckets(); }
 // Which buckets are shown (checkboxes up top).
 const PLAN_VIS_KEY = 'plan-visible-v1';
@@ -54674,6 +54697,7 @@ function renderPlanBuckets(){
   if (!board) return;
   const goals = _planGoalsLoad();
   const grouped = _planGrouped();
+  _planRenderSummary(grouped, goals);
   const vis = _planVisLoad();
   const shown = PLAN_BUCKETS.filter(b => vis.includes(b.key));
   board.style.gridTemplateColumns = 'repeat(' + Math.max(1, shown.length) + ', minmax(0, 1fr))';
@@ -54722,6 +54746,7 @@ async function openPlan(){
     + _planControlsHtml()
     + '<button class="btn btn-ghost text-sm" onclick="closePlan()" style="padding:5px 12px">✕ Close</button></div>'
     + '<div class="plan-search-wrap"><input id="plan-search" placeholder="Search a property by address…" autocomplete="off" oninput="_planSearch(this.value)"><div class="plan-results" id="plan-results"></div></div>'
+    + '<div class="plan-summary" id="plan-summary"></div>'
     + '<div class="plan-board" id="plan-board"></div>'
     + '</div>';
   renderPlanBuckets();

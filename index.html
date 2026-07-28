@@ -908,7 +908,7 @@
     </div>
     <button class="btn btn-ghost text-sm" id="header-presence-chip" onclick="togglePresencePopover(event)" title="Teammates currently signed in — click to see names" style="padding:5px 10px;display:none"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 0 2px rgba(16,185,129,0.25);margin-right:6px;vertical-align:1px"></span><b id="presence-count">1</b><span style="opacity:0.7;margin-left:3px">online</span></button>
     <button class="btn btn-ghost text-sm" id="header-activity-btn" onclick="openActivityFeed()" title="Live feed of who edited what across all your data — refreshes every 30s.">📊 Activity<span id="activity-badge" style="display:none;margin-left:5px;padding:1px 6px;border-radius:999px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;vertical-align:1px"></span></button>
-    <button class="btn btn-ghost text-sm" onclick="diagnoseLists()" title="Inspect DB row counts across every table">🔍 Diagnose</button>
+    <button class="btn btn-ghost text-sm" id="header-plan-btn" onclick="openPlan()" title="Plan — exit-strategy buckets">🎯 Plan</button>
     <button class="btn btn-ghost text-sm" id="header-sop-btn" onclick="toggleSopSection()" title="Open Standard Operating Procedures (click again to return to where you were).">📋 SOP</button>
     <button class="btn btn-ghost text-sm" onclick="openSettings();if(typeof syncGeoProviderRadios==='function')syncGeoProviderRadios()">⚙️ Settings</button>
     <button class="btn btn-ghost text-sm" onclick="logoutApp()" title="Sign out">🚪</button>
@@ -1035,7 +1035,7 @@
 <div id="section-tabs-row" class="px-6 pt-4 flex items-center gap-2 border-b border-[var(--border)]">
   <div class="tab active" data-section="marketing" onclick="goSection('marketing')">📣 Marketing</div>
   <div class="tab" data-section="results" onclick="goSection('results')">📈 Results</div>
-  <div class="tab" data-section="underwriting" onclick="window._dispoReturnTo=null; if(typeof uwToggleDispoStageBar==='function') uwToggleDispoStageBar(); if(typeof uwBackToList==='function') uwBackToList(); goSection('underwriting')">📐 Underwriting</div>
+  <div class="tab" data-section="underwriting" onclick="window._dispoReturnTo=null; window._planReturnTo=null; if(typeof uwToggleDispoStageBar==='function') uwToggleDispoStageBar(); if(typeof uwBackToList==='function') uwBackToList(); goSection('underwriting')">📐 Underwriting</div>
   <div class="tab" data-section="dispositions" onclick="goSection('dispositions')">🤝 Dispositions</div>
   <div class="tab" data-section="renovation" onclick="goSection('renovation')">🔨 Renovation</div>
   <div class="tab" data-section="holdings" onclick="goSection('holdings')">🏘️ Holdings</div>
@@ -1057,6 +1057,9 @@
     </div>
     <div class="flex items-center gap-1 panel p-1 w-fit">
       <div class="subtab" data-mview="campaigns" onclick="goMarketingView('campaigns')" title="Saved campaign snapshots — pick vendors, export ready-to-call CSVs.">🎯 Campaigns</div>
+    </div>
+    <div class="flex items-center gap-1 panel p-1 w-fit" style="margin-left:auto">
+      <div class="subtab" id="mkt-pill-diagnose" onclick="diagnoseLists()" title="Inspect DB row counts across every table">🔍 Diagnose</div>
     </div>
   </div>
 </div>
@@ -10207,6 +10210,12 @@ function uwBackToList() {
   // Background-geocode the deal we're leaving if it doesn't have a place_id
   // yet (typical case: a brand-new deal the user just created).
   if (_uwCurrentId) _uwGeocodeOnExit(_uwCurrentId);
+  // Opened from the Plan board? Go back to the Plan board instead of the list.
+  if (window._planReturnTo) {
+    window._planReturnTo = false;
+    if (typeof openPlan === 'function') openPlan();
+    return;
+  }
   // If the user came in from the Dispositions contracts grid, send them back
   // there instead of the underwriting list.
   if (window._dispoReturnTo === 'dispositions') {
@@ -54398,6 +54407,341 @@ window._uwBuyBoxSaveEditor = function(){
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) check(); });
   window.addEventListener('focus', check);
 })();
+</script>
+
+<!-- ===== Plan board — exit-strategy buckets ===== -->
+<style>
+  .plan-overlay { position:fixed; inset:0; z-index:9000; background:rgba(0,0,0,0.62); display:none; align-items:stretch; justify-content:center; padding:24px; }
+  .plan-modal { width:100%; max-width:1500px; display:flex; flex-direction:column; background:var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:0 14px 50px rgba(0,0,0,0.5); }
+  .plan-head { display:flex; align-items:center; gap:22px; flex-wrap:wrap; padding:14px 18px; border-bottom:1px solid var(--border); }
+  .plan-title { font-size:18px; font-weight:800; color:var(--text); }
+  .plan-board { flex:1; overflow:auto; padding:16px; display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .plan-bucket { display:flex; flex-direction:column; background:var(--panel-2); border:1px solid var(--border); border-top:3px solid var(--border); border-radius:10px; overflow:hidden; min-height:300px; }
+  .plan-bucket-head { padding:11px 12px; font-weight:700; font-size:14px; color:var(--text); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:7px; }
+  .plan-dot { width:9px; height:9px; border-radius:50%; display:inline-block; flex-shrink:0; }
+  .plan-count { margin-left:auto; font-size:11px; font-weight:700; color:var(--text-dim); background:var(--panel); border:1px solid var(--border); border-radius:999px; padding:1px 9px; }
+  .plan-bucket-body { flex:1; overflow:auto; padding:10px; }
+  .plan-empty { color:var(--text-dim); font-size:12.5px; text-align:center; padding:26px 8px; }
+  /* per-bucket goals */
+  .plan-goals { padding:9px 11px; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:7px; background:rgba(255,255,255,0.02); }
+  .plan-goal { display:flex; flex-direction:column; gap:3px; }
+  .plan-goal-lbl { font-size:10px; text-transform:uppercase; letter-spacing:0.4px; color:var(--text-dim); font-weight:700; }
+  .plan-goal-sub { font-size:9px; text-transform:none; letter-spacing:0; color:var(--text-dim); opacity:0.7; font-weight:600; }
+  .plan-ratio { display:flex; align-items:center; gap:6px; }
+  .plan-ratio .plan-goal-in { flex:1; min-width:0; }
+  .plan-ratio-sep { color:var(--text-dim); font-weight:700; font-size:15px; flex-shrink:0; }
+  .plan-goal-in { display:flex; align-items:center; gap:5px; background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:4px 9px; }
+  .plan-goal-in:focus-within { border-color:#3b82f6; }
+  .plan-goal-in > span { color:var(--text-dim); font-size:12.5px; }
+  .plan-goal-in input { flex:1; min-width:0; background:transparent; border:none; color:var(--text); font-size:13px; outline:none; }
+  .plan-goal-auto { background:rgba(255,255,255,0.03); }
+  .plan-goal-auto input { color:var(--text-dim); cursor:default; }
+  @media (max-width:900px){ .plan-board { grid-template-columns:1fr 1fr !important; } }
+  @media (max-width:560px){ .plan-board { grid-template-columns:1fr !important; } }
+  /* top controls: year + which buckets to show */
+  .plan-controls { display:flex; align-items:center; gap:18px; flex-wrap:wrap; padding:0; border-bottom:none; margin:0 auto; }
+  .plan-ctl-year { font-size:12px; color:var(--text-dim); font-weight:700; display:flex; align-items:center; gap:7px; text-transform:uppercase; letter-spacing:0.4px; }
+  .plan-ctl-year select { background:var(--panel-2); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:4px 9px; font-size:13px; font-weight:600; }
+  .plan-vis { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .plan-vis-lbl { font-size:12px; color:var(--text-dim); font-weight:700; text-transform:uppercase; letter-spacing:0.4px; }
+  .plan-vis-chk { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text); cursor:pointer; user-select:none; }
+  .plan-vis-chk input { accent-color:#3b82f6; cursor:pointer; width:15px; height:15px; }
+  /* search + assignment */
+  .plan-search-wrap { position:relative; padding:12px 16px; border-bottom:1px solid var(--border); }
+  #plan-search { width:100%; padding:10px 12px; background:var(--panel-2); border:1px solid var(--border); border-radius:9px; color:var(--text); font-size:14px; box-sizing:border-box; }
+  #plan-search:focus { outline:none; border-color:#3b82f6; }
+  .plan-results { position:absolute; left:16px; right:16px; top:calc(100% - 4px); z-index:5; background:var(--panel); border:1px solid var(--border); border-radius:9px; box-shadow:0 12px 32px rgba(0,0,0,0.45); max-height:360px; overflow:auto; display:none; }
+  .plan-result { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; border-bottom:1px solid var(--border); }
+  .plan-result:last-child { border-bottom:none; }
+  .plan-result-addr { font-size:13px; color:var(--text); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .plan-cur { font-size:10px; color:var(--text-dim); font-weight:600; }
+  .plan-result-buckets { display:flex; gap:4px; flex-shrink:0; }
+  .plan-add-chip { width:30px; height:30px; border-radius:7px; border:1px solid var(--c); background:transparent; cursor:pointer; font-size:14px; line-height:1; }
+  .plan-add-chip:hover, .plan-add-chip.on { background:var(--c); }
+  .plan-noresult { padding:14px; color:var(--text-dim); font-size:12.5px; text-align:center; }
+  .plan-card { position:relative; display:block; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:8px 10px; margin-bottom:7px; cursor:pointer; }
+  .plan-card:hover { border-color:#3b82f6; }
+  .plan-card-main { display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .plan-card-date { background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim); border-radius:5px; padding:1px 4px; font-size:10px; width:fit-content; cursor:pointer; color-scheme:dark; }
+  .plan-card-date:hover { border-color:#3b82f6; }
+  .plan-card-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:3px; }
+  .plan-card-fld { display:flex; align-items:center; gap:5px; }
+  .plan-card-fld-lbl { font-size:10px; text-transform:uppercase; letter-spacing:0.3px; color:var(--text-dim); font-weight:700; }
+  .plan-card-val { display:flex; align-items:center; gap:3px; background:var(--panel-2); border:1px solid var(--border); border-radius:5px; padding:2px 7px; }
+  .plan-card-val:focus-within { border-color:#3b82f6; }
+  .plan-card-val > span { color:var(--text-dim); font-size:11.5px; }
+  .plan-card-val input { width:56px; background:transparent; border:none; color:var(--text); font-size:12px; outline:none; }
+  .plan-card-addr { font-size:12.5px; color:var(--text); min-width:0; white-space:normal; overflow-wrap:anywhere; line-height:1.3; padding-right:20px; }
+  .plan-card-x { position:absolute; top:6px; right:8px; background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:13px; line-height:1; padding:2px; }
+  .plan-card-x:hover { color:#ef4444; }
+</style>
+<script>
+// Exit-strategy buckets for the Plan board.
+const PLAN_BUCKETS = [
+  { key:'wholesale', label:'Wholesale', color:'#3b82f6', icon:'💵' },
+  { key:'wholetail', label:'Wholetail', color:'#22d3ee', icon:'🏷️' },
+  { key:'flip',      label:'Flip',      color:'#22c55e', icon:'🔨' },
+  { key:'hold',      label:'Hold',      color:'#a855f7', icon:'🏠' },
+];
+function _planEsc(e){ if (e.key === 'Escape') closePlan(); }
+function _planEscHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const PLAN_KEY = 'plan-assignments-v1';
+let _planYear = String(new Date().getFullYear()); // 4-digit year, or 'all'
+function _planToday(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+// Wrap legacy flat GOALS (keys aren't years or 'all') under the current year.
+function _planYearWrap(all){ const k = Object.keys(all); if (k.length && k.some(x => !/^\d{4}$/.test(x) && x !== 'all')) return { [_planYear]: all }; return all; }
+// Assignments = flat map { propId: { bucket, date } }. Normalize any legacy shape into it.
+function _planNormalize(raw){
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  const keys = Object.keys(raw);
+  const yearKeyed = keys.length && keys.every(k => /^\d{4}$/.test(k) || k === 'all');
+  const put = (id, v, fallbackDate) => {
+    const bucket = (typeof v === 'string') ? v : (v && v.bucket);
+    if (!bucket) return;
+    const date = (v && typeof v === 'object' && v.date) ? v.date : (fallbackDate || _planToday());
+    const rec = { bucket, date };
+    if (v && typeof v === 'object'){ ['revenue', 'equity', 'cashflow'].forEach(f => { if (v[f] != null && v[f] !== '') rec[f] = v[f]; }); }
+    out[String(id)] = rec;
+  };
+  if (yearKeyed){ keys.forEach(y => { const inner = raw[y] || {}; Object.keys(inner).forEach(id => put(id, inner[id], /^\d{4}$/.test(y) ? y + '-01-01' : '')); }); }
+  else { keys.forEach(id => put(id, raw[id], '')); }
+  return out;
+}
+function _planLoad(){ let a; try { a = JSON.parse(localStorage.getItem(PLAN_KEY) || '{}') || {}; } catch(_){ a = {}; } return _planNormalize(a); }
+function _planSave(m){ try { localStorage.setItem(PLAN_KEY, JSON.stringify(m)); } catch(_){} _planSyncToCloud(); }
+function _planSetDate(id, val){ const m = _planLoad(); if (m[id]){ m[id].date = val || _planToday(); _planSave(m); renderPlanBuckets(); } }
+window._planSetDate = _planSetDate;
+// Per-deal value box(es) shown on each card, after the date.
+const PLAN_CARD_FIELDS = {
+  wholesale: [['revenue', 'Revenue', '#3b82f6']],
+  wholetail: [['revenue', 'Revenue', '#3b82f6']],
+  flip:      [['revenue', 'Revenue', '#3b82f6']],
+  hold:      [['equity', 'Equity', '#a855f7'], ['cashflow', 'Cashflow', '#eab308']],
+};
+// Save on keystroke WITHOUT re-rendering (keeps input focus).
+function _planSetVal(id, field, val){ const m = _planLoad(); if (m[id]){ m[id][field] = val; _planSave(m); } }
+window._planSetVal = _planSetVal;
+// Format a money value with thousands separators (keeps up to 2 decimals).
+function _planFmtMoney(v){
+  v = String(v == null ? '' : v).replace(/[^\d.]/g, '');
+  if (!v) return '';
+  const parts = v.split('.');
+  parts[0] = parts[0].replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.length > 1 ? parts[0] + '.' + parts[1].slice(0, 2) : parts[0];
+}
+// Comma-format as the user types, then save.
+function _planGoalInput(el, bucket, key){ el.value = _planFmtMoney(el.value); _planGoalSet(bucket, key, el.value); }
+function _planCardValInput(el, id, field){ el.value = _planFmtMoney(el.value); _planSetVal(id, field, el.value); _planRefreshStatus(); }
+window._planGoalInput = _planGoalInput; window._planCardValInput = _planCardValInput;
+function _planParse(v){ const n = parseFloat(String(v == null ? '' : v).replace(/[^\d.]/g, '')); return isFinite(n) ? n : 0; }
+// Auto-status per bucket, summed from the deal cards below.
+function _planBucketStatus(items){
+  const n = items.length; let rev = 0, eq = 0, cf = 0;
+  items.forEach(p => { const a = p.a || {}; rev += _planParse(a.revenue); eq += _planParse(a.equity); cf += _planParse(a.cashflow); });
+  return { revenue: rev, avgProfit: n ? rev / n : 0, equity: eq, cashflow: cf };
+}
+// Assigned deals grouped by bucket, filtered to the selected year.
+function _planGrouped(){
+  const assigned = _planLoad();
+  const byId = {}; _planProps().forEach(p => byId[p.id] = p);
+  const grouped = {}; PLAN_BUCKETS.forEach(b => grouped[b.key] = []);
+  Object.keys(assigned).forEach(id => {
+    const a = assigned[id]; if (!grouped[a.bucket] || !byId[id]) return;
+    const yr = String(a.date || '').slice(0, 4);
+    if (_planYear !== 'all' && yr !== _planYear) return;
+    grouped[a.bucket].push({ id: byId[id].id, address: byId[id].address, date: a.date || '', a: a });
+  });
+  return grouped;
+}
+// Recompute the read-only status boxes in place (no full re-render, so card inputs keep focus).
+function _planRefreshStatus(){
+  const grouped = _planGrouped();
+  const statuses = {}; PLAN_BUCKETS.forEach(b => statuses[b.key] = _planBucketStatus(grouped[b.key] || []));
+  document.querySelectorAll('#plan-board input[data-auto]').forEach(inp => {
+    const parts = (inp.getAttribute('data-auto') || '').split(':');
+    if (statuses[parts[0]]) inp.value = _planFmtMoney(String(Math.round(statuses[parts[0]][parts[1]] || 0)));
+  });
+}
+window._planRefreshStatus = _planRefreshStatus;
+function _planSetYear(y){ _planYear = String(y); const s = document.getElementById('plan-search'); if (s){ s.value = ''; _planSearch(''); } renderPlanBuckets(); }
+// Which buckets are shown (checkboxes up top).
+const PLAN_VIS_KEY = 'plan-visible-v1';
+function _planVisLoad(){ try { const a = JSON.parse(localStorage.getItem(PLAN_VIS_KEY) || 'null'); return (Array.isArray(a) && a.length) ? a : PLAN_BUCKETS.map(b => b.key); } catch(_){ return PLAN_BUCKETS.map(b => b.key); } }
+function _planVisSave(a){ try { localStorage.setItem(PLAN_VIS_KEY, JSON.stringify(a)); } catch(_){} _planSyncToCloud(); }
+function _planToggleBucket(key, on){ let v = _planVisLoad(); if (on){ if (!v.includes(key)) v.push(key); } else { v = v.filter(k => k !== key); } if (!v.length) v = [key]; _planVisSave(v); renderPlanBuckets(); }
+function _planControlsHtml(){
+  const nowY = new Date().getFullYear();
+  let yopts = '<option value="all"' + (_planYear === 'all' ? ' selected' : '') + '>All Time</option>';
+  for (let y = nowY - 2; y <= nowY + 3; y++){ yopts += '<option value="' + y + '"' + (String(y) === _planYear ? ' selected' : '') + '>' + y + '</option>'; }
+  const vis = _planVisLoad();
+  const chks = PLAN_BUCKETS.map(b => '<label class="plan-vis-chk"><input type="checkbox" ' + (vis.includes(b.key) ? 'checked' : '') + ' onchange="_planToggleBucket(\'' + b.key + '\',this.checked)">' + b.icon + ' ' + b.label + '</label>').join('');
+  return '<div class="plan-controls"><label class="plan-ctl-year">Year <select onchange="_planSetYear(this.value)">' + yopts + '</select></label>'
+    + '<div class="plan-vis"><span class="plan-vis-lbl">Show</span>' + chks + '</div></div>';
+}
+window._planSetYear = _planSetYear; window._planToggleBucket = _planToggleBucket;
+// Per-bucket goals the user fills in at the top of each column.
+const PLAN_GOAL_DEFS = {
+  wholesale: [['revenue', 'Revenue goal'], ['avgProfit', 'Avg profit / deal']],
+  wholetail: [['revenue', 'Revenue goal'], ['avgProfit', 'Avg profit / deal']],
+  flip:      [['revenue', 'Revenue goal'], ['avgProfit', 'Avg profit / deal']],
+  hold:      [['equity', 'Equity goal'], ['cashflow', 'Cashflow goal']],
+};
+const PLAN_GOALS_KEY = 'plan-goals-v1';
+function _planAllGoals(){ let a; try { a = JSON.parse(localStorage.getItem(PLAN_GOALS_KEY) || '{}') || {}; } catch(_){ a = {}; } return _planYearWrap(a); }
+function _planGoalsLoad(){ return _planAllGoals()[_planYear] || {}; }
+function _planGoalsSave(m){ const all = _planAllGoals(); all[_planYear] = m; try { localStorage.setItem(PLAN_GOALS_KEY, JSON.stringify(all)); } catch(_){} _planSyncToCloud(); }
+// Save on keystroke WITHOUT re-rendering (so the input keeps focus while typing).
+function _planGoalSet(bucket, key, val){ const m = _planGoalsLoad(); if (!m[bucket]) m[bucket] = {}; m[bucket][key] = val; _planGoalsSave(m); }
+window._planGoalSet = _planGoalSet;
+// ---- Cloud sync: share the Plan across devices/employees via app_config (id=1) ----
+function _planStateBlob(){
+  const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || d); } catch(_){ return JSON.parse(d); } };
+  return { assignments: rd(PLAN_KEY, '{}'), goals: rd(PLAN_GOALS_KEY, '{}'), visible: rd(PLAN_VIS_KEY, 'null'), updated_at: new Date().toISOString() };
+}
+function _planApplyBlob(blob){
+  if (!blob || typeof blob !== 'object') return;
+  try { if (blob.assignments) localStorage.setItem(PLAN_KEY, JSON.stringify(blob.assignments)); } catch(_){}
+  try { if (blob.goals) localStorage.setItem(PLAN_GOALS_KEY, JSON.stringify(blob.goals)); } catch(_){}
+  try { if (blob.visible) localStorage.setItem(PLAN_VIS_KEY, JSON.stringify(blob.visible)); } catch(_){}
+}
+// Debounced push of the whole Plan blob (fire-and-forget; localStorage stays the working copy).
+let _planCloudTimer = null;
+function _planSyncToCloud(){
+  if (typeof sb === 'undefined' || !sb) return;
+  if (_planCloudTimer) clearTimeout(_planCloudTimer);
+  _planCloudTimer = setTimeout(async () => {
+    _planCloudTimer = null;
+    try {
+      const mappings = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings) || {};
+      mappings.plan_state = _planStateBlob();
+      const { error } = await sb.from('app_config').update({ column_mappings: mappings, updated_at: new Date().toISOString() }).eq('id', 1);
+      if (!error && typeof cache !== 'undefined' && cache && cache.config) cache.config.column_mappings = mappings;
+    } catch(_){}
+  }, 500);
+}
+// Pull the latest shared Plan (used on open) so every device sees the same board.
+async function _planPullFromCloud(){
+  if (typeof sb === 'undefined' || !sb) return;
+  try {
+    const { data, error } = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle();
+    if (error || !data || !data.column_mappings) return;
+    if (data.column_mappings.plan_state) _planApplyBlob(data.column_mappings.plan_state);
+  } catch(_){}
+}
+// Properties to plan around = your underwriting deals (id + address).
+function _planProps(){
+  const out = [];
+  try {
+    if (typeof cache !== 'undefined' && cache && cache.underwrites) {
+      Object.values(cache.underwrites).forEach(u => {
+        if (u && u.id && u.address){
+          const full = [u.address, u.city, u.state].filter(Boolean).join(', ') + (u.zip ? ' ' + u.zip : '');
+          out.push({ id: String(u.id), address: full });
+        }
+      });
+    }
+  } catch(_){}
+  return out;
+}
+function _planAssign(id, bucket){ const m = _planLoad(); const prev = m[id]; m[id] = { bucket, date: (prev && prev.date) ? prev.date : _planToday() }; _planSave(m); const s = document.getElementById('plan-search'); if (s) s.value = ''; _planSearch(''); renderPlanBuckets(); }
+function _planRemove(id){ const m = _planLoad(); delete m[id]; _planSave(m); renderPlanBuckets(); }
+// Open a property like the underwriting tab does; Back returns here (see uwBackToList).
+function _planOpenProperty(id){
+  window._planReturnTo = true;
+  closePlan();
+  if (typeof goSection === 'function') goSection('underwriting');
+  if (typeof uwLoadById === 'function') uwLoadById(id);
+}
+function _planSearch(q){
+  const box = document.getElementById('plan-results');
+  if (!box) return;
+  q = String(q || '').trim().toLowerCase();
+  if (!q){ box.innerHTML = ''; box.style.display = 'none'; return; }
+  const assigned = _planLoad();
+  const matches = _planProps().filter(p => p.address.toLowerCase().indexOf(q) > -1).slice(0, 15);
+  if (!matches.length){ box.innerHTML = '<div class="plan-noresult">No properties match.</div>'; box.style.display = 'block'; return; }
+  box.innerHTML = matches.map(p => {
+    const curBk = assigned[p.id] ? assigned[p.id].bucket : null;
+    const chips = PLAN_BUCKETS.map(b => '<button class="plan-add-chip' + (curBk === b.key ? ' on' : '') + '" style="--c:' + b.color + '" title="Add to ' + b.label + '" onclick="_planAssign(\'' + p.id + '\',\'' + b.key + '\')">' + b.icon + '</button>').join('');
+    const tag = curBk ? ' <span class="plan-cur">· in ' + curBk + '</span>' : '';
+    return '<div class="plan-result"><span class="plan-result-addr">' + _planEscHtml(p.address) + tag + '</span><span class="plan-result-buckets">' + chips + '</span></div>';
+  }).join('');
+  box.style.display = 'block';
+}
+function renderPlanBuckets(){
+  const board = document.getElementById('plan-board');
+  if (!board) return;
+  const goals = _planGoalsLoad();
+  const grouped = _planGrouped();
+  const vis = _planVisLoad();
+  const shown = PLAN_BUCKETS.filter(b => vis.includes(b.key));
+  board.style.gridTemplateColumns = 'repeat(' + Math.max(1, shown.length) + ', minmax(0, 1fr))';
+  board.innerHTML = shown.map(b => {
+    const items = grouped[b.key] || [];
+    const gvals = goals[b.key] || {};
+    const defs = PLAN_GOAL_DEFS[b.key] || [];
+    const st = _planBucketStatus(items);
+    const goalsHtml = defs.length ? '<div class="plan-goals">' + defs.map(d => {
+      const k = d[0];
+      const sVal = _planFmtMoney(String(Math.round(st[k] || 0)));
+      return '<div class="plan-goal"><span class="plan-goal-lbl">' + d[1] + ' <span class="plan-goal-sub">auto / goal</span></span>'
+        + '<div class="plan-ratio">'
+        +   '<div class="plan-goal-in plan-goal-auto" title="Auto-total from the deals below"><span>$</span><input type="text" readonly tabindex="-1" data-auto="' + b.key + ':' + k + '" value="' + _planEscHtml(sVal) + '"></div>'
+        +   '<span class="plan-ratio-sep">/</span>'
+        +   '<div class="plan-goal-in" title="Goal — your target"><span>$</span><input type="text" inputmode="decimal" value="' + _planEscHtml(_planFmtMoney(gvals[k + '_g'] || '')) + '" oninput="_planGoalInput(this,\'' + b.key + '\',\'' + k + '_g\')"></div>'
+        + '</div></div>';
+    }).join('') + '</div>' : '';
+    const cardFields = PLAN_CARD_FIELDS[b.key] || [];
+    const cards = items.length
+      ? items.map(p => {
+          const flds = cardFields.map(f => '<div class="plan-card-val" title="' + f[1] + '" style="border-color:' + f[2] + '"><span style="color:' + f[2] + '">$</span><input type="text" inputmode="decimal" placeholder="' + f[1] + '" value="' + _planEscHtml(_planFmtMoney((p.a && p.a[f[0]]) || '')) + '" onclick="event.stopPropagation()" oninput="event.stopPropagation();_planCardValInput(this,\'' + p.id + '\',\'' + f[0] + '\')"></div>').join('');
+          return '<div class="plan-card" title="Open this deal" onclick="_planOpenProperty(\'' + p.id + '\')">'
+            + '<div class="plan-card-main"><span class="plan-card-addr">' + _planEscHtml(p.address) + '</span>'
+            + '<div class="plan-card-row"><input type="date" class="plan-card-date" title="Date added — change to move this deal to another year" value="' + _planEscHtml(p.date || '') + '" onclick="event.stopPropagation()" onchange="event.stopPropagation();_planSetDate(\'' + p.id + '\',this.value)">'
+            + flds
+            + '</div></div>'
+            + '<button class="plan-card-x" title="Remove from bucket" onclick="event.stopPropagation();_planRemove(\'' + p.id + '\')">✕</button></div>';
+        }).join('')
+      : '<div class="plan-empty">No deals yet</div>';
+    return '<div class="plan-bucket" data-bucket="' + b.key + '" style="border-top-color:' + b.color + '"><div class="plan-bucket-head"><span class="plan-dot" style="background:' + b.color + '"></span>' + b.icon + ' ' + b.label + '<span class="plan-count">' + items.length + '</span></div>' + goalsHtml + '<div class="plan-bucket-body">' + cards + '</div></div>';
+  }).join('');
+}
+window._planAssign = _planAssign; window._planRemove = _planRemove; window._planSearch = _planSearch; window._planOpenProperty = _planOpenProperty;
+async function openPlan(){
+  let ov = document.getElementById('plan-overlay');
+  if (!ov){
+    ov = document.createElement('div');
+    ov.id = 'plan-overlay';
+    ov.className = 'plan-overlay';
+    ov.addEventListener('click', e => { if (e.target === ov) closePlan(); });
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = '<div class="plan-modal">'
+    + '<div class="plan-head"><div class="plan-title">🎯 Plan</div>'
+    + _planControlsHtml()
+    + '<button class="btn btn-ghost text-sm" onclick="closePlan()" style="padding:5px 12px">✕ Close</button></div>'
+    + '<div class="plan-search-wrap"><input id="plan-search" placeholder="Search a property by address…" autocomplete="off" oninput="_planSearch(this.value)"><div class="plan-results" id="plan-results"></div></div>'
+    + '<div class="plan-board" id="plan-board"></div>'
+    + '</div>';
+  renderPlanBuckets();
+  ov.style.display = 'flex';
+  document.addEventListener('keydown', _planEsc);
+  // Pull the shared Plan (from other devices/employees) + the deals cache, then re-render.
+  try {
+    await _planPullFromCloud();
+    if ((typeof cache === 'undefined' || !cache || !cache.underwrites || !Object.keys(cache.underwrites).length) && typeof loadUnderwrites === 'function'){
+      await loadUnderwrites();
+    }
+    renderPlanBuckets();
+  } catch(_){}
+}
+function closePlan(){
+  const ov = document.getElementById('plan-overlay');
+  if (ov) ov.style.display = 'none';
+  document.removeEventListener('keydown', _planEsc);
+}
+window.openPlan = openPlan; window.closePlan = closePlan;
 </script>
 </body>
 </html>

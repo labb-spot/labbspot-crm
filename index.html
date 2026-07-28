@@ -38832,7 +38832,8 @@ function openPhotoDrawer(id) {
       + '</ul>';
   };
   // Smells & Sounds: green "Selected" for checked options, red "Not Selected" otherwise.
-  const selectList = (fieldKey, selectedArr) => {
+  const selectList = (fieldKey, selectedArr, yesLabel, noLabel) => {
+    yesLabel = yesLabel || 'Selected'; noLabel = noLabel || 'Not Selected';
     const all = PS_OPTIONS[fieldKey];
     if (!all) return list(selectedArr);
     const sel = new Set(Array.isArray(selectedArr) ? selectedArr.map(String) : []);
@@ -38840,7 +38841,7 @@ function openPhotoDrawer(id) {
     return '<ul style="list-style:none;margin:6px 0 0;padding:0;font-size:13px;line-height:1.9">'
       + all.map((item, idx) => {
           const hit = sel.has(item);
-          const label = hit ? 'Selected' : 'Not Selected';
+          const label = hit ? yesLabel : noLabel;
           const color = hit ? '#22c55e' : '#ef4444';
           const verified = !!reviewState[fieldKey + ':' + idx];
           const cb = '<input type="checkbox" class="ps-review-cb" id="' + _psItemId(row.id, fieldKey, idx) + '" '
@@ -38887,7 +38888,7 @@ function openPhotoDrawer(id) {
     + block('Dropbox folder', row.dropbox_url ? '<a href="' + esc(row.dropbox_url) + '" target="_blank" rel="noopener" class="btn btn-primary text-sm" style="display:inline-block">📷 Open folder</a>' : '<div style="color:var(--text-dim);font-size:13px">— no link —</div>')
     + block('Wants repeat work?', '<div style="font-size:13.5px">' + esc(row.want_repeat || '—') + '</div>')
     + block('Neighborhood safety', '<div style="font-size:13.5px">' + esc(row.neighborhood_safety || '—') + '</div>')
-    + (row.videos_checklist ? block('Exterior & Interior Videos', statusList('videos_checklist', row.videos_checklist)) : '')
+    + (row.videos_checklist ? block('Exterior & Interior Videos', selectList('videos_checklist', row.videos_checklist, 'Confirmed', 'Missing')) : '')
     + (ext ? block('Exterior Pictures', statusList('exterior_checklist', ext)) : '')
     + (intr ? block('Bedrooms, Attic, & Basement', statusList('interior_checklist', intr)) : '')
     + (extVid ? block('Exterior video (legacy)', list(extVid)) : '')

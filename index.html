@@ -46921,19 +46921,27 @@ function populateSqStateOptions() {
   sel.innerHTML = '<option value="">Any</option>' + sorted.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
   if (current && sorted.indexOf(current) !== -1) sel.value = current;
 }
+// Title-case a city so "SUNMAN" and "sunman" collapse to one "Sunman".
+function _sqTitleCase(s) {
+  return String(s).trim().toLowerCase().replace(/\b([a-z])/g, m => m.toUpperCase());
+}
 // City options for the All Properties filter. Narrows to the selected State if one is chosen.
+// Deduped case-insensitively and shown in Title Case.
 function populateSqCityOptions() {
   const sel = document.getElementById('sq-filter-city');
   if (!sel) return;
   const current = sel.value;
   const stateF = document.getElementById('sq-filter-state')?.value || '';
-  const cities = new Set();
+  const map = new Map(); // lowercase key -> Title Case display
   Object.values(cache.properties || {}).forEach(p => {
     if (!p.city) return;
     if (stateF && String(p.state || '').trim() !== stateF) return;
-    cities.add(String(p.city).trim());
+    const raw = String(p.city).trim();
+    if (!raw) return;
+    const key = raw.toLowerCase();
+    if (!map.has(key)) map.set(key, _sqTitleCase(raw));
   });
-  const sorted = Array.from(cities).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  const sorted = Array.from(map.values()).sort((a, b) => a.localeCompare(b));
   sel.innerHTML = '<option value="">Any</option>' + sorted.map(c => '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>').join('');
   if (current && sorted.indexOf(current) !== -1) sel.value = current; else sel.value = '';
 }
@@ -47109,7 +47117,7 @@ function _computeFilteredMarketingProps() {
   const out = [];
   for (const p of props) {
     if (stateF && String(p.state || '').trim() !== stateF) continue;
-    if (cityF && String(p.city || '').trim() !== cityF) continue;
+    if (cityF && String(p.city || '').trim().toLowerCase() !== cityF.toLowerCase()) continue;
     if (ownerF === 'individual' && _isCorporateOwner(p)) continue;
     if (ownerF === 'corporate'  && !_isCorporateOwner(p)) continue;
     if (addrF === 'verified' && p.geocode_status !== 'ok') continue;

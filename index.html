@@ -21050,43 +21050,19 @@ function _sopResizeEnd() {
 const _SOP_MIN_SCALE = 0.5;
 function _sopFitText(box) {
   if (!box) return;
-  // EXACT-PERSISTENCE GUARANTEE: if this box has a saved scale captured
-  // at the last user interaction, ALWAYS apply that and return. Never
-  // re-derive a different scale on reload — the user expects the box to
-  // look identical to when they left. If content overflows at the saved
-  // scale, CSS overflow:auto surfaces a scrollbar instead.
+  // FONT SIZE IS MANUAL ONLY (A+/A− → --sop-font-mult). Box size no longer
+  // auto-shrinks text — resizing/moving a box never changes its font. We keep
+  // any previously-saved scale so existing boxes look identical to before, and
+  // default to 1 otherwise. We never re-derive a scale from the box's size.
   const _fitId = box.dataset && box.dataset.sopId;
   const _savedScale = (_fitId && _sopState && _sopState.boxes && _sopState.boxes[_fitId]
                        && typeof _sopState.boxes[_fitId].scale === 'number')
     ? _sopState.boxes[_fitId].scale : null;
-  if (_savedScale !== null && _savedScale > 0 && _savedScale <= 1) {
-    box.style.setProperty('--sop-scale', _savedScale.toFixed(3));
-    return;
-  }
-  // Reset scale to 1 first to measure natural height
-  box.style.setProperty('--sop-scale', '1');
+  const s = (_savedScale !== null && _savedScale > 0 && _savedScale <= 1) ? _savedScale : 1;
+  box.style.setProperty('--sop-scale', s.toFixed(3));
+  // If content overflows the box, surface a scrollbar rather than clipping —
+  // the user can enlarge the box or shrink text with A− if they prefer.
   box.classList.remove('sop-scroll');
-  // Force reflow so the new font-sizes are measured
-  void box.offsetHeight;
-  // If it already fits at full size, leave at 1.0.
-  if (box.scrollHeight <= box.clientHeight + 2 && box.scrollWidth <= box.clientWidth + 2) return;
-  // Binary search between MIN_SCALE and 1.0 to find the largest scale that fits
-  let low = _SOP_MIN_SCALE, high = 1.0, best = _SOP_MIN_SCALE;
-  for (let i = 0; i < 10; i++) {
-    const mid = (low + high) / 2;
-    box.style.setProperty('--sop-scale', mid.toFixed(3));
-    void box.offsetHeight;
-    if (box.scrollHeight <= box.clientHeight + 2 && box.scrollWidth <= box.clientWidth + 2) {
-      best = mid; low = mid;
-    } else {
-      high = mid;
-    }
-  }
-  box.style.setProperty('--sop-scale', best.toFixed(3));
-  // After locking in the best scale, check whether content STILL overflows.
-  // If it does — meaning even the floor scale of 0.5 isn't small enough —
-  // mark the box as scrollable so the user can scroll up/down/left/right
-  // through the content instead of having it clipped.
   void box.offsetHeight;
   if (box.scrollHeight > box.clientHeight + 2 || box.scrollWidth > box.clientWidth + 2) {
     box.classList.add('sop-scroll');

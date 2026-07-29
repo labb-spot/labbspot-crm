@@ -3097,7 +3097,8 @@
           <label id="uw-closed-on-wrap" class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start;flex:0 0 auto">Closed On
             <input type="date" id="uw-closed-on" onchange="if(typeof _uwQueueAutosave==='function')_uwQueueAutosave(true); if(typeof _uwTimelineUpdateBar==='function')_uwTimelineUpdateBar();" style="width:150px;margin-top:4px;padding:5px 8px;background:var(--panel-2);border:1px solid var(--border);color:var(--text);border-radius:6px">
           </label>
-          <div id="uw-arv-asking-wrap" class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start;margin-left:auto;margin-right:auto">ARV − Asking<div id="uw-arv-asking" class="font-mono mt-1" style="font-size:14px">—</div></div>
+          <div id="uw-arv-asking-wrap" class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start;margin-left:auto">ARV − Asking<div id="uw-arv-asking" class="font-mono mt-1" style="font-size:14px">—</div></div>
+          <div class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start;margin-left:32px;margin-right:auto" title="70% Rule = (ARV × 70%) − Rehab Budget">70% Rule<div id="uw-70-rule" class="font-mono mt-1" style="font-size:14px">—</div></div>
         </div>
         <div class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start" title="Suggested opening offer — 75% of Max Offer. Leaves negotiation room while staying under your worst-case ceiling.">Suggested Offer<div id="uw-suggested" class="font-mono mt-1" style="font-size:14px;color:#3b82f6;font-weight:700">—</div></div>
         <div class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start" title="Highest price you can pay and still walk away with a $20,000 wholesale assignment fee (Cash Buyer's MAO − $20,000).">Max Offer<div id="uw-max" class="font-mono mt-1" style="font-size:14px;color:#10b981;font-weight:700">—</div></div>
@@ -11535,6 +11536,8 @@ function uwRecalc() {
 
   // ----- Output to DOM -----
   _uwSet('uw-arv-asking', arv && asking ? _uwFmt$(arv - asking) : '—');
+  // 70% Rule = (ARV × 70%) − Rehab Budget.
+  _uwSet('uw-70-rule', arv > 0 ? _uwFmt$(arv * 0.70 - (rehabFinal || 0)) : '—');
   // Uncomped (no ARV and no rent) → show "—" instead of a misleading $0 / negative.
   _uwSet('uw-max', _hasComps ? _uwFmt$(maxOffer) : '—');
   // Commission = 15% × (Max Offer − Accepted Price). Falls back to Asking when

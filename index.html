@@ -20089,6 +20089,9 @@ function _sopSaveState() {
     // Capture the canvas FIRST so canvasHtml in localStorage is in sync with
     // every save. This is the "what you see is what you'll get back" guarantee.
     _sopCaptureCanvas();
+    // Stamp every save so load-time conflict resolution can tell whether the
+    // local copy is newer than the cloud copy (see _sopLoadFromSupabase).
+    _sopState.updatedAt = Date.now();
     localStorage.setItem(_SOP_LS_KEY, JSON.stringify(_sopState));
     _sopFlashSaveStatus();
     // Push to Supabase from INSIDE the function so EVERY caller syncs — including
@@ -51529,6 +51532,18 @@ async function _sopLoadFromSupabase() {
       .eq('owner_email', SOP_ADMIN_EMAIL)
       .maybeSingle();
     if (error || !data) return false;
+    // Conflict resolution (admin only): if this device's local edits are NEWER
+    // than the cloud copy — e.g. you deleted something and refreshed before the
+    // debounced cloud save fired — keep local and push it up, rather than
+    // letting the stale cloud copy resurrect the deletion. Non-admins always
+    // take the cloud copy (they view the admin's shared, read-only SOP).
+    const _isAdmin = !!(user.email && user.email.toLowerCase() === SOP_ADMIN_EMAIL);
+    const _localTs = Number(_sopState && _sopState.updatedAt) || 0;
+    const _cloudTs = Number(data.state_json && data.state_json.updatedAt) || 0;
+    if (_isAdmin && _localTs && _localTs > _cloudTs) {
+      if (typeof _sopQueueSupabaseSave === 'function') _sopQueueSupabaseSave();
+      return false;
+    }
     if (data.state_json && typeof data.state_json === 'object') {
       // Merge fields from state_json into _sopState (preserve current
       // _sopState shape). Don't merge canvas_html via state_json — it has
@@ -51576,12 +51591,21 @@ async function _sopSaveToSupabase() {
       stateJson[k] = _sopState[k];
     });
     const canvasHtml = _sopState.canvasHtml || '';
-    await sb.from('sop_state').upsert({
+    const { error: _upErr } = await sb.from('sop_state').upsert({
       user_id: user.id,
       owner_email: SOP_ADMIN_EMAIL,
       canvas_html: canvasHtml,
       state_json: stateJson
     }, { onConflict: 'user_id' });
+    if (_upErr) {
+      console.warn('[SOP] cloud save FAILED:', _upErr.message || _upErr);
+      if (!window._sopCloudErrToasted) {
+        window._sopCloudErrToasted = true;
+        if (typeof toast === 'function') toast('⚠️ SOP cloud sync failed — saved locally only. ' + (_upErr.message || ''), 'warn');
+      }
+    } else {
+      window._sopCloudErrToasted = false; // cleared on a good save
+    }
   } catch (_) { /* swallow — local persistence still works */ }
 }
 
@@ -51589,6 +51613,15 @@ function _sopQueueSupabaseSave() {
   if (_sopSupabaseSaveTimer) clearTimeout(_sopSupabaseSaveTimer);
   _sopSupabaseSaveTimer = setTimeout(() => { _sopSaveToSupabase(); }, 500);
 }
+// Flush any pending cloud save immediately when the page is hidden or unloading,
+// so a quick edit-then-leave still reaches Supabase (otherwise the debounce timer
+// gets killed on navigation and another device never sees the change).
+function _sopFlushSupabaseSave() {
+  if (_sopSupabaseSaveTimer) { clearTimeout(_sopSupabaseSaveTimer); _sopSupabaseSaveTimer = null; }
+  _sopSaveToSupabase();
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) _sopFlushSupabaseSave(); });
+window.addEventListener('pagehide', _sopFlushSupabaseSave);
 
 // Wrap the existing _sopSaveState to also fire a debounced Supabase save.
 (function _sopWireSupabaseSave() {

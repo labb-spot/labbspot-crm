@@ -1908,7 +1908,10 @@
     <!-- Filter row 1 — full labels, generous spacing. Wraps cleanly on narrow widths. -->
     <div class="flex items-center flex-wrap mb-2" style="padding:12px 14px;background:var(--panel-2);border-radius:8px;border:1px solid var(--border);gap:8px 12px">
       <label class="text-xs flex items-center gap-1.5 whitespace-nowrap">State
-        <select id="sq-filter-state" style="width:auto;padding:4px 6px;min-width:0" onchange="_sqFiltersChanged()"><option value="">Any</option></select>
+        <select id="sq-filter-state" style="width:auto;padding:4px 6px;min-width:0" onchange="populateSqCityOptions();_sqFiltersChanged()"><option value="">Any</option></select>
+      </label>
+      <label class="text-xs flex items-center gap-1.5 whitespace-nowrap">City
+        <select id="sq-filter-city" style="width:auto;padding:4px 6px;min-width:0" onchange="_sqFiltersChanged()"><option value="">Any</option></select>
       </label>
       <label class="text-xs flex items-center gap-1.5 whitespace-nowrap" title="Property Address status">Status
         <select id="sq-filter-addr" style="width:auto;padding:4px 6px;min-width:0" onchange="_sqFiltersChanged()">
@@ -46918,6 +46921,23 @@ function populateSqStateOptions() {
   sel.innerHTML = '<option value="">Any</option>' + sorted.map(s => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
   if (current && sorted.indexOf(current) !== -1) sel.value = current;
 }
+// City options for the All Properties filter. Narrows to the selected State if one is chosen.
+function populateSqCityOptions() {
+  const sel = document.getElementById('sq-filter-city');
+  if (!sel) return;
+  const current = sel.value;
+  const stateF = document.getElementById('sq-filter-state')?.value || '';
+  const cities = new Set();
+  Object.values(cache.properties || {}).forEach(p => {
+    if (!p.city) return;
+    if (stateF && String(p.state || '').trim() !== stateF) return;
+    cities.add(String(p.city).trim());
+  });
+  const sorted = Array.from(cities).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  sel.innerHTML = '<option value="">Any</option>' + sorted.map(c => '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>').join('');
+  if (current && sorted.indexOf(current) !== -1) sel.value = current; else sel.value = '';
+}
+window.populateSqCityOptions = populateSqCityOptions;
 
 // Multi-select state for skiptrace provider chips (keyed by vendor name)
 window._sqProviderFilters = window._sqProviderFilters || {};
@@ -46957,9 +46977,10 @@ function toggleSqProvider(name) {
 }
 window.toggleSqProvider = toggleSqProvider;
 function clearSuggestedQueueFilters() {
-  ['sq-filter-state','sq-filter-addr','sq-filter-mail','sq-filter-imported','sq-filter-contacted','sq-filter-owner','sq-filter-missing','sq-filter-sk-window'].forEach(id => {
+  ['sq-filter-state','sq-filter-city','sq-filter-addr','sq-filter-mail','sq-filter-imported','sq-filter-contacted','sq-filter-owner','sq-filter-missing','sq-filter-sk-window'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  if (typeof populateSqCityOptions === 'function') populateSqCityOptions();
   window._sqProviderFilters = {};
   if (typeof _sqSetMode === 'function') { _sqSetMode('sk','include'); _sqSetMode('flag','include'); _sqSetMode('list','include'); }
   if (typeof _sqSetMatch === 'function') { _sqSetMatch('flag','or'); _sqSetMatch('list','or'); _sqSetMatch('sk','or'); }
@@ -47048,6 +47069,7 @@ function _computeFilteredMarketingProps() {
 
   // Read filters
   const stateF = document.getElementById('sq-filter-state')?.value || '';
+  const cityF = document.getElementById('sq-filter-city')?.value || '';
   const addrF = document.getElementById('sq-filter-addr')?.value || '';
   const mailF = document.getElementById('sq-filter-mail')?.value || '';
   const importedF = document.getElementById('sq-filter-imported')?.value || '';
@@ -47087,6 +47109,7 @@ function _computeFilteredMarketingProps() {
   const out = [];
   for (const p of props) {
     if (stateF && String(p.state || '').trim() !== stateF) continue;
+    if (cityF && String(p.city || '').trim() !== cityF) continue;
     if (ownerF === 'individual' && _isCorporateOwner(p)) continue;
     if (ownerF === 'corporate'  && !_isCorporateOwner(p)) continue;
     if (addrF === 'verified' && p.geocode_status !== 'ok') continue;
@@ -47175,6 +47198,7 @@ function renderSuggestedQueue() {
   const summary = document.getElementById('suggested-queue-summary');
   if (!tbody) return;
   populateSqStateOptions();
+  populateSqCityOptions();
   populateSqProviderOptions();
   renderSqFlagChips();
   renderSqListChips();

@@ -2941,6 +2941,7 @@
               </div>
             </div>
           </div>
+          <button class="btn btn-ghost text-sm" onclick="uwGenerateScopePacket()" style="white-space:nowrap;flex-shrink:0;border:1px solid #eab308;color:#fde047" title="Generate a contractor-facing Scope of Work PDF — same layout as the packet but WITHOUT the wholesale header, asking price, wholesale disclosure, or pro forma. Shows your rehab budget total.">🛠 Scope</button>
           <!-- Assign button — pushes this deal into Dispositions → New Contract
                so the contract appears in the dispo workflow alongside any
                others you've assigned. -->
@@ -12888,6 +12889,20 @@ function uwComputeExits(ctx) {
   const flHmOrig      = flHmLoan * (flHmOrigPct / 100);
   const flHmMonthlyInt = flHmLoan * (flHmRatePct / 100) / 12;
   const flHmTotalInt   = flHmMonthlyInt * flipMonths;
+  // Expose the EXACT flip breakdown numbers so the Scope packet's Cost Basis
+  // matches the "Full Breakdown" panel (purchase-price-based closing, detailed
+  // holding, resale agent/closing) instead of recomputing from ARV percentages.
+  window._uwFlipCostSummary = {
+    arv: arv,
+    purchase: flPurchBasis,
+    rehab: flipRehabAmt,
+    purchaseClosing: flPurchClosingTotal, // 3% of purchase price
+    resaleClosing: flipSellClose,         // 3% of resale
+    sellAgent: flipSellAgent,
+    buyAgent: flipBuyerAgent,
+    holding: flipHolding,
+    financing: (flHmOrig || 0) + (flHmTotalInt || 0),
+  };
   // ===== Financed Flip Max basis — hoisted so it can override wholesaleProfit
   // BEFORE the cascade math runs. All inputs above are now defined. =====
   // ===== Financed Flip Max — buyPrice-INDEPENDENT (iteratively solved) =====
@@ -14971,7 +14986,11 @@ function uwTogglePacketPricePopover() {
 }
 window.uwTogglePacketPricePopover = uwTogglePacketPricePopover;
 
-async function uwGenerateWholesalePacket() {
+async function uwGenerateWholesalePacket(opts) {
+  opts = opts || {};
+  // Scope mode = a contractor-facing packet: no wholesale header/price/disclosure/
+  // pro forma; shows the rehab budget total instead. Same layout otherwise.
+  const scopeMode = !!opts.scopeMode;
   if (typeof window.jspdf === 'undefined' || !window.jspdf.jsPDF) {
     alert('PDF library failed to load. Refresh the page and try again.');
     return;
@@ -15104,7 +15123,14 @@ async function uwGenerateWholesalePacket() {
   // Renovation" phantom that _uwRehabState carries for the underwriting
   // math bridge. Prices intentionally excluded.
   let scopeColumns = [];
-  if (typeof window._rcGetScopeByGroup === 'function') {
+  // Scope packet shows per-line rehab-estimate $ (and group subtotals). Buyer
+  // packet stays price-free.
+  let scopeHasCost = false;
+  if (scopeMode && typeof window._rcGetScopeByGroupCost === 'function') {
+    const _withCost = window._rcGetScopeByGroupCost() || [];
+    if (_withCost.length) { scopeColumns = _withCost; scopeHasCost = true; }
+  }
+  if (scopeColumns.length === 0 && typeof window._rcGetScopeByGroup === 'function') {
     scopeColumns = window._rcGetScopeByGroup() || [];
   }
   // Fallback: if the calculator helper isn't available (shouldn't happen in
@@ -15272,11 +15298,11 @@ async function uwGenerateWholesalePacket() {
   doc.setTextColor(C_BRAND[0], C_BRAND[1], C_BRAND[2]);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text('OFF-MARKET  ·  WHOLESALE  ·  DEAL PACKET', MARGIN, 40, { charSpace: 2 });
+  doc.text(scopeMode ? 'SCOPE OF WORK  ·  REHAB BUDGET' : 'OFF-MARKET  ·  WHOLESALE  ·  DEAL PACKET', MARGIN, 40, { charSpace: 2 });
   // Big title
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(28);
-  doc.text('Investment Opportunity', MARGIN, 75);
+  doc.text(scopeMode ? 'Scope of Work' : 'Investment Opportunity', MARGIN, 75);
   // Small tagline
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
@@ -15302,7 +15328,7 @@ async function uwGenerateWholesalePacket() {
   const askPrice = _packetOv > 0
     ? _packetOv
     : (mao > 0 ? mao * 1.20 : 0);
-  if (askPrice > 0) {
+  if (!scopeMode && askPrice > 0) {
     // Eyebrow label (small, dim, letterspaced)
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
@@ -15788,6 +15814,61 @@ async function uwGenerateWholesalePacket() {
     y = doc.lastAutoTable.finalY + 12;
   }
 
+  // ---------- Scope packet only: Cost Basis ----------
+  // Uses the EXACT flip breakdown values from the underwriting calculator
+  // (window._uwFlipCostSummary) so it matches the "Full Breakdown" panel:
+  // purchase-price-based closing, detailed holding, resale agent/closing.
+  // Falls back to ARV-percentage estimates only if that summary isn't set.
+  if (scopeMode) {
+    const _fs = window._uwFlipCostSummary || null;
+    const _arv      = arv > 0 ? arv : 0;
+    const _totalMo  = getN('uw-rehab-mo') + getN('uw-listing-mo');
+    const _rehabN   = (_fs && _fs.rehab > 0) ? _fs.rehab : ((typeof window._uwGetRehabFinal === 'function' ? (window._uwGetRehabFinal() || 0) : 0) || (window._3p_rehabBudget || 0));
+    const _purchase = (_fs && _fs.purchase > 0) ? _fs.purchase : (getN('uw-accepted') || getN('uw-offer') || (typeof window._uwCashBuyerMAO === 'number' && window._uwCashBuyerMAO > 0 ? window._uwCashBuyerMAO : 0));
+    const _buyClose  = _fs ? _fs.purchaseClosing : (_arv * (getN('uw-buy-close-pct') / 100) + _arv * (getN('uw-purch-sell-close-pct') / 100));
+    const _sellClose = _fs ? _fs.resaleClosing : (_arv * (getN('uw-sell-close-pct') / 100));
+    const _holding   = _fs ? _fs.holding : (_arv * ((3.5 / 100) / 12) * _totalMo);
+    const _sellAgent = _fs ? _fs.sellAgent : (_arv * (getN('uw-sell-agent-pct') / 100));
+    const _buyAgent  = _fs ? _fs.buyAgent : (_arv * (getN('uw-buy-agent-pct') / 100));
+    // Budget line = Purchase + Rehab + (buying) Closing + Holding.
+    // Selling closing and agent commissions are intentionally excluded here.
+    const _prcHolding = _purchase + _rehabN + _buyClose + _holding;
+    const _totalExclFin = _purchase + _rehabN + _buyClose + _sellClose + _holding + _sellAgent + _buyAgent;
+    const _ltvPrc    = _arv > 0 ? (_prcHolding / _arv * 100) : 0;
+    const _ltvTotal  = _arv > 0 ? (_totalExclFin / _arv * 100) : 0;
+    if (_totalExclFin > 0) {
+      // Divider line separating Cost Basis from the rental comparables above.
+      y += 8;
+      doc.setDrawColor(C_RULE[0], C_RULE[1], C_RULE[2]);
+      doc.setLineWidth(0.5);
+      doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+      y += 14;
+      section('COST BASIS');
+      doc.autoTable({
+        startY: y,
+        body: [
+          ['Purchase Price', fmt$(_purchase)],
+          ['Rehab Budget', fmt$(_rehabN)],
+          ['Buying Closing Costs', fmt$(_buyClose)],
+          ['Selling Closing Costs', fmt$(_sellClose)],
+          ['Selling Agent Commission', fmt$(_sellAgent)],
+          ['Buyer Agent Commission', fmt$(_buyAgent)],
+          ['Holding Costs (Utilities, Taxes, Insurance)', fmt$(_holding)],
+        ],
+        foot: [
+          ['Purchase + Rehab + Closing + Holding', fmt$(_prcHolding) + (_ltvPrc > 0 ? '     ' + _ltvPrc.toFixed(1) + '% LTV' : '')],
+          ['TOTAL PROJECT FLIP COST', fmt$(_totalExclFin) + (_ltvTotal > 0 ? '     ' + _ltvTotal.toFixed(1) + '% LTV' : '')],
+        ],
+        theme: 'plain',
+        styles: { fontSize: 10, cellPadding: 3.5, textColor: C_TEXT },
+        columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+        footStyles: { fontStyle: 'bold', fontSize: 10.5, textColor: C_TEXT, fillColor: [243, 244, 246] },
+        margin: { left: MARGIN, right: MARGIN },
+      });
+      y = doc.lastAutoTable.finalY + 12;
+    }
+  }
+
   // (Cash Rental Pro Forma — moved to AFTER the disclosure so page 2 stays
   // packed with comps + scope of work + disclosure, and the pro forma lands
   // on its own page 3. See the IIFE below the disclosure block.)
@@ -15989,6 +16070,8 @@ async function uwGenerateWholesalePacket() {
       { key: 'plumbing', label: 'Plumbing Supply Lines' }, { key: 'plumbing_drain', label: 'Plumbing Drain Lines' },
     ];
     const btState = (typeof _uwBigTicketState === 'function') ? (_uwBigTicketState() || {}) : {};
+    // Scope packet: Major Systems + Scope of Work get their own page (page 3).
+    if (scopeMode) { doc.addPage(); y = MARGIN; }
     section('MAJOR SYSTEMS');
     doc.setFontSize(9);
     doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
@@ -16027,15 +16110,29 @@ async function uwGenerateWholesalePacket() {
   // Groups flow into whichever column is currently shortest (greedy load-
   // balance) so the bottom edges stay roughly even.
   if (scopeColumns.length) {
-    section('SCOPE OF WORK (FLIP GRADE)');
+    section(scopeMode ? 'SCOPE OF WORK — REHAB ESTIMATE' : 'SCOPE OF WORK (FLIP GRADE)');
     doc.setFontSize(9);
     doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
     const scopeIntro = 'Scope identified during the walkthrough. Buyer to verify on inspection.';
     doc.text(scopeIntro, MARGIN, y);
     y += 13;
+    // Scope packet: grand total at the top (sum of section subtotals), in red.
+    if (scopeMode && scopeHasCost) {
+      const _grand = scopeColumns.reduce((s, c) => s + (c && c.subtotal ? c.subtotal : 0), 0);
+      if (_grand > 0) {
+        y += 16; // bigger gap above the total
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(220, 38, 38);
+        doc.text('TOTAL REHAB ESTIMATE:  ' + fmt$(_grand), MARGIN, y);
+        doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+        y += 22;
+      }
+    }
 
-    // Three-column geometry
-    const colCount = 3;
+    // Column geometry — 2 columns for the scope packet (roomier for $ figures),
+    // 3 for the buyer packet (fits alongside comps).
+    const colCount = scopeMode ? 2 : 3;
     const colGap   = 12;
     const colW     = (PAGE_W - 2 * MARGIN - (colCount - 1) * colGap) / colCount;
     const colX     = [];
@@ -16044,6 +16141,7 @@ async function uwGenerateWholesalePacket() {
       colX.push(MARGIN + ci * (colW + colGap));
       colY.push(y);
     }
+    const _scopeGridTop = y; // for the column divider line
     // Tight font sizes + line heights:
     const HDR_FONT = 9, HDR_GAP = 11;
     const ITM_FONT = 8, ITM_LH  = 9.5;
@@ -16065,26 +16163,43 @@ async function uwGenerateWholesalePacket() {
       doc.setFontSize(HDR_FONT);
       doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
       let groupLabel = col.label || '';
-      const labelMaxW = colW - 12;
+      // Reserve room on the right for the group subtotal ($) when in scope mode.
+      const _subtxt = (scopeHasCost && col.subtotal > 0) ? fmt$(col.subtotal) : '';
+      const _subW   = _subtxt ? (doc.getTextWidth(_subtxt) + 6) : 0;
+      const labelMaxW = colW - 12 - _subW;
       while (doc.getTextWidth(groupLabel) > labelMaxW && groupLabel.length > 4) {
         groupLabel = groupLabel.slice(0, -2);
       }
       if (groupLabel !== col.label) groupLabel = groupLabel.replace(/\.+$/, '') + '…';
       doc.text(groupLabel, xx + 8, yy);
+      if (_subtxt) {
+        doc.setTextColor(220, 38, 38);                 // section subtotal = red
+        doc.text(_subtxt, xx + colW, yy, { align: 'right' });
+        doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+      }
       yy += HDR_GAP;
 
-      // Items as bulleted lines
+      // Items as bulleted lines — name (dark) left, $ amount (yellow) right.
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(ITM_FONT);
-      doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
       col.items.forEach(item => {
-        const itemMaxW = colW - 18;
-        const lines = doc.splitTextToSize(item, itemMaxW);
+        // Item may be a plain name (buyer packet) or {name, cost} (scope packet).
+        const _itemName = (typeof item === 'string') ? item : (item && item.name) || '';
+        const _itemCost = (scopeHasCost && item && typeof item === 'object' && item.cost > 0) ? item.cost : 0;
+        const _amtTxt = _itemCost > 0 ? fmt$(_itemCost) : '';
+        const _amtW   = _amtTxt ? (doc.getTextWidth(_amtTxt) + 8) : 0;
+        const nameMaxW = colW - 18 - _amtW;
+        const lines = doc.splitTextToSize(_itemName, nameMaxW);
         // Bullet on the first line only
         doc.setFillColor(C_BRAND[0], C_BRAND[1], C_BRAND[2]);
         doc.circle(xx + 10, yy - 2.2, 1, 'F');
-        lines.forEach(ln => {
+        lines.forEach((ln, li) => {
+          doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
           doc.text(ln, xx + 15, yy);
+          if (li === 0 && _amtTxt) {
+            doc.setTextColor(202, 138, 4);              // per-line amount = yellow
+            doc.text(_amtTxt, xx + colW, yy, { align: 'right' });
+          }
           yy += ITM_LH;
         });
       });
@@ -16093,6 +16208,13 @@ async function uwGenerateWholesalePacket() {
     });
 
     y = Math.max(...colY);
+    // Vertical divider between the two scope columns.
+    if (scopeMode && colCount === 2) {
+      const _divX = colX[1] - colGap / 2;
+      doc.setDrawColor(C_RULE[0], C_RULE[1], C_RULE[2]);
+      doc.setLineWidth(0.5);
+      doc.line(_divX, _scopeGridTop - 6, _divX, y - GRP_GAP);
+    }
   }
 
   // ---------- Wholesaler disclosure (at bottom of packet) ----------
@@ -16103,7 +16225,7 @@ async function uwGenerateWholesalePacket() {
   //   • Not a licensed agent / broker / doesn't represent the seller
   //   • Buyer's responsibility for due diligence / inspection / verification
   //   • All figures (ARV, rent, scope) are estimates
-  {
+  if (!scopeMode) {
     // Compressed disclosure — same legal coverage, far fewer characters,
     // rendered in 2 columns inside the amber box so it never bleeds onto
     // a 3rd page even when scope of work runs long.
@@ -16184,7 +16306,7 @@ async function uwGenerateWholesalePacket() {
   // Rendered AFTER the disclosure so page 2 holds comps + scope + disclosure
   // and the pro forma lands on its own page. _cashRentalRender forces a fresh
   // page internally and returns silently if buy price or rent are missing.
-  _cashRentalRender();
+  if (!scopeMode) _cashRentalRender();
 
   // ---------- Footer / contact on every page ----------
   const totalPages = doc.internal.getNumberOfPages();
@@ -16215,9 +16337,13 @@ async function uwGenerateWholesalePacket() {
   // Filename: "{address} - Packet.pdf". Strip filesystem-illegal characters
   // (\ / : * ? " < > |) so the browser-triggered download works on every OS.
   const safeAddr = (address || 'Property').replace(/[\\/:*?"<>|]+/g, '').trim();
-  doc.save(safeAddr + ' - Packet.pdf');
-  if (typeof toast === 'function') toast('✅ Wholesale packet generated', 'ok');
+  doc.save(safeAddr + (scopeMode ? ' - Scope.pdf' : ' - Packet.pdf'));
+  if (typeof toast === 'function') toast(scopeMode ? '✅ Scope packet generated' : '✅ Wholesale packet generated', 'ok');
 }
+// Scope packet = the packet without wholesale header/price/disclosure/pro forma,
+// showing the rehab budget total. Fully separate button; shares the generator.
+async function uwGenerateScopePacket() { return uwGenerateWholesalePacket({ scopeMode: true }); }
+window.uwGenerateScopePacket = uwGenerateScopePacket;
 
 // ---------- Underwriting: persistence (Supabase `underwrites` table) ----------
 // Runs separately from cache.* loaders since the table may not exist yet.
@@ -53969,6 +54095,36 @@ window._rcGetScopeByGroup = function(){
     });
     return out;
   } catch (e) { console.warn('[_rcGetScopeByGroup]', e); return []; }
+};
+
+// Same as above, but each item carries its computed rehab-estimate cost, and
+// each group carries a subtotal. Used by the Scope packet to print $ per line.
+// Output: [{ label, items:[{name, cost}], subtotal }]
+window._rcGetScopeByGroupCost = function(){
+  try {
+    if (!Array.isArray(basicGroups) || !items || typeof compute !== 'function') return [];
+    const sqft = (typeof _rcGetSqft === 'function') ? _rcGetSqft() : 0;
+    const costByName = {};
+    Object.keys(items).forEach(k => {
+      (items[k] || []).forEach(it => {
+        if (!it || !it.on) return;
+        let c = 0;
+        try { c = (compute(it, sqft, k) || {}).total || 0; } catch (_) { c = 0; }
+        costByName[it.n] = (costByName[it.n] || 0) + c;
+      });
+    });
+    const checkedNames = new Set(Object.keys(costByName));
+    const out = [];
+    basicGroups.forEach(g => {
+      if (!g || !Array.isArray(g.items)) return;
+      const picked = g.items.filter(n => checkedNames.has(n));
+      if (!picked.length) return;
+      const its = picked.map(n => ({ name: n, cost: costByName[n] || 0 }));
+      const subtotal = its.reduce((s, x) => s + x.cost, 0);
+      out.push({ label: g.n, items: its, subtotal: subtotal });
+    });
+    return out;
+  } catch (e) { console.warn('[_rcGetScopeByGroupCost]', e); return []; }
 };
 // Full catalog helper: EVERY item in the rehab catalog (not just checked),
 // grouped by display group. Used to seed the contractor-bid standard list.

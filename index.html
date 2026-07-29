@@ -7760,6 +7760,9 @@
       <button class="btn btn-ghost sop-tb-btn" onclick="document.getElementById('sop-import-file').click()" title="Import: restore the SOP from a previously exported JSON backup. Will replace your current state — you'll be asked to confirm.">⬆</button>
       <input type="file" id="sop-import-file" accept=".json,application/json" style="display:none" onchange="sopImportJson(event)" />
       <span class="sop-tb-div"></span>
+      <button class="btn btn-ghost sop-tb-btn" onclick="sopSaveNow()" style="background:#6366f1;color:white;border:1px solid #6366f1;font-weight:600" title="Save to cloud NOW — forces an immediate save so your latest edits sync to every device.">💾 Save</button>
+      <button class="btn btn-ghost sop-tb-btn" onclick="sopShowBackups()" title="Restore a previous version — pick from automatic backups of your recent layouts.">🕘</button>
+      <span class="sop-tb-div"></span>
       <button class="btn btn-ghost sop-tb-btn" onclick="sopResetDefault()" style="color:#f87171;border:1px solid rgba(239,68,68,0.3)" title="Discard all edits and restore the original SOP chart. Warning: this can't be undone.">↺</button>
       <span class="sop-tb-div"></span>
       <!-- Sync status pinned at the END of the toolbar. Its label width changes
@@ -20094,6 +20097,7 @@ function _sopSaveState() {
     _sopState.updatedAt = Date.now();
     localStorage.setItem(_SOP_LS_KEY, JSON.stringify(_sopState));
     _sopFlashSaveStatus();
+    if (typeof _sopMaybeBackup === 'function') _sopMaybeBackup(); // rolling local backup (throttled)
     // Push to Supabase from INSIDE the function so EVERY caller syncs — including
     // bare _sopSaveState() calls in closures (delete, drag, resize) that bypass
     // the window._sopSaveState wrapper. Without this, deletes stuck locally and
@@ -20234,8 +20238,14 @@ function _sopAssignIdsAndRestore() {
   //     even though _sopState.boxes[id] was cleared. The delete handler
   //     pushed their IDs onto _sopState.deletedIds so we can drop them
   //     here before the button-attachment loop runs.
+  // SINGLE-SNAPSHOT MODEL: when we restored from the canvasHtml snapshot, that
+  // snapshot IS the truth — it already reflects every deletion and addition.
+  // Running the reconciliation below on top of it is what caused conflicts
+  // (deletes respawning, valid boxes getting removed by stale positional IDs,
+  // duplicated custom boxes). So we only reconcile in the LEGACY path (no
+  // snapshot yet), never when a snapshot was used.
   const _delIds = Array.isArray(_sopState.deletedIds) ? _sopState.deletedIds : [];
-  if (_delIds.length) {
+  if (!_usedCanvasHtml && _delIds.length) {
     const _esc = (window.CSS && typeof CSS.escape === 'function') ? CSS.escape : (s => s);
     _delIds.forEach(delId => {
       document.querySelectorAll('#section-sop .sop-box[data-sop-id="' + _esc(delId) + '"]').forEach(b => b.remove());
@@ -20247,7 +20257,7 @@ function _sopAssignIdsAndRestore() {
   //     so without this rebuild, every box the user added in a prior
   //     session would silently vanish on refresh.
   const _canvasForRestore = document.getElementById('sop-canvas');
-  if (_canvasForRestore) {
+  if (!_usedCanvasHtml && _canvasForRestore) {
     const _esc2 = (window.CSS && typeof CSS.escape === 'function') ? CSS.escape : (s => s);
     Object.keys(_sopState.boxes || {}).forEach(savedId => {
       if (!String(savedId).startsWith('sop-box-custom-')) return;
@@ -20425,6 +20435,8 @@ function _sopAssignIdsAndRestore() {
   // Restore phase is done — subsequent saves can safely capture the canvas
   // without risk of overwriting saved state with init-time DOM.
   _sopRestoreComplete = true;
+  // Snapshot the freshly-loaded (known-good) layout as a backup before any edits.
+  if (typeof _sopPushBackup === 'function') { try { _sopCaptureCanvas(); _sopPushBackup(); } catch (_) {} }
 }
 
 function _sopApplyModeClass() {
@@ -51532,18 +51544,6 @@ async function _sopLoadFromSupabase() {
       .eq('owner_email', SOP_ADMIN_EMAIL)
       .maybeSingle();
     if (error || !data) return false;
-    // Conflict resolution (admin only): if this device's local edits are NEWER
-    // than the cloud copy — e.g. you deleted something and refreshed before the
-    // debounced cloud save fired — keep local and push it up, rather than
-    // letting the stale cloud copy resurrect the deletion. Non-admins always
-    // take the cloud copy (they view the admin's shared, read-only SOP).
-    const _isAdmin = !!(user.email && user.email.toLowerCase() === SOP_ADMIN_EMAIL);
-    const _localTs = Number(_sopState && _sopState.updatedAt) || 0;
-    const _cloudTs = Number(data.state_json && data.state_json.updatedAt) || 0;
-    if (_isAdmin && _localTs && _localTs > _cloudTs) {
-      if (typeof _sopQueueSupabaseSave === 'function') _sopQueueSupabaseSave();
-      return false;
-    }
     if (data.state_json && typeof data.state_json === 'object') {
       // Merge fields from state_json into _sopState (preserve current
       // _sopState shape). Don't merge canvas_html via state_json — it has
@@ -51617,11 +51617,86 @@ function _sopQueueSupabaseSave() {
 // so a quick edit-then-leave still reaches Supabase (otherwise the debounce timer
 // gets killed on navigation and another device never sees the change).
 function _sopFlushSupabaseSave() {
-  if (_sopSupabaseSaveTimer) { clearTimeout(_sopSupabaseSaveTimer); _sopSupabaseSaveTimer = null; }
+  // ONLY flush when a real edit is queued. Without this guard, a plain tab
+  // switch would push the current (possibly stale/partly-initialized) state
+  // over your good cloud copy — which reset formatting.
+  if (!_sopSupabaseSaveTimer) return;
+  clearTimeout(_sopSupabaseSaveTimer); _sopSupabaseSaveTimer = null;
   _sopSaveToSupabase();
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) _sopFlushSupabaseSave(); });
 window.addEventListener('pagehide', _sopFlushSupabaseSave);
+
+// ===== Versioned local backups (rollback safety net) =====
+// Keeps the last 10 canvas snapshots in localStorage so a bad sync can always
+// be undone. Backups are per-device (localStorage), independent of the cloud.
+const _SOP_BACKUPS_KEY = 'labb-sop-backups';
+function _sopLoadBackups() { try { const a = JSON.parse(localStorage.getItem(_SOP_BACKUPS_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+function _sopPushBackup() {
+  try {
+    const html = _sopState && _sopState.canvasHtml;
+    if (typeof html !== 'string' || !html.length) return;
+    const list = _sopLoadBackups();
+    if (list.length && list[0].canvasHtml === html) return; // no change since last backup
+    list.unshift({ ts: Date.now(), canvasHtml: html });
+    localStorage.setItem(_SOP_BACKUPS_KEY, JSON.stringify(list.slice(0, 10)));
+  } catch (_) {}
+}
+// Throttled backup so rapid edits don't spam localStorage (max once / 90s).
+let _sopLastBackupTs = 0;
+function _sopMaybeBackup() {
+  const now = Date.now();
+  if (now - _sopLastBackupTs < 90000) return;
+  _sopLastBackupTs = now;
+  _sopPushBackup();
+}
+window._sopMaybeBackup = _sopMaybeBackup; window._sopPushBackup = _sopPushBackup;
+
+// Manual "Save to cloud" — forces an immediate save + backup, bypassing the debounce.
+async function sopSaveNow() {
+  try { (window._sopSaveState || _sopSaveState)(); } catch (_) {}
+  _sopPushBackup();
+  if (_sopSupabaseSaveTimer) { clearTimeout(_sopSupabaseSaveTimer); _sopSupabaseSaveTimer = null; }
+  try { await _sopSaveToSupabase(); } catch (_) {}
+  if (typeof toast === 'function') toast('💾 SOP saved to cloud.', 'ok');
+}
+window.sopSaveNow = sopSaveNow;
+
+// Restore-a-version picker.
+function sopShowBackups() {
+  const list = _sopLoadBackups();
+  if (!list.length) { if (typeof toast === 'function') toast('No backups yet — they build up automatically as you edit.', 'info'); return; }
+  let ov = document.getElementById('sop-backup-overlay');
+  if (ov) ov.remove();
+  ov = document.createElement('div');
+  ov.id = 'sop-backup-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:24px';
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+  const fmt = ts => { const d = new Date(ts); let h = d.getHours(); const m = String(d.getMinutes()).padStart(2, '0'); const ap = h >= 12 ? 'pm' : 'am'; h = ((h + 11) % 12) + 1; return d.toLocaleDateString() + ' ' + h + ':' + m + ap; };
+  const rows = list.map((b, i) => '<button onclick="_sopRestoreBackup(' + i + ')" style="display:block;width:100%;text-align:left;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:7px;color:var(--text);cursor:pointer;font-size:13px">' + (i === 0 ? '<b>Most recent</b> · ' : '') + fmt(b.ts) + '</button>').join('');
+  ov.innerHTML = '<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;max-width:440px;width:100%;max-height:80vh;overflow:auto;padding:18px 20px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:16px;font-weight:800;color:var(--text)">🕘 Restore a version</div>'
+    + '<button onclick="document.getElementById(\'sop-backup-overlay\').remove()" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer">✕</button></div>'
+    + '<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Pick a saved snapshot to roll back to. Your current layout is backed up first, so you can undo this too.</div>'
+    + rows + '</div>';
+  document.body.appendChild(ov);
+}
+window.sopShowBackups = sopShowBackups;
+function _sopRestoreBackup(idx) {
+  const list = _sopLoadBackups();
+  const b = list[idx];
+  if (!b) return;
+  if (!confirm('Restore this version? Your current layout is backed up first so you can undo.')) return;
+  _sopPushBackup();                 // snapshot current before replacing
+  _sopState.canvasHtml = b.canvasHtml;
+  _sopRestoreComplete = false;
+  try { _sopAssignIdsAndRestore(); } catch (_) {}
+  try { (window._sopSaveState || _sopSaveState)(); } catch (_) {}
+  const ov = document.getElementById('sop-backup-overlay'); if (ov) ov.remove();
+  if (typeof _sopRenderArrows === 'function') _sopRenderArrows();
+  if (typeof toast === 'function') toast('↩ Restored that version.', 'ok');
+}
+window._sopRestoreBackup = _sopRestoreBackup;
 
 // Wrap the existing _sopSaveState to also fire a debounced Supabase save.
 (function _sopWireSupabaseSave() {

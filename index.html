@@ -16111,11 +16111,12 @@ async function uwGenerateWholesalePacket(opts) {
   // balance) so the bottom edges stay roughly even.
   if (scopeColumns.length) {
     section(scopeMode ? 'SCOPE OF WORK — REHAB ESTIMATE' : 'SCOPE OF WORK (FLIP GRADE)');
-    doc.setFontSize(9);
-    doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
-    const scopeIntro = 'Scope identified during the walkthrough. Buyer to verify on inspection.';
-    doc.text(scopeIntro, MARGIN, y);
-    y += 13;
+    if (!scopeMode) {
+      doc.setFontSize(9);
+      doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+      doc.text('Scope identified during the walkthrough. Buyer to verify on inspection.', MARGIN, y);
+      y += 13;
+    }
     // Scope packet: grand total at the top (sum of section subtotals), in red.
     if (scopeMode && scopeHasCost) {
       const _grand = scopeColumns.reduce((s, c) => s + (c && c.subtotal ? c.subtotal : 0), 0);

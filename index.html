@@ -7435,9 +7435,9 @@
        (22px button + 4px gap). */
     #section-sop .sop-del-box         { right: 6px; }
     #section-sop .sop-add-inside      { right: 32px; }
-    #section-sop .sop-color-btn-title { right: 58px; }
-    #section-sop .sop-dup-box         { right: 84px; }
-    #section-sop .sop-lock-box        { right: 110px; }
+    #section-sop .sop-dup-box         { right: 58px; }
+    #section-sop .sop-color-btn-title { right: 84px; }
+    #section-sop .sop-lock-box        { right: 188px; }
     /* Color schemes per button (kept distinct so the row is glanceable). */
     #section-sop .sop-del-box    { background: rgba(239,68,68,0.15);  color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
     #section-sop .sop-add-inside { background: rgba(16,185,129,0.18); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.45); font-weight: 700; }
@@ -7470,8 +7470,8 @@
     #section-sop .sop-box:not(.sop-locked) .sop-font-btn { display: inline-flex; align-items: center; justify-content: center; }
     #section-sop .sop-font-btn:hover { background: rgba(99,102,241,0.35); color: white; }
     /* Fixed offsets, same 22+4px spacing pattern as the edit-mode buttons. */
-    #section-sop .sop-font-down { right: 62px; }
-    #section-sop .sop-font-up   { right: 36px; }
+    #section-sop .sop-font-down { right: 136px; }
+    #section-sop .sop-font-up   { right: 110px; }
     /* Nested boxes (= any .sop-box living inside another .sop-box) ALWAYS
        use the secondary "flat" format: no card chrome, transparent background,
        no border, no shadow. They look like inline sub-sections instead of
@@ -20091,6 +20091,11 @@ function _sopSaveState() {
     _sopCaptureCanvas();
     localStorage.setItem(_SOP_LS_KEY, JSON.stringify(_sopState));
     _sopFlashSaveStatus();
+    // Push to Supabase from INSIDE the function so EVERY caller syncs — including
+    // bare _sopSaveState() calls in closures (delete, drag, resize) that bypass
+    // the window._sopSaveState wrapper. Without this, deletes stuck locally and
+    // the stale cloud copy respawned them on the next refresh.
+    if (typeof _sopQueueSupabaseSave === 'function') _sopQueueSupabaseSave();
   } catch (_) { /* localStorage might be full or disabled — silently no-op */ }
 }
 

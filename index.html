@@ -55012,42 +55012,54 @@ window._uwSecSetRole = function(section, role){
 // in sync for back-compat. Owner is ALSO auto-on for any property that has an
 // Owner contact in the Contact Book (computed live — never written to the deal).
 
-// Streets that belong to an Owner contact (memoized against the contacts cache).
-window._uwOwnerStreetCache = { ref: null, set: null };
-window._uwOwnerContactStreetSet = function(){
+// Streets grouped by contact ROLE (owner / partner / agent), memoized against
+// the contacts cache. Lets a property auto-light Owner AND/OR Partner AND/OR
+// Agent based on which kinds of contacts are attached to it.
+window._uwRoleStreetCache = { ref: null, map: null };
+window._uwRoleContactStreetSets = function(){
   var cb = window._cbCache || [];
-  var c = window._uwOwnerStreetCache;
-  if (c.ref === cb && c.set) return c.set;
-  var set = new Set();
+  var c = window._uwRoleStreetCache;
+  if (c.ref === cb && c.map) return c.map;
+  var map = { owner: new Set(), partner: new Set(), agent: new Set() };
   cb.forEach(function(ct){
-    if (String((ct && ct.role) || '').trim().toLowerCase() !== 'owner') return;
+    var role = String((ct && ct.role) || '').trim().toLowerCase();
+    if (!map[role]) return;
     var addrs = (typeof _cbAddrs === 'function') ? _cbAddrs(ct)
               : (Array.isArray(ct.addresses) ? ct.addresses : []);
     addrs.forEach(function(a){
       var street = (typeof _uwNormalizeAddress === 'function')
         ? _uwNormalizeAddress(String(a || '').split(',')[0])
         : String(a || '').split(',')[0].trim().toLowerCase();
-      if (street) set.add(street);
+      if (street) map[role].add(street);
     });
   });
-  c.ref = cb; c.set = set;
-  return set;
+  c.ref = cb; c.map = map;
+  return map;
 };
-window._uwDealHasOwnerContact = function(u){
-  if (!u || !u.address) return false;
-  var street = (typeof _uwNormalizeAddress === 'function')
+window._uwDealStreet = function(u){
+  if (!u || !u.address) return '';
+  return (typeof _uwNormalizeAddress === 'function')
     ? _uwNormalizeAddress(String(u.address).split(',')[0])
     : String(u.address).split(',')[0].trim().toLowerCase();
-  return !!street && window._uwOwnerContactStreetSet().has(street);
 };
-// The effective set of roles for a deal: explicit tags + legacy scalar + auto-owner.
+window._uwDealHasOwnerContact = function(u){
+  var street = window._uwDealStreet(u);
+  return !!street && window._uwRoleContactStreetSets().owner.has(street);
+};
+// The effective set of roles for a deal: explicit tags + legacy scalar +
+// auto-marks from attached contacts (owner / partner / agent). Non-exclusive —
+// a property with an owner AND a partner contact lights both.
 window._uwEffectiveLeadTypes = function(u){
   var set = new Set();
   try {
     var d = (u && u.data) || {};
     if (Array.isArray(d._leadTypes)) d._leadTypes.forEach(function(r){ if(r) set.add(String(r).toLowerCase()); });
     if (d._leadType) set.add(String(d._leadType).toLowerCase());
-    if (window._uwDealHasOwnerContact(u)) set.add('owner');
+    var street = window._uwDealStreet(u);
+    if (street) {
+      var m = window._uwRoleContactStreetSets();
+      ['owner','partner','agent'].forEach(function(role){ if (m[role].has(street)) set.add(role); });
+    }
   } catch(_){}
   return set;
 };

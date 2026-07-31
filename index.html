@@ -9865,28 +9865,24 @@ async function _uwSyncLeadContacts(opts) {
             firstVal(d, ['_sourceLastName', 'last_name', 'lastName', 'contact_last_name'])].filter(Boolean).join(' ').trim();
       let phone = firstVal(d, ['_sourcePhone', 'phone', 'phone_number', 'contact_phone', 'owner_phone', 'mobile']);
       let email = firstVal(d, ['_sourceEmail', 'email', 'contact_email', 'owner_email', 'email_address']);
-      // Fallback: if the known keys came up empty (e.g. a GoHighLevel webhook
-      // that names its fields differently), scan the whole data blob for
-      // anything that looks like a name / phone / email.
+      // Fallback for oddly-named contact fields (e.g. a GHL webhook variant).
+      // TOP-LEVEL scalars ONLY — never recurse into nested rehab/scope/comps
+      // structures, and only accept name from keys that clearly denote a
+      // person (contact/owner/seller/submitter/lead), so we don't grab a
+      // rehab line-item label like "Demolition, Clean-Up & Permits".
       if (!name || !phone || !email) {
-        const nm = {};
-        const walk = (obj, depth) => {
-          if (!obj || typeof obj !== 'object' || depth > 2) return;
-          Object.keys(obj).forEach(k => {
-            const v = obj[k]; if (v == null) return;
-            if (typeof v === 'object') { walk(v, depth + 1); return; }
-            const kl = String(k).toLowerCase(); const val = String(v).trim(); if (!val) return;
-            if (!email && /e?mail/.test(kl) && val.indexOf('@') > -1) email = val;
-            if (!phone && /(phone|mobile|cell)/.test(kl) && val.replace(/\D/g, '').length >= 10) phone = val;
-            if (/name/.test(kl) && !/(user|file|address|company|property|nick|list)/.test(kl)) {
-              if (/first/.test(kl)) nm.first = nm.first || val;
-              else if (/last/.test(kl)) nm.last = nm.last || val;
-              else nm.full = nm.full || val;
-            }
-          });
-        };
-        walk(d, 0);
-        if (!name) name = nm.full || [nm.first, nm.last].filter(Boolean).join(' ').trim();
+        Object.keys(d).forEach(k => {
+          const v = d[k];
+          if (v == null || typeof v === 'object') return;   // scalars only, no nesting
+          const kl = String(k).toLowerCase(); const val = String(v).trim(); if (!val) return;
+          if (!email && /e?mail/.test(kl) && val.indexOf('@') > -1) email = val;
+          if (!phone && /(phone|mobile|cell)/.test(kl) && val.replace(/\D/g, '').length >= 10) phone = val;
+        });
+        if (!name) {
+          name = firstVal(d, ['contact_full_name', 'submitter_name', 'lead_name', 'owner_full_name'])
+            || [firstVal(d, ['contact_first_name', 'submitter_first_name', 'lead_first_name']),
+                firstVal(d, ['contact_last_name', 'submitter_last_name', 'lead_last_name'])].filter(Boolean).join(' ').trim();
+        }
       }
       // Enrich blanks from the matching call Result (manual scan only).
       const had = { n: !!name, p: !!phone, e: !!email };

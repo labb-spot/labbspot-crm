@@ -30471,6 +30471,25 @@ function _cbMultiSendProps(){
   Object.keys(count).forEach(function(k){ if(count[k]>=2) set.add(k); });
   return set;
 }
+// One contact rendered as a compact row (used inside the Multi-Send grouped view).
+function _cbContactRow(c){
+  const roleColor=window._CB_ROLE_COLOR||{};
+  const rc=roleColor[c.role]||'#9ca3af';
+  const _pr=(c.primaries)||{};
+  const ph=_pr.phone||c.phone||_cbPhones(c)[0]||'', em=_pr.email||c.email||_cbEmails(c)[0]||'';
+  const parts=[];
+  parts.push('<span style="font-weight:700;font-size:13px">'+_cbEsc(c.name||'(no name)')+'</span>');
+  parts.push('<span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:'+rc+';background:'+rc+'22;padding:2px 7px;border-radius:999px">'+_cbEsc(c.role||'Other')+'</span>');
+  if(c.company) parts.push('<span style="font-size:12px;color:var(--text-dim)">'+_cbEsc(c.company)+'</span>');
+  if(ph) parts.push('<a href="tel:'+_cbEsc(ph)+'" style="color:#60a5fa;text-decoration:none;font-size:12.5px">📞 '+_cbEsc(_cbFmtPhone(ph))+'</a>');
+  if(em) parts.push('<a href="mailto:'+_cbEsc(em)+'" style="color:#60a5fa;text-decoration:none;font-size:12.5px">✉️ '+_cbEsc(em)+'</a>');
+  return '<div style="display:flex;align-items:center;gap:12px;border-top:1px solid var(--border);border-left:3px solid '+rc+';padding:7px 12px">'
+    + '<div style="min-width:0;flex:1;display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap">'+parts.join('')+'</div>'
+    + '<div style="display:flex;gap:6px;flex-shrink:0">'
+    +   '<button class="btn btn-ghost text-xs" onclick="contactBookEdit(\''+_cbEsc(c.id)+'\')" title="Edit">✏️</button>'
+    +   '<button class="btn btn-ghost text-xs" onclick="contactBookDelete(\''+_cbEsc(c.id)+'\')" title="Delete" style="color:#f87171">🗑️</button>'
+    + '</div></div>';
+}
 function renderContactBook(){
   const list=document.getElementById('cb-list'); if(!list) return;
   _cbRenderRoleChips();
@@ -30510,6 +30529,33 @@ function renderContactBook(){
     uws.forEach(u=>{ if(contactStreets.has(street(u.address))) withContact++; });
     el.textContent='🏠 '+withContact.toLocaleString()+' / '+uws.length.toLocaleString()+' underwriting properties have a contact';
   })();
+  // Multi-Send view: group BY PROPERTY (each shared property with its contacts),
+  // styled like the invoices "By Property" panels.
+  if(window._cbMultiSend){
+    const ms=_cbMultiSendProps();
+    const groups={};
+    rows.forEach(c=>{
+      _cbAddrs(c).forEach(a=>{
+        const k=_cbNormProp(a); if(!ms.has(k)) return;
+        if(!groups[k]) groups[k]={label:a, contacts:[]};
+        if(!groups[k].contacts.some(x=>String(x.id)===String(c.id))) groups[k].contacts.push(c);
+      });
+    });
+    let keys=Object.keys(groups).filter(k=>groups[k].contacts.length>=2);
+    keys.sort((a,b)=>groups[a].label.localeCompare(groups[b].label));
+    const allProps=new Set();
+    (window._cbCache||[]).forEach(c=>_cbAddrs(c).forEach(a=>{const kk=_cbNormProp(a); if(kk) allProps.add(kk);}));
+    const cnt=document.getElementById('cb-count'); if(cnt) cnt.textContent=keys.length.toLocaleString()+' / '+allProps.size.toLocaleString();
+    if(!keys.length){ list.innerHTML='<div style="text-align:center;color:var(--text-dim);padding:28px;font-size:13px">No properties have more than one contact attached.</div>'; return; }
+    list.innerHTML=keys.map(k=>{
+      const g=groups[k];
+      return '<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--panel-2)">'
+        + '<div style="padding:9px 12px;font-weight:700;color:#a5b4fc;display:flex;justify-content:space-between;align-items:center;gap:10px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍 '+_cbEsc(g.label)+'</span><span style="font-size:11px;color:var(--text-dim);font-weight:700;flex-shrink:0">'+g.contacts.length+' contacts</span></div>'
+        + g.contacts.map(_cbContactRow).join('')
+        + '</div>';
+    }).join('');
+    return;
+  }
   if(!rows.length){ list.innerHTML='<div style="text-align:center;color:var(--text-dim);padding:28px;font-size:13px">'+((window._cbCache||[]).length?'No contacts match your search.':'No contacts yet — click ＋ Add Contact to start your book.')+'</div>'; return; }
   list.innerHTML=rows.map(c=>{
     const rc=roleColor[c.role]||'#9ca3af';

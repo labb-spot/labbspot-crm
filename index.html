@@ -2993,13 +2993,16 @@
           <div style="position:relative;flex-shrink:0;align-self:center">
             <button class="btn btn-primary text-sm" onclick="uwSave(true)" style="white-space:nowrap" title="Save now (auto-save also runs in the background a few seconds after each edit).">💾 Save Now</button>
             <button onclick="toggleDealContacts(event)" title="See this property's contact info (the seller/partner who submitted it)." style="position:absolute;top:calc(100% + 6px);right:0;border:1.5px solid #a5b4fc;background:transparent;border-radius:9px;font-size:26px;line-height:1;padding:6px 12px;cursor:pointer">📒</button>
-            <!-- Lead type chips — float to the LEFT of the notebook (out of flow, no gap). -->
-            <span style="position:absolute;top:calc(100% + 12px);right:82px;display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px;white-space:nowrap" title="Tag this lead's source (Owner / Partner / Agent), then filter your lists by these using the matching chips at the top of each list.">
+            <!-- Submission-history box — same size as the notebook, sits to its left. -->
+            <button onclick="toggleDealHistory(event)" title="Submission history for this property — owner / agent / wholesaler prices and dates. Manual price edits are not shown here." style="position:absolute;top:calc(100% + 6px);right:66px;border:1.5px solid #a5b4fc;background:transparent;border-radius:9px;font-size:26px;line-height:1;padding:6px 12px;cursor:pointer">📜</button>
+            <!-- Lead type chips — float to the LEFT of the two boxes (out of flow, no gap). -->
+            <span style="position:absolute;top:calc(100% + 12px);right:148px;display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px;white-space:nowrap" title="Tag this lead's source (Owner / Partner / Agent), then filter your lists by these using the matching chips at the top of each list.">
               <button type="button" id="uw-lead-owner" onclick="uwSetLeadType('owner')" style="padding:6px 14px;border:none;cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Owner</button>
               <button type="button" id="uw-lead-partner" onclick="uwSetLeadType('partner')" style="padding:6px 14px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Partner</button>
               <button type="button" id="uw-lead-agent" onclick="uwSetLeadType('agent')" style="padding:6px 14px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Agent</button>
             </span>
             <div id="deal-contacts-pop" style="display:none;position:absolute;top:calc(100% + 58px);right:0;z-index:60;background:var(--panel);border:1px solid #a5b4fc;border-radius:10px;padding:12px 14px;min-width:280px;max-width:360px;box-shadow:0 10px 30px rgba(0,0,0,0.5)"></div>
+            <div id="deal-history-pop" style="display:none;position:absolute;top:calc(100% + 58px);right:0;z-index:60;background:var(--panel);border:1px solid #a5b4fc;border-radius:10px;padding:12px 14px;min-width:340px;max-width:560px;box-shadow:0 10px 30px rgba(0,0,0,0.5)"></div>
           </div>
         </div>
       </div>
@@ -3056,6 +3059,9 @@
              neither one contributes to row 2's height when it appears. -->
       </div>
     </div>
+
+    <!-- Form submissions log (owner / agent / wholesaler prices per property) -->
+    <div id="uw-form-submissions" style="display:none"></div>
 
     <!-- ===== 1. Deal Status ===== -->
     <div class="panel p-5 mb-4" data-uw-section="deal-status" data-uw-section-label="📋 Deal Status">
@@ -18115,6 +18121,8 @@ function _uwCollect() {
           k === '_reno_phase_override' || k === '_compsMode' ||
           k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_customRehabPresets' || k === '_scopeQuotes' || k === '_taggedBuyers' || k === '_offerActive' || k === '_offerPacket' || k === '_bigTicket' ||
           k === '_invoiceOriginal' || k === '_invoiceActive' || k === '_invoiceTab' || k === '_invoiceInclContractor' || k === '_invoicePaidDeposits' || k === '_externalInvoices' || k === '_constructionAgreements' ||
+          // Form-submission log + auto-asking tracker (owner/partner submit forms).
+          k === '_formSubmissions' || k === '_autoAsking' || k === '_fromForm' ||
           // Geocode coordinates — written by _dispoGeocodeSubject directly
           // into u.data.lat/lng/geocoded_address (not form fields). Without
           // this preservation, the next autosave wipes them and the user
@@ -20033,6 +20041,8 @@ async function uwLoadById(id) {
   try { if (typeof window._rcRenderCustomPresets === 'function') window._rcRenderCustomPresets(); } catch (_) {}
   // Reflect this deal's saved lead type (Owner / Partner / Agent) on the chips.
   try { if (typeof window.uwRenderLeadChips === 'function') window.uwRenderLeadChips(); } catch (_) {}
+  // Show the per-property submissions log (owner / agent / wholesaler prices).
+  try { if (typeof window._uwRenderFormSubmissions === 'function') window._uwRenderFormSubmissions(); } catch (_) {}
   // Update the prev/next navigator position for the section this deal is in.
   if (typeof _uwNavUpdate === 'function') _uwNavUpdate();
   // Show Closed On for Finalized deals (replaces ARV − Asking).
@@ -55189,6 +55199,61 @@ window.uwRenderLeadChips = function(){
     b.style.background = on ? c.bg : 'transparent';
     b.style.color      = on ? c.fg : 'var(--text-dim)';
   });
+};
+
+// Shared table builder for the submissions log. Returns '' if empty.
+window._uwSubmissionsTableHTML = function(log){
+  if(!Array.isArray(log) || !log.length) return '';
+  var fmt$ = function(n){ n=parseFloat(n)||0; return n>0 ? '$'+Math.round(n).toLocaleString() : '—'; };
+  var esc = function(s){ var d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; };
+  var fmtD = function(s){ try{ return new Date(s).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }catch(_){ return ''; } };
+  var COL = { owner:'#eab308', agent:'#3b82f6', wholesaler:'#f97316' };
+  var rows = log.slice().sort(function(a,b){
+    var pa=parseFloat(a.price)||0, pb=parseFloat(b.price)||0;
+    if(pa===0) return 1; if(pb===0) return -1; return pa-pb;
+  });
+  var lowestPartner = rows.filter(function(r){var t=String(r.type||'').toLowerCase();return t!=='owner'&&(parseFloat(r.price)||0)>0;}).map(function(r){return parseFloat(r.price);});
+  var lowP = lowestPartner.length ? Math.min.apply(null,lowestPartner) : null;
+  return '<div style="overflow-x:auto"><table style="width:100%;font-size:13px;border-collapse:collapse">'
+    + '<thead><tr style="color:var(--text-dim);text-transform:uppercase;font-size:10px;border-bottom:1px solid var(--border)">'
+    +   '<th style="text-align:left;padding:6px 8px">Type</th><th style="text-align:left;padding:6px 8px">Name</th>'
+    +   '<th style="text-align:right;padding:6px 8px">Price</th><th style="text-align:left;padding:6px 8px">Contact</th>'
+    +   '<th style="text-align:left;padding:6px 8px">Date</th></tr></thead><tbody>'
+    + rows.map(function(r){
+        var t=String(r.type||'').trim(); var tl=t.toLowerCase(); var c=COL[tl]||'#9ca3af';
+        var p=parseFloat(r.price)||0; var isLow = lowP!=null && tl!=='owner' && p===lowP;
+        var contact=[r.phone,r.email].filter(Boolean).map(esc).join(' · ');
+        return '<tr style="border-bottom:1px solid var(--border)">'
+          +'<td style="padding:6px 8px"><span style="font-size:9px;font-weight:800;text-transform:uppercase;color:'+c+';background:'+c+'22;padding:2px 7px;border-radius:999px">'+esc(t||'—')+'</span></td>'
+          +'<td style="padding:6px 8px">'+esc(r.name||'—')+'</td>'
+          +'<td style="padding:6px 8px;text-align:right;font-weight:700'+(isLow?';color:#16a34a':'')+'">'+fmt$(p)+(isLow?' <span style="font-size:9px;font-weight:800;color:#16a34a">LOW</span>':'')+'</td>'
+          +'<td style="padding:6px 8px;color:var(--text-dim);font-size:12px">'+(contact||'—')+'</td>'
+          +'<td style="padding:6px 8px;color:var(--text-dim);font-size:12px">'+esc(fmtD(r.date))+'</td>'
+          +'</tr>';
+      }).join('')
+    + '</tbody></table></div>';
+};
+function _uwCurrentLog(){ try{ return (cache.underwrites[_uwCurrentId].data._formSubmissions) || []; }catch(_){ return []; } }
+// Auto-panel above Deal Status (only shows when the property has submissions).
+window._uwRenderFormSubmissions = function(){
+  var box = document.getElementById('uw-form-submissions'); if(!box) return;
+  var log = _uwCurrentLog();
+  var tbl = window._uwSubmissionsTableHTML(log);
+  if(!tbl){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='';
+  box.innerHTML = '<div class="panel p-5 mb-4"><div class="font-semibold text-base mb-3">📨 Property Submissions <span style="font-size:11px;font-weight:600;color:var(--text-dim)">'+log.length+' total</span></div>'
+    + tbl
+    + '<div class="text-xs text-[var(--text-dim)]" style="margin-top:8px">The Asking Price above auto-uses the owner price (or the lowest partner price) — unless you’ve set it by hand. This log is just for reference.</div>'
+    + '</div>';
+};
+// 📜 History button → popover (works even when there's no history yet).
+window.toggleDealHistory = function(ev){
+  if(ev) ev.stopPropagation();
+  var pop=document.getElementById('deal-history-pop'); if(!pop) return;
+  if(pop._open){ pop.style.display='none'; pop._open=false; return; }
+  var inner = window._uwSubmissionsTableHTML(_uwCurrentLog()) || '<div style="font-size:12px;color:var(--text-dim)">No submissions recorded for this property yet. New owner / partner / GoHighLevel submissions will show here.</div>';
+  pop.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><div style="font-size:13px;font-weight:700">📜 Submission History</div><button onclick="toggleDealHistory(event)" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px">✕</button></div>' + inner;
+  pop.style.display='block'; pop._open=true;
 };
 
 // Build the standard controls cluster (chips + Buy Box + edit) for a section.

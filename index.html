@@ -55242,16 +55242,16 @@ window._uwShowNote = function(idx){
   ov.appendChild(box); document.body.appendChild(ov);
 };
 window._uwSubmissionsCardsHTML = function(log){
-  if(!Array.isArray(log) || !log.length) return '';
+  if(!Array.isArray(log)) return '';
+  log = log.filter(function(x){ return x && typeof x === 'object'; });   // drop null / malformed entries
+  if(!log.length) return '';
   window._uwNoteStore = [];
   var fmt$ = function(n){ n=parseFloat(n)||0; return n>0 ? '$'+Math.round(n).toLocaleString() : '—'; };
   var esc = function(s){ var d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; };
-  var fmtD = function(s){ try{ return new Date(s).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }catch(_){ return ''; } };
+  var fmtDT = function(s){ try{ return new Date(s).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})+' EST'; }catch(_){ return ''; } };
   var COL = { owner:'#eab308', agent:'#3b82f6', wholesaler:'#f97316' };
-  var rows = log.slice().sort(function(a,b){
-    var pa=parseFloat(a.price)||0, pb=parseFloat(b.price)||0;
-    if(pa===0) return 1; if(pb===0) return -1; return pa-pb;
-  });
+  // Sort by submit date, newest first. (LOW tag below is computed separately.)
+  var rows = log.slice().sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); });
   var lowestPartner = rows.filter(function(r){var t=String(r.type||'').toLowerCase();return t!=='owner'&&(parseFloat(r.price)||0)>0;}).map(function(r){return parseFloat(r.price);});
   var lowP = lowestPartner.length ? Math.min.apply(null,lowestPartner) : null;
   var chip = function(label,val){ if(!val) return ''; return '<span style="display:inline-flex;gap:4px;font-size:11px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:3px 8px;white-space:nowrap"><span style="color:var(--text-dim)">'+esc(label)+'</span><span style="font-weight:600">'+esc(val)+'</span></span>'; };
@@ -55270,12 +55270,17 @@ window._uwSubmissionsCardsHTML = function(log){
     if(d.pics_url) contactBits.push('<a href="'+esc(d.pics_url)+'" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none">📷 Pictures</a>');
     if(d.notes){ var _ni=window._uwNoteStore.push(String(d.notes))-1; contactBits.push('<a href="#" onclick="_uwShowNote('+_ni+');return false" style="color:#60a5fa;text-decoration:none">📝 Notes</a>'); }
     return '<div style="border:1px solid var(--border);border-left:3px solid '+c+';border-radius:8px;padding:10px 12px;margin-bottom:10px;background:var(--panel-2)">'
-      + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-      +   '<span style="font-size:9px;font-weight:800;text-transform:uppercase;color:'+c+';background:'+c+'22;padding:2px 8px;border-radius:999px">'+esc(t||'—')+'</span>'
-      +   '<span style="font-weight:700;font-size:14px">'+esc(r.name||'—')+'</span>'
-      +   '<span style="margin-left:auto;font-weight:800;font-size:15px'+(isLow?';color:#16a34a':'')+'">'+fmt$(p)+(isLow?' <span style="font-size:9px;font-weight:800;color:#16a34a">LOW</span>':'')+'</span>'
+      + '<div style="display:flex;align-items:flex-start;gap:10px">'
+      +   '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;min-width:0">'
+      +     '<span style="font-size:9px;font-weight:800;text-transform:uppercase;color:'+c+';background:'+c+'22;padding:2px 8px;border-radius:999px">'+esc(t||'—')+'</span>'
+      +     '<span style="font-weight:700;font-size:14px">'+esc(r.name||'—')+'</span>'
+      +   '</div>'
+      +   '<div style="text-align:right;flex-shrink:0">'
+      +     '<div style="font-size:11px;color:var(--text-dim);white-space:nowrap">'+esc(fmtDT(r.date))+'</div>'
+      +     '<div style="font-weight:800;font-size:15px;margin-top:2px'+(isLow?';color:#16a34a':'')+'">'+fmt$(p)+(isLow?' <span style="font-size:9px;font-weight:800;color:#16a34a">LOW</span>':'')+'</div>'
+      +   '</div>'
       + '</div>'
-      + (contactBits.length?'<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:12.5px">'+contactBits.join('')+(pics?'<span>'+pics+'</span>':'')+'</div>':(pics?'<div style="margin-top:6px">'+pics+'</div>':''))
+      + (contactBits.length?'<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:12.5px">'+contactBits.join('')+'</div>':'')
       + (chips?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+chips+'</div>':'')
       + (function(){
           var ms=d.major_systems; if(!ms||typeof ms!=='object') return '';
@@ -55289,7 +55294,6 @@ window._uwSubmissionsCardsHTML = function(log){
               }).join('')
             + '</div></div>';
         })()
-      + '<div style="margin-top:8px;font-size:11px;color:var(--text-dim)">'+esc(fmtD(r.date))+'</div>'
       + '</div>';
   }).join('');
 };
@@ -55298,8 +55302,10 @@ window.toggleDealHistory = function(ev){
   if(ev) ev.stopPropagation();
   var pop=document.getElementById('deal-history-pop'); if(!pop) return;
   if(pop._open){ pop.style.display='none'; pop._open=false; return; }
-  var log=_uwCurrentLog();
-  var inner = window._uwSubmissionsCardsHTML(log) || '<div style="font-size:12px;color:var(--text-dim)">No submissions recorded for this property yet. New owner / partner / GoHighLevel submissions will show here.</div>';
+  var log=_uwCurrentLog(); if(!Array.isArray(log)) log=[];
+  var inner;
+  try { inner = window._uwSubmissionsCardsHTML(log); } catch(err){ console.warn('history render:', err); inner = '<div style="font-size:12px;color:#f87171">Couldn’t render this property’s history (see console). '+(log.length||0)+' entries on file.</div>'; }
+  if(!inner) inner = '<div style="font-size:12px;color:var(--text-dim)">No submissions recorded for this property yet. New owner / partner / GoHighLevel submissions will show here.</div>';
   pop.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><div style="font-size:13px;font-weight:700">📜 Submission History <span style="font-size:11px;font-weight:600;color:var(--text-dim)">'+(log.length||0)+' total</span></div><button onclick="toggleDealHistory(event)" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px">✕</button></div>'
     + '<div style="max-height:60vh;overflow:auto">' + inner + '</div>';
   pop.style.display='block'; pop._open=true;

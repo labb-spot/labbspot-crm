@@ -30813,9 +30813,17 @@ async function toggleDealContacts(ev){
   const pop = document.getElementById('deal-contacts-pop'); if (!pop) return;
   if (pop._open){ pop.style.display='none'; pop._open=false; return; }
   pop.style.display='block'; pop._open=true;
-  pop.innerHTML = '<div style="font-size:12px;color:var(--text-dim)">Loading…</div>';
-  if (!(window._cbCache && window._cbCache.length)) { await loadContacts(); }
-  renderDealContacts();
+  // Render instantly from whatever's cached, then refresh from the DB in the
+  // background so newly-synced contacts appear without a full page refresh.
+  if (window._cbCache && window._cbCache.length) {
+    renderDealContacts();
+    try { await loadContacts(); } catch(_){}
+    if (pop._open) renderDealContacts();
+  } else {
+    pop.innerHTML = '<div style="font-size:12px;color:var(--text-dim)">Loading…</div>';
+    try { await loadContacts(); } catch(_){}
+    if (pop._open) renderDealContacts();
+  }
 }
 window.toggleDealContacts = toggleDealContacts;
 function renderDealContacts(){
@@ -55297,18 +55305,36 @@ window._uwSubmissionsCardsHTML = function(log){
       + '</div>';
   }).join('');
 };
-// 📜 History button → popover (works even when there's no history yet).
-window.toggleDealHistory = function(ev){
-  if(ev) ev.stopPropagation();
-  var pop=document.getElementById('deal-history-pop'); if(!pop) return;
-  if(pop._open){ pop.style.display='none'; pop._open=false; return; }
+// Fills the history popover from whatever's in the cache right now.
+window._uwRenderHistoryPop = function(){
+  var pop=document.getElementById('deal-history-pop'); if(!pop || !pop._open) return;
   var log=_uwCurrentLog(); if(!Array.isArray(log)) log=[];
   var inner;
   try { inner = window._uwSubmissionsCardsHTML(log); } catch(err){ console.warn('history render:', err); inner = '<div style="font-size:12px;color:#f87171">Couldn’t render this property’s history (see console). '+(log.length||0)+' entries on file.</div>'; }
   if(!inner) inner = '<div style="font-size:12px;color:var(--text-dim)">No submissions recorded for this property yet. New owner / partner / GoHighLevel submissions will show here.</div>';
   pop.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><div style="font-size:13px;font-weight:700">📜 Submission History <span style="font-size:11px;font-weight:600;color:var(--text-dim)">'+(log.length||0)+' total</span></div><button onclick="toggleDealHistory(event)" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px">✕</button></div>'
     + '<div style="max-height:60vh;overflow:auto">' + inner + '</div>';
-  pop.style.display='block'; pop._open=true;
+};
+// 📜 History button → popover. Renders instantly from cache, then refreshes just
+// the submissions log from the DB so new submissions appear without a full reload.
+window.toggleDealHistory = function(ev){
+  if(ev) ev.stopPropagation();
+  var pop=document.getElementById('deal-history-pop'); if(!pop) return;
+  if(pop._open){ pop.style.display='none'; pop._open=false; return; }
+  pop._open=true; pop.style.display='block';
+  window._uwRenderHistoryPop();
+  (async function(){
+    try{
+      if(typeof sb==='undefined' || !sb || typeof _uwCurrentId==='undefined' || !_uwCurrentId) return;
+      var res = await sb.from('underwrites').select('data').eq('id', _uwCurrentId).maybeSingle();
+      var fresh = (res && res.data && res.data.data) ? res.data.data._formSubmissions : null;
+      if(Array.isArray(fresh) && cache.underwrites && cache.underwrites[_uwCurrentId]){
+        cache.underwrites[_uwCurrentId].data = cache.underwrites[_uwCurrentId].data || {};
+        cache.underwrites[_uwCurrentId].data._formSubmissions = fresh;   // log only — no user-edited fields touched
+        if(pop._open) window._uwRenderHistoryPop();
+      }
+    }catch(_){}
+  })();
 };
 
 // Build the standard controls cluster (chips + Buy Box + edit) for a section.

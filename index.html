@@ -30822,8 +30822,17 @@ function renderDealContacts(){
   const pop = document.getElementById('deal-contacts-pop'); if (!pop) return;
   const gv = id => ((document.getElementById(id)||{}).value||'').trim();
   const addr = gv('uw-address');
-  const addrLo = addr.toLowerCase();
-  const matches = (window._cbCache||[]).filter(c => addrLo && _cbAddrs(c).some(a => String(a||'').trim().toLowerCase().includes(addrLo)));
+  // Match on the EXACT normalized street (not a loose substring) so a short or
+  // odd address can't pull in every contact.
+  const _street = (typeof _uwNormalizeAddress === 'function')
+    ? _uwNormalizeAddress(String(addr).split(',')[0])
+    : String(addr).split(',')[0].trim().toLowerCase();
+  const matches = (window._cbCache||[]).filter(c => _street && _street.length >= 3 && _cbAddrs(c).some(a => {
+    const s = (typeof _uwNormalizeAddress === 'function')
+      ? _uwNormalizeAddress(String(a||'').split(',')[0])
+      : String(a||'').split(',')[0].trim().toLowerCase();
+    return s === _street;
+  }));
   let html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><div style="font-size:13px;font-weight:700">📒 Property Contacts</div><button onclick="toggleDealContacts(event)" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px">✕</button></div>';
   if (!addr){ html += '<div style="font-size:12px;color:var(--text-dim)">Enter the property address first.</div>'; }
   else if (!matches.length){
@@ -55219,8 +55228,22 @@ window.uwRenderLeadChips = function(){
 function _uwCurrentLog(){ try{ return (cache.underwrites[_uwCurrentId].data._formSubmissions) || []; }catch(_){ return []; } }
 // Detailed cards for the submission history — one card per submission, showing
 // price, contact, and all the extra form details. Returns '' if empty.
+window._uwNoteStore = [];
+window._uwShowNote = function(idx){
+  var txt=(window._uwNoteStore||[])[idx]||'';
+  var esc=function(s){var e=document.createElement('div'); e.textContent=(s==null?'':String(s)); return e.innerHTML;};
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-start;justify-content:center;padding:60px 20px';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  var box=document.createElement('div');
+  box.style.cssText='max-width:520px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;box-shadow:0 14px 50px rgba(0,0,0,0.55)';
+  box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-weight:700;font-size:14px">📝 Notes</div><button style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:16px">✕</button></div><div style="font-size:13.5px;color:var(--text-2);white-space:pre-wrap;line-height:1.5">'+esc(txt)+'</div>';
+  box.querySelector('button').onclick=function(){ ov.remove(); };
+  ov.appendChild(box); document.body.appendChild(ov);
+};
 window._uwSubmissionsCardsHTML = function(log){
   if(!Array.isArray(log) || !log.length) return '';
+  window._uwNoteStore = [];
   var fmt$ = function(n){ n=parseFloat(n)||0; return n>0 ? '$'+Math.round(n).toLocaleString() : '—'; };
   var esc = function(s){ var d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; };
   var fmtD = function(s){ try{ return new Date(s).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }catch(_){ return ''; } };
@@ -55241,10 +55264,11 @@ window._uwSubmissionsCardsHTML = function(log){
       chip('Relationship',d.relationship), chip('Contact by',d.contact_method),
       chip('Best days',d.best_days), chip('Best times',d.best_times)
     ].filter(Boolean).join('');
-    var pics = d.pics_url ? '<a href="'+esc(d.pics_url)+'" target="_blank" rel="noopener" style="color:#60a5fa;font-size:12px;text-decoration:none">📷 Pictures</a>' : '';
     var contactBits=[];
     if(r.phone) contactBits.push('<a href="tel:'+esc(r.phone)+'" style="color:#60a5fa;text-decoration:none">📞 '+esc(r.phone)+'</a>');
     if(r.email) contactBits.push('<a href="mailto:'+esc(r.email)+'" style="color:#60a5fa;text-decoration:none">✉️ '+esc(r.email)+'</a>');
+    if(d.pics_url) contactBits.push('<a href="'+esc(d.pics_url)+'" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none">📷 Pictures</a>');
+    if(d.notes){ var _ni=window._uwNoteStore.push(String(d.notes))-1; contactBits.push('<a href="#" onclick="_uwShowNote('+_ni+');return false" style="color:#60a5fa;text-decoration:none">📝 Notes</a>'); }
     return '<div style="border:1px solid var(--border);border-left:3px solid '+c+';border-radius:8px;padding:10px 12px;margin-bottom:10px;background:var(--panel-2)">'
       + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
       +   '<span style="font-size:9px;font-weight:800;text-transform:uppercase;color:'+c+';background:'+c+'22;padding:2px 8px;border-radius:999px">'+esc(t||'—')+'</span>'
@@ -55265,8 +55289,7 @@ window._uwSubmissionsCardsHTML = function(log){
               }).join('')
             + '</div></div>';
         })()
-      + (d.notes?'<div style="margin-top:8px;font-size:12.5px;color:var(--text-2);white-space:pre-wrap;line-height:1.4"><span style="color:var(--text-dim)">Notes:</span> '+esc(d.notes)+'</div>':'')
-      + '<div style="margin-top:6px;font-size:11px;color:var(--text-dim)">'+esc(fmtD(r.date))+'</div>'
+      + '<div style="margin-top:8px;font-size:11px;color:var(--text-dim)">'+esc(fmtD(r.date))+'</div>'
       + '</div>';
   }).join('');
 };

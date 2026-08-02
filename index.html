@@ -3001,8 +3001,8 @@
               <button type="button" id="uw-lead-partner" onclick="uwSetLeadType('partner')" style="padding:6px 14px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Partner</button>
               <button type="button" id="uw-lead-agent" onclick="uwSetLeadType('agent')" style="padding:6px 14px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Agent</button>
             </span>
-            <div id="deal-contacts-pop" style="display:none;position:absolute;top:calc(100% + 58px);right:0;z-index:60;background:var(--panel);border:1px solid #a5b4fc;border-radius:10px;padding:12px 14px;min-width:280px;max-width:360px;box-shadow:0 10px 30px rgba(0,0,0,0.5)"></div>
-            <div id="deal-history-pop" style="display:none;position:absolute;top:calc(100% + 58px);right:0;z-index:60;background:var(--panel);border:1px solid #a5b4fc;border-radius:10px;padding:12px 14px;min-width:340px;max-width:560px;box-shadow:0 10px 30px rgba(0,0,0,0.5)"></div>
+            <div id="deal-contacts-pop" style="display:none;position:absolute;top:calc(100% + 58px);right:0;z-index:60;background:var(--panel);border:1px solid #a5b4fc;border-radius:10px;padding:12px 14px;min-width:420px;max-width:540px;box-shadow:0 10px 30px rgba(0,0,0,0.5)"></div>
+            <div id="deal-history-pop" style="display:none;position:absolute;top:calc(100% + 58px);right:0;z-index:60;background:var(--panel);border:1px solid #a5b4fc;border-radius:10px;padding:12px 14px;min-width:510px;max-width:840px;box-shadow:0 10px 30px rgba(0,0,0,0.5)"></div>
           </div>
         </div>
       </div>
@@ -55253,6 +55253,18 @@ window._uwSubmissionsCardsHTML = function(log){
       + '</div>'
       + (contactBits.length?'<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:12.5px">'+contactBits.join('')+(pics?'<span>'+pics+'</span>':'')+'</div>':(pics?'<div style="margin-top:6px">'+pics+'</div>':''))
       + (chips?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+chips+'</div>':'')
+      + (function(){
+          var ms=d.major_systems; if(!ms||typeof ms!=='object') return '';
+          var keys=Object.keys(ms).filter(function(k){return String(ms[k]||'').trim();});
+          if(!keys.length) return '';
+          return '<div style="margin-top:8px"><div style="font-size:10px;text-transform:uppercase;color:var(--text-dim);font-weight:700;margin-bottom:4px">Major Systems</div><div style="display:flex;gap:5px;flex-wrap:wrap">'
+            + keys.map(function(k){
+                var na=/attention/i.test(String(ms[k]));
+                var col=na?'#dc2626':'#16a34a'; var ic=na?'✕':'✓';
+                return '<span style="font-size:11px;border:1px solid '+col+'55;background:'+col+'18;color:'+col+';border-radius:6px;padding:3px 8px;white-space:nowrap">'+ic+' '+esc(k)+'</span>';
+              }).join('')
+            + '</div></div>';
+        })()
       + (d.notes?'<div style="margin-top:8px;font-size:12.5px;color:var(--text-2);white-space:pre-wrap;line-height:1.4"><span style="color:var(--text-dim)">Notes:</span> '+esc(d.notes)+'</div>':'')
       + '<div style="margin-top:6px;font-size:11px;color:var(--text-dim)">'+esc(fmtD(r.date))+'</div>'
       + '</div>';

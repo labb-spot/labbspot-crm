@@ -9791,11 +9791,12 @@ async function _uwSyncLeadContacts(opts) {
     // dedupe by phone first (one contact per person, many properties). When
     // there's no phone to dedupe on, fall back to skipping already-tracked
     // addresses so we don't create dupes.
-    const processLead = (name, phone, email, label) => {
+    const processLead = (name, phone, email, label, role) => {
       name = String(name || '').trim();
       phone = String(phone || '').trim();
       email = String(email || '').trim();
       label = String(label || '').trim();
+      role = String(role || 'Owner').trim() || 'Owner';
       if (!name && !phone && !email) return;   // nothing to track
       const nLabel = normAddr(label);
       const dphone = digits(phone);
@@ -9819,7 +9820,7 @@ async function _uwSyncLeadContacts(opts) {
       const rec = {
         id: newId,
         name: name || (phone ? phone : (label ? ('Lead – ' + label) : 'Lead')),
-        role: 'Owner',
+        role: role,
         company: '',
         notes: '',
         phones: phone ? [phone] : [],
@@ -9861,8 +9862,11 @@ async function _uwSyncLeadContacts(opts) {
       if (!u || u.deleted_at) return;
       const d = u.data || {};
       const src = d._source;
-      const isLeadSource = (src === 'motivated_lead' || src === 'ghl_webhook');
+      const isLeadSource = (src === 'motivated_lead' || src === 'ghl_webhook' || src === 'owner_form' || src === 'partner_form');
       if (!enrichFromResults && !isLeadSource) return;
+      // Contact role by source: partner form → Partner/Agent, everything else → Owner.
+      let _role = 'Owner';
+      if (src === 'partner_form') { _role = (String(d._leadType || '').toLowerCase() === 'agent') ? 'Agent' : 'Partner'; }
       let name = firstVal(d, ['_sourceName', 'name', 'full_name', 'contact_name', 'owner_name', 'seller_name'])
         || [firstVal(d, ['_sourceFirstName', 'first_name', 'firstName', 'contact_first_name']),
             firstVal(d, ['_sourceLastName', 'last_name', 'lastName', 'contact_last_name'])].filter(Boolean).join(' ').trim();
@@ -9901,7 +9905,7 @@ async function _uwSyncLeadContacts(opts) {
       if (enrichFromResults && ((!had.n && name) || (!had.p && phone) || (!had.e && email))) enrichedCount++;
       // Lead deal with no owner info anywhere → nothing to make a contact from.
       if (!name && !phone && !email) { skippedNoInfo++; return; }
-      processLead(name, phone, email, addrLabel(u));
+      processLead(name, phone, email, addrLabel(u), _role);
     });
 
     if (!toInsert.length && !Object.keys(toUpdate).length) {

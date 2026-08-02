@@ -9867,6 +9867,22 @@ async function _uwSyncLeadContacts(opts) {
       // Contact role by source: partner form → Partner/Agent, everything else → Owner.
       let _role = 'Owner';
       if (src === 'partner_form') { _role = (String(d._leadType || '').toLowerCase() === 'agent') ? 'Agent' : 'Partner'; }
+      // If this deal has a submissions log, create a contact for EACH distinct
+      // submitter (owner / agent / wholesaler) — so a property with several
+      // submitters shows all of them, not just one.
+      const _subs = Array.isArray(d._formSubmissions) ? d._formSubmissions : [];
+      if (_subs.length) {
+        _subs.forEach(s => {
+          const nm = String((s && s.name)  || '').trim();
+          const ph = String((s && s.phone) || '').trim();
+          const em = String((s && s.email) || '').trim();
+          if (!nm && !ph && !em) return;
+          const t = String((s && s.type) || '').toLowerCase();
+          const role = t === 'owner' ? 'Owner' : (t === 'agent' ? 'Agent' : 'Partner');
+          processLead(nm, ph, em, addrLabel(u), role);
+        });
+        return;   // handled via the log — skip the single-source path below
+      }
       let name = firstVal(d, ['_sourceName', 'name', 'full_name', 'contact_name', 'owner_name', 'seller_name'])
         || [firstVal(d, ['_sourceFirstName', 'first_name', 'firstName', 'contact_first_name']),
             firstVal(d, ['_sourceLastName', 'last_name', 'lastName', 'contact_last_name'])].filter(Boolean).join(' ').trim();

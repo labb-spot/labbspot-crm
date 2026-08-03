@@ -4117,7 +4117,8 @@
         <button class="rc-preset" data-preset="gut">Gut Rehab</button>
         <button class="rc-preset" data-preset="monster">Monster</button>
         <button class="rc-preset" data-preset="clear">Clear All</button>
-        <button type="button" id="rc-dl-scope" onclick="_rcDownloadScope()" style="margin-left:auto;background:#0ea5e9;color:white;border:1px solid #0ea5e9;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s" title="Download a 1-page scope sheet — property address + your active selected line items grouped by room (no pricing).">📄 Download Active Scope</button>
+        <button type="button" id="rc-sync-all" onclick="_rcSyncAllNow()" style="margin-left:auto;background:#10b981;color:white;border:1px solid #10b981;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s" title="Push ALL of this device's rehab items, cost edits, renames and deletions up to the shared cloud record right now, so your other devices and teammates get them.">🔄 Sync</button>
+        <button type="button" id="rc-dl-scope" onclick="_rcDownloadScope()" style="background:#0ea5e9;color:white;border:1px solid #0ea5e9;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s" title="Download a 1-page scope sheet — property address + your active selected line items grouped by room (no pricing).">📄 Download Active Scope</button>
       </div>
 
       <!-- ===== Hazmat Alert ===== -->
@@ -53825,6 +53826,45 @@ function _rcUserCustomHydrateFromCloud() {
   } catch (_) {}
 }
 window._rcUserCustomHydrateFromCloud = _rcUserCustomHydrateFromCloud;
+
+// ----- Force-push this device's ENTIRE rehab customization set to the cloud -----
+// Each edit type normally syncs only its own key; this pushes ALL of them at
+// once (items, groups, auto, renames, deletions/trash, and cost/price book) in
+// one atomic write. Used for recovery and any time you want this device to be
+// the source of truth for everyone.
+window._rcSyncAllNow = function(){
+  const btn = document.getElementById('rc-sync-all');
+  try {
+    if (typeof sb === 'undefined' || !sb) { alert('Not connected to the cloud yet — try again in a few seconds.'); return; }
+    const readObj = k => { try { return JSON.parse(localStorage.getItem(k) || '{}'); } catch(_){ return {}; } };
+    const readArr = k => { try { const a = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(a) ? a : []; } catch(_){ return []; } };
+    const patch = {
+      rehab_user_items:   readObj(USER_ITEMS_KEY),
+      rehab_user_groups:  readObj(USER_GROUPS_KEY),
+      rehab_user_auto:    readObj(USER_AUTO_KEY),
+      rehab_user_renames: readObj(USER_RENAMES_KEY),
+      rehab_user_trash:   readArr(USER_TRASH_KEY),
+      rehab_price_book:   (typeof _uwRehabPriceBookGet === 'function') ? _uwRehabPriceBookGet() : readObj(_UW_REHAB_PRICEBOOK_KEY)
+    };
+    if (btn){ btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = '⏳ Syncing…'; }
+    Promise.resolve(_uwCfgMerge(patch)).then(async () => {
+      let ok = false;
+      try {
+        const { data } = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle();
+        const cm = (data && data.column_mappings) || {};
+        ok = !!cm.rehab_user_items || !!cm.rehab_price_book;
+      } catch(_){}
+      if (btn){ btn.disabled = false; btn.textContent = btn.dataset.label || '🔄 Sync'; }
+      if (ok) {
+        if (typeof toast === 'function') toast('Synced ✓ — all your rehab items are now on the shared record. Refresh the app on your other devices to pull them in.', 'ok');
+        else alert('Synced! Refresh the app on your other devices to pull them in.');
+      } else {
+        if (typeof toast === 'function') toast('Sent, but could not confirm the write — your database may be blocking saves. Let me know and I can fix the permissions.', 'err');
+        else alert('Sent, but could not confirm the save reached the cloud.');
+      }
+    });
+  } catch(e){ if (btn){ btn.disabled = false; } alert('Sync failed: ' + (e && e.message || 'unknown')); }
+};
 window._rcToggleAutoForItem = function(groupIdx, itemName){
   const g = basicGroups[groupIdx];
   if(!g || !g.items.includes(itemName)) return;

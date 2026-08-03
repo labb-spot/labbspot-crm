@@ -4117,6 +4117,7 @@
         <button class="rc-preset" data-preset="gut">Gut Rehab</button>
         <button class="rc-preset" data-preset="monster">Monster</button>
         <button class="rc-preset" data-preset="clear">Clear All</button>
+        <button type="button" id="rc-dl-scope" onclick="_rcDownloadScope()" style="margin-left:auto;background:#0ea5e9;color:white;border:1px solid #0ea5e9;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s" title="Download a 1-page scope sheet — property address + your active selected line items grouped by room (no pricing).">📄 Download Active Scope</button>
       </div>
 
       <!-- ===== Hazmat Alert ===== -->
@@ -54958,6 +54959,59 @@ window._rcGetScopeByGroup = function(){
     });
     return out;
   } catch (e) { console.warn('[_rcGetScopeByGroup]', e); return []; }
+};
+
+// ----- Download Active Scope -----
+// One-page printable scope sheet: property address + the currently selected
+// (active) rehab line items grouped by room, plus any active special cases.
+// No pricing. Opens a print window the user can save as PDF.
+window._rcDownloadScope = function(){
+  const g = id => { const el = document.getElementById(id); return (el && el.value || '').trim(); };
+  const esc = s => String(s==null?'':s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const addrLine = g('uw-address') || 'Property';
+  const cityLine = [g('uw-city'), g('uw-state'), g('uw-zip')].filter(Boolean).join(', ');
+  let groups = [];
+  try { groups = (window._rcGetScopeByGroup && window._rcGetScopeByGroup()) || []; } catch(_){}
+  let specials = [];
+  try { if (typeof specialCases !== 'undefined' && Array.isArray(specialCases)) specials = specialCases.filter(sc => sc && sc.sev).map(sc => sc.n); } catch(_){}
+  const sections = [];
+  groups.forEach(col => {
+    const its = ((col && col.items) || []).map(it => String(typeof it === 'string' ? it : (it.label || it.n || '')).trim()).filter(Boolean);
+    if (its.length) sections.push({ title: col.label || 'Scope', items: its });
+  });
+  if (specials.length) sections.push({ title: 'Special Cases', items: specials });
+  if (!sections.length){ alert('No active scope items are selected yet — check some items in the rehab calculator first.'); return; }
+  const cards = sections.map(s =>
+    '<div class="room"><h2>' + esc(s.title) + '</h2><ul>' + s.items.map(n => '<li>' + esc(n) + '</li>').join('') + '</ul></div>'
+  ).join('');
+  const today = new Date().toLocaleDateString();
+  const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Scope of Work — ' + esc(addrLine) + '</title>' +
+    '<style>' +
+      '*{box-sizing:border-box}' +
+      'body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1c1917;margin:32px;font-size:14px;line-height:1.45}' +
+      'h1{font-size:22px;margin:0 0 4px}' +
+      '.addr{font-size:15px;font-weight:700;color:#0f172a;margin:0 0 2px}' +
+      '.sub{color:#666;font-size:13px;margin:0 0 18px;min-height:1px}' +
+      '.cols{column-count:2;column-gap:26px}' +
+      '@media(max-width:640px){.cols{column-count:1}}' +
+      '.room{break-inside:avoid;border:1px solid #e6e2d8;border-radius:10px;padding:10px 14px;margin:0 0 14px;display:inline-block;width:100%}' +
+      '.room h2{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#c2410c;margin:0 0 6px;border-bottom:1px dashed #e6e2d8;padding-bottom:5px}' +
+      '.room ul{margin:0;padding-left:18px}' +
+      '.room li{margin:3px 0}' +
+      '.date{color:#999;font-size:11px;margin-top:22px}' +
+      '.noprint button{font:inherit;font-weight:700;background:#ea580c;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer}' +
+      '@media print{body{margin:14px}.noprint{display:none!important}}' +
+    '</style></head><body>' +
+    '<div class="noprint" style="margin-bottom:16px"><button onclick="window.print()">📄 Download / Print this scope</button></div>' +
+    '<h1>Scope of Work</h1>' +
+    '<div class="addr">' + esc(addrLine) + '</div>' +
+    '<div class="sub">' + esc(cityLine) + '</div>' +
+    '<div class="cols">' + cards + '</div>' +
+    '<p class="date">Generated ' + esc(today) + '</p>' +
+    '</body></html>';
+  const w = window.open('', '_blank');
+  if (!w){ alert('Allow pop-ups to open the scope sheet, then use the Print button to save as PDF.'); return; }
+  w.document.write(html); w.document.close(); w.focus();
 };
 
 // Same as above, but each item carries its computed rehab-estimate cost, and

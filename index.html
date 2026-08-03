@@ -17212,22 +17212,39 @@ function _uwRehabPriceBookSet(itemId, price) {
 // even spotty connectivity eventually converges. Fire-and-forget; failures are
 // silent and the localStorage copy remains the working cache.
 let _uwRehabPriceBookCloudTimer = null;
-function _uwRehabPriceBookSyncToCloud() {
-  if (typeof sb === 'undefined' || !sb) return;
-  if (_uwRehabPriceBookCloudTimer) clearTimeout(_uwRehabPriceBookCloudTimer);
-  _uwRehabPriceBookCloudTimer = setTimeout(async () => {
-    _uwRehabPriceBookCloudTimer = null;
+// ===== Safe shared-config writer =====
+// Every device/feature that stores settings in app_config.column_mappings must
+// go through this. It reads the FRESHEST record from the DB, merges in only the
+// keys being changed, then writes back — and it's serialized (one write at a
+// time) so rapid saves and other devices can never clobber each other's keys.
+// (The old pattern rebuilt the whole record from a possibly-empty in-memory
+// copy and overwrote it, which wiped everyone else's keys.)
+let _uwCfgQueue = Promise.resolve();
+function _uwCfgMerge(patch) {
+  if (typeof sb === 'undefined' || !sb || !patch || typeof patch !== 'object') return _uwCfgQueue;
+  _uwCfgQueue = _uwCfgQueue.then(async () => {
     try {
-      const book = _uwRehabPriceBookGet();
-      const mappings = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings) || {};
-      mappings.rehab_price_book = book;
+      const { data } = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle();
+      const mappings = (data && data.column_mappings && typeof data.column_mappings === 'object')
+        ? data.column_mappings
+        : ((typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings) || {});
+      Object.keys(patch).forEach(k => { mappings[k] = patch[k]; });
       const { error } = await sb.from('app_config')
         .update({ column_mappings: mappings, updated_at: new Date().toISOString() })
         .eq('id', 1);
-      if (!error && typeof cache !== 'undefined' && cache && cache.config) {
-        cache.config.column_mappings = mappings;
-      }
+      if (!error && typeof cache !== 'undefined' && cache && cache.config) cache.config.column_mappings = mappings;
     } catch (_) {}
+  }).catch(() => {});
+  return _uwCfgQueue;
+}
+window._uwCfgMerge = _uwCfgMerge;
+
+function _uwRehabPriceBookSyncToCloud() {
+  if (typeof sb === 'undefined' || !sb) return;
+  if (_uwRehabPriceBookCloudTimer) clearTimeout(_uwRehabPriceBookCloudTimer);
+  _uwRehabPriceBookCloudTimer = setTimeout(() => {
+    _uwRehabPriceBookCloudTimer = null;
+    _uwCfgMerge({ rehab_price_book: _uwRehabPriceBookGet() });
   }, 600);
 }
 // Called once after app_config loads at boot. If the cloud has a price book,
@@ -53172,18 +53189,9 @@ let _labRatesCloudTimer = null;
 function _labRatesSyncToCloud(rates) {
   if (typeof sb === 'undefined' || !sb) return;
   if (_labRatesCloudTimer) clearTimeout(_labRatesCloudTimer);
-  _labRatesCloudTimer = setTimeout(async () => {
+  _labRatesCloudTimer = setTimeout(() => {
     _labRatesCloudTimer = null;
-    try {
-      const mappings = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings) || {};
-      mappings.lab_rates = rates || {};
-      const { error } = await sb.from('app_config')
-        .update({ column_mappings: mappings, updated_at: new Date().toISOString() })
-        .eq('id', 1);
-      if (!error && typeof cache !== 'undefined' && cache && cache.config) {
-        cache.config.column_mappings = mappings;
-      }
-    } catch (_) {}
+    _uwCfgMerge({ lab_rates: rates || {} });
   }, 600);
 }
 window._labRatesSyncToCloud = _labRatesSyncToCloud;
@@ -53694,19 +53702,9 @@ window._rcOpenTrash = function(){
 // Three separate sub-keys inside app_config.column_mappings so we can update
 // them independently. Each push is debounced 600ms so rapid edits coalesce.
 function _rcPushToAppConfig(subKey, payload) {
-  if (typeof sb === 'undefined' || !sb) return;
-  try {
-    const mappings = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings) || {};
-    mappings[subKey] = payload || {};
-    sb.from('app_config')
-      .update({ column_mappings: mappings, updated_at: new Date().toISOString() })
-      .eq('id', 1)
-      .then(({ error }) => {
-        if (!error && typeof cache !== 'undefined' && cache && cache.config) {
-          cache.config.column_mappings = mappings;
-        }
-      });
-  } catch (_) {}
+  // Route through the serialized safe merge so this key never clobbers the
+  // other rehab keys (items / groups / trash / renames / auto) or price book.
+  if (typeof _uwCfgMerge === 'function') _uwCfgMerge({ [subKey]: payload || {} });
 }
 
 let _rcUserItemsCloudTimer = null;
@@ -56018,14 +56016,9 @@ let _planCloudTimer = null;
 function _planSyncToCloud(){
   if (typeof sb === 'undefined' || !sb) return;
   if (_planCloudTimer) clearTimeout(_planCloudTimer);
-  _planCloudTimer = setTimeout(async () => {
+  _planCloudTimer = setTimeout(() => {
     _planCloudTimer = null;
-    try {
-      const mappings = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings) || {};
-      mappings.plan_state = _planStateBlob();
-      const { error } = await sb.from('app_config').update({ column_mappings: mappings, updated_at: new Date().toISOString() }).eq('id', 1);
-      if (!error && typeof cache !== 'undefined' && cache && cache.config) cache.config.column_mappings = mappings;
-    } catch(_){}
+    _uwCfgMerge({ plan_state: _planStateBlob() });
   }, 500);
 }
 // Pull the latest shared Plan (used on open) so every device sees the same board.

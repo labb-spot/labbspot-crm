@@ -12520,7 +12520,7 @@ function uwIfpRecalc() {
     : (_ifpMode === 'asis-listed')
     ? (_ifpNum('uw-asis-lreal-override') || _ifpNum('uw-asis-lreal-arv'))
     : (_ifpNum('uw-arv') || _ifpNum('uw-arv-override'));
-  const dollar = arv * (finalPct / 100);
+  const dollar = (arv > 0 ? Math.max(20000, arv * (finalPct / 100)) : 0);
   const fmt = (n) => isFinite(n) && n > 0 ? '$' + Math.round(n).toLocaleString() : '$0';
   const $ = (id) => document.getElementById(id);
   if ($('uw-ifp-condition'))  $('uw-ifp-condition').textContent  = label;
@@ -12715,7 +12715,7 @@ function uwComputeExits(ctx) {
   }
   const _wsIfpTimeBonus       = Math.max(0, (_wsFlMonths - 3) * 0.5);
   const _wsIfpFinalPct        = _wsIfpBasePct + _wsIfpTimeBonus;
-  const wsIdealProfit         = arv * (_wsIfpFinalPct / 100);
+  const wsIdealProfit         = (arv > 0 ? Math.max(20000, arv * (_wsIfpFinalPct / 100)) : 0);
   // New cash buyer MAO — solved algebraically so 3% purchase closing is taken
   // off MAO itself (what the buyer pays), not asking price. Removes the
   // circular dependency that made Max Offer drift when Asking changed.
@@ -14717,7 +14717,10 @@ function uwComputeExits(ctx) {
     //   wtSale - buy - wtCosts = 2 × (MAO - buy)
     //   buy = 2×MAO + wtCosts - wtSale  (tie); below this buy, wholetail dominates more.
     // Simpler interpretation: max buy price where wholetail WINS the cascade.
-    const wtCosts        = wholetailRehab + wholetailHolding + wtPurchClosingTotal + wtSaleClosingTotal + wtAgentTotal;
+    // Purchase closing (3% of the BUY price) is solved off the ceiling itself,
+    // NOT the entered asking/accepted, so the max buy never moves when you type
+    // a price. Everything except purchase closing is buy-price-independent.
+    const wtNonBuyCosts  = wholetailRehab + wholetailHolding + wtSaleClosingTotal + wtAgentTotal;
     // Solve: wholetailSale - buy - wtCosts >= 2 * (cashBuyerMAO - buy)
     //         wholetailSale - wtCosts - 2*cashBuyerMAO >= -buy
     //         buy >= 2*cashBuyerMAO + wtCosts - wholetailSale
@@ -14726,14 +14729,30 @@ function uwComputeExits(ctx) {
     // Subtract ideal profit so the buy ceiling reflects "max I can pay AND
     // still hit my IFP target" (same treatment as Flip — uses wsIdealProfit).
     const _wtIdeal       = (typeof wsIdealProfit === 'number' ? wsIdealProfit : 0);
-    const wtBuyMax       = wholetailSale - wtCosts - _wtIdeal;
+    // buy + 3%·buy + nonBuyCosts + ideal = sale  →  buy = (sale − nonBuyCosts − ideal) / 1.03
+    const wtBuyMax       = (wholetailSale - wtNonBuyCosts - _wtIdeal) / 1.03;
+    // Ceiling-consistent cost bundle for the all-in display (uses the ceiling's
+    // own 3% closing, so all-in = buy + costs stays fixed too).
+    const wtCosts        = wtNonBuyCosts + Math.max(0, wtBuyMax) * 0.03;
     // ---- Wholetail FINANCED: same comparator (≥ 2× wholesale) but profit
     // gets reduced by financing cost (origination + interest on the HM loan
     // at 100% basis, capped at 70% ARV). Approximation: hold today's
     // wtFinOrig + wtFinTotalInt as a fixed cost.
-    const _wtFinCost     = (typeof wtFinOrig === 'number' ? wtFinOrig : 0)
-                         + (typeof wtFinTotalInt === 'number' ? wtFinTotalInt : 0);
-    const wtFinBuyMax    = wholetailSale - wtCosts - _wtFinCost - _wtIdeal;
+    // Financed wholetail max buy — purchase closing (3% of buy) AND financing
+    // (origination + interest on a loan whose basis includes the buy) both
+    // depend on the buy price, so solve iteratively off the ceiling itself
+    // (same technique as the financed-flip max). Independent of entered price.
+    let _wtFinIter = Math.max(0, wholetailSale - wtNonBuyCosts - _wtIdeal);
+    for (let _i = 0; _i < 30; _i++) {
+      const _pc    = _wtFinIter * 0.03;
+      const _basis = _wtFinIter + wholetailRehab + wholetailHolding + _pc;
+      const _loan  = Math.min(_basis * (wtFinLtvPct / 100), arv * (WT_FIN_ARV_CAP_PCT / 100));
+      const _fin   = _loan * (wtFinOrigPct / 100) + _loan * (wtFinRatePct / 100) / 12 * wholetailMonths;
+      const _next  = wholetailSale - wholetailRehab - wholetailHolding - _pc - wtSaleClosingTotal - wtAgentTotal - _fin - _wtIdeal;
+      if (Math.abs(_next - _wtFinIter) < 1) { _wtFinIter = _next; break; }
+      _wtFinIter = _next;
+    }
+    const wtFinBuyMax    = _wtFinIter;
     // ---- Flip: flipProfit ≥ 3 × wholesaleProfit
     //   flipSale - buy - flipRehab - purchClose - flipHolding - flipSelling
     //     ≥ 3 × (cashBuyerMAO - buy)
@@ -14743,16 +14762,21 @@ function uwComputeExits(ctx) {
     //     buy ≥ (3*MAO + flipCosts - flipSale) / 2
     //   Max buy for flipProfit ≥ 0:
     //     buy ≤ flipSale - flipCosts
-    const flipCosts      = flipRehabAmt + flPurchClosingTotal + flipHolding + flipSelling;
+    // Purchase closing solved off the ceiling (see wholetail note above) so the
+    // flip max buy is independent of the entered asking/accepted price.
+    const flipNonBuyCosts = flipRehabAmt + flipHolding + flipSelling;
     // Subtract ideal profit so the buy ceiling reflects "max I can pay AND
     // still hit my IFP target" (not just break even). Reuses the same ideal
     // profit number the cash-buyer MAO uses (wsIdealProfit).
     const _flipIdeal     = (typeof wsIdealProfit === 'number' ? wsIdealProfit : 0);
-    const flipBuyMax     = flipSale - flipCosts - _flipIdeal;
-    // ---- Flip FINANCED: subtract financing cost (HM origination + interest) AND ideal profit
-    const _flFinCost     = (typeof flHmOrig === 'number' ? flHmOrig : 0)
-                         + (typeof flHmTotalInt === 'number' ? flHmTotalInt : 0);
-    const flFinBuyMax    = flipSale - flipCosts - _flFinCost - _flipIdeal;
+    // buy + 3%·buy + nonBuyCosts + ideal = sale  →  buy = (sale − nonBuyCosts − ideal) / 1.03
+    const flipBuyMax     = (flipSale - flipNonBuyCosts - _flipIdeal) / 1.03;
+    // Ceiling-consistent cost bundle for the all-in display.
+    const flipCosts      = flipNonBuyCosts + Math.max(0, flipBuyMax) * 0.03;
+    // ---- Flip FINANCED: the financed-flip max buy is already solved
+    // iteratively (buy-price-independent) as flFinBuyMaxBasis — reuse it
+    // directly so this ceiling stops moving with the entered price too.
+    const flFinBuyMax    = flFinBuyMaxBasis;
 
     // ===== Override the headline Max Offer =====
     // Max Offer = Cash Buyer's MAO − $15,000.
@@ -14843,7 +14867,9 @@ function uwComputeExits(ctx) {
     //   cashAllIn ≤ 5 × annualRent
     //   buy ≤ 5 × annualRent - rRehab - purchClose - cashPreRentHolding
     const rtCashAllInMax = annualRent > 0 ? 5 * annualRent : 0;
-    const rtCashBuyMax   = annualRent > 0 ? rtCashAllInMax - rRehab - rtPurchClosingTotal - cashPreRentHolding : 0;
+    // Purchase closing (3%) solved off the ceiling, not the entered price:
+    // buy·1.03 = allInMax − rehab − holding.
+    const rtCashBuyMax   = annualRent > 0 ? (rtCashAllInMax - rRehab - cashPreRentHolding) / 1.03 : 0;
     // ---- Refi (BRRR): rfLeftIn ≤ 0 AND rfCashflow ≥ $200/mo
     // Two conditions, but the BUY PRICE is a lever for BOTH (not just pull-out).
     // Lower buy → smaller HM loan → smaller refi loan needed to cover the
@@ -14885,9 +14911,13 @@ function uwComputeExits(ctx) {
     const _ltvLoanCap    = arv * _rfLtvFrac;
     const _oneMinusClose = 1 - _rfClosePctFrac;
     // Helper: max buy where the required pull-out loan = a given loan cap.
+    // Purchase closing = 3% of the buy price, solved into the denominator off
+    // the ceiling itself (NOT the entered price). buy = B − rRehab, so
+    // purchClose = 0.03·(B − rRehab); folding it in gives the (1 + _K + 0.03)
+    // denominator and the +0.03·rRehab numerator term.
     const _buyForLoanCap = (loanCap) =>
-      ((1 + _K) > 0 && _oneMinusClose > 0 && loanCap > 0)
-        ? (loanCap * _oneMinusClose - rtPurchClosingTotal - rfPreRentHolding) / (1 + _K)
+      (_oneMinusClose > 0 && loanCap > 0)
+        ? (loanCap * _oneMinusClose + 0.03 * rRehab - rfPreRentHolding) / (1 + _K + 0.03)
         : 0;
     // Two distinct ceilings — show BOTH so the user can see which binds:
     //   Pull-out ceiling: highest buy where the LTV-capped loan covers
@@ -14904,7 +14934,7 @@ function uwComputeExits(ctx) {
                                    rtRefiBaseMaxCash    > 0 ? rtRefiBaseMaxCash    : Infinity
                                  );
     const rtRefiBuyMax         = isFinite(rtRefiBaseMax) ? rtRefiBaseMax - rRehab : 0;
-    const rtRefiAllInMax       = isFinite(rtRefiBaseMax) ? rtRefiBaseMax + rtPurchClosingTotal + cashPreRentHolding : 0;
+    const rtRefiAllInMax       = isFinite(rtRefiBaseMax) ? rtRefiBaseMax + 0.03 * Math.max(0, rtRefiBaseMax - rRehab) + cashPreRentHolding : 0;
     const _cashflowBinds       = rtRefiBaseMaxCash > 0 && rtRefiBaseMaxCash < rtRefiBaseMaxPullOut;
     const _cashflowImpossible  = _maxPI <= 0; // even a $0 loan won't cashflow $200
 
@@ -14924,8 +14954,11 @@ function uwComputeExits(ctx) {
     // Helper: max buy where DSCR loan needed for pull-out = some loan cap.
     //   needed = (buy + rehab + purchClose + holding) / (1 - dscrClose)
     //   solve: buy = loanCap·(1 - dscrClose) − rehab − purchClose − holding
+    // Purchase closing (3% of buy) solved off the ceiling, not the entered price:
+    //   needed loan = (buy + rehab + 0.03·buy + holding) / (1 − dscrClose)
+    //   → buy·1.03 = loanCap·(1 − dscrClose) − rehab − holding
     const _dscrBuyForLoan = (loanCap) => loanCap > 0
-      ? loanCap * _dscrNetFactor - rRehab - rtPurchClosingTotal - cashPreRentHolding
+      ? (loanCap * _dscrNetFactor - rRehab - cashPreRentHolding) / 1.03
       : 0;
     const dscrBuyMaxPullOut = _dscrBuyForLoan(_dscrLtvCap);
     const dscrBuyMaxCash    = _dscrBuyForLoan(_maxLoanForCF);
@@ -14935,7 +14968,7 @@ function uwComputeExits(ctx) {
                                );
     const dscrBuyMax        = isFinite(_dscrEffBuy) ? _dscrEffBuy : 0;
     const dscrAllInMax      = dscrBuyMax > 0
-                                ? dscrBuyMax + rRehab + purchClosingTotal + cashPreRentHolding
+                                ? dscrBuyMax + rRehab + 0.03 * dscrBuyMax + cashPreRentHolding
                                 : 0;
     const _dscrCashBinds    = dscrBuyMaxCash > 0 && dscrBuyMaxCash < dscrBuyMaxPullOut;
 
@@ -17364,7 +17397,7 @@ function _uwComputeMaxOfferFromData(data) {
     }
   }
   const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 1.5);
-  const wsIdealProfit = arv * (finalPct / 100);
+  const wsIdealProfit = (arv > 0 ? Math.max(20000, arv * (finalPct / 100)) : 0);
   const cashBuyerMAO = (arv - fRehab - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit) / 1.03;
   const wholesalePurchClose = cashBuyerMAO * 0.03;
   const wsBuyMax = cashBuyerMAO - 10000; // $10k assignment floor
@@ -17454,7 +17487,7 @@ function _uwComputeWholesaleProfitFromData(data) {
     }
   }
   const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 1.5);
-  const wsIdealProfit = arv * (finalPct / 100);
+  const wsIdealProfit = (arv > 0 ? Math.max(20000, arv * (finalPct / 100)) : 0);
   // Cash buyer MAO (algebraic — closing = 3% × MAO) + wholesale fee
   const cashBuyerMAO = (arv - fRehab - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit) / 1.03;
   return Math.max(0, cashBuyerMAO - buyPrice);
@@ -29727,7 +29760,7 @@ function _dispoCashFlipMaxFromData(d) {
     }
   }
   const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 1.5);
-  const wsIdealProfit = arv * (finalPct / 100);
+  const wsIdealProfit = (arv > 0 ? Math.max(20000, arv * (finalPct / 100)) : 0);
   return Math.max(0, (arv - fRehab - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit) / 1.03);
 }
 function _dispoPacketPrice(u) {
@@ -31871,7 +31904,7 @@ function buyerRenderContractsPanel() {
       }
     }
     const finalPct = basePct + Math.max(0, (wsFlMonths - 3) * 0.5);
-    const wsIdealProfit = arv * (finalPct / 100);
+    const wsIdealProfit = (arv > 0 ? Math.max(20000, arv * (finalPct / 100)) : 0);
     // cashBuyerMAO — solved algebraically so 3% purchase closing is in the price
     const cashBuyerMAO = (arv - fRehab - wsSellClose - wsSellAgents - wsHolding - wsIdealProfit) / 1.03;
     return Math.max(0, cashBuyerMAO);

@@ -888,10 +888,10 @@
   <!-- Lazy-load status banner — sits in the empty middle of the top bar.
        Compact one-line layout: spinner / check + icon + label only.
        Hidden once everything is loaded. -->
-  <div id="lazy-load-banner-global" style="flex:0 0 auto;margin:0 16px;color:var(--text-dim);display:inline-grid;grid-template-columns:14px 14px auto;grid-auto-rows:min-content;column-gap:6px;row-gap:0;align-items:center;justify-items:start;font-size:10px;line-height:1" data-lazy-banner></div>
+  <div id="lazy-load-banner-global" style="flex:0 0 auto;margin:0 16px;color:var(--text-dim);display:inline-flex;gap:16px;align-items:flex-start;font-size:10px;line-height:1" data-lazy-banner></div>
   <div class="flex items-center gap-3">
     <span id="sop-save-status" class="sop-save-status" title="SOP auto-saves to your browser localStorage. Changes persist across reloads unless you hit Undo.">💾 <span class="sop-save-status-text">Saved</span></span>
-    <div id="storage-bar-wrapper" style="min-width:220px" title="Estimated Supabase DB storage used. Click for a breakdown." onclick="showStorageBreakdown()" onmouseover="this.style.cursor='pointer'">
+    <div id="storage-bar-wrapper" style="min-width:220px;display:none" title="Estimated Supabase DB storage used. Click for a breakdown." onclick="showStorageBreakdown()" onmouseover="this.style.cursor='pointer'">
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:3px">
         <span>📦 DB storage</span>
         <span id="storage-bar-text">—</span>
@@ -5345,12 +5345,13 @@
         <div style="flex-shrink:0">
           <!-- Title line + Role chips (Owner / Partner / Agent) + Buy Box toggle, all inline -->
           <div class="flex items-center gap-3" style="flex-wrap:nowrap">
-            <div class="font-semibold text-lg" style="white-space:nowrap">📋 All Deals — Search Everything</div>
+            <div class="font-semibold text-lg" style="white-space:nowrap">📋 All Deals</div>
             <span class="uw-tbchip" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px">
               <button type="button" id="uwall-role-owner"   onclick="_uwAllSetRole('owner')"   style="padding:0 12px;border:none;cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Owner</button>
               <button type="button" id="uwall-role-partner" onclick="_uwAllSetRole('partner')" style="padding:0 12px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Partner</button>
               <button type="button" id="uwall-role-agent"   onclick="_uwAllSetRole('agent')"   style="padding:0 12px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Agent</button>
             </span>
+            <button type="button" id="uwall-nocontact" onclick="_uwAllToggleNoContact(this)" title="Show only deals with no contact linked to the property — grey = off, blue = on." style="padding:0 13px;height:30px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap">No Contact</button>
             <span style="display:inline-flex;align-items:center;gap:4px">
               <button type="button" id="uw-all-buybox" class="uw-tbctl" onclick="_uwSecBuyBox('all', this)" title="Buy Box filter — grey = off, green = on. Shows only deals matching your criteria (SqFt range, min year built, and optional ZIP list)." style="padding:0 13px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap">🎯 Buy Box</button>
               <button type="button" id="uwall-buybox-edit" class="uw-tbctl" onclick="_uwBuyBoxOpenEditor()" title="Edit Buy Box criteria" style="padding:0 8px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;line-height:1">⚙️</button>
@@ -28099,7 +28100,21 @@ function _uwBuildSourceFilter(prefix) {
   if (!v) srcOk = () => true;
   else if (v === 'manual') srcOk = (u) => !u || !u.data || !u.data._source;
   else srcOk = (u) => !!(u && u.data && u.data._source === v);
-  return (u) => srcOk(u) && roleOk(u);
+  // No-Contact toggle (All Deals only) — show only deals with no owner/partner/
+  // agent contact linked to the property's address.
+  const noContactOn = (prefix === 'all') && !!window._uwAllNoContact;
+  const noContactOk = noContactOn ? (u => !_uwDealHasAnyContact(u)) : (() => true);
+  return (u) => srcOk(u) && roleOk(u) && noContactOk(u);
+}
+// True if any Contact Book contact (owner/partner/agent) is linked to this
+// deal's property address.
+function _uwDealHasAnyContact(u) {
+  try {
+    const street = (typeof window._uwDealStreet === 'function') ? window._uwDealStreet(u) : '';
+    if (!street) return false;
+    const m = window._uwRoleContactStreetSets();
+    return m.owner.has(street) || m.partner.has(street) || m.agent.has(street);
+  } catch (_) { return false; }
 }
 
 // Show/hide the "Custom range" date pickers when the preset dropdown is set
@@ -30492,8 +30507,8 @@ async function _contactsSectionOpen(){
 window._contactsSectionOpen = _contactsSectionOpen;
 async function loadContacts(){
   if (typeof sb === 'undefined' || !sb) return;
-  try { const { data, error } = await sb.from('contacts').select('*').order('name'); if (error) throw error; window._cbCache = data || []; }
-  catch(e){ console.warn('loadContacts:', e); if (typeof toast==='function') toast('Could not load contacts: '+(e.message||e),'err'); }
+  try { const { data, error } = await sb.from('contacts').select('*').order('name'); if (error) throw error; window._cbCache = data || []; if (typeof _setLazyStatus === 'function') _setLazyStatus('contacts', 'loaded', window._cbCache.length); }
+  catch(e){ console.warn('loadContacts:', e); if (typeof _setLazyStatus === 'function') _setLazyStatus('contacts', 'error'); if (typeof toast==='function') toast('Could not load contacts: '+(e.message||e),'err'); }
 }
 window.loadContacts = loadContacts;
 // Shared role → color map + the role list for the filter bar.
@@ -39462,31 +39477,38 @@ function goSection(s, _opts) {
 function renderFunnelSection(){
   const host = document.getElementById('funnel-body');
   if (!host) return;
+  // Time filter — a relative range OR a specific year/month. Filters every
+  // record by its created date, so both devices show the same for a period.
+  const period = window._funnelPeriod || {};
+  const _inPeriod = (dateStr) => {
+    if (!(period.range || period.year)) return true;
+    const d = dateStr ? new Date(dateStr) : null;
+    if (!d || isNaN(d.getTime())) return false;
+    if (period.year) {
+      if (d.getFullYear() !== parseInt(period.year, 10)) return false;
+      if (period.month && (d.getMonth() + 1) !== parseInt(period.month, 10)) return false;
+      return true;
+    }
+    const days = parseInt(period.range, 10);
+    return days > 0 ? d.getTime() >= (Date.now() - days * 86400000) : true;
+  };
   const U = (typeof cache !== 'undefined' && cache && cache.underwrites)
-    ? Object.values(cache.underwrites).filter(u => u && !u.deleted_at) : [];
+    ? Object.values(cache.underwrites).filter(u => u && !u.deleted_at && _inPeriod(u.created_at)) : [];
   const os = u => ((u && u.data && u.data['uw-offer-status']) || '').trim();
   const routed = u => { const hs = u && u.data && u.data._holdingStatus; return hs === 'holding' || hs === 'renovation'; };
   const isClosed   = u => os(u) === 'Closed' || ((u && u.packet_status) || '').trim() === 'Closed' || routed(u);
   const isContract = u => ['Accepted','Contracted','Pending','Dropped'].indexOf(os(u)) > -1 || isClosed(u);
   const isOffer    = u => ['Sent','Rejected','Inspection'].indexOf(os(u)) > -1 || isContract(u);
-  // Owner-type deal? A deal counts as an owner deal UNLESS it's clearly a
-  // partner/agent deal. Explicitly-owner always counts (even if also partner);
-  // deals with no lead type default to owner (direct-to-seller). Only purely
-  // partner/agent (or partner-form-sourced) deals are excluded.
+  // Owner-tagged only. A property counts ONLY if it's explicitly tagged Owner
+  // (or auto-Owner because an Owner contact is attached to its address). If a
+  // property isn't tagged Owner, it isn't counted — tag it to include it.
   const _types = u => { try { return (typeof window._uwEffectiveLeadTypes === 'function') ? window._uwEffectiveLeadTypes(u) : new Set(); } catch(_){ return new Set(); } };
   const isOwner = u => {
-    const s = _types(u);
-    if (s.has('owner')) return true;
-    if (s.has('partner') || s.has('agent')) return false;
+    if (_types(u).has('owner')) return true;
     const d = (u && u.data) || {};
-    if (String(d._source || '') === 'partner_form') return false;
-    if (Array.isArray(d._leadTypes) && d._leadTypes.length) {
-      const arr = d._leadTypes.map(x => String(x).toLowerCase());
-      if (arr.indexOf('owner') > -1) return true;
-      if (arr.indexOf('partner') > -1 || arr.indexOf('agent') > -1) return false;
-    }
-    if (d._leadType) { const t = String(d._leadType).toLowerCase(); if (t === 'partner' || t === 'agent') return false; if (t === 'owner') return true; }
-    return true;
+    if (Array.isArray(d._leadTypes) && d._leadTypes.some(x => String(x).toLowerCase() === 'owner')) return true;
+    if (d._leadType && String(d._leadType).toLowerCase() === 'owner') return true;
+    return false;
   };
   // "Analyzed" bucket — mirrors the deal-list Analyzed subtab: not needs-help,
   // not Priority, not in-Checking, past the Analyzing (Evaluating) stage, and
@@ -39508,18 +39530,26 @@ function renderFunnelSection(){
     const n = s => parseFloat(String(s == null ? '' : s).replace(/[^0-9.]/g, '')) || 0;
     return (n(d['uw-accepted']) || n(d['uw-asking']) || n(u && u.asking)) > 0;
   };
-  // Top of funnel comes from the Results tab KPIs (Owners = Unique numbers,
-  // Raw leads = Motivated results). Read the live displayed values.
-  const parseNum = id => { const el = document.getElementById(id); if (!el) return 0; const n = parseInt((el.textContent || '').replace(/[^0-9]/g, ''), 10); return isFinite(n) ? n : 0; };
-  const ownersN = parseNum('r-numbers');
-  const rawN    = parseNum('r-kpi-mot');
+  // Top of funnel — computed from ALL results (cache.results), NOT the Results
+  // tab's on-screen KPIs, so tab filters (or which device you're on) can never
+  // change the funnel. Owners = total unique phone numbers; Raw leads = total
+  // motivated results. Both ignore every filter.
+  const R = (typeof cache !== 'undefined' && cache && cache.results) ? Object.values(cache.results).filter(r => _inPeriod(r && r.created_at)) : [];
+  const _numSet = new Set();
+  R.forEach(r => {
+    let p = String((r && (r.phone || r.phone_number)) || '').replace(/[^0-9]/g, '');
+    if (p.length >= 7) { if (p.length > 10) p = p.slice(-10); _numSet.add(p); }
+  });
+  const ownersN = _numSet.size;
+  const _isMot = (typeof isMotivatedDisposition === 'function') ? isMotivatedDisposition : (d => /motiv/i.test(String(d || '')));
+  const rawN = R.filter(r => r && _isMot(r.disposition)).length;
   const stages = [
-    { name:'Owners',          sub:'unique numbers',         n: ownersN,                     w:100, tone:'gray' },
-    { name:'Raw leads',       sub:'motivated results',      n: rawN,                        w:84,  tone:'gray' },
-    { name:'Qualified leads', sub:'owners analyzed w/ price', n: U.filter(u => isOwner(u) && isAnalyzed(u) && hasPrice(u)).length, w:68, tone:'teal' },
-    { name:'Offers made',     sub:'owners offered or beyond', n: U.filter(u => isOwner(u) && isOffer(u)).length,   w:52, tone:'teal' },
-    { name:'Under contract',  sub:'owners contracted / dropped', n: U.filter(u => isOwner(u) && isContract(u)).length, w:38, tone:'teal' },
-    { name:'Closed',          sub:'owners closed',           n: U.filter(u => isOwner(u) && isClosed(u)).length,   w:26, tone:'teal' }
+    { name:'Owners',          sub:'Contacted owners talked to with unique numbers',        n: ownersN,                     w:100, tone:'gray' },
+    { name:'Raw leads',       sub:'Contacted owners with any initial interest',            n: rawN,                        w:84,  tone:'gray' },
+    { name:'Qualified leads', sub:'Contacted owners with motivation & gave details',       n: U.filter(u => isOwner(u) && isAnalyzed(u) && hasPrice(u)).length, w:68, tone:'teal' },
+    { name:'Offers made',     sub:'Any contacted owner that was sent an offer',            n: U.filter(u => isOwner(u) && isOffer(u)).length,   w:52, tone:'teal' },
+    { name:'Under Contract', sub:'Completed Contract',   n: U.filter(u => isOwner(u) && isContract(u)).length, w:38, tone:'teal' },
+    { name:'Closed',         sub:'Funded and Finalized', n: U.filter(u => isOwner(u) && isClosed(u)).length,   w:26, tone:'teal' }
   ];
   const bg  = t => t === 'gray' ? 'rgba(148,163,184,0.16)' : 'rgba(16,185,129,0.14)';
   const bd  = t => t === 'gray' ? 'rgba(148,163,184,0.45)' : 'rgba(16,185,129,0.55)';
@@ -39538,13 +39568,64 @@ function renderFunnelSection(){
       + '<div style="font-size:26px;font-weight:800;color:' + num(s.tone) + ';line-height:1">' + (s.n || 0).toLocaleString() + '</div>'
       + '</div>';
   });
+  // ----- Data-quality notes -----
+  // Owner deals that reached a later stage but never met the Qualified bar
+  // (Analyzed + a price). Counted by the furthest stage each one reached, so
+  // no deal is double-counted across notes.
+  const _qual = u => isOwner(u) && isAnalyzed(u) && hasPrice(u);
+  const leak = { closed: 0, contract: 0, offer: 0 };
+  U.forEach(u => {
+    if (!isOwner(u) || _qual(u)) return;
+    if (isClosed(u)) leak.closed++;
+    else if (isContract(u)) leak.contract++;
+    else if (isOffer(u)) leak.offer++;
+  });
+  const _line = (n, label) => n + (n === 1 ? ' ' + label + ' property was' : ' ' + label + ' properties were') + ' never counted as Qualified — missing an Analyzed status or a price.';
+  const _noteLines = [];
+  if (leak.closed)   _noteLines.push(_line(leak.closed, 'closed'));
+  if (leak.contract) _noteLines.push(_line(leak.contract, 'under-contract'));
+  if (leak.offer)    _noteLines.push(_line(leak.offer, 'offered'));
+  const notesHtml = _noteLines.length
+    ? '<div style="margin-top:16px;background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.45);border-radius:10px;padding:12px 14px">'
+      + '<div style="font-size:12.5px;font-weight:700;color:#fbbf24;margin-bottom:6px">⚠ Funnel gaps</div>'
+      + _noteLines.map(t => '<div style="font-size:12px;color:var(--text);margin:3px 0">• ' + t + '</div>').join('')
+      + '<div style="font-size:11px;color:var(--text-dim);margin-top:7px">These deals skipped ahead without being fully qualified. Open each one, set it to Analyzed and enter an asking/accepted price so the funnel lines up.</div>'
+      + '</div>'
+    : '';
+  // Time-filter controls (relative range OR a specific year/month).
+  const _selStyle = 'padding:4px 7px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:12px;height:30px';
+  const _rangeOpts = [['','All time'],['7','Last 7 days'],['30','Last 30 days'],['90','Last 90 days'],['180','Last 180 days'],['365','Last year']]
+    .map(o => '<option value="' + o[0] + '"' + (String(period.range || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('');
+  const _thisYear = new Date().getFullYear();
+  let _yearOpts = '<option value="">Any year</option>';
+  for (let yy = _thisYear; yy >= _thisYear - 6; yy--) _yearOpts += '<option value="' + yy + '"' + (String(period.year || '') === String(yy) ? ' selected' : '') + '>' + yy + '</option>';
+  const _mNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  let _monthOpts = '<option value="">Any month</option>';
+  _mNames.forEach((mn, idx) => { _monthOpts += '<option value="' + (idx + 1) + '"' + (String(period.month || '') === String(idx + 1) ? ' selected' : '') + '>' + mn + '</option>'; });
+  const controls = '<div style="display:flex;gap:6px;flex-wrap:nowrap;align-items:center;margin:2px 0 16px">'
+    + '<select onchange="_funnelSetPeriod(\'range\', this.value)" style="' + _selStyle + '">' + _rangeOpts + '</select>'
+    + '<span style="color:var(--text-dim);font-size:11px;padding:0 2px">or</span>'
+    + '<select onchange="_funnelSetPeriod(\'year\', this.value)" style="' + _selStyle + '">' + _yearOpts + '</select>'
+    + '<select onchange="_funnelSetPeriod(\'month\', this.value)" style="' + _selStyle + '">' + _monthOpts + '</select>'
+    + '</div>';
   host.innerHTML =
-    '<div style="margin-bottom:14px"><div style="font-size:20px;font-weight:800;color:var(--text)">🪣 Acquisition Funnel</div>'
-    + '<div style="font-size:12.5px;color:var(--text-dim);margin-top:3px">Owners = unique numbers and Raw leads = motivated results (both from your Results tab); Qualified down to Closed come from your underwriting deals.</div></div>'
+    '<div style="margin-bottom:6px"><div style="font-size:20px;font-weight:800;color:var(--text)">🪣 Acquisition Funnel</div></div>'
+    + controls
     + rows
+    + notesHtml
     + '<div style="margin-top:16px;font-size:11.5px;color:var(--text-dim);line-height:1.55">Each ▼ shows the share of the stage above that reached this one. Offers, Under contract and Closed are cumulative — a closed deal is also counted in every stage above it.</div>';
 }
 window.renderFunnelSection = renderFunnelSection;
+// Funnel time-filter state. Relative range and specific year/month are mutually
+// exclusive — choosing one clears the other.
+window._funnelPeriod = window._funnelPeriod || { range: '', year: '', month: '' };
+window._funnelSetPeriod = function(key, val){
+  window._funnelPeriod = window._funnelPeriod || { range: '', year: '', month: '' };
+  window._funnelPeriod[key] = val;
+  if (key === 'range' && val) { window._funnelPeriod.year = ''; window._funnelPeriod.month = ''; }
+  if ((key === 'year' || key === 'month') && val) { window._funnelPeriod.range = ''; }
+  if (typeof renderFunnelSection === 'function') renderFunnelSection();
+};
 
 // SOP toggle — the header's 📋 SOP button calls this so clicking once opens
 // SOP, clicking again returns to the section the user was on before. The
@@ -42539,7 +42620,7 @@ async function fetchSkipUploadsLean() {
 // finish streaming in. Each key flips 'loading' → 'loaded' (with a count)
 // or 'loading' → 'error'.
 // ------------------------------------------------------------
-window._lazyLoadStatus = window._lazyLoadStatus || { phones: 'idle', emails: 'idle', skiptrace: 'idle' };
+window._lazyLoadStatus = window._lazyLoadStatus || { phones: 'idle', emails: 'idle', skiptrace: 'idle', contacts: 'idle' };
 function _setLazyStatus(key, status, count) {
   window._lazyLoadStatus[key] = status;
   if (typeof count === 'number') window._lazyLoadStatus[key + '_count'] = count;
@@ -42566,10 +42647,10 @@ function _renderLazyBanners() {
     const labelCell = '<span style="white-space:nowrap">' + label + '</span>';
     return statusCell + iconCell + labelCell;
   };
+  const _grid = 'display:inline-grid;grid-template-columns:14px 14px auto;column-gap:6px;row-gap:0;align-items:center;justify-items:start';
   const html =
-    fmt('Emails',  'emails',    '✉️') +
-    fmt('Phones',  'phones',    '📞') +
-    fmt('Records', 'skiptrace', '🗂️');
+    '<div style="' + _grid + '">' + fmt('Emails', 'emails', '✉️') + fmt('Phones', 'phones', '📞') + '</div>' +
+    '<div style="' + _grid + '">' + fmt('Records', 'skiptrace', '🗂️') + fmt('Contacts', 'contacts', '📇') + '</div>';
   document.querySelectorAll('[data-lazy-banner]').forEach(el => {
     el.innerHTML = html;
     // Always visible. Inline style on the container drives layout (inline-grid
@@ -55335,6 +55416,20 @@ window._uwAllSetRole = function(r){
   // Click the active chip again to clear it (so "none selected" is allowed).
   window._uwAllRole = (window._uwAllRole === r) ? '' : r;
   window._uwAllRenderRoleChips();
+  if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
+};
+// No-Contact toggle for the All Deals list — show only deals with no contact
+// linked to the property. Blue when on.
+window._uwAllNoContact = window._uwAllNoContact || false;
+window._uwAllToggleNoContact = function(btn){
+  window._uwAllNoContact = !window._uwAllNoContact;
+  var b = btn || document.getElementById('uwall-nocontact');
+  var on = !!window._uwAllNoContact;
+  if (b){
+    b.style.background  = on ? '#3b82f6' : 'transparent';
+    b.style.color       = on ? '#ffffff' : 'var(--text-dim)';
+    b.style.borderColor = on ? '#3b82f6' : 'var(--border)';
+  }
   if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
 };
 // ===== Per-section Buy Box toggle (each tab independent; shared criteria) =====

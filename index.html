@@ -908,6 +908,7 @@
     </div>
     <button class="btn btn-ghost text-sm" id="header-presence-chip" onclick="togglePresencePopover(event)" title="Teammates currently signed in — click to see names" style="padding:5px 10px;display:none"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 0 2px rgba(16,185,129,0.25);margin-right:6px;vertical-align:1px"></span><b id="presence-count">1</b><span style="opacity:0.7;margin-left:3px">online</span></button>
     <button class="btn btn-ghost text-sm" id="header-activity-btn" onclick="openActivityFeed()" title="Live feed of who edited what across all your data — refreshes every 30s.">📊 Activity<span id="activity-badge" style="display:none;margin-left:5px;padding:1px 6px;border-radius:999px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;vertical-align:1px"></span></button>
+    <button class="btn btn-ghost text-sm" id="header-funnel-btn" onclick="goSection('funnel')" title="Funnel — your acquisition pipeline, qualified leads down to closings">🪣 Funnel</button>
     <button class="btn btn-ghost text-sm" id="header-plan-btn" onclick="goSection('plan')" title="Plan — exit-strategy buckets">🎯 Plan</button>
     <button class="btn btn-ghost text-sm" id="header-sop-btn" onclick="toggleSopSection()" title="Open Standard Operating Procedures (click again to return to where you were).">📋 SOP</button>
     <button class="btn btn-ghost text-sm" id="header-contacts-btn" onclick="goSection('contacts')" title="Contact Book — phones, emails, and linked properties for your sellers, wholesalers, and agents.">📒</button>
@@ -2702,6 +2703,11 @@
     <div id="cb-role-filter" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
     <div id="cb-list"></div>
   </div>
+</div>
+
+<!-- SECTION: Funnel (acquisition pipeline) — rendered by renderFunnelSection() -->
+<div id="section-funnel" class="section-content" style="display:none">
+  <div id="funnel-body" style="max-width:760px;margin:0 auto;padding:8px 16px 40px"></div>
 </div>
 
 <!-- SECTION: Plan (exit-strategy buckets) — rendered by renderPlanSection() -->
@@ -39407,6 +39413,7 @@ function goSection(s, _opts) {
   // Contacts + Plan live on header buttons — highlight them orange when active.
   (function(){ var b=document.getElementById('header-contacts-btn'); if(b){ var on=(_navHighlight==='contacts'); b.style.background=on?'rgba(34,197,94,0.18)':''; b.style.color=on?'#86efac':''; b.style.borderColor=on?'rgba(34,197,94,0.5)':''; } })();
   (function(){ var b=document.getElementById('header-plan-btn'); if(b){ var on=(_navHighlight==='plan'); b.style.background=on?'rgba(34,197,94,0.18)':''; b.style.color=on?'#86efac':''; b.style.borderColor=on?'rgba(34,197,94,0.5)':''; } })();
+  (function(){ var b=document.getElementById('header-funnel-btn'); if(b){ var on=(_navHighlight==='funnel'); b.style.background=on?'rgba(34,197,94,0.18)':''; b.style.color=on?'#86efac':''; b.style.borderColor=on?'rgba(34,197,94,0.5)':''; } })();
   document.querySelectorAll(".section-content").forEach(el => el.style.display = "none");
   const target = document.getElementById("section-" + s);
   // SOP uses a fullscreen flex layout; everything else uses block.
@@ -39444,7 +39451,100 @@ function goSection(s, _opts) {
   if (s === "results" && typeof updateResultsDBCount === "function") updateResultsDBCount();
   if (s === "contacts" && typeof _contactsSectionOpen === "function") _contactsSectionOpen();
   if (s === "plan" && typeof renderPlanSection === "function") renderPlanSection();
+  if (s === "funnel" && typeof renderFunnelSection === "function") renderFunnelSection();
 }
+
+// ===== Funnel section — live acquisition pipeline counts =====
+// Counts come straight from this device's deal cache, bucketed by the same
+// uw-offer-status logic the deal-list subtabs use. Offers/Contract/Closed are
+// cumulative (a closed deal is also counted in the stages above it), so the
+// funnel narrows correctly.
+function renderFunnelSection(){
+  const host = document.getElementById('funnel-body');
+  if (!host) return;
+  const U = (typeof cache !== 'undefined' && cache && cache.underwrites)
+    ? Object.values(cache.underwrites).filter(u => u && !u.deleted_at) : [];
+  const os = u => ((u && u.data && u.data['uw-offer-status']) || '').trim();
+  const routed = u => { const hs = u && u.data && u.data._holdingStatus; return hs === 'holding' || hs === 'renovation'; };
+  const isClosed   = u => os(u) === 'Closed' || ((u && u.packet_status) || '').trim() === 'Closed' || routed(u);
+  const isContract = u => ['Accepted','Contracted','Pending','Dropped'].indexOf(os(u)) > -1 || isClosed(u);
+  const isOffer    = u => ['Sent','Rejected','Inspection'].indexOf(os(u)) > -1 || isContract(u);
+  // Owner-type deal? A deal counts as an owner deal UNLESS it's clearly a
+  // partner/agent deal. Explicitly-owner always counts (even if also partner);
+  // deals with no lead type default to owner (direct-to-seller). Only purely
+  // partner/agent (or partner-form-sourced) deals are excluded.
+  const _types = u => { try { return (typeof window._uwEffectiveLeadTypes === 'function') ? window._uwEffectiveLeadTypes(u) : new Set(); } catch(_){ return new Set(); } };
+  const isOwner = u => {
+    const s = _types(u);
+    if (s.has('owner')) return true;
+    if (s.has('partner') || s.has('agent')) return false;
+    const d = (u && u.data) || {};
+    if (String(d._source || '') === 'partner_form') return false;
+    if (Array.isArray(d._leadTypes) && d._leadTypes.length) {
+      const arr = d._leadTypes.map(x => String(x).toLowerCase());
+      if (arr.indexOf('owner') > -1) return true;
+      if (arr.indexOf('partner') > -1 || arr.indexOf('agent') > -1) return false;
+    }
+    if (d._leadType) { const t = String(d._leadType).toLowerCase(); if (t === 'partner' || t === 'agent') return false; if (t === 'owner') return true; }
+    return true;
+  };
+  // "Analyzed" bucket — mirrors the deal-list Analyzed subtab: not needs-help,
+  // not Priority, not in-Checking, past the Analyzing (Evaluating) stage, and
+  // not Closed.
+  const _flag = (u, k) => !!(u && u.data && u.data[k] === true);
+  const isAnalyzed = u => {
+    if (!u) return false;
+    if (_flag(u, '_needsHelp') || _flag(u, '_isPriority') || _flag(u, '_inChecking')) return false;
+    const analyzing = (typeof _uwIsAnalyzing === 'function')
+      ? _uwIsAnalyzing(u)
+      : (function(){ const ps = ((u.packet_status) || '').trim(); return ps === '' || ps === 'Evaluating'; })();
+    if (analyzing) return false;
+    if (((u.packet_status) || '').trim() === 'Closed') return false;
+    return true;
+  };
+  // Has a price? (accepted, then asking, then the row's asking column)
+  const hasPrice = u => {
+    const d = (u && u.data) || {};
+    const n = s => parseFloat(String(s == null ? '' : s).replace(/[^0-9.]/g, '')) || 0;
+    return (n(d['uw-accepted']) || n(d['uw-asking']) || n(u && u.asking)) > 0;
+  };
+  // Top of funnel comes from the Results tab KPIs (Owners = Unique numbers,
+  // Raw leads = Motivated results). Read the live displayed values.
+  const parseNum = id => { const el = document.getElementById(id); if (!el) return 0; const n = parseInt((el.textContent || '').replace(/[^0-9]/g, ''), 10); return isFinite(n) ? n : 0; };
+  const ownersN = parseNum('r-numbers');
+  const rawN    = parseNum('r-kpi-mot');
+  const stages = [
+    { name:'Owners',          sub:'unique numbers',         n: ownersN,                     w:100, tone:'gray' },
+    { name:'Raw leads',       sub:'motivated results',      n: rawN,                        w:84,  tone:'gray' },
+    { name:'Qualified leads', sub:'owners analyzed w/ price', n: U.filter(u => isOwner(u) && isAnalyzed(u) && hasPrice(u)).length, w:68, tone:'teal' },
+    { name:'Offers made',     sub:'owners offered or beyond', n: U.filter(u => isOwner(u) && isOffer(u)).length,   w:52, tone:'teal' },
+    { name:'Under contract',  sub:'owners contracted / dropped', n: U.filter(u => isOwner(u) && isContract(u)).length, w:38, tone:'teal' },
+    { name:'Closed',          sub:'owners closed',           n: U.filter(u => isOwner(u) && isClosed(u)).length,   w:26, tone:'teal' }
+  ];
+  const bg  = t => t === 'gray' ? 'rgba(148,163,184,0.16)' : 'rgba(16,185,129,0.14)';
+  const bd  = t => t === 'gray' ? 'rgba(148,163,184,0.45)' : 'rgba(16,185,129,0.55)';
+  const num = t => t === 'gray' ? 'var(--text)' : '#10b981';
+  let rows = '';
+  stages.forEach((s, i) => {
+    if (i > 0) {
+      const prev = stages[i-1].n;
+      const pct = prev > 0 ? Math.round(s.n / prev * 100) : 0;
+      rows += '<div style="text-align:center;color:var(--text-dim);font-size:11px;margin:3px 0">▼ ' + pct + '%</div>';
+    }
+    rows += '<div style="width:' + s.w + '%;margin:0 auto;background:' + bg(s.tone) + ';border:1px solid ' + bd(s.tone)
+      + ';border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">'
+      + '<div style="min-width:0"><div style="font-weight:700;font-size:14px;color:var(--text)">' + s.name + '</div>'
+      + '<div style="font-size:11px;color:var(--text-dim)">' + s.sub + '</div></div>'
+      + '<div style="font-size:26px;font-weight:800;color:' + num(s.tone) + ';line-height:1">' + (s.n || 0).toLocaleString() + '</div>'
+      + '</div>';
+  });
+  host.innerHTML =
+    '<div style="margin-bottom:14px"><div style="font-size:20px;font-weight:800;color:var(--text)">🪣 Acquisition Funnel</div>'
+    + '<div style="font-size:12.5px;color:var(--text-dim);margin-top:3px">Owners = unique numbers and Raw leads = motivated results (both from your Results tab); Qualified down to Closed come from your underwriting deals.</div></div>'
+    + rows
+    + '<div style="margin-top:16px;font-size:11.5px;color:var(--text-dim);line-height:1.55">Each ▼ shows the share of the stage above that reached this one. Offers, Under contract and Closed are cumulative — a closed deal is also counted in every stage above it.</div>';
+}
+window.renderFunnelSection = renderFunnelSection;
 
 // SOP toggle — the header's 📋 SOP button calls this so clicking once opens
 // SOP, clicking again returns to the section the user was on before. The

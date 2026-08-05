@@ -12318,6 +12318,11 @@ function _uwAutoRehabMonths(sqft, ifpVal) {
 // profit from rehab scope) — falls back to IFP only if Timeline slider
 // hasn't been mounted yet.
 function _uwApplyAutoRehabMonths(sqft) {
+  // A mode toggle (Cash/Financed/Refi) must NOT re-derive the hold-months —
+  // months don't depend on the exit mode, and re-writing them on every toggle
+  // was making the cash ceilings (which use holding + ideal-profit time bonus)
+  // ping-pong. Skip the re-apply when the recalc came from a mode toggle.
+  if (window._uwModeToggle) return;
   // FIRST: prefer the Rehab Calculator v2's actual project schedule estimate
   // (#s-fin = repossession + M-F → calendar conversion + 25% buffer). This
   // is the SAME duration the Strategy → Timeline panel and Budget & Scope
@@ -14405,7 +14410,7 @@ function uwComputeExits(ctx) {
       // the title row clean and prevents the buttons from squishing the card.
       // Cards without a Cash/Fin toggle (e.g. Wholesale) get an empty spacer of
       // the same height so their content lines up with the toggle cards.
-      const toggleRow = e.toggle ? `<div style="margin-bottom:8px">${e.toggle}</div>` : '<div style="height:24px;margin-bottom:8px"></div>';
+      const toggleRow = `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">${e.toggle ? '<span>' + e.toggle + '</span>' : '<span style="display:inline-block;height:24px"></span>'}<span class="uw-maxbudget" data-mb-key="${e.key}" style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;flex-shrink:0"></span></div>`;
       return `<div onclick="uwToggleExit('${e.key}')" data-exit-key="${e.key}"${isBest ? ' data-is-best="true"' : ''}${e.bestMode ? ` data-best-mode="${e.bestMode}"` : ''}${typeof e.annualized === 'number' ? ` data-annualized="${Math.round(e.annualized)}"` : ''}${typeof e.bestModeProfit === 'number' ? ` data-best-profit="${Math.round(e.bestModeProfit)}"` : ''} style="padding:12px 14px;background:${bg};border:${border};border-radius:10px;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''" title="Click to ${isOpen ? 'collapse' : 'view full breakdown'}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <span style="font-weight:600;font-size:13px">${e.icon} ${e.name}${e.mode ? ' <span style=\'color:var(--text-dim);font-weight:500\'>(' + e.mode + ')</span>' : ''}${badge}</span>
@@ -15266,7 +15271,7 @@ function uwComputeExits(ctx) {
       </div>`;
     })();
 
-    threshEl.innerHTML = `
+    if (!window._uwModeToggle) threshEl.innerHTML = `
       <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">📐 <b>Max all-in price for each exit to win</b> — assumes today's rehab + closing + holding stay fixed; only the buy price moves. The bottom line of each card explains why that exit does (✓) or doesn't (✗) qualify at today's numbers.</div>
       <!-- Row 1: One-time exits (Wholesale, Wholetail, Flip) -->
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
@@ -15282,6 +15287,53 @@ function uwComputeExits(ctx) {
         ${dscrCardHtml}
         ${refiCardHtml}
       </div>`;
+    // ----- Fill the per-exit "Buy + Rehab" budget readouts on the exit cards.
+    // Display-only: everything else (closing, holding, financing, profit) is
+    // already baked into each maxBuy ceiling; this just adds the exit's rehab
+    // back so you see the most you can put into purchase + rehab combined. -----
+    (function(){
+      const _fmtB = n => (isFinite(n) && n > 0) ? '$' + Math.round(n).toLocaleString() : '—';
+      // Budget-only profit targets (these do NOT change any other math):
+      //   Flip      = max(Ideal Flip Profit, $40,000)
+      //   Wholetail = max(60% of Ideal Flip Profit, $25,000)
+      const _ifp = (typeof wsIdealProfit === 'number' ? wsIdealProfit : 0);
+      const _flipBudgetIdeal = Math.max(_ifp, 40000);
+      const _wtBudgetIdeal   = Math.max(_ifp * 0.6, 25000);
+      // Iterative financed-max-buy solve (mirrors the app's financed ceilings)
+      // but with the budget profit target substituted in.
+      const _solveFin = (sale, rehab, holding, sellFixed, ideal, ltvPct, capPct, origPct, ratePct, months) => {
+        let b = Math.max(0, sale - rehab - holding - sellFixed - ideal);
+        for (let i = 0; i < 30; i++) {
+          const pc = b * 0.03;
+          const base = b + rehab + pc + holding;
+          const loan = Math.min(base * (ltvPct / 100), arv * (capPct / 100));
+          const fin = loan * (origPct / 100) + loan * (ratePct / 100) / 12 * months;
+          const next = sale - rehab - holding - sellFixed - ideal - pc - fin;
+          if (Math.abs(next - b) < 1) { b = next; break; }
+          b = next;
+        }
+        return b;
+      };
+      const _wtBuy = (typeof wholetailMode !== 'undefined' && wholetailMode === 'financed')
+        ? _solveFin(wholetailSale, wholetailRehab, wholetailHolding, wtSaleClosingTotal + wtAgentTotal, _wtBudgetIdeal, wtFinLtvPct, WT_FIN_ARV_CAP_PCT, wtFinOrigPct, wtFinRatePct, wholetailMonths)
+        : (wholetailSale - wtNonBuyCosts - _wtBudgetIdeal) / 1.03;
+      const _flBuy = (typeof flipMode !== 'undefined' && flipMode === 'financed')
+        ? _solveFin(flipSale, flipRehabAmt, flipHolding, flipSelling, _flipBudgetIdeal, flHmLtvPct, FL_HM_ARV_CAP_PCT, flHmOrigPct, flHmRatePct, flipMonths)
+        : (flipSale - flipNonBuyCosts - _flipBudgetIdeal) / 1.03;
+      const _rtM  = (typeof rentalMode !== 'undefined') ? rentalMode : 'cash';
+      const _rtMB = _rtM === 'refi' ? rtRefiBuyMax : (_rtM === 'financed' ? dscrBuyMax : rtCashBuyMax);
+      const _budget = {
+        wholetail: _wtBuy + (typeof wholetailRehab === 'number' ? wholetailRehab : 0),
+        flip:      _flBuy + (typeof flipRehabAmt   === 'number' ? flipRehabAmt   : 0),
+        rental:    (typeof _rtMB === 'number' ? _rtMB : NaN) + (typeof rRehab === 'number' ? rRehab : 0)
+      };
+      document.querySelectorAll('#uw-exit-cards .uw-maxbudget[data-mb-key]').forEach(el => {
+        const k = el.getAttribute('data-mb-key');
+        if (!(k in _budget)) return;
+        el.textContent = 'Budget: ' + _fmtB(_budget[k]);
+        el.title = 'Most you can spend on purchase + rehab combined and still hit this exit target. Flip ≥ higher of Ideal Flip Profit or $40k; Wholetail ≥ higher of 60% of Ideal Flip Profit or $25k; Rental keeps its yield / cashflow rule. Closing, holding and financing already factored.';
+      });
+    })();
   }
 
   // ===== Equity per Dollar of Rehab =====
@@ -19091,13 +19143,17 @@ let _uwWholesaleMode = 'assignment'; // 'assignment' | 'doubleclose' — Wholesa
 function uwSetWholesaleMode(mode) {
   if (mode !== 'assignment' && mode !== 'doubleclose') return;
   _uwWholesaleMode = mode;
+  window._uwModeToggle = true;
   if (typeof uwRecalc === 'function') uwRecalc();
+  window._uwModeToggle = false;
   if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
 }
 function uwSetFlipMode(mode) {
   if (mode !== 'cash' && mode !== 'financed') return;
   _uwFlipMode = mode;
+  window._uwModeToggle = true;
   if (typeof uwRecalc === 'function') uwRecalc();
+  window._uwModeToggle = false;
   if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
 }
 function uwSetRentalMode(mode) {
@@ -19105,13 +19161,17 @@ function uwSetRentalMode(mode) {
   if (mode === 'brrr') mode = 'refi';
   if (mode !== 'cash' && mode !== 'financed' && mode !== 'refi') return;
   _uwRentalMode = mode;
+  window._uwModeToggle = true;
   if (typeof uwRecalc === 'function') uwRecalc();
+  window._uwModeToggle = false;
   if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
 }
 function uwSetWholetailMode(mode) {
   if (mode !== 'cash' && mode !== 'financed') return;
   _uwWholetailMode = mode;
+  window._uwModeToggle = true;
   if (typeof uwRecalc === 'function') uwRecalc();
+  window._uwModeToggle = false;
   if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
 }
 window.uwSetFlipMode      = uwSetFlipMode;

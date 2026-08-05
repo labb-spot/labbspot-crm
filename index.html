@@ -15340,11 +15340,25 @@ function uwComputeExits(ctx) {
         flip:      _flBuy + (typeof flipRehabAmt   === 'number' ? flipRehabAmt   : 0),
         rental:    (typeof _rtMB === 'number' ? _rtMB : NaN) + (typeof rRehab === 'number' ? rRehab : 0)
       };
+      const _bp = (typeof buyPrice === 'number' ? buyPrice : 0);
       document.querySelectorAll('#uw-exit-cards .uw-maxbudget[data-mb-key]').forEach(el => {
         const k = el.getAttribute('data-mb-key');
-        if (!(k in _budget)) return;
-        el.textContent = 'Budget: ' + _fmtB(_budget[k]);
-        el.title = 'Most you can spend on purchase + rehab combined and still hit this exit target. Flip ≥ higher of Ideal Flip Profit or $40k; Wholetail ≥ higher of 60% of Ideal Flip Profit or $25k; Rental keeps its yield / cashflow rule. Closing, holding and financing already factored.';
+        if (!(k in _budget)) {
+          // Wholesale has no budget — reserve the same two-line height (invisible)
+          // so its card lines up evenly with the others.
+          el.innerHTML = '<span style="visibility:hidden">Budget: $0<br><span style="font-size:11px">Leftover: $0</span></span>';
+          return;
+        }
+        const _b = _budget[k];
+        let _html = 'Budget: ' + _fmtB(_b);
+        if (_bp > 0 && isFinite(_b)) {
+          const _left = _b - _bp;
+          const _lc = _left < 0 ? '#f87171' : 'var(--text-dim)';
+          const _lv = (_left < 0 ? '−$' : '$') + Math.abs(Math.round(_left)).toLocaleString();
+          _html += '<br><span style="font-weight:500;font-size:11px;color:' + _lc + '">Leftover: ' + _lv + '</span>';
+        }
+        el.innerHTML = _html;
+        el.title = 'Budget = most you can spend on purchase + rehab combined for this exit. Leftover = budget minus your current purchase/asking price.';
       });
     })();
   }

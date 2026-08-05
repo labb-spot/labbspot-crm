@@ -3002,11 +3002,13 @@
             <!-- Submission-history box — same size as the notebook, sits to its left. -->
             <button onclick="toggleDealHistory(event)" title="Submission history for this property — owner / agent / wholesaler prices and dates. Manual price edits are not shown here." style="position:absolute;top:calc(100% + 6px);right:66px;border:1.5px solid #a5b4fc;background:transparent;border-radius:9px;font-size:26px;line-height:1;padding:6px 12px;cursor:pointer">📜</button>
             <!-- Lead type chips — float to the LEFT of the two boxes (out of flow, no gap). -->
+            <button type="button" id="uw-tags-btn" onclick="uwToggleTagEditor(event)" title="Add custom tags to this property. Filter tagged properties in the Hot ⚙️ settings." style="position:absolute;top:calc(100% + 12px);right:372px;display:inline-flex;align-items:center;justify-content:center;gap:4px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-weight:600;font-size:13px;padding:6px 12px;cursor:pointer;white-space:nowrap">🏷️<span id="uw-tags-count"></span></button>
             <span style="position:absolute;top:calc(100% + 12px);right:148px;display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px;white-space:nowrap" title="Tag this lead's source (Owner / Partner / Agent), then filter your lists by these using the matching chips at the top of each list.">
               <button type="button" id="uw-lead-owner" onclick="uwSetLeadType('owner')" style="padding:6px 14px;border:none;cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Owner</button>
               <button type="button" id="uw-lead-partner" onclick="uwSetLeadType('partner')" style="padding:6px 14px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Partner</button>
               <button type="button" id="uw-lead-agent" onclick="uwSetLeadType('agent')" style="padding:6px 14px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Agent</button>
             </span>
+            <div id="uw-tags-pop" style="display:none;position:absolute;top:calc(100% + 46px);right:148px;z-index:60;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:300px;box-shadow:0 10px 30px rgba(0,0,0,0.5)"></div>
             <div id="deal-contacts-pop" style="display:none;position:absolute;top:calc(100% + 58px);right:0;z-index:60;background:var(--panel);border:1px solid #a5b4fc;border-radius:10px;padding:12px 14px;min-width:420px;max-width:540px;box-shadow:0 10px 30px rgba(0,0,0,0.5)"></div>
             <div id="deal-history-pop" style="display:none;position:absolute;top:calc(100% + 58px);right:0;z-index:60;background:var(--panel);border:1px solid #a5b4fc;border-radius:10px;padding:12px 14px;min-width:510px;max-width:840px;box-shadow:0 10px 30px rgba(0,0,0,0.5)"></div>
           </div>
@@ -18277,6 +18279,8 @@ function _uwCollect() {
           k === '_invoiceOriginal' || k === '_invoiceActive' || k === '_invoiceTab' || k === '_invoiceInclContractor' || k === '_invoicePaidDeposits' || k === '_externalInvoices' || k === '_constructionAgreements' ||
           // Form-submission log + auto-asking tracker (owner/partner submit forms).
           k === '_formSubmissions' || k === '_autoAsking' || k === '_fromForm' ||
+          // Custom property tags (added via the 🏷️ tag control on the deal header).
+          k === '_tags' ||
           // Geocode coordinates — written by _dispoGeocodeSubject directly
           // into u.data.lat/lng/geocoded_address (not form fields). Without
           // this preservation, the next autosave wipes them and the user
@@ -20203,6 +20207,7 @@ async function uwLoadById(id) {
   try { if (typeof window._rcRenderCustomPresets === 'function') window._rcRenderCustomPresets(); } catch (_) {}
   // Reflect this deal's saved lead type (Owner / Partner / Agent) on the chips.
   try { if (typeof window.uwRenderLeadChips === 'function') window.uwRenderLeadChips(); } catch (_) {}
+  try { if (typeof window.uwRenderTags === 'function') window.uwRenderTags(); var _tp = document.getElementById('uw-tags-pop'); if (_tp) _tp.style.display = 'none'; } catch (_) {}
   // Update the prev/next navigator position for the section this deal is in.
   if (typeof _uwNavUpdate === 'function') _uwNavUpdate();
   // Show Closed On for Finalized deals (replaces ARV − Asking).
@@ -37625,8 +37630,12 @@ function renderUnderwriteList() {
   const _hotMatches = (u) => {
     if (!u) return false;
     const data = u.data || {};
-    // ----- Custom Hot mode (set via the ⚙️ gear) -----
+    // ----- Custom / Tagged Hot modes (set via the ⚙️ gear) -----
     const _S = window._uwHotSettings || {};
+    if (_S.mode === 'tagged') {
+      const _t = data._tags;
+      return Array.isArray(_t) && _t.length > 0;
+    }
     if (_S.mode === 'custom') {
       const _n = (v) => parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')) || 0;
       const _price = _n(data['uw-accepted']) || _n(data['uw-asking']) || _n(u.asking);
@@ -55657,6 +55666,56 @@ window.uwSetLeadType = function(role){
   window.uwRenderLeadChips();
   if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
 };
+// ===== Custom property tags =====
+window._uwCurrentTags = function(){
+  try { var t = cache.underwrites[_uwCurrentId].data._tags; return Array.isArray(t) ? t : []; } catch(_){ return []; }
+};
+window.uwToggleTagEditor = function(ev){
+  if (ev) ev.stopPropagation();
+  var pop = document.getElementById('uw-tags-pop'); if (!pop) return;
+  if (pop.style.display === 'none' || !pop.style.display) { pop.style.display = 'block'; window.uwRenderTagEditor(); }
+  else pop.style.display = 'none';
+};
+window.uwAddTag = function(){
+  var inp = document.getElementById('uw-tag-input'); if (!inp) return;
+  var v = (inp.value || '').trim(); if (!v) return;
+  if (typeof _uwCurrentId === 'undefined' || !_uwCurrentId || !cache.underwrites || !cache.underwrites[_uwCurrentId]) return;
+  var u = cache.underwrites[_uwCurrentId]; if (!u.data) u.data = {};
+  var arr = Array.isArray(u.data._tags) ? u.data._tags.slice() : [];
+  if (arr.map(function(x){ return String(x).toLowerCase(); }).indexOf(v.toLowerCase()) < 0) arr.push(v);
+  u.data._tags = arr;
+  inp.value = '';
+  window.uwRenderTags(); window.uwRenderTagEditor();
+  if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+};
+window.uwRemoveTag = function(tag){
+  if (typeof _uwCurrentId === 'undefined' || !_uwCurrentId || !cache.underwrites || !cache.underwrites[_uwCurrentId]) return;
+  var u = cache.underwrites[_uwCurrentId]; if (!u.data) return;
+  var arr = Array.isArray(u.data._tags) ? u.data._tags.slice() : [];
+  var i = arr.indexOf(tag); if (i >= 0) arr.splice(i, 1);
+  u.data._tags = arr;
+  window.uwRenderTags(); window.uwRenderTagEditor();
+  if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+};
+window.uwRenderTags = function(){
+  var tags = window._uwCurrentTags();
+  var cnt = document.getElementById('uw-tags-count'); if (cnt) cnt.textContent = tags.length ? ' ' + tags.length : '';
+  var btn = document.getElementById('uw-tags-btn');
+  if (btn){ var on = tags.length > 0; btn.style.background = on ? 'rgba(16,185,129,0.18)' : 'transparent'; btn.style.color = on ? '#86efac' : 'var(--text-dim)'; }
+};
+window.uwRenderTagEditor = function(){
+  var pop = document.getElementById('uw-tags-pop'); if (!pop) return;
+  var tags = window._uwCurrentTags();
+  var esc = function(s){ var d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; };
+  var chips = tags.length
+    ? tags.map(function(t){ return '<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#86efac;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:600">' + esc(t) + '<button onclick="uwRemoveTag(\'' + esc(t).replace(/\\/g,"\\\\").replace(/'/g,"\\'") + '\')" style="background:none;border:none;color:#86efac;cursor:pointer;font-size:13px;line-height:1;padding:0">✕</button></span>'; }).join('')
+    : '<span style="color:var(--text-dim);font-size:12px">No tags yet.</span>';
+  pop.innerHTML =
+    '<div style="font-weight:700;font-size:13px;margin-bottom:8px">🏷️ Property tags</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' + chips + '</div>' +
+    '<div style="display:flex;gap:6px"><input id="uw-tag-input" type="text" placeholder="Add a tag…" onkeydown="if(event.key===\'Enter\'){event.preventDefault();uwAddTag();}" style="flex:1;min-width:0;box-sizing:border-box;padding:6px 9px;font-size:13px;border:1px solid var(--border-strong);border-radius:7px;background:var(--panel-2);color:var(--text)"><button onclick="uwAddTag()" style="flex:0 0 auto;background:#10b981;color:#fff;border:none;border-radius:7px;padding:0 14px;cursor:pointer;font-weight:700;font-size:13px">Add</button></div>';
+  var inp = document.getElementById('uw-tag-input'); if (inp) inp.focus();
+};
 window.uwRenderLeadChips = function(){
   var set;
   try { set = window._uwEffectiveLeadTypes(cache.underwrites[_uwCurrentId]); } catch(_){ set = new Set(); }
@@ -55805,6 +55864,7 @@ window._uwOpenHotSettings = function(){
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-wd" ' + (S.withinDollarOn?'checked':'') + ' style="' + _ck + '"><span>Price is within $</span><input type="number" id="hs-wdval" value="' + (S.withinDollar||15000) + '" min="0" step="500" style="width:78px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>of max offer</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-wp" ' + (S.withinPctOn?'checked':'') + ' style="' + _ck + '"><span>Price is within</span><input type="number" id="hs-wpval" value="' + (S.withinPct||25) + '" min="1" max="200" step="1" style="width:56px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>% of max offer</span></label>' +
     '</div>' +
+    '<label style="display:flex;gap:10px;align-items:center;padding:12px 0 6px;cursor:pointer;border-top:1px solid var(--border)"><input type="radio" name="hs-mode" value="tagged" ' + (S.mode==='tagged'?'checked':'') + ' style="' + _rd + ';margin-top:0"><span style="flex:1"><div style="font-weight:600;font-size:13.5px">Tagged Properties</div><div style="font-size:12px;color:var(--text-dim);line-height:1.45;margin-top:2px">Only properties that have at least one custom 🏷️ tag.</div></span></label>' +
     '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button id="hs-save" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700;font-size:13px">Apply</button></div>';
   ov.appendChild(box); document.body.appendChild(ov);
   var close = function(){ ov.remove(); };

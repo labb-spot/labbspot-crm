@@ -37625,6 +37625,39 @@ function renderUnderwriteList() {
   const _hotMatches = (u) => {
     if (!u) return false;
     const data = u.data || {};
+    // ----- Custom Hot mode (set via the ⚙️ gear) -----
+    const _S = window._uwHotSettings || {};
+    if (_S.mode === 'custom') {
+      const _n = (v) => parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')) || 0;
+      const _price = _n(data['uw-accepted']) || _n(data['uw-asking']) || _n(u.asking);
+      if (_price <= 0) return false;                         // must have a price
+      const _arvC = (typeof _uwComputeArvFromData === 'function' ? (_uwComputeArvFromData(data) || 0) : 0) || _n(u.arv);
+      const _hasRehab = _n(data['uw-rehab-override']) > 0 ||
+        (Array.isArray(data._rehab) && data._rehab.some(col => (col && col.items || []).some(it => it && it.needed === true)));
+      if (_S.hasArv && !(_arvC > 0)) return false;           // Has ARV
+      if (_S.hasBudget && !_hasRehab) return false;          // Has a rehab budget
+      if (_S.inAnalyzed) {                                   // In the Analyzed bucket
+        const _flag = (k) => data[k] === true;
+        const _analyzing = (typeof _uwIsAnalyzing === 'function')
+          ? _uwIsAnalyzing(u)
+          : (function(){ const ps = ((u.packet_status) || '').trim(); return ps === '' || ps === 'Evaluating'; })();
+        const _isAnalyzed = !_flag('_needsHelp') && !_flag('_isPriority') && !_flag('_inChecking') && !_analyzing && ((u.packet_status) || '').trim() !== 'Closed';
+        if (!_isAnalyzed) return false;
+      }
+      if (_S.pricePctOn) {                                   // Price ≤ X% of ARV
+        if (!(_arvC > 0)) return false;
+        if (_price > (_S.pricePct / 100) * _arvC) return false;
+      }
+      if (_S.withinDollarOn || _S.withinPctOn) {             // within $ / % of max offer
+        const _mo = parseFloat(u.max_offer || data._maxOffer || 0) ||
+          (typeof _uwComputeMaxOfferFromData === 'function' ? _uwComputeMaxOfferFromData(data) : 0);
+        if (!(_mo > 0)) return false;
+        const _gap = Math.abs(_mo - _price);
+        if (_S.withinDollarOn && _gap > _S.withinDollar) return false;
+        if (_S.withinPctOn && _gap > (_S.withinPct / 100) * _mo) return false;
+      }
+      return true;
+    }
     // GATE B: not Finalized (Closed or Dropped).
     const _hotOffer = (data['uw-offer-status'] || '').trim();
     const _hotPacket = (u.packet_status || '').trim();
@@ -55740,6 +55773,59 @@ window.toggleDealHistory = function(ev){
   })();
 };
 
+// ===== Hot list settings =====
+// Configurable definition of the Hot list.
+//   mode 'default' → the built-in striking-distance logic.
+//   mode 'custom'  → any property with a price, optionally narrowed to those
+//                    with an ARV, a rehab budget, and/or price ≤ X% of ARV.
+window._uwHotSettings = (function(){
+  var d = { mode:'default', hasArv:false, hasBudget:false, inAnalyzed:false, pricePctOn:false, pricePct:80, withinDollarOn:false, withinDollar:15000, withinPctOn:false, withinPct:25 };
+  try { var s = JSON.parse(localStorage.getItem('uw-hot-settings-v1')); if (s && typeof s === 'object') return Object.assign(d, s); } catch(_){}
+  return d;
+})();
+window._uwSaveHotSettings = function(){ try { localStorage.setItem('uw-hot-settings-v1', JSON.stringify(window._uwHotSettings)); } catch(_){} };
+window._uwOpenHotSettings = function(){
+  var S = window._uwHotSettings;
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-start;justify-content:center;padding:60px 20px';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var box = document.createElement('div');
+  box.style.cssText = 'max-width:490px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;box-shadow:0 14px 50px rgba(0,0,0,0.55)';
+  var _rd = 'width:17px;height:17px;flex:0 0 auto;margin:2px 0 0;cursor:pointer';
+  var _ck = 'width:16px;height:16px;flex:0 0 auto;margin:0;cursor:pointer';
+  box.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-weight:700;font-size:16px">🔥 Hot list settings</div><button id="hs-x" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;line-height:1">✕</button></div>' +
+    '<label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;cursor:pointer;border-bottom:1px solid var(--border)"><input type="radio" name="hs-mode" value="default" ' + (S.mode!=='custom'?'checked':'') + ' style="' + _rd + '"><span style="flex:1"><div style="font-weight:600;font-size:13.5px">Standard Hot (current)</div><div style="font-size:12px;color:var(--text-dim);line-height:1.45;margin-top:2px">Rehab-priced, still-live deals where Asking is below Max Offer, within $15k, or within 25% of it.</div></span></label>' +
+    '<label style="display:flex;gap:10px;align-items:center;padding:12px 0 6px;cursor:pointer"><input type="radio" name="hs-mode" value="custom" ' + (S.mode==='custom'?'checked':'') + ' style="' + _rd + ';margin-top:0"><span style="flex:1;font-weight:600;font-size:13.5px">Custom Hot</span></label>' +
+    '<div id="hs-custom" style="padding:4px 0 2px 27px;opacity:' + (S.mode==='custom'?'1':'0.45') + '">' +
+      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-arv" ' + (S.hasArv?'checked':'') + ' style="' + _ck + '"><span>Has After Repair Value</span></label>' +
+      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-budget" ' + (S.hasBudget?'checked':'') + ' style="' + _ck + '"><span>Has Renovation Budget</span></label>' +
+      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-analyzed" ' + (S.inAnalyzed?'checked':'') + ' style="' + _ck + '"><span>In Analyzed</span></label>' +
+      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-pct" ' + (S.pricePctOn?'checked':'') + ' style="' + _ck + '"><span>Price is</span><input type="number" id="hs-pctval" value="' + (S.pricePct||80) + '" min="1" max="200" step="1" style="width:56px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>% of After Repair Value</span></label>' +
+      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-wd" ' + (S.withinDollarOn?'checked':'') + ' style="' + _ck + '"><span>Price is within $</span><input type="number" id="hs-wdval" value="' + (S.withinDollar||15000) + '" min="0" step="500" style="width:78px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>of max offer</span></label>' +
+      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-wp" ' + (S.withinPctOn?'checked':'') + ' style="' + _ck + '"><span>Price is within</span><input type="number" id="hs-wpval" value="' + (S.withinPct||25) + '" min="1" max="200" step="1" style="width:56px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>% of max offer</span></label>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button id="hs-save" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700;font-size:13px">Apply</button></div>';
+  ov.appendChild(box); document.body.appendChild(ov);
+  var close = function(){ ov.remove(); };
+  box.querySelector('#hs-x').onclick = close;
+  box.querySelectorAll('input[name="hs-mode"]').forEach(function(r){ r.onchange = function(){ box.querySelector('#hs-custom').style.opacity = (box.querySelector('input[name="hs-mode"]:checked').value==='custom') ? '1' : '0.45'; }; });
+  box.querySelector('#hs-save').onclick = function(){
+    S.mode      = box.querySelector('input[name="hs-mode"]:checked').value;
+    S.hasArv    = box.querySelector('#hs-arv').checked;
+    S.hasBudget = box.querySelector('#hs-budget').checked;
+    S.inAnalyzed= box.querySelector('#hs-analyzed').checked;
+    S.pricePctOn= box.querySelector('#hs-pct').checked;
+    S.pricePct  = parseFloat(box.querySelector('#hs-pctval').value) || 80;
+    S.withinDollarOn = box.querySelector('#hs-wd').checked;
+    S.withinDollar   = parseFloat(box.querySelector('#hs-wdval').value) || 15000;
+    S.withinPctOn    = box.querySelector('#hs-wp').checked;
+    S.withinPct      = parseFloat(box.querySelector('#hs-wpval').value) || 25;
+    window._uwSaveHotSettings();
+    close();
+    if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
+  };
+};
 // Build the standard controls cluster (chips + Buy Box + edit) for a section.
 window._uwSecControlsHTML = function(section){
   var chipBtn = function(role, label){
@@ -55747,7 +55833,8 @@ window._uwSecControlsHTML = function(section){
       (role === 'owner' ? '' : 'border-left:1px solid var(--border);') +
       'cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">' + label + '</button>';
   };
-  return '<span class="uw-tbchip" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px">' +
+  return (section === 'hot' ? '<button type="button" id="uw-hot-settings-gear" onclick="_uwOpenHotSettings()" title="Configure how the Hot list is determined." style="padding:0 11px;height:30px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-size:14px;white-space:nowrap">⚙️</button>' : '') +
+    '<span class="uw-tbchip" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px">' +
       chipBtn('owner','Owner') + chipBtn('partner','Partner') + chipBtn('agent','Agent') +
     '</span>' +
     '<span style="display:inline-flex;align-items:center;gap:4px">' +

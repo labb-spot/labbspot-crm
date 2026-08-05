@@ -55672,7 +55672,12 @@ window.uwToggleTagged = function(ev){
   var u = cache.underwrites[_uwCurrentId]; if (!u.data) u.data = {};
   u.data._tagged = !u.data._tagged;
   window.uwRenderTags();
-  if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+  // Force + flush: bypass the "deal still loading" autosave guard (tagging is an
+  // explicit user action, often done right after opening a deal) AND commit
+  // immediately instead of waiting on the debounce, so a quick refresh can't
+  // drop the change before it reaches Supabase.
+  if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave(true);
+  if (typeof _uwFlushAutosave === 'function') _uwFlushAutosave();
 };
 window.uwRenderTags = function(){
   var on = window.uwIsTagged();

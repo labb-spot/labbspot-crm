@@ -12534,6 +12534,11 @@ function uwIfpRecalc() {
     ? (_ifpNum('uw-asis-lreal-override') || _ifpNum('uw-asis-lreal-arv'))
     : (_ifpNum('uw-arv') || _ifpNum('uw-arv-override'));
   const dollar = (arv > 0 ? Math.max(20000, arv * (finalPct / 100)) : 0);
+  // Single source of truth — expose the panel's ideal-flip-profit dollar and
+  // final margin so the wholesale/flip/wholetail cascade uses the exact same
+  // number instead of re-deriving it with a different time bonus / ARV.
+  window._uwIfpProfit = dollar;
+  window._uwIfpFinalPct = finalPct;
   const fmt = (n) => isFinite(n) && n > 0 ? '$' + Math.round(n).toLocaleString() : '$0';
   const $ = (id) => document.getElementById(id);
   if ($('uw-ifp-condition'))  $('uw-ifp-condition').textContent  = label;
@@ -12727,8 +12732,16 @@ function uwComputeExits(ctx) {
     }
   }
   const _wsIfpTimeBonus       = Math.max(0, (_wsFlMonths - 3) * 0.5);
-  const _wsIfpFinalPct        = _wsIfpBasePct + _wsIfpTimeBonus;
-  const wsIdealProfit         = (arv > 0 ? Math.max(20000, arv * (_wsIfpFinalPct / 100)) : 0);
+  // Use the SAME Ideal Flip Profit the panel displays (it ran earlier this
+  // tick): its final margin % and dollar amount. This makes the wholesale /
+  // flip / wholetail "Ideal profit" match the panel exactly. Falls back to the
+  // local derivation only if the panel value isn't available yet.
+  const _wsIfpFinalPct        = (typeof window._uwIfpFinalPct === 'number' && window._uwIfpFinalPct > 0)
+                                  ? window._uwIfpFinalPct
+                                  : (_wsIfpBasePct + _wsIfpTimeBonus);
+  const wsIdealProfit         = (typeof window._uwIfpProfit === 'number' && window._uwIfpProfit > 0)
+                                  ? window._uwIfpProfit
+                                  : (arv > 0 ? Math.max(20000, arv * (_wsIfpFinalPct / 100)) : 0);
   // New cash buyer MAO — solved algebraically so 3% purchase closing is taken
   // off MAO itself (what the buyer pays), not asking price. Removes the
   // circular dependency that made Max Offer drift when Asking changed.

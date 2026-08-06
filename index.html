@@ -37651,6 +37651,9 @@ function renderUnderwriteList() {
         const _isAnalyzed = !_flag('_needsHelp') && !_flag('_isPriority') && !_flag('_inChecking') && !_analyzing && ((u.packet_status) || '').trim() !== 'Closed';
         if (!_isAnalyzed) return false;
       }
+      if (_S.excludeDispo) {                                 // Drop anything already in the Dispositions pipeline
+        if (u.dispo_contract || data._dispoContract) return false;
+      }
       if (_S.pricePctOn) {                                   // Price ≤ X% of ARV
         if (!(_arvC > 0)) return false;
         if (_price > (_S.pricePct / 100) * _arvC) return false;
@@ -55810,7 +55813,7 @@ window.toggleDealHistory = function(ev){
 //   mode 'custom'  → any property with a price, optionally narrowed to those
 //                    with an ARV, a rehab budget, and/or price ≤ X% of ARV.
 window._uwHotSettings = (function(){
-  var d = { mode:'default', hasArv:false, hasBudget:false, inAnalyzed:false, pricePctOn:false, pricePct:80, withinDollarOn:false, withinDollar:15000, withinPctOn:false, withinPct:25 };
+  var d = { mode:'default', hasArv:false, hasBudget:false, inAnalyzed:false, excludeDispo:false, pricePctOn:false, pricePct:80, withinDollarOn:false, withinDollar:15000, withinPctOn:false, withinPct:25 };
   try { var s = JSON.parse(localStorage.getItem('uw-hot-settings-v1')); if (s && typeof s === 'object') return Object.assign(d, s); } catch(_){}
   return d;
 })();
@@ -55832,6 +55835,7 @@ window._uwOpenHotSettings = function(){
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-arv" ' + (S.hasArv?'checked':'') + ' style="' + _ck + '"><span>Has After Repair Value</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-budget" ' + (S.hasBudget?'checked':'') + ' style="' + _ck + '"><span>Has Renovation Budget</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-analyzed" ' + (S.inAnalyzed?'checked':'') + ' style="' + _ck + '"><span>In Analyzed</span></label>' +
+      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-exdispo" ' + (S.excludeDispo?'checked':'') + ' style="' + _ck + '"><span>Exclude Properties in Dispositions</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-pct" ' + (S.pricePctOn?'checked':'') + ' style="' + _ck + '"><span>Price is</span><input type="number" id="hs-pctval" value="' + (S.pricePct||80) + '" min="1" max="200" step="1" style="width:56px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>% of After Repair Value</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-wd" ' + (S.withinDollarOn?'checked':'') + ' style="' + _ck + '"><span>Price is within $</span><input type="number" id="hs-wdval" value="' + (S.withinDollar||15000) + '" min="0" step="500" style="width:78px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>of max offer</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-wp" ' + (S.withinPctOn?'checked':'') + ' style="' + _ck + '"><span>Price is within</span><input type="number" id="hs-wpval" value="' + (S.withinPct||25) + '" min="1" max="200" step="1" style="width:56px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>% of max offer</span></label>' +
@@ -55847,6 +55851,7 @@ window._uwOpenHotSettings = function(){
     S.hasArv    = box.querySelector('#hs-arv').checked;
     S.hasBudget = box.querySelector('#hs-budget').checked;
     S.inAnalyzed= box.querySelector('#hs-analyzed').checked;
+    S.excludeDispo = box.querySelector('#hs-exdispo').checked;
     S.pricePctOn= box.querySelector('#hs-pct').checked;
     S.pricePct  = parseFloat(box.querySelector('#hs-pctval').value) || 80;
     S.withinDollarOn = box.querySelector('#hs-wd').checked;
@@ -56057,13 +56062,15 @@ else window._uwSplitBudgetSchedule();
 // Defaults: 700–2200 SqFt, built after 1950, no ZIP restriction.
 var _UW_BUYBOX_KEY = 'uwBuyBox';
 window._uwBuyBoxGet = function(){
-  var def = { minSqft: 700, maxSqft: 2200, minYear: 1950, zips: [] };
+  var def = { minSqft: 700, maxSqft: 2200, minYear: 1950, minArv: 0, maxArv: 0, zips: [] };
   try {
     var s = JSON.parse(localStorage.getItem(_UW_BUYBOX_KEY) || '{}');
     return {
       minSqft: (s.minSqft != null ? +s.minSqft : def.minSqft) || 0,
       maxSqft: (s.maxSqft != null ? +s.maxSqft : def.maxSqft) || 0,
       minYear: (s.minYear != null ? +s.minYear : def.minYear) || 0,
+      minArv: (s.minArv != null ? +s.minArv : 0) || 0,
+      maxArv: (s.maxArv != null ? +s.maxArv : 0) || 0,
       zips: Array.isArray(s.zips) ? s.zips.filter(function(z){ return /^\d{5}$/.test(z); }) : []
     };
   } catch(e){ return def; }
@@ -56088,6 +56095,12 @@ window._uwBuyBoxPass = function(u){
   if (bb.minYear){
     if (!year) return false;
     if (year <= bb.minYear) return false;   // "after 1950" → strictly greater
+  }
+  if (bb.minArv || bb.maxArv){
+    var arv = (typeof _uwComputeArvFromData === 'function' ? (_uwComputeArvFromData(d) || 0) : 0) || num(u && u.arv);
+    if (!arv) return false;                  // unknown ARV excluded when a limit is set
+    if (bb.minArv && arv < bb.minArv) return false;
+    if (bb.maxArv && arv > bb.maxArv) return false;
   }
   if (bb.zips && bb.zips.length){
     if (!zip || bb.zips.indexOf(zip) === -1) return false;
@@ -56124,6 +56137,8 @@ window._uwBuyBoxOpenEditor = function(){
   set('uwall-buybox-minsqft', bb.minSqft || '');
   set('uwall-buybox-maxsqft', bb.maxSqft || '');
   set('uwall-buybox-minyear', bb.minYear || '');
+  set('uwall-buybox-minarv', bb.minArv || '');
+  set('uwall-buybox-maxarv', bb.maxArv || '');
   window._uwBuyBoxEditZips = (bb.zips || []).slice();
   window._uwBuyBoxRenderZipChips();
   var m = document.getElementById('uwall-buybox-modal');
@@ -56139,6 +56154,8 @@ window._uwBuyBoxSaveEditor = function(){
     minSqft: num('uwall-buybox-minsqft'),
     maxSqft: num('uwall-buybox-maxsqft'),
     minYear: num('uwall-buybox-minyear'),
+    minArv: num('uwall-buybox-minarv'),
+    maxArv: num('uwall-buybox-maxarv'),
     zips: (window._uwBuyBoxEditZips || []).slice()
   });
   window._uwBuyBoxCloseEditor();
@@ -56161,6 +56178,12 @@ window._uwBuyBoxSaveEditor = function(){
       </label>
       <label class="text-xs" style="color:var(--text-dim);grid-column:1 / -1">Built after (year) — must be strictly greater
         <input type="number" id="uwall-buybox-minyear" placeholder="1950" style="width:100%;margin-top:4px">
+      </label>
+      <label class="text-xs" style="color:var(--text-dim)">Min ARV ($) — leave empty for no floor
+        <input type="number" id="uwall-buybox-minarv" placeholder="e.g. 100000" style="width:100%;margin-top:4px">
+      </label>
+      <label class="text-xs" style="color:var(--text-dim)">Max ARV ($) — leave empty for no ceiling
+        <input type="number" id="uwall-buybox-maxarv" placeholder="e.g. 300000" style="width:100%;margin-top:4px">
       </label>
     </div>
     <div style="margin-bottom:16px">

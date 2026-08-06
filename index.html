@@ -12991,6 +12991,20 @@ function uwComputeExits(ctx) {
   const cashAnnualNoi      = annualRent - (rtIns + rtTaxCash + rtVac + rtMaint + rtCapex + rtPm) * 12;
   const cashRentalCoC      = cashInvestment > 0 ? (cashAnnualCashflow / cashInvestment) * 100 : 0;
 
+  // ====== 3b. TURN-KEY RENTAL (rent-ready) ======
+  // Same cash purchase and same ongoing operating cashflow as Cash Rental, but
+  // the property comes rent-ready: NO rehab, and NO pre-rent holding (electric /
+  // water / builder's-risk insurance / property tax / mowing during a vacant
+  // reno period). Only the capital invested differs — so the gross yield / cap
+  // rate is higher than Cash Rental. Nothing here feeds the Cash / Fin / Refi
+  // math; it's a parallel, view-only variant.
+  // Turn-key carries a light rehab reserve fixed at 5% of ARV (not a full reno),
+  // but still NO pre-rent holding / mowing.
+  const tkRehab           = arv * 0.05;
+  // Full Turn-Key (DSCR-financed) math is computed below, AFTER the Financed
+  // rental block, so it can reuse the same DSCR inputs (rate/term/orig/close/fee)
+  // and the 70% LTV cap.
+
   // ====== 4. FINANCED RENTAL ======
   // Editable down %, rate, term. RENTAL-grade rehab. Tax basis = ARV (refinanced).
   // The loan basis ROLLS IN purchase closing + pre-rent tax/ins so the borrower
@@ -13069,6 +13083,46 @@ function uwComputeExits(ctx) {
   const finCoC = finLeftIn > 0
                    ? (finAnnualCashflow / finLeftIn) * 100
                    : (finAnnualCashflow > 0 ? Infinity : 0);
+
+  // ====== 4a. TURN-KEY FINANCED RENTAL (DSCR, rent-ready) ======
+  // Same DSCR delayed-financing model as Financed Rental, reusing every DSCR
+  // input (rate/term/origination/closing/appraisal). Differences: the property
+  // is rent-ready, so rehab is a light 5%-of-ARV reserve and there is NO pre-rent
+  // holding. Closing happens ONCE (the purchase closing rolled into the loan
+  // basis + the DSCR loan fees). Loan is smart-sized to cover
+  //   purchase + one-time purchase closing + 5%-ARV reserve
+  // then HARD-CAPPED at the lesser of 70% of ARV and the purchase price.
+  const tkFinPreRentHolding = 0;
+  const tkFinClosePct    = 3; // Turn-Key uses a 3% DSCR closing (this mode only)
+  const _tkFinNetFactor  = 1 - ((finOrigPct + tkFinClosePct) / 100);
+  const tkFinCashPutUp   = buyPrice + rtPurchClosingTotal + tkFinPreRentHolding; // 5% reserve is shown as a line only, NOT used in the financing math
+  const _tkFinLoanNeeded = _tkFinNetFactor > 0 ? (tkFinCashPutUp + uwAppraisalFee) / _tkFinNetFactor : 0;
+  const _tkFinLtvCapLoan = _finLtvCapLoan; // ARV × 70%
+  // Cap at 70% ARV AND at the purchase price (never borrow more than you paid).
+  const _tkFinCap        = Math.min(_tkFinLtvCapLoan, (buyPrice > 0 ? buyPrice : _tkFinLtvCapLoan));
+  const _tkFinLoanSmart  = Math.min(_tkFinLoanNeeded, _tkFinCap);
+  const tkFinLoan        = Math.max(0, _tkFinLoanSmart * (1 - finDownPct / 100));
+  const tkFinPi          = finRate > 0 ? tkFinLoan * (finRate * Math.pow(1 + finRate, finN)) / (Math.pow(1 + finRate, finN) - 1) : 0;
+  const tkFinInterest    = tkFinLoan * finRate;
+  const tkFinPrincipal   = Math.max(0, tkFinPi - tkFinInterest);
+  const tkFinMonthlyExp  = tkFinPi + rtTaxFin + rtIns + rtVac + rtMaint + rtCapex + rtPm;
+  const tkFinCashflow    = rent - tkFinMonthlyExp;
+  const tkFinAnnualCashflow = tkFinCashflow * 12;
+  // Expose Turn-Key monthly cashflow for the deals-list Exit Margins cell.
+  window._3p_tkRentalMo = (typeof tkFinCashflow === 'number' && isFinite(tkFinCashflow)) ? tkFinCashflow : null;
+  const tkFinPiti        = tkFinPi + rtTaxFin + rtIns;
+  const tkFinDscr        = tkFinPiti > 0 ? rent / tkFinPiti : 0;
+  const tkFinDscrRes     = tkFinMonthlyExp > 0 ? rent / tkFinMonthlyExp : 0;
+  const tkFinOrig        = tkFinLoan * (finOrigPct / 100);
+  const tkFinCloseCost   = tkFinLoan * (tkFinClosePct / 100);
+  const tkFinNetCashFromLoan = tkFinLoan - tkFinOrig - tkFinCloseCost - uwAppraisalFee;
+  const tkFinCashOut     = Math.max(0, tkFinNetCashFromLoan - tkFinCashPutUp);
+  // If you finance all the way up to the 70% ARV cap (above the purchase-price
+  // cap), this is the extra cash you could pull out beyond your cash put in.
+  const _tkFinNetAtCap   = _tkFinLtvCapLoan * (1 - ((finOrigPct + tkFinClosePct) / 100)) - uwAppraisalFee;
+  const tkFinPullOutMax  = Math.max(0, _tkFinNetAtCap - tkFinCashPutUp);
+  const tkFinLeftIn      = Math.max(0, tkFinCashPutUp - tkFinNetCashFromLoan);
+  const tkFinCoC         = tkFinLeftIn > 0 ? (tkFinAnnualCashflow / tkFinLeftIn) * 100 : (tkFinAnnualCashflow > 0 ? Infinity : 0);
 
   // ====== 4b. REFI (refinance out of HM/PM into long-term mortgage) ======
   // Two phases: (1) initial HM/PM hold during rehab + lease-up — pay HM
@@ -13409,7 +13463,7 @@ function uwComputeExits(ctx) {
   const rentalMode = (() => {
     const m = (typeof _uwRentalMode !== 'undefined') ? _uwRentalMode : 'cash';
     if (m === 'brrr') return 'refi';
-    if (m === 'financed' || m === 'refi') return m;
+    if (m === 'financed' || m === 'refi' || m === 'turnkey') return m;
     return 'cash';
   })();
 
@@ -13494,6 +13548,7 @@ function uwComputeExits(ctx) {
   ];
   const _rentalOpts = [
     { value: 'cash',     label: '💵 Cash',  color: '#10b981', title: 'Buy with cash, no mortgage' },
+    { value: 'turnkey',  label: '🔑 Key',   color: '#14b8a6', title: 'Turn-key rental — rent-ready, no rehab, no pre-rent holding / mowing' },
     { value: 'financed', label: '🏦 Fin',   color: '#3b82f6', title: 'Mortgage at purchase' },
     { value: 'refi',     label: '🔁 Refi',  color: '#f59e0b', title: 'Refinance out of initial financing into a long-term mortgage' },
   ];
@@ -13808,16 +13863,16 @@ function uwComputeExits(ctx) {
       // Combined Cash/Financed Rental card. Toggle in the header swaps which
       // compute path drives the numbers + which detail panel is rendered.
       key: 'rental',
-      icon: rentalMode === 'refi' ? '🔁' : (rentalMode === 'financed' ? '🏦' : '💵'),
+      icon: rentalMode === 'turnkey' ? '🔑' : (rentalMode === 'refi' ? '🔁' : (rentalMode === 'financed' ? '🏦' : '💵')),
       name: 'Rental',
       toggle: _modeToggle('rental', rentalMode, _rentalOpts, _rentalRecMode),
       // The mode label shows the user's toggle (so the card name + toggle
       // stay consistent). The Best Exit badge logic uses bestRentalMode
       // separately, so the comparison and the recommendation banner reflect
       // the rule-based pick rather than the user's manual view selection.
-      mode: rentalMode === 'refi' ? 'Refi' : (rentalMode === 'financed' ? 'Financed' : 'Cash'),
+      mode: rentalMode === 'turnkey' ? 'Turn Key' : (rentalMode === 'refi' ? 'Refi' : (rentalMode === 'financed' ? 'Financed' : 'Cash')),
       bestMode: bestRentalMode === 'refi' ? 'Refi' : (bestRentalMode === 'financed' ? 'Financed' : 'Cash'),
-      profit:     rentalMode === 'refi' ? rfAnnualCashflow : (rentalMode === 'financed' ? finAnnualCashflow : cashAnnualCashflow),
+      profit:     rentalMode === 'turnkey' ? tkFinAnnualCashflow : (rentalMode === 'refi' ? rfAnnualCashflow : (rentalMode === 'financed' ? finAnnualCashflow : cashAnnualCashflow)),
       time: 'recurring', timeMo: 12,
       // Annualized used for Best Exit comparison — always reflects the
       // RULE-BASED best rental mode (cashYield ≥ 20% / refi-all-out / etc),
@@ -13826,6 +13881,13 @@ function uwComputeExits(ctx) {
       // which rental mode is "best" for the deal.
       annualized: bestRentalAnnualized,
       note: (() => {
+        if (rentalMode === 'turnkey') {
+          const cf = Math.round(tkFinCashflow);
+          const dscrTxt = tkFinDscr > 0 ? tkFinDscr.toFixed(2) : '—';
+          return cf >= 200
+            ? '🔑 Turn-key DSCR · ▲ ' + fmt(cf) + '/mo cashflow · DSCR ' + dscrTxt
+            : '🔑 Turn-key DSCR · ▼ ' + fmt(cf) + '/mo · below $200/mo min · DSCR ' + dscrTxt;
+        }
         if (rentalMode === 'cash') {
           const y = _cashYieldPct * 100, d = y - 20;
           return d >= 0 ? '▲ ' + y.toFixed(1) + '% yield · ' + d.toFixed(1) + '% above your 20% min'
@@ -13839,6 +13901,7 @@ function uwComputeExits(ctx) {
         return '✓ Exactly $200/mo at full pull-out';
       })(),
       noteOk: (() => {
+        if (rentalMode === 'turnkey') return tkFinCashflow >= 200;
         if (rentalMode === 'cash') return _cashYieldPct >= 0.20;
         if (finTargetPi <= 0) return false;
         const leaveIn = rentalMode === 'refi' ? rfTargetLeftIn : finExtraDownIn;
@@ -13878,6 +13941,14 @@ function uwComputeExits(ctx) {
           finCashOut > 0
             ? ['Bonus cash pulled out', fmt(finCashOut)]
             : ['Cash you put up (Phase 1)', fmt(finCashPutUp)],
+        ] : rentalMode === 'turnkey' ? [
+          ['Monthly cashflow', fmt(tkFinCashflow)],
+          ['Immediate equity (day 1)', fmt(Math.max(0, (arv || 0) - (tkFinLoan || 0)))],
+          ['Equity gain /mo', fmt((tkFinPrincipal || 0) + ((rtAnnualAppreciation || 0) / 12))],
+          ['Cash-on-cash', tkFinLeftIn < 1 ? '∞ (all capital out)' : tkFinCoC.toFixed(1) + '%'],
+          tkFinCashOut > 0
+            ? ['Bonus cash pulled out', fmt(tkFinCashOut)]
+            : ['Cash you put up', fmt(tkFinCashPutUp)],
         ] : [
           ['Monthly cashflow', fmt(cashRentalCashflow)],
           ['Immediate equity (day 1)', fmt(_cashImmediateEq)],
@@ -14056,6 +14127,53 @@ function uwComputeExits(ctx) {
           ['Year-1 loan paydown (principal × 12)', fmt(finPrincipal * 12)],
           ['Year-1 appreciation (' + rtApprPct + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(rtForcedEquity + (finPrincipal * 12) + rtAnnualAppreciation), 'profit'],
+        ]},
+        _rtAppSection,
+        { title: '🧾 Tenant-Paid Expenses', rows: [
+          ['Electricity & gas', fmt(tenantElec)],
+          ['Water & sewer', fmt(tenantWater)],
+          ['Trash & recycling', fmt(tenantTrash)],
+          ['Internet & Cable', fmt(tenantNet)],
+          ['Pest control', fmt(tenantPest)],
+          ['Renter\'s insurance', fmt(tenantIns)],
+          ['Total (info only)', fmt(tenantTotal)],
+        ]},
+      ] : rentalMode === 'turnkey' ? [
+        { title: '🔁 DSCR Financing <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· ' + finRatePct + '%/yr · ' + finYrs + ' yr · ' + FIN_LTV_CAP_PCT + '% LTV cap</span>', rows: [
+          ['ARV (rent-ready value)', fmt(arv)],
+          ['70% LTV cap (ARV × 70%)', fmt(_tkFinLtvCapLoan)],
+          ['Purchase price', fmt(buyPrice)],
+          ['Rehab reserve (5% of ARV)', fmt(tkRehab), 'orange'],
+          ['DSCR loan (cap 70% ARV / price)', fmt(tkFinLoan)],
+          ['− DSCR origination (' + finOrigPct + '% of loan)', '−' + fmt(tkFinOrig)],
+          ['− DSCR closing (' + tkFinClosePct + '% of loan)', '−' + fmt(tkFinCloseCost)],
+          ['− Underwriting & Appraisal Fee', '−' + fmt(uwAppraisalFee)],
+          ['💰 Cash Required to LEAVE IN', fmt(Math.max(0, buyPrice - _tkFinLtvCapLoan) + tkFinCloseCost + tkFinOrig), 'redhl'],
+          ['💵 Cash Available to PULL OUT (at 70% LTV)', fmt(tkFinPullOutMax), 'greenhl'],
+          ['DSCR (PITI) — must be ≥ 1.25', tkFinDscr > 0 ? tkFinDscr.toFixed(2) : '—', tkFinDscr >= 1.25 ? 'cyangreen' : 'cyanred'],
+          ['DSCR (PITI + Reserves)', tkFinDscrRes > 0 ? tkFinDscrRes.toFixed(2) : '—', tkFinDscrRes >= 1.0 ? 'profit' : 'cost'],
+        ]},
+        { title: '🏠 Monthly Cashflow & Returns', rows: [
+          ['Rent', fmt(rent)],
+          ['Monthly Interest', '−' + fmt(tkFinInterest)],
+          ['Monthly Principal', '−' + fmt(tkFinPrincipal)],
+          ['Property tax (1% ARV/yr)', '−' + fmt(rtTaxFin)],
+          ['Insurance (1% ARV/yr)', '−' + fmt(rtIns)],
+          ['Cashflow after PITI', fmt(rent - tkFinInterest - tkFinPrincipal - rtTaxFin - rtIns), 'amber'],
+          ['Management fee (' + rtPmPct + '%)', '−' + fmt(rtPm)],
+          ['Vacancy (' + rtVacPct + '%)', '−' + fmt(rtVac)],
+          ['Maintenance (' + rtMaintPct + '%)', '−' + fmt(rtMaint)],
+          ['CapEx (' + rtCapexPct + '%)', '−' + fmt(rtCapex)],
+          ['Cashflow after Reserves', fmt(tkFinCashflow), 'purple'],
+          ['Annual cashflow', fmt(tkFinAnnualCashflow), 'profit'],
+          ['Cash-on-cash', tkFinLeftIn < 1 ? '∞ (all capital out)' : tkFinCoC.toFixed(1) + '%', 'profit'],
+        ]},
+        { title: '📈 Equity Gain', rows: [
+          ['Day-1 forced equity (ARV − Cash In)', fmt(Math.max(0, arv - tkFinCashPutUp))],
+          ['Day-1 leveraged equity (ARV − loan)', fmt(Math.max(0, arv - tkFinLoan)), 'blue'],
+          ['Year-1 loan paydown (principal × 12)', fmt(tkFinPrincipal * 12)],
+          ['Year-1 appreciation (' + rtApprPct + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
+          ['Year-1 total equity gain', fmt(Math.max(0, arv - tkFinCashPutUp) + (tkFinPrincipal * 12) + rtAnnualAppreciation), 'profit'],
         ]},
         _rtAppSection,
         { title: '🧾 Tenant-Paid Expenses', rows: [
@@ -14507,6 +14625,7 @@ function uwComputeExits(ctx) {
               const isWarn   = r[2] === 'warn';
               const isStruck = r[2] === 'struck';
               const isAmber   = r[2] === 'amber';
+              const isOrange  = r[2] === 'orange';
               const isPurple  = r[2] === 'purple';
               const isRedHl   = r[2] === 'redhl';
               const isGreenHl = r[2] === 'greenhl';
@@ -14514,7 +14633,9 @@ function uwComputeExits(ctx) {
               const isCyan    = r[2] === 'cyan';
               const isCyanGreen = r[2] === 'cyangreen';
               const isCyanRed   = r[2] === 'cyanred';
-              const valueStyle = isCost
+              const valueStyle = isOrange
+                ? 'font-weight:700;color:#fb923c'
+                : isCost
                 ? 'font-weight:700;color:#ef4444'
                 : isWarn
                   ? 'font-weight:700;color:#f59e0b'
@@ -14540,7 +14661,8 @@ function uwComputeExits(ctx) {
                               ? 'font-weight:700;color:' + ((parseFloat(String(r[1]).replace(/[^\d.\-−]/g,'').replace('−','-')) >= 0) ? '#10b981' : '#ef4444')
                               : 'color:var(--text);font-weight:500';
               // When the row is "struck" (LTV cap binds, etc.), also dim/strike the label.
-              const labelStyle = isStruck ? 'color:var(--text-dim);text-decoration:line-through;opacity:0.7'
+              const labelStyle = isOrange ? 'color:#fb923c;font-weight:600'
+                               : isStruck ? 'color:var(--text-dim);text-decoration:line-through;opacity:0.7'
                                : isAmber   ? 'color:#fbbf24;font-weight:600'
                                : isPurple  ? 'color:#c4b5fd;font-weight:600'
                                : isRedHl   ? 'color:#fca5a5;font-weight:600'
@@ -14549,14 +14671,15 @@ function uwComputeExits(ctx) {
                                : isCyan    ? 'color:#67e8f9;font-weight:600'
                                : (isCyanGreen || isCyanRed) ? 'color:#67e8f9;font-weight:600'
                                : 'color:var(--text-dim)';
-              const rowExtra = isAmber   ? ';background:rgba(245,158,11,0.12);border-radius:5px;padding-left:6px;padding-right:6px'
+              const rowExtra = isOrange  ? ';background:rgba(249,115,22,0.16);border-radius:5px;padding-left:6px;padding-right:6px'
+                             : isAmber   ? ';background:rgba(245,158,11,0.12);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isPurple  ? ';background:rgba(168,85,247,0.14);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isRedHl   ? ';background:rgba(239,68,68,0.12);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isGreenHl ? ';background:rgba(16,185,129,0.12);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isBlue    ? ';background:rgba(59,130,246,0.14);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isCyan    ? ';background:rgba(34,211,238,0.14);border-radius:5px;padding-left:6px;padding-right:6px'
                              : (isCyanGreen || isCyanRed) ? ';background:rgba(34,211,238,0.14);border-radius:5px;padding-left:6px;padding-right:6px' : '';
-              return `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dotted var(--border)${rowExtra}"><span style="${labelStyle}">${r[0]}</span><span style="${valueStyle}">${r[1]}</span></div>`;
+              return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:2px 0;border-bottom:1px dotted var(--border)${rowExtra}"><span style="${labelStyle};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0" title="${String(r[0]).replace(/"/g,'&quot;')}">${r[0]}</span><span style="${valueStyle};white-space:nowrap;flex-shrink:0">${r[1]}</span></div>`;
             }).join('')}
           </div>
         </div>`).join('');
@@ -15335,11 +15458,23 @@ function uwComputeExits(ctx) {
         ? _solveFin(flipSale, flipRehabAmt, flipHolding, flipSelling, _flipBudgetIdeal, flHmLtvPct, FL_HM_ARV_CAP_PCT, flHmOrigPct, flHmRatePct, flipMonths)
         : (flipSale - flipNonBuyCosts - _flipBudgetIdeal) / 1.03;
       const _rtM  = (typeof rentalMode !== 'undefined') ? rentalMode : 'cash';
-      const _rtMB = _rtM === 'refi' ? rtRefiBuyMax : (_rtM === 'financed' ? dscrBuyMax : rtCashBuyMax);
+      // Turn-key max buy: only the 5%-of-ARV reserve (no pre-rent holding) eats
+      // into the ceiling. Cash all-in max (5× annual rent at 20% yield), less the
+      // reserve, backed out of the 3% purchase closing. Budget then adds the reserve.
+      // Turn-key (DSCR-financed) budget: the most you can pay so the smart loan
+      // (purchase + one-time closing + 5%-ARV reserve + UW fee) tops out at the
+      // 70% ARV cap. purchase×1.03 = 70%ARV×(1−orig%−close%) − reserve − UW fee.
+      const _tkRehabB  = (typeof tkRehab === 'number' ? tkRehab : 0);
+      const _tkNetFac  = 1 - (((typeof finOrigPct === 'number' ? finOrigPct : 2) + (typeof tkFinClosePct === 'number' ? tkFinClosePct : 3)) / 100);
+      const _tkCapLoan = (typeof _finLtvCapLoan === 'number') ? _finLtvCapLoan : (arv * 0.70);
+      const _tkUwFee   = (typeof uwAppraisalFee === 'number' ? uwAppraisalFee : 0);
+      const _tkBuyMax  = (_tkNetFac > 0) ? Math.max(0, (_tkCapLoan * _tkNetFac - _tkRehabB - _tkUwFee) / 1.03) : 0;
+      const _rtMB = _rtM === 'refi' ? rtRefiBuyMax : (_rtM === 'financed' ? dscrBuyMax : (_rtM === 'turnkey' ? _tkBuyMax : rtCashBuyMax));
+      const _rtRehabForBudget = _rtM === 'turnkey' ? _tkRehabB : (typeof rRehab === 'number' ? rRehab : 0);
       const _budget = {
         wholetail: _wtBuy + (typeof wholetailRehab === 'number' ? wholetailRehab : 0),
         flip:      _flBuy + (typeof flipRehabAmt   === 'number' ? flipRehabAmt   : 0),
-        rental:    (typeof _rtMB === 'number' ? _rtMB : NaN) + (typeof rRehab === 'number' ? rRehab : 0)
+        rental:    (typeof _rtMB === 'number' ? _rtMB : NaN) + _rtRehabForBudget
       };
       const _bp = (typeof buyPrice === 'number' ? buyPrice : 0);
       document.querySelectorAll('#uw-exit-cards .uw-maxbudget[data-mb-key]').forEach(el => {
@@ -18232,7 +18367,7 @@ function uwThreePlaysHtml(u) {
   // Outer text-align:center keeps the whole block centered under the column header.
   return `<div style="font-size:10px;color:var(--text-dim);margin-top:3px;display:inline-grid;grid-template-columns:16px 50px 16px 50px;gap:2px 4px;line-height:1.25;column-gap:8px">
     ${profitCells('📜', w, '')}${pctCells('💵', cashCap)}
-    ${profitCells('🎨', wtSpread, '', wtDisqualified)}${moCells('🏦', finMo, !!(u.data && u.data._finLtvBinds))}
+    ${profitCells('🎨', wtSpread, '', wtDisqualified)}${moCells('🔑', parseFloat(u.data && u.data._tkRentalMo), false)}
     ${profitCells('🏗️', f, '')}${moCells('🔁', isFinite(r) ? r / 12 : r, !!(u.data && u.data._rfLtvBinds))}
   </div>`;
 }
@@ -18279,7 +18414,7 @@ function _uwCollect() {
           // Form-submission log + auto-asking tracker (owner/partner submit forms).
           k === '_formSubmissions' || k === '_autoAsking' || k === '_fromForm' ||
           // Property tag on/off flag (set via the 🏷️ tag button on the deal header).
-          k === '_tagged' ||
+          k === '_tagged' || k === '_tkRentalMo' ||
           // Geocode coordinates — written by _dispoGeocodeSubject directly
           // into u.data.lat/lng/geocoded_address (not form fields). Without
           // this preservation, the next autosave wipes them and the user
@@ -18323,7 +18458,9 @@ function _uwCollect() {
   data._wholesaleMode = _uwWholesaleMode === 'doubleclose' ? 'doubleclose' : 'assignment';
   // Normalize: legacy 'brrr' value persists as 'refi' going forward.
   const _rmOut = (_uwRentalMode === 'brrr') ? 'refi' : _uwRentalMode;
-  data._rentalMode = (_rmOut === 'financed' || _rmOut === 'refi') ? _rmOut : 'cash';
+  data._rentalMode = (_rmOut === 'financed' || _rmOut === 'refi' || _rmOut === 'turnkey') ? _rmOut : 'cash';
+  // Turn-Key monthly cashflow for the deals-list Exit Margins cell (stored in jsonb — no DB column needed).
+  if (typeof window._3p_tkRentalMo === 'number' && isFinite(window._3p_tkRentalMo)) data._tkRentalMo = window._3p_tkRentalMo;
   // Also capture key computed values so they're searchable in the list.
   // Mode-aware: in Listed mode the saved ARV comes from the Listed-real
   // override / display, NOT the Sold-side fields. This way the list/preview
@@ -18559,7 +18696,7 @@ function _uwApply(data) {
   _uwWholesaleMode = data._wholesaleMode === 'doubleclose' ? 'doubleclose' : 'assignment';
   // Migrate any legacy 'brrr' state to the renamed 'refi' on load.
   const _rmIn = (data._rentalMode === 'brrr') ? 'refi' : data._rentalMode;
-  _uwRentalMode = (_rmIn === 'financed' || _rmIn === 'refi') ? _rmIn : 'cash';
+  _uwRentalMode = (_rmIn === 'financed' || _rmIn === 'refi' || _rmIn === 'turnkey') ? _rmIn : 'cash';
   // One-time migration: bump the old vacancy default of 5% to the new 10%.
   // The previous version of the calculator shipped with vacancy defaulting
   // to 5%; deals saved before the bump still carry '5'. Most users never
@@ -19189,7 +19326,7 @@ function uwSetFlipMode(mode) {
 function uwSetRentalMode(mode) {
   // Legacy 'brrr' mapped to the renamed 'refi' so old buttons still work.
   if (mode === 'brrr') mode = 'refi';
-  if (mode !== 'cash' && mode !== 'financed' && mode !== 'refi') return;
+  if (mode !== 'cash' && mode !== 'turnkey' && mode !== 'financed' && mode !== 'refi') return;
   _uwRentalMode = mode;
   window._uwModeToggle = true;
   if (typeof uwRecalc === 'function') uwRecalc();

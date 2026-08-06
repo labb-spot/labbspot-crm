@@ -37654,6 +37654,7 @@ function renderUnderwriteList() {
       if (_S.excludeDispo) {                                 // Drop anything already in the Dispositions pipeline
         if (u.dispo_contract || data._dispoContract) return false;
       }
+      if (_S.excludeTagged && data._tagged === true) return false;  // Drop tagged properties
       if (_S.pricePctOn) {                                   // Price ≤ X% of ARV
         if (!(_arvC > 0)) return false;
         if (_price > (_S.pricePct / 100) * _arvC) return false;
@@ -55813,7 +55814,7 @@ window.toggleDealHistory = function(ev){
 //   mode 'custom'  → any property with a price, optionally narrowed to those
 //                    with an ARV, a rehab budget, and/or price ≤ X% of ARV.
 window._uwHotSettings = (function(){
-  var d = { mode:'default', hasArv:false, hasBudget:false, inAnalyzed:false, excludeDispo:false, pricePctOn:false, pricePct:80, withinDollarOn:false, withinDollar:15000, withinPctOn:false, withinPct:25 };
+  var d = { mode:'default', hasArv:false, hasBudget:false, inAnalyzed:false, excludeDispo:false, excludeTagged:false, pricePctOn:false, pricePct:80, withinDollarOn:false, withinDollar:15000, withinPctOn:false, withinPct:25 };
   try { var s = JSON.parse(localStorage.getItem('uw-hot-settings-v1')); if (s && typeof s === 'object') return Object.assign(d, s); } catch(_){}
   return d;
 })();
@@ -55836,6 +55837,7 @@ window._uwOpenHotSettings = function(){
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-budget" ' + (S.hasBudget?'checked':'') + ' style="' + _ck + '"><span>Has Renovation Budget</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-analyzed" ' + (S.inAnalyzed?'checked':'') + ' style="' + _ck + '"><span>In Analyzed</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-exdispo" ' + (S.excludeDispo?'checked':'') + ' style="' + _ck + '"><span>Exclude Properties in Dispositions</span></label>' +
+      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-extagged" ' + (S.excludeTagged?'checked':'') + ' style="' + _ck + '"><span>Exclude Tagged Properties</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-pct" ' + (S.pricePctOn?'checked':'') + ' style="' + _ck + '"><span>Price is</span><input type="number" id="hs-pctval" value="' + (S.pricePct||80) + '" min="1" max="200" step="1" style="width:56px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>% of After Repair Value</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-wd" ' + (S.withinDollarOn?'checked':'') + ' style="' + _ck + '"><span>Price is within $</span><input type="number" id="hs-wdval" value="' + (S.withinDollar||15000) + '" min="0" step="500" style="width:78px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>of max offer</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-wp" ' + (S.withinPctOn?'checked':'') + ' style="' + _ck + '"><span>Price is within</span><input type="number" id="hs-wpval" value="' + (S.withinPct||25) + '" min="1" max="200" step="1" style="width:56px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>% of max offer</span></label>' +
@@ -55852,6 +55854,7 @@ window._uwOpenHotSettings = function(){
     S.hasBudget = box.querySelector('#hs-budget').checked;
     S.inAnalyzed= box.querySelector('#hs-analyzed').checked;
     S.excludeDispo = box.querySelector('#hs-exdispo').checked;
+    S.excludeTagged = box.querySelector('#hs-extagged').checked;
     S.pricePctOn= box.querySelector('#hs-pct').checked;
     S.pricePct  = parseFloat(box.querySelector('#hs-pctval').value) || 80;
     S.withinDollarOn = box.querySelector('#hs-wd').checked;

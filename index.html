@@ -397,6 +397,51 @@
   table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(9)  { width: 12%; } /* Actions */
   /* Long content (addresses, exit names) gets ellipsized inside its locked-width cell */
   table:has(> tbody[id^="uw-"][id$="-tbody"]) td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Freeze the header row so the column labels stay visible while scrolling. */
+  table:has(> tbody[id^="uw-"][id$="-tbody"]) thead th {
+    position: sticky !important;   /* beats the inline position:relative the sort code sets on Price/Imported */
+    top: 0 !important;
+    z-index: 3;
+    background: var(--panel-2);
+    box-shadow: inset 0 -1px 0 var(--border), 0 2px 6px rgba(0,0,0,0.25);
+  }
+  /* Hide the per-subtab "All sources" / "All time" filter dropdowns (and their
+     custom-range date inputs) across every Underwriting subtab header. The
+     elements stay in the DOM so the filter code still reads a safe empty value. */
+  select[id^="uw-"][id$="-source-filter"],
+  select[id^="uw-"][id$="-date-filter"],
+  #uw-analyzed-status-filter,
+  input[id^="uw-"][id$="-date-from"],
+  input[id^="uw-"][id$="-date-to"] { display: none !important; }
+  /* Uniform, roomier search bar across every Underwriting subtab: ~double width
+     and a bit of left padding so the first character isn't jammed to the edge. */
+  input[id^="uw-"][id$="-search"] {
+    width: 330px !important;
+    min-width: 210px !important;
+    height: 36px !important;
+    box-sizing: border-box !important;
+    padding-left: 12px !important;
+    font-size: 12px !important;
+  }
+  /* Uniform toolbar control height — every button + chip/Buy-Box pill in a
+     subtab header is the same height so they line up cleanly. */
+  .uwview > .panel > .flex button {
+    height: 36px !important;
+    min-height: 36px !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .uwview > .panel > .flex .uw-tbchip {
+    height: 36px !important;
+    box-sizing: border-box !important;
+    align-items: stretch !important;
+  }
+  .uwview > .panel > .flex .uw-tbchip button {
+    height: 100% !important;
+    min-height: 0 !important;
+  }
   /* Actions column — simple right-aligned content. The badge sits to the left
      of Open, both stay inside the cell. */
   table:has(> tbody[id^="uw-"][id$="-tbody"]) td:nth-child(13) {
@@ -4776,7 +4821,7 @@
           </select>
           <input id="uw-analyzing-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="From (imported on or after)">
           <input id="uw-analyzing-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="To (imported on or before)">
-          <input id="uw-analyzing-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <input id="uw-analyzing-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
           <button class="btn btn-ghost text-sm" onclick="uwRefreshUnderwriting(this)" title="Re-fetch the underwrites table from Supabase. Useful if a deal was added/edited from another browser tab or device and you don't see it here yet.">🔁 Refresh</button>
           <button class="btn btn-ghost text-sm" onclick="document.getElementById('uw-import-file').click()" title="Bulk-import properties from a CSV exported from your Property Submission sheet. Existing addresses are updated; new ones are created.">📥 Import CSV</button>
           <input type="file" id="uw-import-file" accept=".csv,text/csv" style="display:none" onchange="uwImportCsv(this.files[0])">
@@ -4835,7 +4880,7 @@
           </select>
           <input id="uw-priority-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="From (imported on or after)">
           <input id="uw-priority-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="To (imported on or before)">
-          <input id="uw-priority-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <input id="uw-priority-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
           <button class="btn btn-ghost text-sm" onclick="uwRefreshUnderwriting(this)" title="Re-fetch the underwrites table from Supabase. Useful if a deal was added/edited from another browser tab or device and you don't see it here yet.">🔁 Refresh</button>
           <button class="btn btn-primary text-sm" onclick="uwNewDeal()" title="Start a new underwrite from scratch — lands in ⭐ Priority by default">+ New Deal</button>
         </div>
@@ -4879,9 +4924,9 @@
             <button type="button" id="uw-analyzed-role-partner" onclick="_uwSecSetRole('analyzed','partner')" style="padding:0 12px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Partner</button>
             <button type="button" id="uw-analyzed-role-agent"   onclick="_uwSecSetRole('analyzed','agent')"   style="padding:0 12px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Agent</button>
           </span>
-          <span style="display:inline-flex;align-items:center;gap:4px">
-            <button type="button" id="uw-analyzed-buybox" class="uw-tbctl" onclick="_uwSecBuyBox('analyzed', this)" title="Buy Box filter — grey = off, green = on. Shows only Analyzed deals matching your Buy Box criteria (SqFt range, min year built, optional ZIP list)." style="padding:0 13px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap">🎯 Buy Box</button>
-            <button type="button" onclick="_uwBuyBoxOpenEditor()" title="Edit Buy Box criteria" class="uw-tbctl" style="padding:0 8px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;line-height:1">⚙️</button>
+          <span class="uw-tbchip" style="display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <button type="button" id="uw-analyzed-buybox" class="uw-tbctl" onclick="_uwSecBuyBox('analyzed', this)" title="Buy Box filter — grey = off, green = on. Shows only Analyzed deals matching your Buy Box criteria (SqFt range, min year built, optional ZIP list)." style="padding:0 13px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap;align-self:stretch">🎯 Buy Box</button>
+            <button type="button" onclick="_uwBuyBoxOpenEditor()" title="Edit Buy Box criteria" class="uw-tbctl" style="padding:0 10px;border:none;border-left:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;line-height:1;align-self:stretch">⚙️</button>
           </span>
         </div>
         <!-- Offered count badge — centered between the Buy Box and the filters.
@@ -4910,7 +4955,7 @@
           </select>
           <input id="uw-analyzed-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="From (imported on or after)">
           <input id="uw-analyzed-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="To (imported on or before)">
-          <input id="uw-analyzed-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <input id="uw-analyzed-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
           <button class="btn btn-ghost text-sm" onclick="uwRescanAnalyzedProfits()" title="Open each Analyzed deal in the calculator, let the cascade settle, and save back to Supabase. Refreshes Exit Margins, Budget, and all preview-table values to match current math." style="white-space:nowrap;border:1px solid rgba(139,92,246,0.4);color:#a78bfa">🔄 Rescan</button>
         </div>
       </div>
@@ -4970,7 +5015,7 @@
           </select>
           <input id="uw-hot-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="From (imported on or after)">
           <input id="uw-hot-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="To (imported on or before)">
-          <input id="uw-hot-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <input id="uw-hot-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
         </div>
       </div>
       <div id="uw-hot-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -5023,7 +5068,7 @@
           </select>
           <input id="uw-offered-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="From (imported on or after)">
           <input id="uw-offered-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="To (imported on or before)">
-          <input id="uw-offered-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <input id="uw-offered-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
         </div>
       </div>
       <div id="uw-offered-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -5059,10 +5104,10 @@
         <div>
           <div class="font-semibold text-lg"><span style="display:inline-block;transform:translateY(-2px)">📷</span> Inspection<span id="uw-photos-stats" style="display:none;margin-left:6px;vertical-align:3px"></span></div>
           <div id="uw-inspection-desc" class="text-sm text-[var(--text-dim)]">Deals in the inspection / due-diligence window — packet status is Inspection. Click any row to open the full property details + calculator.</div>
-          <div style="display:inline-flex;gap:4px;margin-top:8px">
-            <button id="uw-insp-mode-inspection" class="btn btn-primary text-xs" onclick="uwInspSetMode('inspection')" style="padding:6px 12px;white-space:nowrap" title="Deals whose Offer Status is Inspection (default).">📷 Inspection</button>
-            <button id="uw-insp-mode-photos" class="btn btn-ghost text-xs" onclick="uwInspSetMode('photos')" style="padding:6px 12px;white-space:nowrap" title="Any property that has a picture folder link saved, regardless of stage.">🖼 Photo Folders</button>
-          </div>
+          <span id="uw-insp-mode-pill" class="uw-tbchip" style="display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">
+            <button id="uw-insp-mode-inspection" onclick="uwInspSetMode('inspection')" style="padding:0 12px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap;align-self:stretch" title="Deals whose Offer Status is Inspection (default).">Active</button>
+            <button id="uw-insp-mode-photos" onclick="uwInspSetMode('photos')" style="padding:0 12px;border:none;border-left:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap;align-self:stretch" title="Any property that has a picture folder link saved, regardless of stage.">Pictures</button>
+          </span>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
           <select id="uw-inspection-source-filter" onchange="renderUnderwriteList()" style="width:130px" title="Filter by where the deal came from">
@@ -5082,7 +5127,7 @@
           </select>
           <input id="uw-inspection-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="From (imported on or after)">
           <input id="uw-inspection-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="To (imported on or before)">
-          <input id="uw-inspection-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <input id="uw-inspection-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
         </div>
       </div>
       <div id="uw-inspection-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -5135,7 +5180,7 @@
           </select>
           <input id="uw-contracted-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="From (imported on or after)">
           <input id="uw-contracted-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="To (imported on or before)">
-          <input id="uw-contracted-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <input id="uw-contracted-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
         </div>
       </div>
       <div id="uw-contracted-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -5200,7 +5245,7 @@
                that fell through (Offer Status = Dropped). Matches the tab
                badge count (which only counts Closed by default). -->
           <button type="button" id="uw-closed-show-dropped" data-active="false" onclick="(function(b){var n=b.getAttribute('data-active')!=='true';b.setAttribute('data-active',String(n));if(n){b.style.background='#94a3b8';b.style.color='#fff';b.style.borderColor='#94a3b8';}else{b.style.background='var(--panel-2)';b.style.color='var(--text)';b.style.borderColor='var(--border)';}if(typeof renderUnderwriteList==='function')renderUnderwriteList();})(this)" title="Click to also show Dropped deals (deals that fell through). Off by default — Finalized normally shows only successfully Closed deals." style="height:34px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all 0.15s ease">⚠ Show Dropped</button>
-          <input id="uw-closed-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <input id="uw-closed-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
         </div>
       </div>
       <div id="uw-closed-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -5237,9 +5282,11 @@
       <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
         <div>
           <div class="font-semibold text-lg">🗑️ Trash</div>
-          <div class="text-xs text-[var(--text-dim)]">Soft-deleted underwrites. Anything you delete from the rest of the app lands here. Restore brings it back; Permanent Delete is the only way to actually erase a row — and it asks twice.</div>
         </div>
-        <button class="btn btn-ghost text-sm" onclick="renderUwTrash()">🔁 Refresh</button>
+        <div class="flex items-center gap-2 flex-wrap">
+          <input id="uw-trash-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUwTrash()" style="width:200px;min-width:160px">
+          <button class="btn btn-ghost text-sm" onclick="renderUwTrash()">🔁 Refresh</button>
+        </div>
       </div>
       <div id="uw-trash-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">Trash is empty.</div>
       <div class="overflow-auto" style="max-height:600px">
@@ -5288,7 +5335,7 @@
           </select>
           <input id="uw-checking-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none">
           <input id="uw-checking-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none">
-          <input id="uw-checking-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <input id="uw-checking-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
         </div>
       </div>
       <div id="uw-checking-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -5332,9 +5379,9 @@
               <button type="button" id="uwall-role-agent"   onclick="_uwAllSetRole('agent')"   style="padding:0 12px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Agent</button>
             </span>
             <button type="button" id="uwall-nocontact" onclick="_uwAllToggleNoContact(this)" title="Show only deals with no contact linked to the property — grey = off, blue = on." style="padding:0 13px;height:30px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap">No Contact</button>
-            <span style="display:inline-flex;align-items:center;gap:4px">
-              <button type="button" id="uw-all-buybox" class="uw-tbctl" onclick="_uwSecBuyBox('all', this)" title="Buy Box filter — grey = off, green = on. Shows only deals matching your criteria (SqFt range, min year built, and optional ZIP list)." style="padding:0 13px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap">🎯 Buy Box</button>
-              <button type="button" id="uwall-buybox-edit" class="uw-tbctl" onclick="_uwBuyBoxOpenEditor()" title="Edit Buy Box criteria" style="padding:0 8px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;line-height:1">⚙️</button>
+            <span class="uw-tbchip" style="display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+              <button type="button" id="uw-all-buybox" class="uw-tbctl" onclick="_uwSecBuyBox('all', this)" title="Buy Box filter — grey = off, green = on. Shows only deals matching your criteria (SqFt range, min year built, and optional ZIP list)." style="padding:0 13px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap;align-self:stretch">🎯 Buy Box</button>
+              <button type="button" id="uwall-buybox-edit" class="uw-tbctl" onclick="_uwBuyBoxOpenEditor()" title="Edit Buy Box criteria" style="padding:0 10px;border:none;border-left:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;line-height:1;align-self:stretch">⚙️</button>
             </span>
           </div>
           <div class="text-sm text-[var(--text-dim)]">Every deal across every workflow stage in one searchable list. Click any row to open the property.</div>
@@ -5357,14 +5404,14 @@
           </select>
           <input id="uw-all-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none">
           <input id="uw-all-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none">
-          <input id="uw-all-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:180px;min-width:140px">
+          <input id="uw-all-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUnderwriteList()" style="width:180px;min-width:140px">
           <!-- Rescan All Profits — loops every cached deal through the live
                calculator cascade and re-saves the corrected Flip / Wholetail /
                Refi profits back to Supabase. Useful when the math has changed
                and you want to refresh stale numbers all at once. -->
           <button class="btn btn-ghost text-sm" onclick="_uwSyncMotivatedLeads()" title="Sync motivated leads — pulls any motivated leads from your Results tab into ⭐ Priority. Runs automatically when leads arrive; this just forces a re-scan." style="padding:6px 10px">🔄</button>
           <button class="btn btn-ghost text-sm" onclick="uwGeocodeAllOpen()" title="Geocode All — one-time batch: geocode every underwrite missing a place_id and save uw_lat / uw_lng / uw_place_id. Pause/resume safe. Required before the 🔍 Dupes panel can detect duplicates." style="padding:6px 10px">🌐</button>
-          <button class="btn btn-ghost text-sm" onclick="uwRescanAllProfits()" title="Open each deal in the calculator one-by-one, recompute Flip / Wholetail / Refi profits with the current math, and save the corrected values to Supabase. Use this once after big formula changes to refresh stale numbers app-wide." style="white-space:nowrap;border:1px solid rgba(99,102,241,0.4);color:#a5b4fc">🔄 Rescan All Profits</button>
+          <button class="btn btn-ghost text-sm" onclick="uwRescanAllProfits()" title="Open each deal in the calculator one-by-one, recompute Flip / Wholetail / Refi profits with the current math, and save the corrected values to Supabase. Use this once after big formula changes to refresh stale numbers app-wide." style="white-space:nowrap;border:1px solid rgba(99,102,241,0.4);color:#a5b4fc">🔄 Rescan</button>
         </div>
       </div>
       <div id="uw-all-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -5420,7 +5467,7 @@
           </select>
           <input id="uw-help-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none">
           <input id="uw-help-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none">
-          <input id="uw-help-search" placeholder="Search address / city…" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <input id="uw-help-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
         </div>
       </div>
       <div id="uw-help-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -5689,7 +5736,7 @@
         <div class="text-sm text-[var(--text-dim)]">Closed deals you're actively rehabbing. Add or remove properties from the Closed subview in Underwriting.</div>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <input id="reno-search" placeholder="Search address / city…" oninput="renderRenovationList()" style="width:200px;min-width:160px">
+        <input id="reno-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderRenovationList()" style="width:200px;min-width:160px">
         <button class="btn btn-ghost text-sm" onclick="renderRenovationList()" title="Refresh from cache">🔁 Refresh</button>
       </div>
     </div>
@@ -6639,7 +6686,7 @@
         <div class="text-sm text-[var(--text-dim)]">Closed deals you currently own. Add or remove properties from the Closed subview in Underwriting.</div>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <input id="hold-search" placeholder="Search address / city…" oninput="renderHoldingsList()" style="width:200px;min-width:160px">
+        <input id="hold-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderHoldingsList()" style="width:200px;min-width:160px">
         <button class="btn btn-ghost text-sm" onclick="renderHoldingsList()" title="Refresh from cache">🔁 Refresh</button>
       </div>
     </div>
@@ -28046,10 +28093,17 @@ function renderUwTrash() {
   const badge = document.getElementById('uw-trash-count');
   if (badge) { badge.textContent = rows.length.toLocaleString(); badge.style.display = rows.length ? '' : 'none'; }
 
-  if (!rows.length) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  // Search filter (address / city / state / zip), same idea as the other tabs.
+  const _q = (document.getElementById('uw-trash-search')?.value || '').trim().toLowerCase();
+  const rowsF = _q
+    ? rows.filter(u => [u.address, u.city, u.state, u.zip, (u.data && u.data['uw-address'])]
+        .map(x => String(x || '').toLowerCase()).join(' ').includes(_q))
+    : rows;
+
+  if (!rowsF.length) { tbody.innerHTML = ''; empty.style.display = ''; empty.textContent = _q ? 'No matches in Trash.' : 'Trash is empty.'; return; }
   empty.style.display = 'none';
 
-  tbody.innerHTML = rows.map(u => {
+  tbody.innerHTML = rowsF.map(u => {
     const addr = u.address || '—';
     const cityLine = [u.city, u.state, u.zip].filter(Boolean).join(', ');
     let deletedAt = '—';
@@ -29082,8 +29136,8 @@ function uwInspSetMode(mode) {
   const isPhotos = window._uwInspMode === 'photos';
   const a = document.getElementById('uw-insp-mode-inspection');
   const b = document.getElementById('uw-insp-mode-photos');
-  if (a) a.className = 'btn text-xs ' + (isPhotos ? 'btn-ghost' : 'btn-primary');
-  if (b) b.className = 'btn text-xs ' + (isPhotos ? 'btn-primary' : 'btn-ghost');
+  if (a) { a.style.background = isPhotos ? 'transparent' : '#6366f1'; a.style.color = isPhotos ? 'var(--text-dim)' : '#fff'; }
+  if (b) { b.style.background = isPhotos ? '#6366f1' : 'transparent'; b.style.color = isPhotos ? '#fff' : 'var(--text-dim)'; }
   const desc = document.getElementById('uw-inspection-desc');
   if (desc) desc.textContent = isPhotos
     ? 'Every property with a picture folder link saved \u2014 regardless of stage. Click any row to open the full property details + calculator.'
@@ -56112,9 +56166,9 @@ window._uwSecControlsHTML = function(section){
     '<span class="uw-tbchip" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px">' +
       chipBtn('owner','Owner') + chipBtn('partner','Partner') + chipBtn('agent','Agent') +
     '</span>' +
-    '<span style="display:inline-flex;align-items:center;gap:4px">' +
-      '<button type="button" id="uw-' + section + '-buybox" class="uw-tbctl" onclick="_uwSecBuyBox(\'' + section + '\', this)" title="Buy Box filter — grey = off, green = on. Shows only deals matching your Buy Box criteria." style="padding:0 13px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap">🎯 Buy Box</button>' +
-      '<button type="button" onclick="_uwBuyBoxOpenEditor()" title="Edit Buy Box criteria" class="uw-tbctl" style="padding:0 8px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;line-height:1">⚙️</button>' +
+    '<span class="uw-tbchip" style="display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden">' +
+      '<button type="button" id="uw-' + section + '-buybox" class="uw-tbctl" onclick="_uwSecBuyBox(\'' + section + '\', this)" title="Buy Box filter — grey = off, green = on. Shows only deals matching your Buy Box criteria." style="padding:0 13px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap;align-self:stretch">🎯 Buy Box</button>' +
+      '<button type="button" onclick="_uwBuyBoxOpenEditor()" title="Edit Buy Box criteria" class="uw-tbctl" style="padding:0 10px;border:none;border-left:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;line-height:1;align-self:stretch">⚙️</button>' +
     '</span>';
 };
 
@@ -56128,32 +56182,14 @@ window._uwInjectSecControls = function(){
     if (!view) return;
     var row = view.querySelector('.panel > .flex');
     if (!row || row.querySelector('[data-uw-secctl]')) return;   // already injected
-    // Top-align the header so the title line and the right-side filters share a top.
-    row.classList.remove('items-center'); row.classList.add('items-start');
-    // Stop the row from WRAPPING the filters onto a new line. With wrap on, the
-    // browser drops the filters below instead of shrinking the title block. With
-    // nowrap, the title block shrinks (its long subtitle reflows) and the filters
-    // hold their spot up on the title line. The filter group is pinned (no shrink)
-    // so it's the title block that gives way, not the selects.
-    row.classList.remove('flex-wrap');
-    row.style.flexWrap = 'nowrap';
-    var filterGroup = row.lastElementChild;   // the existing right-side filter group
-    if (filterGroup) { filterGroup.style.flexShrink = '0'; }
-    var cluster = document.createElement('div');
-    cluster.setAttribute('data-uw-secctl', '1');
-    cluster.className = 'flex items-center gap-3';
-    cluster.style.cssText = 'flex-wrap:nowrap';
-    cluster.innerHTML = window._uwSecControlsHTML(sec);
-    // Put the chips + Buy Box ON the title line (inside the title block), exactly
-    // like All Deals — keeps the title block a single flex-shrink:0 unit so the
-    // filters wrap cleanly below only when there's no room, instead of a broken
-    // mid-row gap. The subtitle stays on the second line beneath.
+    row.classList.remove('items-start'); row.classList.add('items-center');
+    row.classList.remove('flex-wrap'); row.style.flexWrap = 'nowrap';
     var titleBlock = row.firstElementChild;
+    var rightGroup = row.lastElementChild;
+    if (rightGroup) rightGroup.style.flexShrink = '0';
+
+    // ---- LEFT: title (+ count badge) + search box on one line ----
     if (titleBlock) {
-      // Let the title block shrink to its title-LINE width (which is nowrap) so a
-      // long subtitle wraps beneath instead of stretching the block full-width and
-      // shoving the filters onto a new row. min-width:auto keeps it from shrinking
-      // narrower than the title + chips.
       titleBlock.style.flexShrink = '1';
       titleBlock.style.minWidth = 'auto';
       var titleText = titleBlock.firstElementChild;
@@ -56163,17 +56199,61 @@ window._uwInjectSecControls = function(){
         line.style.cssText = 'flex-wrap:nowrap';
         titleBlock.insertBefore(line, titleText);
         line.appendChild(titleText);
-        line.appendChild(cluster);
-        // Move any count/stat badge out of the title to AFTER the cluster, so it
-        // reads title → chips → Buy Box → gear → badge (matching Analyzed).
+        // Search box first, right after the title.
+        var search = document.getElementById('uw-' + sec + '-search');
+        if (search) { search.style.width = '210px'; line.appendChild(search); }
+        // Count/stat ratio badge(s) come AFTER the search box.
         titleText.querySelectorAll('span[id$="-header-count"], span[id="uw-photos-stats"]').forEach(function(b){ line.appendChild(b); });
-      } else {
-        titleBlock.appendChild(cluster);
       }
+    }
+
+    // ---- RIGHT: [import?] [refresh emoji] [Owner/Partner/Agent chips] [Buy Box + gear] ----
+    var cluster = document.createElement('div');
+    cluster.setAttribute('data-uw-secctl', '1');
+    cluster.className = 'flex items-center gap-3';
+    cluster.style.cssText = 'flex-wrap:nowrap';
+    cluster.innerHTML = window._uwSecControlsHTML(sec);
+
+    if (rightGroup) {
+      // Refresh button → emoji only, and lead the right side with it.
+      var refreshBtn = null;
+      Array.prototype.forEach.call(rightGroup.querySelectorAll('button'), function(b){
+        if (!refreshBtn && /🔁|↻|Refresh/i.test(b.textContent || '')) refreshBtn = b;
+      });
+      if (refreshBtn) {
+        refreshBtn.innerHTML = '🔁';
+        refreshBtn.title = 'Refresh';
+        refreshBtn.style.padding = '0 11px';
+        refreshBtn.style.height = '30px';
+      }
+      var importBtn = rightGroup.querySelector('button[onclick*="import-file"]');
+      // Re-append in the desired left→right order (appendChild moves to the end,
+      // so the last one appended sits farthest right).
+      if (importBtn)  rightGroup.appendChild(importBtn);
+      if (refreshBtn) rightGroup.appendChild(refreshBtn);
+      // Inspection's Active/Pictures pill sits just BEFORE the role chips.
+      if (sec === 'inspection') {
+        var inspPill = document.getElementById('uw-insp-mode-pill');
+        if (inspPill) { inspPill.style.marginTop = '0'; rightGroup.appendChild(inspPill); }
+      }
+      rightGroup.appendChild(cluster);
     } else {
       row.appendChild(cluster);
     }
-    // Reflect current on-state onto the freshly-built button (green if already on).
+
+    // Hot tab only: its settings gear moves onto the title line — after the
+    // search box, just before the ratio/count badge.
+    if (sec === 'hot') {
+      var hg = document.getElementById('uw-hot-settings-gear');
+      var hbadge = view.querySelector('span[id$="-header-count"]');
+      var hsearch = document.getElementById('uw-hot-search');
+      if (hg) {
+        hg.style.marginRight = '0';
+        if (hbadge && hbadge.parentNode) hbadge.parentNode.insertBefore(hg, hbadge);
+        else if (hsearch && hsearch.parentNode) hsearch.parentNode.appendChild(hg);
+      }
+    }
+
     if (window._uwBuyBoxOn[sec]){
       var bb = document.getElementById('uw-' + sec + '-buybox');
       if (bb){ bb.style.background = '#10b981'; bb.style.color = '#fff'; bb.style.borderColor = '#10b981'; }
@@ -56193,8 +56273,48 @@ window._uwHideSectionSubtitles = function(){
     if (sub) sub.style.display = 'none';
   });
 };
+// The 'all' and 'analyzed' toolbars are hand-built (chips + Buy Box already sit
+// in the title block), so the injector skips them. This reorders their EXISTING
+// elements to match the injected layout: title + badge + search on the left,
+// chips + Buy Box pushed to the far right (their special buttons stay put).
+window._uwReorderBuiltToolbars = function(){
+  ['all','analyzed'].forEach(function(sec){
+    var view = document.getElementById('uwview-' + sec);
+    if (!view) return;
+    var row = view.querySelector('.panel > .flex');
+    if (!row || row.getAttribute('data-uw-reordered')) return;
+    row.setAttribute('data-uw-reordered', '1');
+    row.classList.remove('items-start'); row.classList.add('items-center');
+    row.style.flexWrap = 'nowrap';
+    var titleBlock = row.firstElementChild;
+    var rightGroup = row.lastElementChild;
+    if (rightGroup) rightGroup.style.flexShrink = '0';
+    if (titleBlock) { titleBlock.style.flexShrink = '1'; titleBlock.style.minWidth = 'auto'; }
+    var titleLine = titleBlock ? (titleBlock.querySelector('.flex') || titleBlock) : null;
+    // Move the search box up next to the title.
+    var search = document.getElementById('uw-' + sec + '-search');
+    if (search && titleLine) { search.style.width = '210px'; titleLine.appendChild(search); }
+    // Count badge → onto the title line, AFTER the search box.
+    var badge = row.querySelector('span[id$="-header-count"]');
+    if (badge && titleLine) { titleLine.appendChild(badge); }
+    // Chips + Buy Box (+ the 'all' No-Contact toggle) → far right, in order.
+    var chips = titleLine ? titleLine.querySelector('.uw-tbchip') : null;
+    var buyboxBtn = titleLine ? titleLine.querySelector('[id$="-buybox"]') : null;
+    var buyboxSpan = buyboxBtn ? buyboxBtn.closest('span') : null;
+    if (rightGroup) {
+      // "No Contact" only belongs to the All tab.
+      if (sec === 'all') {
+        var noContact = document.getElementById('uwall-nocontact');
+        if (noContact) rightGroup.appendChild(noContact);
+      }
+      if (chips)      rightGroup.appendChild(chips);
+      if (buyboxSpan) rightGroup.appendChild(buyboxSpan);
+    }
+  });
+};
 window._uwHeaderSetup = function(){
   try { window._uwInjectSecControls(); } catch(e){}
+  try { window._uwReorderBuiltToolbars(); } catch(e){}
   try { window._uwHideSectionSubtitles(); } catch(e){}
 };
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', window._uwHeaderSetup);

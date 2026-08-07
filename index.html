@@ -19009,6 +19009,13 @@ async function uwSave(manual) {
     _uwSetSaveStatus('dirty');
     return;
   }
+  // Capture which deal this save targets AT START. If the user navigates to a
+  // different deal (or hits + New Deal, which sets _uwCurrentId = null) while an
+  // async save is in flight, we must NOT let this save's success handler re-point
+  // the app back at the old deal — that race made a "new deal" save land on the
+  // previous deal and silently overwrite it. Only apply current-deal side effects
+  // when we're still on the same deal we started saving.
+  const _saveStartId = _uwCurrentId;
   // WIPE PROTECTION — GUARD 2: Mass-clear detection. Before writing the
   // save payload, compare the new data we're about to write with the
   // currently-cached data for this deal. If the save would clear a lot
@@ -19269,13 +19276,25 @@ async function uwSave(manual) {
       // spawning a duplicate / overwriting the existing property.
       let _dupId = null;
       try {
-        const _na = (typeof _uwNormalizeAddress === 'function') ? _uwNormalizeAddress(address) : '';
-        if (_na && cache.underwrites) {
+        const _nrm = (s) => (typeof _uwNormalizeAddress === 'function') ? _uwNormalizeAddress(String(s == null ? '' : s)) : String(s == null ? '' : s).trim().toLowerCase();
+        const _street = (s) => _nrm(String(s == null ? '' : s).split(',')[0]);   // just the street portion
+        const _naFull   = _nrm(address);
+        const _naStreet = _street(address);
+        const _zipNew   = String(data['uw-zip'] || '').trim();
+        if ((_naFull || _naStreet) && cache.underwrites) {
           for (const k in cache.underwrites) {
             const ex = cache.underwrites[k];
             if (!ex || ex.deleted_at) continue;
             const exAddr = ex.address || (ex.data && ex.data['uw-address']) || '';
-            if ((typeof _uwNormalizeAddress === 'function') && _uwNormalizeAddress(exAddr) === _na) { _dupId = ex.id; break; }
+            const exFull   = _nrm(exAddr);
+            const exStreet = _street(exAddr);
+            const exZip    = String(ex.zip || (ex.data && ex.data['uw-zip']) || '').trim();
+            // Match on the full normalized address, OR on the street portion when
+            // the ZIPs are compatible (so "2237 Pollack Ave" matches "2237 Pollack
+            // Ave, Evansville, IN 47714"). Only a warning results, so being a bit
+            // generous here is safe.
+            const _streetMatch = _naStreet && _naStreet === exStreet && (!_zipNew || !exZip || _zipNew === exZip);
+            if ((_naFull && _naFull === exFull) || _streetMatch) { _dupId = ex.id; break; }
           }
         }
       } catch (_) {}
@@ -19312,29 +19331,32 @@ async function uwSave(manual) {
       return;
     }
     if (result.data) {
-      _uwCurrentId = result.data.id;
-      // Deal is now saved. If this was a manual add (Back hidden), show the
-      // ✕ Close button so the user can bail if they changed their mind. For a
-      // normal existing deal, just make sure ← Back is visible.
-      if (window._uwManualAddMode) {
-        const _xbSaved = document.getElementById('uw-manual-x-btn');
-        if (_xbSaved) _xbSaved.style.display = '';
-      } else {
-        const _bbSaved = document.getElementById('uw-back-btn');
-        if (_bbSaved) _bbSaved.style.display = '';
-      }
-      const idEl = document.getElementById('uw-current-id');
-      if (idEl) idEl.textContent = (manual ? '✓ Saved' : '⟳ Auto-saved') + ' · id ' + String(result.data.id).slice(0, 8);
-      // Update local cache + refresh subtab counts/lists
+      // Are we still on the same deal we started saving? If not (user moved on
+      // or started a new deal mid-save), only update the cache — never re-point
+      // _uwCurrentId or touch the on-screen deal, so we don't hijack the view.
+      const _stillCurrent = (_uwCurrentId === _saveStartId);
+      // Update local cache for the deal we actually saved (always safe).
       if (!cache.underwrites) cache.underwrites = {};
       cache.underwrites[result.data.id] = result.data;
-      // Refresh the optimistic-locking baseline so the next save uses the
-      // fresh updated_at instead of triggering a false conflict against the
-      // version we just wrote.
-      _uwLoadedAt = result.data.updated_at || _uwLoadedAt;
+      if (_stillCurrent) {
+        _uwCurrentId = result.data.id;
+        // Deal is now saved. Manual add → show ✕ Close; otherwise ensure ← Back.
+        if (window._uwManualAddMode) {
+          const _xbSaved = document.getElementById('uw-manual-x-btn');
+          if (_xbSaved) _xbSaved.style.display = '';
+        } else {
+          const _bbSaved = document.getElementById('uw-back-btn');
+          if (_bbSaved) _bbSaved.style.display = '';
+        }
+        const idEl = document.getElementById('uw-current-id');
+        if (idEl) idEl.textContent = (manual ? '✓ Saved' : '⟳ Auto-saved') + ' · id ' + String(result.data.id).slice(0, 8);
+        // Refresh the optimistic-locking baseline so the next save uses the
+        // fresh updated_at instead of triggering a false conflict.
+        _uwLoadedAt = result.data.updated_at || _uwLoadedAt;
+        // Show the "Added on X · N days ago" badge once we know created_at.
+        if (typeof _uwSetDealAge === 'function') _uwSetDealAge(result.data.created_at, result.data.last_submission_at, result.data.updated_at);
+      }
       if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
-      // Show the "Added on X · N days ago" badge once we know created_at.
-      if (typeof _uwSetDealAge === 'function') _uwSetDealAge(result.data.created_at, result.data.last_submission_at, result.data.updated_at);
     }
     _uwLastSavedAt = Date.now();
     _uwSetSaveStatus('saved', 'Saved just now');

@@ -9448,6 +9448,10 @@ function _uwBuildDupeFlags() {
     const tb = new Date(b.created_at || 0).getTime();
     return ta - tb;
   };
+  // Leading house number of an address — used to guard the place_id dedupe so
+  // two DISTINCT addresses that merely share a bad geocode place_id don't get
+  // falsely flagged as duplicates of each other.
+  const _houseNum = (a) => { const m = String(a || '').trim().match(/^\s*(\d+)/); return m ? m[1] : ''; };
   const byAddr = {};
   Object.values(cache.underwrites).forEach(u => {
     if (!u || u.deleted_at) return;
@@ -9470,7 +9474,15 @@ function _uwBuildDupeFlags() {
   Object.values(byPid).forEach(group => {
     if (group.length < 2) return;
     group.sort(sortOldestFirst);
-    for (let i = 1; i < group.length; i++) flagged.add(group[i].id);
+    const keepNum = _houseNum(group[0].address);
+    for (let i = 1; i < group.length; i++) {
+      // Only flag as a duplicate when the street NUMBER also matches the keeper.
+      // Google frequently returns the same place_id for two different addresses
+      // (ambiguous / rural geocodes). Without this guard, a unique property gets
+      // a false 🪞 DUPE chip and risks being deleted during a dupe cleanup.
+      const n = _houseNum(group[i].address);
+      if (n && keepNum && n === keepNum) flagged.add(group[i].id);
+    }
   });
   return flagged;
 }

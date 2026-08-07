@@ -2947,7 +2947,7 @@
       <button class="btn btn-ghost text-sm" id="uw-remove-dispo-btn" style="display:none;position:absolute;bottom:14px;right:14px;z-index:3;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromDispositions()" title="Remove this deal from Dispositions (clears the contract stage and returns you to the Dispositions section).">✕ Remove from Dispositions</button>
       <div class="flex items-start justify-between gap-3" style="flex-wrap:nowrap">
         <div class="flex items-center gap-2" style="flex-shrink:0">
-          <button class="btn btn-ghost text-sm" onclick="uwBackToList()" title="Back to the list" style="flex-shrink:0">← Back</button>
+          <button id="uw-back-btn" class="btn btn-ghost text-sm" onclick="uwBackToList()" title="Back to the list" style="flex-shrink:0">← Back</button>
           <!-- Prev/Next navigator — sits next to Back; the address/title block
                drops to its own line below so nothing gets squished. Hidden
                until a captured list + position exist. -->
@@ -2998,6 +2998,7 @@
 
           <div style="position:relative;flex-shrink:0;align-self:center">
             <button class="btn btn-primary text-sm" onclick="uwSave(true)" style="white-space:nowrap" title="Save now (auto-save also runs in the background a few seconds after each edit).">💾 Save Now</button>
+            <button id="uw-manual-x-btn" class="btn btn-ghost text-sm" onclick="uwCancelNewDeal()" title="Cancel — back out of this new deal without saving" style="white-space:nowrap;display:none;margin-left:6px">✕</button>
             <button onclick="toggleDealContacts(event)" title="See this property's contact info (the seller/partner who submitted it)." style="position:absolute;top:calc(100% + 6px);right:0;border:1.5px solid #a5b4fc;background:transparent;border-radius:9px;font-size:26px;line-height:1;padding:6px 12px;cursor:pointer">📒</button>
             <!-- Submission-history box — same size as the notebook, sits to its left. -->
             <button onclick="toggleDealHistory(event)" title="Submission history for this property — owner / agent / wholesaler prices and dates. Manual price edits are not shown here." style="position:absolute;top:calc(100% + 6px);right:66px;border:1.5px solid #a5b4fc;background:transparent;border-radius:9px;font-size:26px;line-height:1;padding:6px 12px;cursor:pointer">📜</button>
@@ -10601,6 +10602,16 @@ function uwNewDeal() {
   // (autosave flush already happened at the top of this function)
   const idEl = document.getElementById('uw-current-id');
   if (idEl) idEl.textContent = '🆕 New (unsaved)';
+  // Manual-add flow: hide the header ← Back (so you don't silently navigate away
+  // and trigger a background save), and show an ✕ next to Save Now instead. The
+  // ✕ is a clear, intentional "cancel this new deal" — so if you hit + New Deal
+  // by accident you can back out, but you won't leave by fat-fingering Back.
+  // Opening an existing deal clears this mode.
+  window._uwManualAddMode = true;
+  const _bbNew = document.getElementById('uw-back-btn');
+  if (_bbNew) _bbNew.style.display = 'none';
+  const _xbNew = document.getElementById('uw-manual-x-btn');
+  if (_xbNew) _xbNew.style.display = '';
   const titleEl = document.getElementById('uw-detail-title');
   if (titleEl) titleEl.textContent = '🆕 New Property';
   const subtitleEl = document.getElementById('uw-detail-subtitle');
@@ -10678,6 +10689,23 @@ function uwBackToList() {
   goUwView(_backView);
   renderUnderwriteList();
 }
+
+// ✕ Cancel on a brand-new manual deal — discards it WITHOUT saving. Kills any
+// pending autosave (so it can't insert after you leave), clears the address so
+// a stray flush can't create a blank row, then returns to the list. Only used
+// from the manual-add ✕ button.
+function uwCancelNewDeal() {
+  try { if (typeof _uwAutosaveTimer !== 'undefined' && _uwAutosaveTimer) { clearTimeout(_uwAutosaveTimer); _uwAutosaveTimer = null; } } catch (_) {}
+  try { _uwAutosaveQueued = false; } catch (_) {}
+  _uwCurrentId = null;                 // no save target
+  window._uwManualAddMode = false;
+  const _a = document.getElementById('uw-address'); if (_a) _a.value = '';   // stray flush no-ops on empty address
+  const _xb = document.getElementById('uw-manual-x-btn'); if (_xb) _xb.style.display = 'none';
+  const _bb = document.getElementById('uw-back-btn'); if (_bb) _bb.style.display = '';
+  if (typeof _uwSetSaveStatus === 'function') _uwSetSaveStatus('idle');
+  uwBackToList();
+}
+window.uwCancelNewDeal = uwCancelNewDeal;
 
 // One-shot loader for the 2530 S Roosevelt Dr demo deal — pre-fills the
 // calculator with the values from the user's spreadsheet row, then auto-saves
@@ -19280,6 +19308,16 @@ async function uwSave(manual) {
     }
     if (result.data) {
       _uwCurrentId = result.data.id;
+      // Deal is now saved. If this was a manual add (Back hidden), show the
+      // ✕ Close button so the user can bail if they changed their mind. For a
+      // normal existing deal, just make sure ← Back is visible.
+      if (window._uwManualAddMode) {
+        const _xbSaved = document.getElementById('uw-manual-x-btn');
+        if (_xbSaved) _xbSaved.style.display = '';
+      } else {
+        const _bbSaved = document.getElementById('uw-back-btn');
+        if (_bbSaved) _bbSaved.style.display = '';
+      }
       const idEl = document.getElementById('uw-current-id');
       if (idEl) idEl.textContent = (manual ? '✓ Saved' : '⟳ Auto-saved') + ' · id ' + String(result.data.id).slice(0, 8);
       // Update local cache + refresh subtab counts/lists
@@ -20334,6 +20372,11 @@ async function uwLoadById(id) {
   _uwLoadingDeal = true;
   if (_uwLoadingDealTimer) clearTimeout(_uwLoadingDealTimer);
   _uwLoadingDealTimer = setTimeout(() => { _uwLoadingDeal = false; _uwLoadingDealTimer = null; }, 2000);
+  // Opening a real (already-saved) deal — leave manual-add mode, show ← Back,
+  // hide the ✕ Close button (that's only for the manual-add flow).
+  window._uwManualAddMode = false;
+  { const _bbLoad = document.getElementById('uw-back-btn'); if (_bbLoad) _bbLoad.style.display = ''; }
+  { const _xbLoad = document.getElementById('uw-manual-x-btn'); if (_xbLoad) _xbLoad.style.display = 'none'; }
   if (!cache.underwrites || !cache.underwrites[id]) {
     const { data, error } = await sb.from('underwrites').select('*').eq('id', id).maybeSingle();
     if (error || !data) {

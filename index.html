@@ -5016,7 +5016,7 @@
           <input id="uw-hot-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="From (imported on or after)">
           <input id="uw-hot-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="To (imported on or before)">
           <input id="uw-hot-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
-          <button class="btn btn-ghost text-sm" onclick="uwRescanAllProfits()" title="Rescan every deal with the current math — refreshes Exit Margins, Budget, and all preview values (including Hot)." style="white-space:nowrap;border:1px solid rgba(239,68,68,0.4);color:#fca5a5">🔄 Rescan</button>
+          <button class="btn btn-ghost text-sm" onclick="uwRescanHotProfits()" title="Rescan only the deals matching your current Hot ⚙️ setting — reloads each and re-saves with current math (Exit Margins, Budget, preview values)." style="white-space:nowrap;border:1px solid rgba(239,68,68,0.4);color:#fca5a5">🔄 Rescan</button>
         </div>
       </div>
       <div id="uw-hot-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -20983,6 +20983,64 @@ async function uwRescanAnalyzedProfits() {
   }
 }
 window.uwRescanAnalyzedProfits = uwRescanAnalyzedProfits;
+
+// Rescan ONLY the deals currently shown as Hot (per the active Hot ⚙️ setting).
+// Reads window._uwHotIds, which renderUnderwriteList refreshes each render.
+async function uwRescanHotProfits() {
+  if (!cache.underwrites) {
+    if (typeof toast === 'function') toast('No deals loaded yet — open Underwriting first.', 'warn');
+    return;
+  }
+  const ids = (Array.isArray(window._uwHotIds) ? window._uwHotIds : []).filter(id => cache.underwrites[id]);
+  const total = ids.length;
+  if (total === 0) {
+    if (typeof toast === 'function') toast('No Hot deals to rescan — open the Hot tab so the list builds first.', 'info');
+    return;
+  }
+  if (!confirm(
+    'Rescan the ' + total.toLocaleString() + ' Hot deal' + (total === 1 ? '' : 's') + ' matching your current Hot setting?\n\n' +
+    'Each is loaded into the calculator and re-saved with current math — Exit Margins, Budget, and preview fields refresh. ' +
+    'About 1 second per deal.\n\nKeep this tab focused while it runs.'
+  )) return;
+  const overlay = document.getElementById('uw-rescan-overlay');
+  const barEl   = document.getElementById('uw-rescan-bar');
+  const progEl  = document.getElementById('uw-rescan-progress');
+  const currEl  = document.getElementById('uw-rescan-current');
+  if (overlay) overlay.style.display = 'flex';
+  window._uwRescanCancel = false;
+  const _resumeView = (typeof _uwLastListView === 'string' && _uwLastListView) ? _uwLastListView : 'hot';
+  let saved = 0, failed = 0, cancelled = false;
+  const SETTLE_MS = 900;
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  try {
+    for (let i = 0; i < ids.length; i++) {
+      if (window._uwRescanCancel) { cancelled = true; break; }
+      const id = ids[i];
+      const u = cache.underwrites[id];
+      if (!u || !u.id || !u.address || !u.address.trim()) continue;
+      const pct = Math.round(((i + 1) / total) * 100);
+      if (barEl)  barEl.style.width = pct + '%';
+      if (progEl) progEl.textContent = (i + 1).toLocaleString() + ' of ' + total.toLocaleString() + ' deals · ' + pct + '%';
+      if (currEl) currEl.textContent = (u.address || '').slice(0, 60);
+      try {
+        if (typeof uwLoadById === 'function') await uwLoadById(id);
+        await wait(SETTLE_MS);
+        if (typeof uwSave === 'function') await uwSave(false);
+        saved++;
+      } catch (e) { console.warn('Rescan Hot failed for', id, e); failed++; }
+    }
+  } finally {
+    if (overlay) overlay.style.display = 'none';
+    if (typeof goUwView === 'function') { try { goUwView(_resumeView); } catch (_) {} }
+    if (typeof renderUnderwriteList === 'function') { try { renderUnderwriteList(); } catch (_) {} }
+    if (typeof toast === 'function') {
+      if (cancelled) toast('Hot rescan cancelled · saved ' + saved.toLocaleString() + ' before stopping.', 'warn');
+      else if (failed > 0) toast('Hot rescan complete · ' + saved.toLocaleString() + ' saved, ' + failed.toLocaleString() + ' failed.', 'warn');
+      else toast('✅ Hot rescan complete · ' + saved.toLocaleString() + ' deal' + (saved === 1 ? '' : 's') + ' refreshed.', 'ok');
+    }
+  }
+}
+window.uwRescanHotProfits = uwRescanHotProfits;
 
 
 // ===========================================================================
@@ -37982,6 +38040,9 @@ function renderUnderwriteList() {
     return gap <= 15000 || (gap / asking) <= 0.25;
   };
   const hot = all.filter(_hotMatches);
+  // Expose the current Hot deal IDs (per the active Hot ⚙️ setting) so the Hot
+  // tab's Rescan can target exactly these deals instead of the whole database.
+  try { window._uwHotIds = hot.map(function(u){ return u && u.id; }).filter(Boolean); } catch(_){}
 
   // Subtab badges
   const aCount = document.getElementById('uw-analyzing-count');

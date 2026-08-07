@@ -10707,6 +10707,35 @@ function uwCancelNewDeal() {
 }
 window.uwCancelNewDeal = uwCancelNewDeal;
 
+// In-app "this property already exists" popup. Used instead of the browser's
+// confirm() (which Chrome can suppress after a few dialogs, and which is easy to
+// miss). Shows the existing deal and two clear choices.
+window._uwShowDupModal = function(dupId) {
+  try { const old = document.getElementById('uw-dup-modal'); if (old) old.remove(); } catch (_) {}
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const ex = (typeof cache !== 'undefined' && cache.underwrites && cache.underwrites[dupId]) || {};
+  const label = ex.address || (ex.data && ex.data['uw-address']) || 'an existing deal';
+  const cityLine = [ex.city, ex.state, ex.zip].filter(Boolean).join(', ');
+  const ov = document.createElement('div');
+  ov.id = 'uw-dup-modal';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(8,11,20,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:var(--panel,#141a28);border:1px solid rgba(245,158,11,0.6);border-radius:16px;padding:26px 28px;max-width:460px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,0.55);text-align:center';
+  box.innerHTML =
+    '<div style="font-size:34px;margin-bottom:8px">⚠️</div>' +
+    '<div style="font-size:18px;font-weight:800;color:var(--text,#fff);margin-bottom:8px">This property is already in your system</div>' +
+    '<div style="font-size:14px;color:var(--text,#fff);font-weight:600">' + esc(label) + '</div>' +
+    (cityLine ? '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">' + esc(cityLine) + '</div>' : '') +
+    '<div style="font-size:12.5px;color:var(--text-dim);margin:16px 0 20px;line-height:1.5">Nothing was saved or changed. Open the existing deal, or — only if this is truly a different property — save this as a new, separate one.</div>' +
+    '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' +
+      '<button id="uw-dup-open" style="background:#3b82f6;color:#fff;border:none;padding:11px 20px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">📂 Open existing deal</button>' +
+      '<button id="uw-dup-new" style="background:transparent;color:#cbd5e1;border:1px solid rgba(255,255,255,0.25);padding:11px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Save as a new, separate deal</button>' +
+    '</div>';
+  ov.appendChild(box); document.body.appendChild(ov);
+  box.querySelector('#uw-dup-open').onclick = function() { ov.remove(); if (typeof uwLoadById === 'function') uwLoadById(dupId); };
+  box.querySelector('#uw-dup-new').onclick  = function() { ov.remove(); window._uwForceSaveNew = true; if (typeof uwSave === 'function') uwSave(true); };
+};
+
 // One-shot loader for the 2530 S Roosevelt Dr demo deal — pre-fills the
 // calculator with the values from the user's spreadsheet row, then auto-saves
 // the deal so it shows up in Analyzing as a real underwrite.
@@ -14582,7 +14611,7 @@ function uwComputeExits(ctx) {
       // the title row clean and prevents the buttons from squishing the card.
       // Cards without a Cash/Fin toggle (e.g. Wholesale) get an empty spacer of
       // the same height so their content lines up with the toggle cards.
-      const toggleRow = `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">${e.toggle ? '<span>' + e.toggle + '</span>' : '<span style="display:inline-block;height:24px"></span>'}<span class="uw-maxbudget" data-mb-key="${e.key}" style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;flex-shrink:0"></span></div>`;
+      const toggleRow = `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">${e.toggle ? '<span style="flex-shrink:0">' + e.toggle + '</span>' : '<span style="display:inline-block;height:24px;flex-shrink:0"></span>'}<span class="uw-maxbudget" data-mb-key="${e.key}" style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;flex-shrink:1;min-width:0;text-align:right;line-height:1.35"></span></div>`;
       return `<div onclick="uwToggleExit('${e.key}')" data-exit-key="${e.key}"${isBest ? ' data-is-best="true"' : ''}${e.bestMode ? ` data-best-mode="${e.bestMode}"` : ''}${typeof e.annualized === 'number' ? ` data-annualized="${Math.round(e.annualized)}"` : ''}${typeof e.bestModeProfit === 'number' ? ` data-best-profit="${Math.round(e.bestModeProfit)}"` : ''} style="padding:12px 14px;background:${bg};border:${border};border-radius:10px;cursor:pointer;transition:transform 0.1s,box-shadow 0.1s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='';this.style.boxShadow=''" title="Click to ${isOpen ? 'collapse' : 'view full breakdown'}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <span style="font-weight:600;font-size:13px">${e.icon} ${e.name}${e.mode ? ' <span style=\'color:var(--text-dim);font-weight:500\'>(' + e.mode + ')</span>' : ''}${badge}</span>
@@ -15522,7 +15551,7 @@ function uwComputeExits(ctx) {
         if (!(k in _budget)) {
           // Wholesale has no budget — reserve the same two-line height (invisible)
           // so its card lines up evenly with the others.
-          el.innerHTML = '<span style="visibility:hidden">Budget: $0<br><span style="font-size:11px">Leftover: $0</span></span>';
+          el.innerHTML = '<span style="visibility:hidden">Budget: $0<br><span style="font-size:10px">Leftover: $0</span></span>';
           return;
         }
         const _b = _budget[k];
@@ -15531,7 +15560,7 @@ function uwComputeExits(ctx) {
           const _left = _b - _bp;
           const _lc = _left < 0 ? '#f87171' : 'var(--text-dim)';
           const _lv = (_left < 0 ? '−$' : '$') + Math.abs(Math.round(_left)).toLocaleString();
-          _html += '<br><span style="font-weight:500;font-size:11px;color:' + _lc + '">Leftover: ' + _lv + '</span>';
+          _html += '<br><span style="font-weight:500;font-size:10px;color:' + _lc + '">Leftover: ' + _lv + '</span>';
         }
         el.innerHTML = _html;
         el.title = 'Budget = most you can spend on purchase + rehab combined for this exit. Leftover = budget minus your current purchase/asking price.';
@@ -19278,43 +19307,46 @@ async function uwSave(manual) {
       try {
         const _nrm = (s) => (typeof _uwNormalizeAddress === 'function') ? _uwNormalizeAddress(String(s == null ? '' : s)) : String(s == null ? '' : s).trim().toLowerCase();
         const _street = (s) => _nrm(String(s == null ? '' : s).split(',')[0]);   // just the street portion
+        // Street-type words to strip so abbreviations still match: "County Road" ==
+        // "Co Rd", "Street" == "St", etc. Directionals (n/s/e/w) are KEPT so
+        // "100 N Main" and "100 S Main" stay distinct.
+        const _FILLER = new Set(['st','ave','av','rd','dr','ln','ct','cir','pl','blvd','hwy','pkwy','trl','ter','sq','co','county','cr','road','street','avenue','drive','lane','court','circle','place','boulevard','highway','parkway','trail','terrace','square','apt','unit','ste','suite','#']);
+        const _loose = (s) => _street(s).split(' ').filter(t => t && !_FILLER.has(t)).join(' ');
         const _naFull   = _nrm(address);
         const _naStreet = _street(address);
+        const _naLoose  = _loose(address);
         const _zipNew   = String(data['uw-zip'] || '').trim();
         if ((_naFull || _naStreet) && cache.underwrites) {
           for (const k in cache.underwrites) {
             const ex = cache.underwrites[k];
             if (!ex || ex.deleted_at) continue;
-            const exAddr = ex.address || (ex.data && ex.data['uw-address']) || '';
-            const exFull   = _nrm(exAddr);
+            const exAddr   = ex.address || (ex.data && ex.data['uw-address']) || '';
             const exStreet = _street(exAddr);
+            const exLoose  = _loose(exAddr);
             const exZip    = String(ex.zip || (ex.data && ex.data['uw-zip']) || '').trim();
-            // Match on the full normalized address, OR on the street portion when
-            // the ZIPs are compatible (so "2237 Pollack Ave" matches "2237 Pollack
-            // Ave, Evansville, IN 47714"). Only a warning results, so being a bit
-            // generous here is safe.
-            const _streetMatch = _naStreet && _naStreet === exStreet && (!_zipNew || !exZip || _zipNew === exZip);
-            if ((_naFull && _naFull === exFull) || _streetMatch) { _dupId = ex.id; break; }
+            const _zipOk   = (!_zipNew || !exZip || _zipNew === exZip);
+            // Exact street match, OR full match, OR loose (street-type words
+            // stripped) match with a compatible ZIP — the loose one catches
+            // "1151 East County Road 750 S" == "1151 e co rd 750 s".
+            if ((_naStreet && _naStreet === exStreet && _zipOk) ||
+                (_naFull   && _naFull   === _nrm(exAddr)) ||
+                (_naLoose  && _naLoose  === exLoose && _zipOk)) { _dupId = ex.id; break; }
           }
         }
       } catch (_) {}
-      if (_dupId) {
-        // This address is already a deal. DO NOT overwrite the existing deal
-        // with the current (possibly blank) form — that used to silently wipe
-        // the existing record. Abort the save entirely. On a manual save, tell
-        // the user and offer to open the existing deal instead of clobbering it.
+      if (_dupId && !window._uwForceSaveNew) {
+        // This address matches an existing deal. Never silently create a duplicate
+        // or overwrite it — show the in-app LABB popup (no browser confirm, which
+        // Chrome can suppress). The popup's buttons decide what happens next.
         _uwSetSaveStatus('dirty');
-        if (manual) {
-          if (confirm('This address is already a deal in your system.\n\nNothing was overwritten.\n\nOK — open the existing deal\nCancel — stay here')) {
-            if (typeof uwLoadById === 'function') uwLoadById(_dupId);
-          }
-        }
-        return; // never create a duplicate and never overwrite the existing deal
-      } else {
-        payload.id = uid();
-        payload.created_at = new Date().toISOString();
-        result = await _uwWrite(payload, p => sb.from('underwrites').insert(p).select().maybeSingle());
+        if (typeof _uwShowDupModal === 'function') _uwShowDupModal(_dupId);
+        else if (typeof toast === 'function') toast('This property is already in your system.', 'warn');
+        return;
       }
+      window._uwForceSaveNew = false; // consume the "save as new" override
+      payload.id = uid();
+      payload.created_at = new Date().toISOString();
+      result = await _uwWrite(payload, p => sb.from('underwrites').insert(p).select().maybeSingle());
     }
     if (result.error) {
       _uwSetSaveStatus('error', 'Save failed');

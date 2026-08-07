@@ -19247,8 +19247,17 @@ async function uwSave(manual) {
         }
       } catch (_) {}
       if (_dupId) {
-        _uwCurrentId = _dupId;
-        result = await _uwWrite(payload, p => sb.from('underwrites').update(p).eq('id', _dupId).select().maybeSingle());
+        // This address is already a deal. DO NOT overwrite the existing deal
+        // with the current (possibly blank) form — that used to silently wipe
+        // the existing record. Abort the save entirely. On a manual save, tell
+        // the user and offer to open the existing deal instead of clobbering it.
+        _uwSetSaveStatus('dirty');
+        if (manual) {
+          if (confirm('This address is already a deal in your system.\n\nNothing was overwritten.\n\nOK — open the existing deal\nCancel — stay here')) {
+            if (typeof uwLoadById === 'function') uwLoadById(_dupId);
+          }
+        }
+        return; // never create a duplicate and never overwrite the existing deal
       } else {
         payload.id = uid();
         payload.created_at = new Date().toISOString();

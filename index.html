@@ -19257,11 +19257,16 @@ async function uwSave(manual) {
       }
       result = await _uwWrite(payload, p => sb.from('underwrites').update(p).eq('id', _uwCurrentId).select().maybeSingle());
     } else {
+      // NEW DEAL (no active id). Only an explicit Save Now (manual) may create
+      // one. Autosave must NOT insert a brand-new deal — otherwise it inserts a
+      // half-typed address a second after you type, which then slips past the
+      // duplicate check (and can spawn near-duplicates). Autosave just stays
+      // dirty until you click Save Now.
+      if (!manual) { _uwSetSaveStatus('dirty'); return; }
       // Duplicate-insert guard: a save with no active deal id would normally
       // INSERT a new row. Before doing that, check whether a non-deleted deal
-      // with the SAME normalized address already exists. If so, UPDATE it
-      // instead of spawning a duplicate property (the bug that produced 3
-      // identical rows in the Renovation list).
+      // with the SAME normalized address already exists. If so, warn instead of
+      // spawning a duplicate / overwriting the existing property.
       let _dupId = null;
       try {
         const _na = (typeof _uwNormalizeAddress === 'function') ? _uwNormalizeAddress(address) : '';

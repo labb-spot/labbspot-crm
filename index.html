@@ -56303,10 +56303,13 @@ window._uwInjectSecControls = function(){
         refreshBtn.style.height = '30px';
       }
       var importBtn = rightGroup.querySelector('button[onclick*="import-file"]');
+      var newDealBtn = rightGroup.querySelector('button[onclick*="uwNewDeal"]');
       // Re-append in the desired left→right order (appendChild moves to the end,
-      // so the last one appended sits farthest right).
-      if (importBtn)  rightGroup.appendChild(importBtn);
+      // so the last one appended sits farthest right). Refresh leads, then the
+      // + New Deal / Import CSV action buttons.
       if (refreshBtn) rightGroup.appendChild(refreshBtn);
+      if (newDealBtn) rightGroup.appendChild(newDealBtn);
+      if (importBtn)  rightGroup.appendChild(importBtn);
       // Inspection's Active/Pictures pill sits just BEFORE the role chips.
       if (sec === 'inspection') {
         var inspPill = document.getElementById('uw-insp-mode-pill');

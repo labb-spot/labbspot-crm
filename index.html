@@ -13346,6 +13346,11 @@ function uwComputeExits(ctx) {
   const finLoanDelta      = finTargetLoan - finLoan;     // + you could borrow more / − you'd put more down
   const finExtraDownIn    = Math.max(0, -finLoanDelta);  // capital to leave in deal
   const finCashCouldPull  = Math.max(0, finLoanDelta);   // bonus cash you could take out
+  // ----- Turn-Key (same target P&I / target loan — same rent, opex, rate, term —
+  //       but its CURRENT loan differs, so recompute leave-in / pull-out vs it). -----
+  const tkFinLoanDelta     = finTargetLoan - (typeof tkFinLoan === 'number' ? tkFinLoan : 0);
+  const tkFinExtraDownIn   = Math.max(0, -tkFinLoanDelta);
+  const tkFinCashCouldPull = Math.max(0, tkFinLoanDelta);
   // ----- Refi -----
   const rfTargetPi = rent - _rentalOpex - TARGET_CF;
   let rfTargetLoan = 0;
@@ -14255,6 +14260,17 @@ function uwComputeExits(ctx) {
           ['Cashflow after Reserves', fmt(tkFinCashflow), 'purple'],
           ['Annual cashflow', fmt(tkFinAnnualCashflow), 'profit'],
           ['Cash-on-cash', tkFinLeftIn < 1 ? '∞ (all capital out)' : tkFinCoC.toFixed(1) + '%', 'profit'],
+        ]},
+        { title: '🎯 Hit $200/mo Cashflow — what loan size?', rows: finTargetPi <= 0 ? [
+          ['Status', 'Not possible — rent ($' + Math.round(rent).toLocaleString() + ') minus opex doesn\'t cover $200 cashflow', 'profit'],
+        ] : [
+          ['Target P&I that hits $200/mo', fmt(finTargetPi)],
+          ['Target loan size', fmt(finTargetLoan)],
+          ['Current loan size', fmt(tkFinLoan)],
+          ['💰 Cash Required to LEAVE IN', fmt(tkFinExtraDownIn), 'redhl'],
+          ['💵 Cash Available to PULL OUT', fmt(tkFinCashCouldPull), 'greenhl'],
+          ['📈 Equity gain /mo at current loan', fmt((tkFinPrincipal || 0) + ((rtAnnualAppreciation || 0) / 12)), 'profit'],
+          ['🏛 Immediate Equity with Cash in', fmt(Math.max(0, (arv || 0) - (finTargetLoan || 0))), 'profit'],
         ]},
         { title: '📈 Equity Gain', rows: [
           ['Day-1 forced equity (ARV − Cash In)', fmt(Math.max(0, arv - tkFinCashPutUp))],

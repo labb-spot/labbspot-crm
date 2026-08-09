@@ -3167,19 +3167,19 @@
         <label class="text-xs">Asking Price
           <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:54px;margin-top:4px;padding:0 14px;gap:3px">
             <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
-            <input type="number" id="uw-asking" oninput="uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
+            <input type="text" inputmode="numeric" id="uw-asking" oninput="_uwCommaFmt(this);uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
           </span>
         </label>
         <label class="text-xs">Offer
           <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:54px;margin-top:4px;padding:0 14px;gap:3px">
             <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
-            <input type="number" id="uw-offer" oninput="uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
+            <input type="text" inputmode="numeric" id="uw-offer" oninput="_uwCommaFmt(this);uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
           </span>
         </label>
         <label class="text-xs">Accepted Price
           <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:54px;margin-top:4px;padding:0 14px;gap:3px">
             <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
-            <input type="number" id="uw-accepted" oninput="uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
+            <input type="text" inputmode="numeric" id="uw-accepted" oninput="_uwCommaFmt(this);uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
           </span>
         </label>
         <!-- Row 2 cells use flex column + center so the value text vertically
@@ -3386,7 +3386,7 @@
         </label>
         <label class="text-xs" title="Optional: type a value here to override the Estimated After Repair Value. Useful when you have an appraisal, broker opinion, or a different number you trust more than the comp average.">Override After Repair Value
           <span class="uw-money" style="margin-top:4px">
-            <input type="number" id="uw-arv-override" oninput="uwRecalc()" placeholder="(optional override)" style="width:100%;border-color:#3b82f6">
+            <input type="text" inputmode="numeric" id="uw-arv-override" oninput="_uwCommaFmt(this);uwRecalc()" placeholder="(optional override)" style="width:100%;border-color:#3b82f6">
           </span>
         </label>
       </div>
@@ -11266,6 +11266,18 @@ function _uwRecolorAllDistances() {
 }
 
 const _uwGetN = (id) => { const el = document.getElementById(id); const n = el ? parseFloat(String(el.value).replace(/,/g, '')) : NaN; return isFinite(n) ? n : 0; };
+// Live thousands-separator formatting for a text money input. Strips non-digits,
+// commas the integer part, keeps up to 2 decimals. All number readers strip the
+// commas again ( .replace(/,/g,'') ), so the stored/computed values are unaffected.
+function _uwCommaFmt(el){
+  if (!el) return;
+  var raw = String(el.value || '').replace(/[^0-9.]/g, '');
+  var parts = raw.split('.');
+  var intp = (parts[0] || '').replace(/^0+(?=\d)/, '');   // drop leading zeros
+  intp = intp.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  el.value = (parts.length > 1) ? (intp + '.' + parts.slice(1).join('').slice(0, 2)) : intp;
+}
+window._uwCommaFmt = _uwCommaFmt;
 const _uwGetS = (id) => { const el = document.getElementById(id); return el ? (el.value || '') : ''; };
 const _uwSet = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 const _uwFmt$ = (n) => isFinite(n) ? '$' + Math.round(n).toLocaleString() : '—';
@@ -18841,6 +18853,11 @@ function _uwApply(data) {
     if (!def) return;
     const el = document.getElementById(id);
     if (el && String(el.value).trim() === '') el.value = def;
+  });
+  // Show thousands separators on the money inputs after loading a deal.
+  ['uw-asking','uw-offer','uw-accepted','uw-arv-override'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el && typeof _uwCommaFmt === 'function') _uwCommaFmt(el);
   });
   // Refresh the Main Picture Upload status caption now that the hidden
   // #uw-main-pic input has been populated from saved data. Previously this
@@ -38021,6 +38038,11 @@ function renderUnderwriteList() {
         if (!(_arvC > 0)) return false;
         if (_price > (_S.pricePct / 100) * _arvC) return false;
       }
+      if (_S.underArvOn) {                                    // Asking is at least $X under ARV
+        const _ask = _n(data['uw-asking']) || _n(u.asking);
+        if (!(_arvC > 0) || !(_ask > 0)) return false;
+        if ((_arvC - _ask) < _S.underArv) return false;
+      }
       if (_S.withinDollarOn || _S.withinPctOn) {             // within $ / % of max offer
         const _mo = parseFloat(u.max_offer || data._maxOffer || 0) ||
           (typeof _uwComputeMaxOfferFromData === 'function' ? _uwComputeMaxOfferFromData(data) : 0);
@@ -56179,7 +56201,7 @@ window.toggleDealHistory = function(ev){
 //   mode 'custom'  → any property with a price, optionally narrowed to those
 //                    with an ARV, a rehab budget, and/or price ≤ X% of ARV.
 window._uwHotSettings = (function(){
-  var d = { mode:'default', hasArv:false, hasBudget:false, inAnalyzed:false, excludeDispo:false, excludeTagged:false, pricePctOn:false, pricePct:80, withinDollarOn:false, withinDollar:15000, withinPctOn:false, withinPct:25 };
+  var d = { mode:'default', hasArv:false, hasBudget:false, inAnalyzed:false, excludeDispo:false, excludeTagged:false, pricePctOn:false, pricePct:80, underArvOn:false, underArv:20000, withinDollarOn:false, withinDollar:15000, withinPctOn:false, withinPct:25 };
   try { var s = JSON.parse(localStorage.getItem('uw-hot-settings-v1')); if (s && typeof s === 'object') return Object.assign(d, s); } catch(_){}
   return d;
 })();
@@ -56204,6 +56226,7 @@ window._uwOpenHotSettings = function(){
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-exdispo" ' + (S.excludeDispo?'checked':'') + ' style="' + _ck + '"><span>Exclude Properties in Dispositions</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-extagged" ' + (S.excludeTagged?'checked':'') + ' style="' + _ck + '"><span>Exclude Tagged Properties</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-pct" ' + (S.pricePctOn?'checked':'') + ' style="' + _ck + '"><span>Price is</span><input type="number" id="hs-pctval" value="' + (S.pricePct||80) + '" min="1" max="200" step="1" style="width:56px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>% of After Repair Value</span></label>' +
+      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-underarv" ' + (S.underArvOn?'checked':'') + ' style="' + _ck + '"><span>Asking is $</span><input type="number" id="hs-underarvval" value="' + (S.underArv||20000) + '" min="0" step="1000" style="width:88px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>under After Repair Value</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-wd" ' + (S.withinDollarOn?'checked':'') + ' style="' + _ck + '"><span>Price is within $</span><input type="number" id="hs-wdval" value="' + (S.withinDollar||15000) + '" min="0" step="500" style="width:78px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>of max offer</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-wp" ' + (S.withinPctOn?'checked':'') + ' style="' + _ck + '"><span>Price is within</span><input type="number" id="hs-wpval" value="' + (S.withinPct||25) + '" min="1" max="200" step="1" style="width:56px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>% of max offer</span></label>' +
     '</div>' +
@@ -56222,6 +56245,8 @@ window._uwOpenHotSettings = function(){
     S.excludeTagged = box.querySelector('#hs-extagged').checked;
     S.pricePctOn= box.querySelector('#hs-pct').checked;
     S.pricePct  = parseFloat(box.querySelector('#hs-pctval').value) || 80;
+    S.underArvOn = box.querySelector('#hs-underarv').checked;
+    S.underArv   = parseFloat(box.querySelector('#hs-underarvval').value) || 20000;
     S.withinDollarOn = box.querySelector('#hs-wd').checked;
     S.withinDollar   = parseFloat(box.querySelector('#hs-wdval').value) || 15000;
     S.withinPctOn    = box.querySelector('#hs-wp').checked;

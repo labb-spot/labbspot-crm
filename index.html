@@ -38033,6 +38033,9 @@ function renderUnderwriteList() {
         const _isAnalyzed = !_flag('_needsHelp') && !_flag('_isPriority') && !_flag('_inChecking') && !_analyzing && ((u.packet_status) || '').trim() !== 'Closed';
         if (!_isAnalyzed) return false;
       }
+      if (_S.inDispo) {                                      // Keep ONLY deals in the Dispositions pipeline
+        if (!(u.dispo_contract || data._dispoContract)) return false;
+      }
       if (_S.excludeDispo) {                                 // Drop anything already in the Dispositions pipeline
         if (u.dispo_contract || data._dispoContract) return false;
       }
@@ -56204,7 +56207,7 @@ window.toggleDealHistory = function(ev){
 //   mode 'custom'  → any property with a price, optionally narrowed to those
 //                    with an ARV, a rehab budget, and/or price ≤ X% of ARV.
 window._uwHotSettings = (function(){
-  var d = { mode:'default', hasArv:false, hasBudget:false, inAnalyzed:false, excludeDispo:false, excludeTagged:false, pricePctOn:false, pricePct:80, underArvOn:false, underArv:20000, withinDollarOn:false, withinDollar:15000, withinPctOn:false, withinPct:25 };
+  var d = { mode:'default', hasArv:false, hasBudget:false, inAnalyzed:false, inDispo:false, excludeDispo:false, excludeTagged:false, pricePctOn:false, pricePct:80, underArvOn:false, underArv:20000, withinDollarOn:false, withinDollar:15000, withinPctOn:false, withinPct:25 };
   try { var s = JSON.parse(localStorage.getItem('uw-hot-settings-v1')); if (s && typeof s === 'object') return Object.assign(d, s); } catch(_){}
   return d;
 })();
@@ -56226,6 +56229,7 @@ window._uwOpenHotSettings = function(){
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-arv" ' + (S.hasArv?'checked':'') + ' style="' + _ck + '"><span>Has After Repair Value</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-budget" ' + (S.hasBudget?'checked':'') + ' style="' + _ck + '"><span>Has Renovation Budget</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-analyzed" ' + (S.inAnalyzed?'checked':'') + ' style="' + _ck + '"><span>In Analyzed</span></label>' +
+      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-indispo" ' + (S.inDispo?'checked':'') + ' style="' + _ck + '"><span>In Dispositions</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-exdispo" ' + (S.excludeDispo?'checked':'') + ' style="' + _ck + '"><span>Exclude Properties in Dispositions</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-extagged" ' + (S.excludeTagged?'checked':'') + ' style="' + _ck + '"><span>Exclude Tagged Properties</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-pct" ' + (S.pricePctOn?'checked':'') + ' style="' + _ck + '"><span>Price is</span><input type="number" id="hs-pctval" value="' + (S.pricePct||80) + '" min="1" max="200" step="1" style="width:56px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>% of After Repair Value</span></label>' +
@@ -56244,6 +56248,7 @@ window._uwOpenHotSettings = function(){
     S.hasArv    = box.querySelector('#hs-arv').checked;
     S.hasBudget = box.querySelector('#hs-budget').checked;
     S.inAnalyzed= box.querySelector('#hs-analyzed').checked;
+    S.inDispo   = box.querySelector('#hs-indispo').checked;
     S.excludeDispo = box.querySelector('#hs-exdispo').checked;
     S.excludeTagged = box.querySelector('#hs-extagged').checked;
     S.pricePctOn= box.querySelector('#hs-pct').checked;

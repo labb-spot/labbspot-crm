@@ -11271,11 +11271,9 @@ const _uwGetN = (id) => { const el = document.getElementById(id); const n = el ?
 // commas again ( .replace(/,/g,'') ), so the stored/computed values are unaffected.
 function _uwCommaFmt(el){
   if (!el) return;
-  var raw = String(el.value || '').replace(/[^0-9.]/g, '');
-  var parts = raw.split('.');
-  var intp = (parts[0] || '').replace(/^0+(?=\d)/, '');   // drop leading zeros
-  intp = intp.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  el.value = (parts.length > 1) ? (intp + '.' + parts.slice(1).join('').slice(0, 2)) : intp;
+  // Whole dollars only (no cents), thousands-separated. Drops any ".00".
+  var digits = String(el.value || '').replace(/[^0-9.]/g, '').split('.')[0].replace(/^0+(?=\d)/, '');
+  el.value = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 window._uwCommaFmt = _uwCommaFmt;
 const _uwGetS = (id) => { const el = document.getElementById(id); return el ? (el.value || '') : ''; };
@@ -18547,6 +18545,11 @@ function _uwCollect() {
     // as '1'/'0' strings so the same JSONB field round-trips cleanly.
     if (el.type === 'checkbox') data[id] = el.checked ? '1' : '0';
     else data[id] = el.value || '';
+  });
+  // Money fields display with thousands-commas but must be STORED comma-free so
+  // every downstream reader (previews, sorts, exports) parses a clean number.
+  ['uw-asking','uw-offer','uw-accepted','uw-arv-override'].forEach(function(id){
+    if (typeof data[id] === 'string') data[id] = data[id].replace(/,/g, '');
   });
   // Persist custom checklist rows under a reserved key that won't collide with field IDs.
   data._customChecklist = _uwCustomChecklist.map(x => ({ id: x.id, label: x.label, value: x.value }));
@@ -27491,8 +27494,8 @@ function _hrShowDealModal(id) {
   if (!u) return;
   const fmt$ = (n) => n ? '$' + Math.round(Number(n)).toLocaleString() : '—';
   const data = u.data || {};
-  const accepted = parseFloat(data['uw-accepted'] || u.accepted || 0) || 0;
-  const asking   = parseFloat(data['uw-asking']   || u.asking   || 0) || 0;
+  const accepted = parseFloat(String(data['uw-accepted'] || u.accepted || 0).replace(/,/g,'')) || 0;
+  const asking   = parseFloat(String(data['uw-asking']   || u.asking   || 0).replace(/,/g,'')) || 0;
   const arv      = (typeof _uwComputeArvFromData === 'function' ? _uwComputeArvFromData(data) : 0) || u.arv || 0;
   const rent     = (typeof _uwComputeRentFromData === 'function' ? _uwComputeRentFromData(data) : 0) || 0;
   const maxOffer = parseFloat(u.max_offer || data._maxOffer || 0) ||
@@ -27611,7 +27614,7 @@ function _hrComputeBudget(u) {
 // the property from this list; it stays in Closed).
 function _hrRenderRow(u, view) {
   const fmt$ = (n) => n ? '$' + Math.round(Number(n)).toLocaleString() : '—';
-  const accepted = parseFloat((u.data && u.data['uw-accepted']) || u.accepted || 0) || 0;
+  const accepted = parseFloat(String((u.data && u.data['uw-accepted']) || u.accepted || 0).replace(/,/g,'')) || 0;
   // Renovation view shows projected TOTAL monthly rent instead of the accepted
   // purchase price. Same formula as the underwriting calculator's "Total Rent /mo":
   //   per_unit = override (uw-ravg-override) if set, else average of rental comps
@@ -32516,7 +32519,7 @@ function buyerRenderContractsPanel() {
       '<td style="padding:10px 12px;font-size:13px;color:var(--text);text-align:left;vertical-align:middle">' + addrHtml + '</td>' +
       (function () {
         // ---- LOCAL-ONLY recompute (never touches u.data or anything downstream) ----
-        var accepted    = parseFloat((u.data && u.data['uw-accepted']) || u.accepted || 0) || 0;
+        var accepted    = parseFloat(String((u.data && u.data['uw-accepted']) || u.accepted || 0).replace(/,/g,'')) || 0;
         var defaultPkt  = packetPrice(u);
         // Always-auto Packet Price (ignores both the saved popover override
         // and the per-row local override). Used ONLY for the dim "max $X" line
@@ -38057,7 +38060,7 @@ function renderUnderwriteList() {
     const _hotOffer = (data['uw-offer-status'] || '').trim();
     const _hotPacket = (u.packet_status || '').trim();
     if (_hotOffer === 'Closed' || _hotOffer === 'Dropped' || _hotPacket === 'Closed') return false;
-    const asking   = parseFloat(data['uw-asking'] || u.asking || 0) || 0;
+    const asking   = parseFloat(String(data['uw-asking'] || u.asking || 0).replace(/,/g,'')) || 0;
     const maxOffer = parseFloat(u.max_offer || data._maxOffer || 0) ||
                      (typeof _uwComputeMaxOfferFromData === 'function' ? _uwComputeMaxOfferFromData(data) : 0);
     if (asking <= 0 || maxOffer <= 0) return false;
@@ -38226,8 +38229,8 @@ function renderUnderwriteList() {
       <td style="padding:8px 10px"><span class="badge ${statusBadgeClass}" style="font-size:11px">${escapeHtml(typeof _uwOfferStatusLabel === 'function' ? _uwOfferStatusLabel(_displayStatus) : _displayStatus)}</span></td>
       <td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums;line-height:1.25"><div>${fmt$(_uwComputeArvFromData(u.data) || u.arv)}</div><div style="font-size:11px;color:var(--text-dim)" title="Projected monthly rent">${fmt$(_uwComputeRentFromData(u.data))}/m</div></td>
       ${(function(){
-        const ask = parseFloat((u.data && u.data['uw-asking']) || u.asking || 0) || 0;
-        const acc = parseFloat((u.data && u.data['uw-accepted']) || u.accepted || 0) || 0;
+        const ask = parseFloat(String((u.data && u.data['uw-asking']) || u.asking || 0).replace(/,/g,'')) || 0;
+        const acc = parseFloat(String((u.data && u.data['uw-accepted']) || u.accepted || 0).replace(/,/g,'')) || 0;
         let inner;
         if (acc > 0)      inner = '<span style="color:#10b981;font-weight:600">' + fmt$(acc) + '</span>';   // accepted → green
         else if (ask > 0) inner = '<span style="color:#eab308;font-weight:600">' + fmt$(ask) + '</span>';   // asking only → yellow

@@ -14073,16 +14073,11 @@ function uwComputeExits(ctx) {
           ['Immediate equity (day 1)', fmt(_refiImmediateEq)],
           ['Equity gain /mo', fmt(_refiEquityMo)],
           ['Cash-on-cash', rfLeftIn < 1 ? '∞ (all capital out)' : rfCoC.toFixed(1) + '%'],
-          ['Max cash if max-LTV (bonus)', fmt(rfCashOutMax)],
         ] : rentalMode === 'financed' ? [
           ['Monthly cashflow', fmt(finCashflow)],
           ['Immediate equity (day 1)', fmt(_finImmediateEq)],
           ['Equity gain /mo', fmt(_finEquityMo)],
           ['Cash-on-cash', finLeftIn < 1 ? '∞ (all capital out)' : finCoC.toFixed(1) + '%'],
-          ['Capital LEFT IN deal', fmt(finLeftIn)],
-          finCashOut > 0
-            ? ['Bonus cash pulled out', fmt(finCashOut)]
-            : ['Cash you put up (Phase 1)', fmt(finCashPutUp)],
         ] : rentalMode === 'turnkey' ? [
           ['Monthly cashflow', fmt(tkFinCashflow)],
           ['Immediate equity (day 1)', fmt(Math.max(0, (arv || 0) - (tkFinLoan || 0)))],
@@ -14090,7 +14085,7 @@ function uwComputeExits(ctx) {
           ['Cash-on-cash', tkFinLeftIn < 1 ? '∞ (all capital out)' : tkFinCoC.toFixed(1) + '%'],
           tkFinCashOut > 0
             ? ['Bonus cash pulled out', fmt(tkFinCashOut)]
-            : ['Cash you put up', fmt(tkFinCashPutUp)],
+            : ['Capital Required to Close', fmt(tkFinLeftIn)],
         ] : [
           ['Monthly cashflow', fmt(cashRentalCashflow)],
           ['Immediate equity (day 1)', fmt(_cashImmediateEq)],

@@ -4117,6 +4117,7 @@
           <span class="text-xs" style="color:var(--text-dim)" id="uw-rehab-header-info">Multiplier: Total Livable SqFt</span>
           <button type="button" id="rc-trash-btn" onclick="window._rcOpenTrash && window._rcOpenTrash()" class="btn btn-ghost text-xs" style="display:none;padding:4px 10px;font-size:11px;font-weight:600;border-color:#22d3ee;color:#67e8f9" title="Trash bin — restore items you deleted. Trashed items are never counted in any estimate.">🗑 Trash</button>
           <button type="button" id="rc-lab-edit-btn" onclick="window._rcToggleLabEditMode && window._rcToggleLabEditMode()" class="btn btn-ghost text-xs" style="display:none;padding:4px 10px;font-size:11px;font-weight:600" title="Toggle LAB Custom Edit Mode — unlocks rate cells for editing">🔒 Edit Mode: OFF</button>
+          <button type="button" id="rc-edit-presets-btn" onclick="window._rcTogglePresetEdit && window._rcTogglePresetEdit()" class="btn btn-ghost text-xs" style="padding:4px 10px;font-size:11px;font-weight:600;border-color:#a855f7;color:#c4b5fd" title="Edit what's in each Quick Preset. GLOBAL — the change applies to every deal and every employee. Click this, pick a preset, check the items you want in it, then 💾 Save Quick Preset.">✏️ Edit Quick Presets</button>
         </div>
       </div>
 
@@ -4150,6 +4151,7 @@
         <span id="rc-custom-presets-list" class="flex items-center gap-2 flex-wrap" style="align-items:center"></span>
         <span style="margin-left:auto;display:inline-flex;gap:8px;align-items:center">
           <button id="rc-save-custom" class="rc-preset" style="display:none;background:#10b981;color:white;border-color:#10b981" title="Save the current item + special-case selection as this deal's Custom preset. The next time you click ⭐ Custom on this deal, this exact selection loads back.">💾 Save Custom</button>
+          <button id="rc-save-preset-btn" onclick="window._rcSaveQuickPreset && window._rcSaveQuickPreset()" class="rc-preset" style="display:none;background:#a855f7;color:white;border-color:#a855f7" title="Save the current checked items as the selected Quick Preset. GLOBAL — every deal and every employee will see this.">💾 Save Quick Preset</button>
           <button type="button" id="rc-save-new-preset" style="background:#a855f7;color:white;border:1px solid #a855f7;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s" title="Save the current item + special-case selection as a new named preset for this deal.">💾 Save New Preset</button>
         </span>
       </div>
@@ -43471,6 +43473,8 @@ async function loadAllFromDB() {
   // Pull the global Rehab Calculator $/SF price book from the cloud so the
   // calculator starts in sync on any device. Safe no-op if cloud is empty.
   if (typeof _uwRehabPriceBookHydrateFromCloud === 'function') _uwRehabPriceBookHydrateFromCloud();
+  // Global Quick-Preset overrides (Cosmetic…Monster item lists) — shared by team.
+  if (typeof window._rcHydratePresets === 'function') window._rcHydratePresets();
   // Same for LAB Custom Rates — overrides on default rates flow cloud->local.
   if (typeof _labRatesHydrateFromCloud === 'function') _labRatesHydrateFromCloud();
   // Custom rehab items / groups / auto rules — same cloud->local pattern.
@@ -53898,13 +53902,59 @@ const basicGroups = [
   {col:3, n:'Additions',               icon:'➕', items:['Garage Add (24x24)','Room Add (12x16)','Basement Finish (1000sf)','Attic Conversion','Pop-Top (2nd story)','ADU (600 sqft)','Radon Mitigation','EV Charger','Generator + Transfer'], note:'Expand square footage + premium add-ons (radon, EV charger, generator). Major projects — usually only one structural at a time.'}
 ];
 
-const presets = {
+let presets = {
   cosmetic: ['Backsplash','Countertops','Toilets','Mirrors / Medicine Cabinets','Flooring (LVP/laminate)','Paint','Plumbing Fixtures','Electrical Fixtures','Smoke/CO Detectors (hardwired)','Landscaping'],
   light: ['Backsplash','Countertops','Toilets','Mirrors / Medicine Cabinets','Flooring (LVP/laminate)','Paint','Plumbing Fixtures','Electrical Fixtures','Smoke/CO Detectors (hardwired)','Landscaping','Appliances','Sink/Faucet','Vanity','Interior Doors','Trim & Molding','Lighting','Water Heater','Dumpsters'],
   moderate: ['Backsplash','Countertops','Toilets','Mirrors / Medicine Cabinets','Flooring (LVP/laminate)','Paint','Plumbing Fixtures','Electrical Fixtures','Smoke/CO Detectors (hardwired)','Landscaping','Appliances','Sink/Faucet','Vanity','Interior Doors','Trim & Molding','Lighting','Water Heater','Dumpsters','Cabinets','Range Hood / Vent','Garbage Disposal','Exhaust Fans','Tub/Shower','Tiling','Drywall','Stairs/Railings','Gutters','Soffit','Fascia','Siding','Windows'],
   heavy: ['Backsplash','Countertops','Toilets','Mirrors / Medicine Cabinets','Flooring (LVP/laminate)','Paint','Plumbing Fixtures','Electrical Fixtures','Smoke/CO Detectors (hardwired)','Landscaping','Appliances','Sink/Faucet','Vanity','Interior Doors','Trim & Molding','Lighting','Water Heater','Dumpsters','Cabinets','Range Hood / Vent','Garbage Disposal','Exhaust Fans','Tub/Shower','Tiling','Drywall','Stairs/Railings','Gutters','Soffit','Fascia','Siding','Windows','Insulation','Furnace','AC Condenser','Ductwork','Smart Thermostat','Panel Upgrade (200A)','Supply Lines','Roof','Exterior Doors','Trash Clean-Out','Driveway','Permits'],
   gut: ['Backsplash','Countertops','Toilets','Mirrors / Medicine Cabinets','Flooring (LVP/laminate)','Paint','Plumbing Fixtures','Electrical Fixtures','Smoke/CO Detectors (hardwired)','Landscaping','Appliances','Sink/Faucet','Vanity','Interior Doors','Trim & Molding','Lighting','Water Heater','Dumpsters','Cabinets','Range Hood / Vent','Garbage Disposal','Exhaust Fans','Tub/Shower','Tiling','Drywall','Stairs/Railings','Gutters','Soffit','Fascia','Siding','Windows','Insulation','Furnace','AC Condenser','Ductwork','Smart Thermostat','Panel Upgrade (200A)','Supply Lines','Roof','Exterior Doors','Trash Clean-Out','Driveway','Permits','Drain Lines','Electrical Wiring','Demolition','Outdoor Lighting','Foundation Wall Repair','Subfloor','Joist Sistering','Chimney Removal'],
   monster: ['Backsplash','Countertops','Toilets','Mirrors / Medicine Cabinets','Flooring (LVP/laminate)','Paint','Plumbing Fixtures','Electrical Fixtures','Smoke/CO Detectors (hardwired)','Landscaping','Appliances','Sink/Faucet','Vanity','Interior Doors','Trim & Molding','Lighting','Water Heater','Dumpsters','Cabinets','Range Hood / Vent','Garbage Disposal','Exhaust Fans','Tub/Shower','Tiling','Drywall','Stairs/Railings','Gutters','Soffit','Fascia','Siding','Windows','Insulation','Furnace','AC Condenser','Ductwork','Smart Thermostat','Panel Upgrade (200A)','Supply Lines','Roof','Exterior Doors','Trash Clean-Out','Driveway','Permits','Drain Lines','Electrical Wiring','Demolition','Outdoor Lighting','Subfloor','Joist Sistering','Chimney Removal','Septic Tank','Leach Field','Sewer Line (replace)','Tree Removal','Foundation Waterproofing','Steel I-Beam Wall Bracing']
+};
+
+// ===== GLOBAL Quick-Preset editing (DB-synced via app_config, shared by all
+// deals + every employee) ==========================================
+window._rcPresetEdit = false;      // are we in "edit quick presets" mode?
+window._rcEditingPreset = null;    // which preset is currently being built
+// Merge any cloud override into the live presets object (called at boot after
+// app_config loads, and safe to call again).
+window._rcHydratePresets = function () {
+  try {
+    var ov = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings
+              && cache.config.column_mappings.rehab_preset_overrides) || null;
+    if (ov && typeof ov === 'object') {
+      Object.keys(ov).forEach(function (k) { if (Array.isArray(ov[k])) presets[k] = ov[k].slice(); });
+    }
+  } catch (_) {}
+};
+// Toggle the "edit quick presets" mode on/off.
+window._rcTogglePresetEdit = function () {
+  window._rcPresetEdit = !window._rcPresetEdit;
+  var btn = document.getElementById('rc-edit-presets-btn');
+  var saveBtn = document.getElementById('rc-save-preset-btn');
+  if (btn) {
+    btn.textContent = window._rcPresetEdit ? '✏️ Editing Presets: ON' : '✏️ Edit Quick Presets';
+    btn.style.background = window._rcPresetEdit ? '#7c3aed' : '';
+    btn.style.color = window._rcPresetEdit ? '#fff' : '';
+  }
+  if (saveBtn) saveBtn.style.display = window._rcPresetEdit ? '' : 'none';
+  if (!window._rcPresetEdit) window._rcEditingPreset = null;
+  if (typeof toast === 'function') {
+    toast(window._rcPresetEdit
+      ? '✏️ Click a preset (Cosmetic…Monster), check the items you want in it, then 💾 Save Quick Preset.'
+      : 'Preset editing off.', 'ok');
+  }
+};
+// Save the currently-checked items as the selected preset — GLOBAL, syncs to team.
+window._rcSaveQuickPreset = function () {
+  if (!window._rcEditingPreset) {
+    if (typeof toast === 'function') toast('Click a preset first (Cosmetic…Monster), then adjust its items.', 'warn');
+    return;
+  }
+  var list = [];
+  Object.keys(items).forEach(function (k) { items[k].forEach(function (i) { if (i.on) list.push(i.n); }); });
+  presets[window._rcEditingPreset] = list;
+  if (typeof _uwCfgMerge === 'function') _uwCfgMerge({ rehab_preset_overrides: presets });
+  if (typeof toast === 'function') toast('✅ Saved "' + window._rcEditingPreset + '" preset — syncs to the whole team.', 'ok');
 };
 
 const noScaleCategories = ['structural','utilities'];
@@ -55577,6 +55627,9 @@ _rcRoot.addEventListener('click', e=>{
     _rcRoot.querySelectorAll('.rc-cpreset').forEach(b=>{ b.style.background='rgba(168,85,247,0.12)'; });
     e.target.classList.add('active');
     const p = e.target.dataset.preset;
+    // In "edit quick presets" mode, remember which built-in preset we're building
+    // so 💾 Save Quick Preset knows where to store the current item selection.
+    if (window._rcPresetEdit && p !== 'clear' && p !== 'custom') window._rcEditingPreset = p;
     if(p==='clear'){ Object.keys(items).forEach(k=>items[k].forEach(i=>i.on=false)); specialCases.forEach(s=>s.sev=null); }
     else if(p==='custom'){
       // Load this deal's saved Custom preset (items + special cases). Falls

@@ -4118,6 +4118,7 @@
           <button type="button" id="rc-trash-btn" onclick="window._rcOpenTrash && window._rcOpenTrash()" class="btn btn-ghost text-xs" style="display:none;padding:4px 10px;font-size:11px;font-weight:600;border-color:#22d3ee;color:#67e8f9" title="Trash bin — restore items you deleted. Trashed items are never counted in any estimate.">🗑 Trash</button>
           <button type="button" id="rc-lab-edit-btn" onclick="window._rcToggleLabEditMode && window._rcToggleLabEditMode()" class="btn btn-ghost text-xs" style="display:none;padding:4px 10px;font-size:11px;font-weight:600" title="Toggle LAB Custom Edit Mode — unlocks rate cells for editing">🔒 Edit Mode: OFF</button>
           <button type="button" id="rc-edit-presets-btn" onclick="window._rcTogglePresetEdit && window._rcTogglePresetEdit()" class="btn btn-ghost text-xs" style="padding:4px 10px;font-size:11px;font-weight:600;border-color:#a855f7;color:#c4b5fd" title="Edit what's in each Quick Preset. GLOBAL — the change applies to every deal and every employee. Click this, pick a preset, check the items you want in it, then 💾 Save Quick Preset.">✏️ Edit Quick Presets</button>
+          <button type="button" id="rc-sync-all" onclick="window._rcSyncAllNow && window._rcSyncAllNow()" class="btn btn-ghost text-xs" style="padding:4px 10px;font-size:11px;font-weight:600;border-color:#22d3ee;color:#67e8f9" title="Force-push ALL of this device's rehab customizations (custom items, groups, deletions, rate/price edits, and Quick Presets) to the cloud so every other device — iPad, employees — pulls them on next refresh. Use this device as the source of truth.">☁ Sync to Cloud</button>
         </div>
       </div>
 
@@ -54711,7 +54712,8 @@ window._rcSyncAllNow = function(){
       rehab_user_auto:    readObj(USER_AUTO_KEY),
       rehab_user_renames: readObj(USER_RENAMES_KEY),
       rehab_user_trash:   readArr(USER_TRASH_KEY),
-      rehab_price_book:   (typeof _uwRehabPriceBookGet === 'function') ? _uwRehabPriceBookGet() : readObj(_UW_REHAB_PRICEBOOK_KEY)
+      rehab_price_book:   (typeof _uwRehabPriceBookGet === 'function') ? _uwRehabPriceBookGet() : readObj(_UW_REHAB_PRICEBOOK_KEY),
+      rehab_preset_overrides: (typeof presets === 'object' && presets) ? presets : {}
     };
     if (btn){ btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = '⏳ Syncing…'; }
     Promise.resolve(_uwCfgMerge(patch)).then(async () => {

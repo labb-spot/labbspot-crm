@@ -15486,16 +15486,16 @@ function uwComputeExits(ctx) {
       const winBadge  = isCurrentBest ? '<span style="background:#10b981;color:white;padding:1px 5px;border-radius:8px;font-size:8px;font-weight:700;margin-left:6px">WINS</span>' : '';
       return `
       <div style="padding:10px 12px;background:${bg};border:${border};border-radius:8px;flex:1;min-width:170px">
-        <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">${icon} ${name}${winBadge}</div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px">
-          <div>
-            <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Max all-in</div>
-            ${fmtAllIn(allInToday, ceilingAllIn)}
-          </div>
-          <div style="text-align:right">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
+          <div style="font-size:11px;color:var(--text-dim)">${icon} ${name}${winBadge}</div>
+          <div style="text-align:right;flex-shrink:0">
             <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Max buy</div>
-            <div style="font-weight:600;font-size:13px">${fmt$(ceilingBuy)}</div>
+            <div style="font-weight:700;font-size:20px;line-height:1.05">${fmt$(ceilingBuy)}</div>
           </div>
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Max all-in</div>
+          ${fmtAllIn(allInToday, ceilingAllIn)}
         </div>
         <div style="font-size:10px;color:var(--text-dim);margin-top:6px;line-height:1.3">${rule}</div>
         ${diagInfo ? '<div style="font-size:10px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);color:' + diagColor + ';line-height:1.3">' + diagInfo.msg + '</div>' : ''}
@@ -15525,20 +15525,20 @@ function uwComputeExits(ctx) {
       const cashImpossible = _cashflowImpossible;
       return `
       <div style="padding:10px 12px;background:${bg};border:${border};border-radius:8px;flex:1;min-width:220px">
-        <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">🔁 Refi (BRRR)${winBadge}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
-          ${subCell('Max buy → pull-out',    rtRefiBuyMaxPullOut, pullBinds)}
-          ${subCell('Max buy → $200 cashflow', cashImpossible ? 0 : rtRefiBuyMaxCash, cashBinds)}
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;padding-top:6px;border-top:1px dashed var(--border)">
-          <div>
-            <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Effective max all-in</div>
-            ${fmtAllIn(rtAllInToday, rtRefiAllInMax)}
-          </div>
-          <div style="text-align:right">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+          <div style="font-size:11px;color:var(--text-dim)">🔁 Refi (BRRR)${winBadge}</div>
+          <div style="text-align:right;flex-shrink:0">
             <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Effective max buy</div>
-            <div style="font-weight:600;font-size:13px">${fmt$(rtRefiBuyMax)}</div>
+            <div style="font-weight:700;font-size:20px;line-height:1.05">${fmt$(rtRefiBuyMax)}</div>
           </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+          ${subCell('Cashout',    rtRefiBuyMaxPullOut, pullBinds)}
+          ${subCell('Cashflow', cashImpossible ? 0 : rtRefiBuyMaxCash, cashBinds)}
+        </div>
+        <div style="padding-top:6px;border-top:1px dashed var(--border)">
+          <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Effective max all-in</div>
+          ${fmtAllIn(rtAllInToday, rtRefiAllInMax)}
         </div>
         <div style="font-size:10px;color:var(--text-dim);margin-top:6px;line-height:1.3">${_rtBrLtvPct}% refi LTV × ARV (${fmt$(arv)}) · pull-out + ≥$200 cashflow both required</div>
         ${(rfTargetPi > 0) ? '<div style="font-size:10.5px;color:#c4b5fd;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);line-height:1.35">💰 Leave in <b>' + fmt$(rfTargetLeftIn) + '</b> of your own cash → hits $200/mo cashflow at this buy price</div>' : '<div style="font-size:10.5px;color:var(--text-dim);margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);line-height:1.35">💰 $200/mo cashflow not reachable — rent vs. expenses too tight</div>'}
@@ -15566,24 +15566,69 @@ function uwComputeExits(ctx) {
       };
       return `
       <div style="padding:10px 12px;background:${bg};border:${border};border-radius:8px;flex:1;min-width:220px">
-        <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">🏦 Financed Rental <span style="font-size:9px;color:var(--text-dim)">(cash → DSCR)</span></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
-          ${subCell('Max buy → pull-out', dscrBuyMaxPullOut, pullBinds)}
-          ${subCell('Max buy → $200 cashflow', _cashflowImpossible ? 0 : dscrBuyMaxCash, cashBinds)}
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;padding-top:6px;border-top:1px dashed var(--border)">
-          <div>
-            <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Effective max all-in</div>
-            ${fmtAllIn(rtAllInToday, dscrAllInMax)}
-          </div>
-          <div style="text-align:right">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+          <div style="font-size:11px;color:var(--text-dim)">🏦 Financed Rental <span style="font-size:9px;color:var(--text-dim)">(cash → DSCR)</span></div>
+          <div style="text-align:right;flex-shrink:0">
             <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Effective max buy</div>
-            <div style="font-weight:600;font-size:13px">${fmt$(dscrBuyMax)}</div>
+            <div style="font-weight:700;font-size:20px;line-height:1.05">${fmt$(dscrBuyMax)}</div>
           </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+          ${subCell('Cashout', dscrBuyMaxPullOut, pullBinds)}
+          ${subCell('Cashflow', _cashflowImpossible ? 0 : dscrBuyMaxCash, cashBinds)}
+        </div>
+        <div style="padding-top:6px;border-top:1px dashed var(--border)">
+          <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Effective max all-in</div>
+          ${fmtAllIn(rtAllInToday, dscrAllInMax)}
         </div>
         <div style="font-size:10px;color:var(--text-dim);margin-top:6px;line-height:1.3">Cash purchase + rehab, then DSCR loan to recoup. Cheaper than BRRR (no HM round-trip).</div>
         ${(finTargetPi > 0) ? ((finExtraDownInCap > 0) ? '<div style="font-size:10.5px;color:#c4b5fd;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);line-height:1.35">💰 Leave in <b>' + fmt$(finExtraDownInCap) + '</b> of your own cash → hits $200/mo cashflow at this buy price</div>' : '<div style="font-size:10.5px;color:#34d399;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);line-height:1.35">💵 Can pull out <b>' + fmt$(finCashCouldPullCap) + '</b> extra & still keep $200/mo</div>') : '<div style="font-size:10.5px;color:var(--text-dim);margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);line-height:1.35">💰 $200/mo cashflow not reachable — rent vs. expenses too tight</div>'}
         ${diagInfo ? '<div style="font-size:10px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);color:' + diagColor + ';line-height:1.3">' + diagInfo.msg + '</div>' : ''}
+      </div>`;
+    })();
+
+    // ----- Turn Key card (DSCR on purchase only — fees cash to close) -----
+    const tkCardHtml = (function () {
+      const border   = '1px solid var(--border)';
+      const bg       = 'var(--panel-2)';
+      const _cap     = (typeof _finLtvCapLoan === 'number') ? _finLtvCapLoan : (arv * 0.70);
+      const _pullOut = _cap;                                                              // loan = purchase → pull-out cap = 70% ARV
+      const _impossible = (typeof _cashflowImpossible !== 'undefined') ? _cashflowImpossible : false;
+      const _cashMax = (typeof _maxLoanForCF === 'number' && !_impossible) ? _maxLoanForCF : 0; // purchase that still cashflows $200/mo
+      const _eff     = Math.min(_pullOut > 0 ? _pullOut : Infinity, _cashMax > 0 ? _cashMax : Infinity);
+      const tkBuy    = isFinite(_eff) ? _eff : 0;
+      const pullBinds = _pullOut > 0 && _pullOut <= (_cashMax > 0 ? _cashMax : Infinity);
+      const cashBinds = _cashMax > 0 && _cashMax < (_pullOut || Infinity);
+      const tkAllIn  = tkBuy > 0 ? (tkBuy * 1.03 + (typeof tkRehab === 'number' ? tkRehab : 0)) : 0;
+      const subCell = (label, buyVal, isBinding) => {
+        const valColor = !isFinite(buyVal) || buyVal <= 0 ? 'var(--text-dim)' : (isBinding ? '#ef4444' : 'var(--text)');
+        const bindingTag = isBinding ? ' <span style="font-size:8px;color:#ef4444;font-weight:700">← BINDS</span>' : '';
+        return `<div style="padding:6px 8px;background:rgba(15,23,42,0.45);border:1px solid var(--border);border-radius:6px"><div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">${label}${bindingTag}</div><div style="font-weight:700;font-size:13px;color:${valColor};margin-top:2px">${fmt$(buyVal)}</div></div>`;
+      };
+      const note = (finTargetPi > 0)
+        ? ((tkFinExtraDownInCap > 0)
+            ? '<div style="font-size:10.5px;color:#c4b5fd;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);line-height:1.35">💰 Leave in <b>' + fmt$(tkFinExtraDownInCap) + '</b> of your own cash → hits $200/mo cashflow at this buy price</div>'
+            : '<div style="font-size:10.5px;color:#34d399;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);line-height:1.35">💵 Can pull out <b>' + fmt$(tkFinCashCouldPullCap) + '</b> extra & still keep $200/mo</div>')
+        : '<div style="font-size:10.5px;color:var(--text-dim);margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);line-height:1.35">💰 $200/mo cashflow not reachable — rent vs. expenses too tight</div>';
+      return `
+      <div style="padding:10px 12px;background:${bg};border:${border};border-radius:8px;flex:1;min-width:220px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+          <div style="font-size:11px;color:var(--text-dim)">🔑 Turn Key <span style="font-size:9px;color:var(--text-dim)">(DSCR on purchase)</span></div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Effective max buy</div>
+            <div style="font-weight:700;font-size:20px;line-height:1.05">${fmt$(tkBuy)}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+          ${subCell('Cashout', _pullOut, pullBinds)}
+          ${subCell('Cashflow', _impossible ? 0 : _cashMax, cashBinds)}
+        </div>
+        <div style="padding-top:6px;border-top:1px dashed var(--border)">
+          <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">Effective max all-in</div>
+          ${fmtAllIn(rtAllInToday, tkAllIn)}
+        </div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:6px;line-height:1.3">Buy rent-ready; DSCR loan covers the purchase (fees paid cash to close). 70% ARV cap + ≥$200 cashflow.</div>
+        ${note}
       </div>`;
     })();
 
@@ -15600,6 +15645,7 @@ function uwComputeExits(ctx) {
       <!-- Row 2: Recurring exits (Cash rental, Financed Rental, Refi/BRRR) -->
       <div style="display:flex;flex-wrap:wrap;gap:8px">
         ${card('🏠', 'Cash rental',        rtCashBuyMax, rtCashAllInMax,             rtAllInToday,   '20% gross yield (' + fmt$(annualRent) + '/yr ÷ all-in)',                  diag.cashRental,   _highlightCurrentBest('cashRental'))}
+        ${tkCardHtml}
         ${dscrCardHtml}
         ${refiCardHtml}
       </div>`;

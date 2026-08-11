@@ -32806,6 +32806,12 @@ function buyerRenderContractsPanel() {
     '</tr>';
   }).join('');
 
+  // Preserve the inner scroll position across the rebuild — the .overflow-auto
+  // wrapper that holds the table is recreated on every render, which would
+  // otherwise snap it back to the top on each save/edit.
+  var _dcPrevWrap = bodyEl.querySelector('.overflow-auto');
+  var _dcPrevScroll = _dcPrevWrap ? _dcPrevWrap.scrollTop : 0;
+
   bodyEl.innerHTML =
     '<div class="overflow-auto" style="max-height:70vh">' +
     '<table id="dispo-contracts-table" style="width:100%;border-collapse:collapse">' +
@@ -32834,6 +32840,7 @@ function buyerRenderContractsPanel() {
       '<tbody>' + rows + '</tbody>' +
     '</table>' +
     '</div>';
+  if (_dcPrevScroll) { var _dcNewWrap = bodyEl.querySelector('.overflow-auto'); if (_dcNewWrap) _dcNewWrap.scrollTop = _dcPrevScroll; }
 }
 window.buyerRenderContractsPanel = buyerRenderContractsPanel;
 
@@ -33039,14 +33046,8 @@ function buyerSetPacketPrice(id, raw) {
   if (u) { if (!u.data) u.data = {}; u.data['uw-packet-asking-override'] = (newVal != null) ? String(newVal) : ''; u.packet_price = newVal; }
   if (newVal == null) delete window._dispoPacketPrices[id];
   else                window._dispoPacketPrices[id] = newVal;
-  // Re-rendering the grid rebuilds its HTML, which snaps scroll to the top.
-  // Capture the scroll position (page + any scrollable ancestor) and restore it.
-  var _scEl = document.querySelector('[data-uwview="dispositions"], #uwview-dispositions') || null;
-  var _pageY = window.scrollY, _elY = _scEl ? _scEl.scrollTop : 0;
   if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
   if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
-  window.scrollTo(window.scrollX, _pageY);
-  if (_scEl) _scEl.scrollTop = _elY;
   // Push to Supabase.
   (async function () {
     if (typeof sb === 'undefined' || !sb) {

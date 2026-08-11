@@ -32636,6 +32636,7 @@ function buyerRenderContractsPanel() {
       (function () {
         // ---- LOCAL-ONLY recompute (never touches u.data or anything downstream) ----
         var accepted    = parseFloat(String((u.data && u.data['uw-accepted']) || u.accepted || 0).replace(/,/g,'')) || 0;
+        var asking      = parseFloat(String((u.data && u.data['uw-asking']) || u.asking || 0).replace(/,/g,'')) || 0;
         var defaultPkt  = packetPrice(u);
         // Always-auto Packet Price (ignores both the saved popover override
         // and the per-row local override). Used ONLY for the dim "max $X" line
@@ -32719,9 +32720,14 @@ function buyerRenderContractsPanel() {
                 + 'style="width:72px;height:26px;padding:0 6px 0 0;background:transparent;border:none;outline:none;color:' + pktColor + ';font-size:13px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums">'
             + '</span>'
           + '</td>'
-          // Contract Price — READ-ONLY (your accepted price).
-          + '<td style="padding:8px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px;color:#10b981;font-weight:600">'
-            + (accepted > 0 ? fmt$(accepted) : '<span style="color:var(--text-dim);font-weight:normal">—</span>')
+          // Contract Price — READ-ONLY. Accepted price = green; if none, show the
+          // asking price in yellow; if neither, a dim dash.
+          + '<td style="padding:8px 12px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px;font-weight:600">'
+            + (accepted > 0
+                ? '<span style="color:#10b981">' + fmt$(accepted) + '</span>'
+                : (asking > 0
+                    ? '<span style="color:#fbbf24" title="Asking price (no accepted price yet)">' + fmt$(asking) + '</span>'
+                    : '<span style="color:var(--text-dim);font-weight:normal">—</span>'))
             + (autoMaxPkt > 0 ? '<div style="font-size:10px;color:var(--text-dim);margin-top:2px;font-weight:500" title="Auto-computed max packet price (Cash Flip Max × 1.20). Always shown — does not change when you set a manual Packet Price.">max ' + fmt$(autoMaxPkt) + '</div>' : '')
           + '</td>'
           + (function () {

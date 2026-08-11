@@ -6433,6 +6433,7 @@
   <div id="dispo-contracts-panel" class="panel p-5 mb-3" style="display:none">
     <div style="display:flex;align-items:center;gap:12px">
       <div id="dispo-contracts-title" style="font-size:18px;font-weight:700;flex:1;min-width:0">📜 New Contract</div>
+      <button type="button" id="dispo-active-chip" onclick="window._dispoActiveOnly=!window._dispoActiveOnly; var on=window._dispoActiveOnly; this.style.background=on?'rgba(22,163,74,0.18)':'transparent'; this.style.color=on?'#16a34a':'var(--text-dim)'; this.style.borderColor=on?'#16a34a':'var(--border)'; if(typeof buyerRenderContractsPanel==='function') buyerRenderContractsPanel();" title="Show only deals with the Offer checkbox ON (Active for public offers)." style="flex:0 0 auto;height:32px;padding:0 14px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">🟢 Active</button>
       <input type="search" id="dispo-contracts-search" placeholder="🔎 Search address / city / state / zip..." oninput="if(typeof buyerRenderContractsPanel==='function') buyerRenderContractsPanel();" style="flex:0 0 280px;max-width:40%;height:32px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;outline:none" />
     </div>
     <div id="dispo-contracts-help"  style="font-size:13px;color:var(--text-dim);margin-top:6px">Contracts that have just been signed but haven\'t moved to assignment yet.</div>
@@ -32462,6 +32463,10 @@ function buyerRenderContractsPanel() {
       ].join(' ').toLowerCase();
       return haystack.includes(_q);
     });
+  }
+  // ---- "Active" chip filter: only deals with the Offer checkbox ON ----
+  if (window._dispoActiveOnly) {
+    all = all.filter(u => !!(u && u.data && u.data._offerActive));
   }
   if (all.length === 0) {
     bodyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-dim);background:var(--panel-2);border:1px dashed var(--border);border-radius:8px">' +

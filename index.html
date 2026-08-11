@@ -33039,8 +33039,14 @@ function buyerSetPacketPrice(id, raw) {
   if (u) { if (!u.data) u.data = {}; u.data['uw-packet-asking-override'] = (newVal != null) ? String(newVal) : ''; u.packet_price = newVal; }
   if (newVal == null) delete window._dispoPacketPrices[id];
   else                window._dispoPacketPrices[id] = newVal;
+  // Re-rendering the grid rebuilds its HTML, which snaps scroll to the top.
+  // Capture the scroll position (page + any scrollable ancestor) and restore it.
+  var _scEl = document.querySelector('[data-uwview="dispositions"], #uwview-dispositions') || null;
+  var _pageY = window.scrollY, _elY = _scEl ? _scEl.scrollTop : 0;
   if (typeof buyerRenderContractsPanel === 'function') buyerRenderContractsPanel();
   if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+  window.scrollTo(window.scrollX, _pageY);
+  if (_scEl) _scEl.scrollTop = _elY;
   // Push to Supabase.
   (async function () {
     if (typeof sb === 'undefined' || !sb) {

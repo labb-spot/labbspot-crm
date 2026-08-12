@@ -31019,7 +31019,7 @@ function _dispoOffersPaint(){
     if (!offers.length){ tbody.innerHTML=''; if(empty){ empty.style.display=''; empty.textContent = allOffers.length ? 'No offers match your filters.' : 'No offers submitted yet. Mark an unassigned property 🌐 Offer This and share submit.labbllc.com/offers.'; } return; }
     if (empty) empty.style.display='none';
     const rowHtml = (o) => {
-      let dt='—'; try { if (o.submitted_at) dt=new Date(o.submitted_at).toLocaleDateString(); } catch(_){}
+      let dt='—', tm=''; try { if (o.submitted_at){ const _d=new Date(o.submitted_at); dt=_d.toLocaleDateString('en-US',{timeZone:'America/New_York'}); tm=_d.toLocaleTimeString('en-US',{timeZone:'America/New_York',hour:'numeric',minute:'2-digit',timeZoneName:'short'}); } } catch(_){}
       const contactBits = [];
       if (o.buyer_phone) contactBits.push('<a href="tel:' + esc(o.buyer_phone) + '" style="color:#60a5fa;text-decoration:none">' + esc(fmtPhone(o.buyer_phone)) + '</a>');
       if (o.buyer_email) contactBits.push('<a href="mailto:' + esc(o.buyer_email) + '" style="color:#60a5fa;text-decoration:none">' + esc(o.buyer_email) + '</a>');
@@ -31033,7 +31033,7 @@ function _dispoOffersPaint(){
         + '<td style="padding:8px 10px;font-size:12px;color:var(--text-dim)">' + (contactBits.join('<br>') || '—') + '</td>'
         + '<td style="padding:8px 10px;text-align:center">' + pof + '</td>'
         + '<td style="padding:8px 10px;text-align:center">' + reach + '</td>'
-        + '<td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--text-dim)">' + esc(dt) + '</td>'
+        + '<td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--text-dim)">' + esc(dt) + (tm?'<div style="font-size:11px;opacity:.75;margin-top:1px">' + esc(tm) + '</div>':'') + '</td>'
         + '<td style="padding:8px 10px;text-align:center"><button onclick="dispoOfferDelete(\'' + esc(o.id) + '\')" title="Delete this offer" style="background:none;border:1px solid rgba(239,68,68,0.5);color:#ef4444;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700">✕</button></td>'
         + '</tr>';
     };

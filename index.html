@@ -6462,7 +6462,18 @@
         <select id="buyers-criteria-filter" onchange="renderBuyersList()" title="Filter by acquisitions range." style="height:36px;padding:0 6px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;width:140px">
           <option value="">All Acquisitions</option>
         </select>
-        <input id="buyers-search" type="text" placeholder="🔍 Search name, city, zip, lender…" oninput="renderBuyersList()" style="height:36px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;flex:1 1 60px;min-width:0;box-sizing:border-box" title="Filter by name, company, criteria, funding, city, state, county, zip, lender, channel, or notes. Matches anywhere." />
+        <select id="buyers-uploaded-filter" onchange="renderBuyersList()" title="Filter by when the buyer was last uploaded / imported (catches recent re-uploads too)." style="height:36px;padding:0 6px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;width:132px">
+          <option value="">🕓 Any time</option>
+          <option value="6h">Last 6 Hours</option>
+          <option value="today">Today</option>
+          <option value="week">This Week</option>
+          <option value="7d">Last 7 Days</option>
+          <option value="14d">Last 14 Days</option>
+          <option value="30d">Last 30 Days</option>
+          <option value="6mo">Last 6 Months</option>
+          <option value="12mo">Last 12 Months</option>
+        </select>
+        <input id="buyers-search" type="text" placeholder="🔍 Search name, city, zip, lender…" oninput="renderBuyersList()" style="height:36px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;flex:1 1 40px;min-width:0;box-sizing:border-box" title="Filter by name, company, criteria, funding, city, state, county, zip, lender, channel, or notes. Matches anywhere." />
         <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('buyers-search');if(i){i.value='';renderBuyersList();i.focus();}})();" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
       </div>
       <div id="buyers-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No buyers saved yet — click <b>+ Add Buyer</b> to start building your rolodex.</div>
@@ -35980,6 +35991,34 @@ window._collabStartEditing = _collabStartEditing;
 window._collabStopEditing  = _collabStopEditing;
 window._collabState        = _collabState;
 
+// "Last uploaded" time for a buyer = the most recent of created_at / updated_at.
+// A fresh add or an import-merge that changed data bumps updated_at, so this
+// surfaces recently-uploaded buyers even when the row itself is older.
+function _buyerLastUploadedTs(b) {
+  var c = (b && b.created_at) ? new Date(b.created_at).getTime() : NaN;
+  var u = (b && b.updated_at) ? new Date(b.updated_at).getTime() : NaN;
+  var t = Math.max(Number.isFinite(c) ? c : -Infinity, Number.isFinite(u) ? u : -Infinity);
+  return Number.isFinite(t) ? t : NaN;
+}
+// Cutoff timestamp (ms) for the "uploaded" dropdown, or null when set to Any time.
+function _buyerUploadedCutoff() {
+  var sel = document.getElementById('buyers-uploaded-filter');
+  var v = sel ? sel.value : '';
+  if (!v) return null;
+  var now = Date.now();
+  var d = new Date();
+  switch (v) {
+    case '6h':   return now - 6 * 3600e3;
+    case 'today': d.setHours(0, 0, 0, 0); return d.getTime();
+    case 'week':  d.setDate(d.getDate() - d.getDay()); d.setHours(0, 0, 0, 0); return d.getTime();
+    case '7d':   return now - 7 * 24 * 3600e3;
+    case '14d':  return now - 14 * 24 * 3600e3;
+    case '30d':  return now - 30 * 24 * 3600e3;
+    case '6mo':  d.setMonth(d.getMonth() - 6); return d.getTime();
+    case '12mo': d.setFullYear(d.getFullYear() - 1); return d.getTime();
+  }
+  return null;
+}
 function renderBuyersList() {
   if (!cache.buyers) {
     loadBuyers().then(() => renderBuyersList());
@@ -36071,18 +36110,18 @@ function renderBuyersList() {
   // Dispositions subview scope — narrows the buyer list based on which subtab
   // is active in the Dispositions section. No-op when called from anywhere else.
   const _dispoView = (typeof _getDispoActiveView === 'function') ? _getDispoActiveView() : null;
+  // "Uploaded" time-range dropdown. When set it overrides the Recent view's
+  // default 30-day cap so 6/12-month ranges work there too.
+  const _uploadedCutoff = _buyerUploadedCutoff();
   if (_dispoView === 'recent') {
-    // Last 30 days, newest first. Falls back to all when created_at is missing.
-    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    // Newest first by last-uploaded time. Default = last 30 days unless the
+    // Uploaded dropdown specifies a different range.
+    const cutoff = (_uploadedCutoff != null) ? _uploadedCutoff : (Date.now() - 30 * 24 * 60 * 60 * 1000);
     rows = rows.filter(b => {
-      if (!b.created_at) return true;  // legacy rows without created_at — show
-      const t = new Date(b.created_at).getTime();
-      return Number.isFinite(t) && t >= cutoff;
-    }).sort((a, b) => {
-      const ta = new Date(a.created_at || 0).getTime();
-      const tb = new Date(b.created_at || 0).getTime();
-      return tb - ta;
-    });
+      const t = _buyerLastUploadedTs(b);
+      if (!Number.isFinite(t)) return _uploadedCutoff == null;  // legacy rows: show only when no explicit range
+      return t >= cutoff;
+    }).sort((a, b) => _buyerLastUploadedTs(b) - _buyerLastUploadedTs(a));
   } else if (_dispoView === 'vetting') {
     rows = rows.filter(b => buyerQualState(b) === 'vetting');
   } else if (_dispoView === 'unknown') {
@@ -36091,6 +36130,11 @@ function renderBuyersList() {
     rows = rows.filter(b => buyerQualState(b) === 'qualified');
   } else if (_dispoView === 'unqualified') {
     rows = rows.filter(b => buyerQualState(b) === 'unqualified');
+  }
+  // Uploaded time-range filter for every view except Recent (which applied it
+  // above, along with its own newest-first sort).
+  if (_uploadedCutoff != null && _dispoView !== 'recent') {
+    rows = rows.filter(b => { const t = _buyerLastUploadedTs(b); return Number.isFinite(t) && t >= _uploadedCutoff; });
   }
   // Per Deal handled separately by buyerRenderPerDealPanel(); not a row filter.
 

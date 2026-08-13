@@ -171,6 +171,9 @@
   .badge.indigo{ background: rgba(99,102,241,0.18); color: #6366f1; }  /* indigo — used for "Pending" offer status (paperwork in motion) */
   .badge.dropped{ background: rgba(148,163,184,0.18); color: #94a3b8; } /* muted slate grey — used for "Dropped" offer status (deal fell through) */
   .badge.teal  { background: rgba(20,184,166,0.18); color: #14b8a6; }  /* teal — used for "Closed" offer status (successful close) */
+  /* Bigger mode-switch chips ONLY inside the Full Breakdown header (not the small summary cards). !important beats the toggle's inline font-size:9px. */
+  .uw-detail-toggle button { font-size: 12px !important; padding: 4px 11px !important; }
+  .uw-detail-toggle > span { border-radius: 7px !important; }
   .toast { position: fixed; bottom: 20px; right: 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; z-index: 200; opacity: 0; transition: opacity 0.2s; max-width: 400px; }
   .toast.show { opacity: 1; }
   .toast.ok { border-color: var(--good); }
@@ -13209,7 +13212,7 @@ function uwComputeExits(ctx) {
   const tkFinPreRentHolding = 0;
   const tkFinClosePct    = 3; // Turn-Key uses a 3% DSCR closing (this mode only)
   const _tkFinNetFactor  = 1 - ((finOrigPct + tkFinClosePct) / 100); // still used for max-LTV pull-out math
-  const tkFinCashPutUp   = buyPrice + rtPurchClosingTotal + tkFinPreRentHolding; // 5% reserve is shown as a line only, NOT used in the financing math
+  const tkFinCashPutUp   = buyPrice + tkFinPreRentHolding; // one closing only: the 3%-of-loan DSCR closing is netted from loan proceeds (tkFinNetCashFromLoan), not counted here. 5% reserve is a display line only.
   // Purchase closing + origination + DSCR closing + UW/appraisal fee are all CASH
   // TO CLOSE (out of pocket). The loan covers ONLY the purchase price.
   const _tkFinLoanNeeded = buyPrice;
@@ -13841,7 +13844,7 @@ function uwComputeExits(ctx) {
           ['Immediate Capital Required', fmt(wtFinDown - wholetailHolding + wtFinOrig), 'orange'],
           ['Holding (' + wholetailMonths + ' mo × ' + fmt(wholetailMonths > 0 ? wholetailHolding / wholetailMonths : 0) + '/mo)', fmt(wholetailHolding)],
           ['Total Interest (' + wholetailMonths + ' mo × ' + fmt(wtFinMonthlyInt) + '/mo)', fmt(wtFinTotalInt)],
-          ['Cost of draws (' + wtDrawCount + ' × $200)', fmt(wtDrawCost)],
+          ['Cost of draws (' + wtDrawCount + ' × $200) (Per $10,000)', fmt(wtDrawCost)],
           ['Additional Capital Required', fmt(wholetailHolding + wtFinTotalInt + wtDrawCost), 'amber'],
         ]},
         { title: '🏠 Holding<br>(' + wholetailMonths + ' mo · ' + wtRenoMo + ' reno + ' + wtListedMo + ' listed)', rows: [
@@ -13953,7 +13956,7 @@ function uwComputeExits(ctx) {
           ['Immediate Capital Required', fmt(flHmDown - flipHolding + flHmOrig), 'orange'],
           ['Holding (' + flipMonths + ' mo × ' + fmt(flipMonths > 0 ? flipHolding / flipMonths : 0) + '/mo)', fmt(flipHolding)],
           ['Total Interest (' + flipMonths + ' mo × ' + fmt(flHmMonthlyInt) + '/mo)', fmt(flHmTotalInt)],
-          ['Cost of draws (' + flDrawCount + ' × $200)', fmt(flDrawCost)],
+          ['Cost of draws (' + flDrawCount + ' × $200) (Per $10,000)', fmt(flDrawCost)],
           ['Additional Capital Required', fmt(flipHolding + flHmTotalInt + flDrawCost), 'amber'],
         ]},
         { title: '🏠 Holding<br>(' + flipMonths.toFixed(1) + ' mo · ' + flipHoldBreakdown + ')', rows: [
@@ -14115,7 +14118,7 @@ function uwComputeExits(ctx) {
           ['Pre-Rent Yard Maintenance (' + rfStabMo + ' mo)', fmt(_preMow * rfStabMo)],
           ['Pre-Rent Property Tax (' + rfStabMo + ' mo)', fmt(rfPreRentTax)],
           ['Bridge Interest (' + rfStabMo + ' mo × ' + fmt(rfHmMonthlyInt) + '/mo)', fmt(rfHmTotalInt)],
-          ['Cost of draws (' + rfDrawCount + ' × $200)', fmt(rfDrawCost)],
+          ['Cost of draws (' + rfDrawCount + ' × $200) (Per $10,000)', fmt(rfDrawCost)],
           ['Additional Capital Required', fmt(rfPreRentHolding + rfHmTotalInt + rfDrawCost), 'amber'],
           ['💰 Total Capital Invested (before refi)', fmt(rfInitialOut), 'redhl'],
         ]},
@@ -14134,9 +14137,7 @@ function uwComputeExits(ctx) {
           ['  ↳ Recovers Bridge interest', fmt(rfHmTotalInt)],
           rfCashOut > 0
             ? ['💵 Bonus cash pulled out (above what you put up)', fmt(rfCashOut), 'profit']
-            : ['💰 Capital LEFT IN deal', fmt(rfLeftIn), rfLeftIn === 0 ? 'profit' : ''],
-          ['Monthly Interest', fmt(rfInterest)],
-          ['Monthly Principal', fmt(rfPrincipal)],
+            : ['💰 Capital LEFT IN deal', fmt(rfLeftIn), rfLeftIn === 0 ? 'profit' : 'redhl'],
           ['Total Project Cost (no sale/agent costs)', fmt(buyPrice + rtPurchClosingTotal + rRehab + rfPreRentHolding + rfHmOrig + rfHmTotalInt + rfCloseCost), 'cost'],
           ['DSCR (PITI) — must be ≥ 1.25', rfDscr > 0 ? rfDscr.toFixed(2) : '—', rfDscr >= 1.25 ? 'cyangreen' : 'cyanred'],
           ['DSCR (PITI + Reserves)', rfDscrRes > 0 ? rfDscrRes.toFixed(2) : '—', rfDscrRes >= 1.0 ? 'profit' : 'cost'],
@@ -14288,18 +14289,20 @@ function uwComputeExits(ctx) {
       ] : rentalMode === 'turnkey' ? [
         { title: '🔁 DSCR Financing <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· ' + finRatePct + '%/yr · ' + finYrs + ' yr · ' + FIN_LTV_CAP_PCT + '% LTV cap</span>', rows: [
           ['ARV (rent-ready value)', fmt(arv)],
-          ['70% LTV cap (ARV × 70%)', fmt(_tkFinLtvCapLoan)],
+          ['DSCR Loan Cap (LTV)', fmt(_tkFinLtvCapLoan)],
+          ['DSCR Loan Cap ($200/m)', finTargetLoan > 0 ? fmt(finTargetLoan) : '— (not reachable)'],
           ['Purchase price', fmt(buyPrice)],
           ['DSCR Loan Size ' + (buyPrice <= _tkFinLtvCapLoan ? '✓' : '✗ over 70% cap'), fmt(tkFinLoan), (buyPrice <= _tkFinLtvCapLoan) ? 'greenhl' : 'redhl'],
           ['DSCR Loan Cap Left', ((_tkFinLtvCapLoan - buyPrice) >= 0 ? '+' : '−') + fmt(Math.abs(_tkFinLtvCapLoan - buyPrice)), 'profit'],
+          ['DSCR Cashflow Cap Left', finTargetLoan > 0 ? (((finTargetLoan - buyPrice) >= 0 ? '+' : '−') + fmt(Math.abs(finTargetLoan - buyPrice))) : '—', 'profit'],
           ['Rehab reserve (5% of ARV)', fmt(tkRehab), 'orange'],
           ['💵 Cash to Close', '', 'head'],
-          ['Purchase closing (3%)', fmt(rtPurchClosingTotal)],
+          ['DSCR Purchase Closing (' + tkFinClosePct + '% of loan)', fmt(tkFinCloseCost)],
           ['DSCR origination (' + finOrigPct + '% of loan)', fmt(tkFinOrig)],
-          ['DSCR closing (' + tkFinClosePct + '% of loan)', fmt(tkFinCloseCost)],
-          ['Underwriting & Appraisal Fee', fmt(uwAppraisalFee)],
+          ['DSCR Underwriting & Appraisal Fee', fmt(uwAppraisalFee)],
           ['DSCR Loan Cap Overage', fmt(Math.max(0, buyPrice - _tkFinLtvCapLoan))],
-          ['💰 Capital Required to Close', fmt(Math.max(0, buyPrice - _tkFinLtvCapLoan) + rtPurchClosingTotal + tkFinCloseCost + tkFinOrig + uwAppraisalFee), 'redhl'],
+          ['DSCR Cashflow Cap Overage', finTargetLoan > 0 ? fmt(Math.max(0, buyPrice - finTargetLoan)) : '—'],
+          ['💰 Capital Required to Close', fmt(Math.max(0, buyPrice - _tkFinLtvCapLoan) + tkFinCloseCost + tkFinOrig + uwAppraisalFee), 'redhl'],
           ['DSCR (PITI) — must be ≥ 1.25', tkFinDscr > 0 ? tkFinDscr.toFixed(2) : '—', tkFinDscr >= 1.25 ? 'cyangreen' : 'cyanred'],
           ['DSCR (PITI + Reserves)', tkFinDscrRes > 0 ? tkFinDscrRes.toFixed(2) : '—', tkFinDscrRes >= 1.0 ? 'profit' : 'cost'],
         ]},
@@ -14780,6 +14783,20 @@ function uwComputeExits(ctx) {
       detailEl.innerHTML = '';
     } else {
       detailEl.style.display = '';
+      // Smart title-case for row labels: capitalize the first letter of each
+      // word, but keep small connecting words lowercase (to, within, after, …),
+      // and never touch acronyms (ARV, PITI, DSCR), units (/mo), symbol-led
+      // tokens, or hyphenated words (Re-Coup, Day-1) — those already have caps.
+      const _tcSmall = {to:1,within:1,after:1,of:1,at:1,with:1,and:1,or:1,the:1,a:1,an:1,per:1,vs:1,in:1,on:1,for:1,by:1,from:1};
+      const _tc = (label) => { let seen=false; return String(label).split(' ').map(tok => {
+        if(!tok || !/[a-z]/i.test(tok)) return tok;      // emoji / number / symbol
+        const wasFirst=!seen; seen=true;
+        if(/[A-Z]/.test(tok)) return tok;                // acronym / already-capitalized
+        const core=tok.replace(/[^a-z]/g,'');
+        if(!wasFirst && _tcSmall[core]) return tok;      // small word stays lowercase
+        if(/^[a-z]/.test(tok)) return tok.charAt(0).toUpperCase()+tok.slice(1);
+        return tok;                                      // starts with a symbol (/mo, (day) → leave
+      }).join(' '); };
       const sections = (active.details || []).map(sec => `
         <div style="margin-bottom:14px">
           <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--text)">${sec.title}</div>
@@ -14788,7 +14805,7 @@ function uwComputeExits(ctx) {
               // Title-style sub-header row (e.g. '💵 Out of Pocket') — looks like
               // a section title but stays inside the current section's rows.
               if (r[2] === 'head') {
-                return `<div style="font-weight:600;font-size:12.5px;margin:9px 0 4px;color:var(--text);border-bottom:1px solid var(--border);padding-bottom:3px">${r[0]}</div>`;
+                return `<div style="font-weight:600;font-size:12.5px;margin:9px 0 4px;color:var(--text);border-bottom:1px solid var(--border);padding-bottom:3px">${_tc(r[0])}</div>`;
               }
               const isProfit = r[2] === 'profit';
               const isCost   = r[2] === 'cost';
@@ -14849,7 +14866,7 @@ function uwComputeExits(ctx) {
                              : isBlue    ? ';background:rgba(59,130,246,0.14);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isCyan    ? ';background:rgba(34,211,238,0.14);border-radius:5px;padding-left:6px;padding-right:6px'
                              : (isCyanGreen || isCyanRed) ? ';background:rgba(34,211,238,0.14);border-radius:5px;padding-left:6px;padding-right:6px' : '';
-              return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:2px 0;border-bottom:1px dotted var(--border)${rowExtra}"><span style="${labelStyle};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0" title="${String(r[0]).replace(/"/g,'&quot;')}">${r[0]}</span><span style="${valueStyle};white-space:nowrap;flex-shrink:0">${r[1]}</span></div>`;
+              return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:2px 0;border-bottom:1px dotted var(--border)${rowExtra}"><span style="${labelStyle};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0" title="${String(_tc(r[0])).replace(/"/g,'&quot;')}">${_tc(r[0])}</span><span style="${valueStyle};white-space:nowrap;flex-shrink:0">${r[1]}</span></div>`;
             }).join('')}
           </div>
         </div>`).join('');
@@ -14870,9 +14887,10 @@ function uwComputeExits(ctx) {
         </div>`;
       detailEl.innerHTML = `
         <div style="padding:18px;background:rgba(59,130,246,0.06);border:2px solid #3b82f6;border-radius:12px;margin-top:12px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <div style="font-weight:700;font-size:16px">${active.icon} ${active.name}${active.mode ? ' (' + active.mode + ')' : ''}${active.toggle || ''} — Full Breakdown</div>
-            <button type="button" class="btn btn-ghost text-xs" onclick="uwToggleExit('${active.key}')" title="Close this detail panel">✕ Close</button>
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin-bottom:14px">
+            <div style="font-weight:700;font-size:16px;justify-self:start">${active.icon} ${active.name}${active.mode ? ' (' + active.mode + ')' : ''} — Full Breakdown</div>
+            <div class="uw-detail-toggle" style="justify-self:center">${active.toggle || ''}</div>
+            <button type="button" class="btn btn-ghost text-xs" style="justify-self:end" onclick="uwToggleExit('${active.key}')" title="Close this detail panel">✕ Close</button>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
             ${sections}

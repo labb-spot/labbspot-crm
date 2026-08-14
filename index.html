@@ -31001,6 +31001,13 @@ window._dispoRenderBuyerMap = function () {
   window._dispoMapLayer.clearLayers();
   var bounds = [], pinCount = 0, capped = false, totalSpent = 0, spentCount = 0;
   var reopenReq = window._dispoMapReopenPopup || null, reopenMarker = null;
+  // Active-timeframe window from the filter bar (6mo / 12mo / 24mo / Any) — used
+  // to count how many purchases each buyer made inside that window.
+  var _actKey = String((window._dispoFilter || {}).active || '');
+  var _actMonths = _actKey === '6mo' ? 6 : _actKey === '12mo' ? 12 : _actKey === '24mo' ? 24 : 0;
+  var _actCutoff = null;
+  if (_actMonths > 0) { var _cd = new Date(); _cd.setMonth(_cd.getMonth() - _actMonths); _actCutoff = _cd.getTime(); }
+  var _actLabel = _actMonths > 0 ? ('last ' + _actMonths + 'mo') : 'all time';
   var CAP = 4000;
   var palette = ['#10b981', '#3b82f6', '#f59e0b', '#a855f7', '#ef4444', '#14b8a6', '#eab308', '#ec4899', '#22d3ee', '#84cc16'];
   // Subject coords (computed up front so the radius toggle can measure against them).
@@ -31050,6 +31057,15 @@ window._dispoRenderBuyerMap = function () {
     var oc = oDark[oKey] || '#6b7280';
     var oLabel = oMeta ? (oMeta.icon + ' ' + oMeta.label) : '? Unreached';
     var oBadge = '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;background:' + oc + '22;color:' + oc + ';border:1px solid ' + oc + '66">' + oLabel + '</span>';
+    // How many of this buyer's purchases fall inside the selected Active window.
+    var recentCount = 0;
+    purchases.forEach(function (pp) {
+      if (_actCutoff == null) { recentCount++; return; }
+      var dr = pp && (pp.sale_date || pp.purchase_date || pp.date);
+      var tt = dr ? new Date(String(dr).slice(0, 10)).getTime() : NaN;
+      if (isFinite(tt) && tt >= _actCutoff) recentCount++;
+    });
+    var recentBadge = '<div style="text-align:right;margin-top:7px;font-size:10.5px;color:#475569;font-weight:700">🏠 ' + recentCount + ' purchase' + (recentCount === 1 ? '' : 's') + ' · ' + _actLabel + '</div>';
     purchases.forEach(function (p) {
       if (!p || p.lat == null || p.lng == null) return;
       var la = Number(p.lat), lo = Number(p.lng);
@@ -31069,7 +31085,7 @@ window._dispoRenderBuyerMap = function () {
       var iconHtml = '<div style="width:21px;height:21px;border-radius:50%;background:' + color + ';border:2px solid ' + dotBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;font-weight:900;color:#fff;text-shadow:-1px -1px 0 rgba(0,0,0,0.75),1px -1px 0 rgba(0,0,0,0.75),-1px 1px 0 rgba(0,0,0,0.75),1px 1px 0 rgba(0,0,0,0.75)">' + sym + '</div>';
       var m = L.marker([la, lo], { icon: L.divIcon({ className: 'dispo-buyer-pin', html: iconHtml, iconSize: [20, 20], iconAnchor: [10, 10] }) });
       var tagBtn = '<button onclick="_dispoMapToggleTagFromPopup(\'' + esc(b.id) + '\',' + la + ',' + lo + ')" style="margin-top:7px;padding:4px 10px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid ' + (isTagged ? '#10b981' : '#94a3b8') + ';background:' + (isTagged ? 'rgba(16,185,129,0.15)' : '#fff') + ';color:' + (isTagged ? '#0f766e' : '#334155') + '">' + (isTagged ? '🏷 Untag buyer' : '🏷 Tag buyer') + '</button>';
-      m.bindPopup('<div style="font-size:12px;min-width:170px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + (isTagged ? ' <span style="color:#10b981;font-weight:700">🏷 Tagged</span>' : '') + '<br><div style="margin:3px 0;display:flex;gap:5px;flex-wrap:wrap">' + qBadge + oBadge + '</div>' + esc(addr || '(no address)') + '<br><b>' + priceStr + '</b>' + (dateStr ? ' · ' + esc(dateStr) : '') + '<br>' + tagBtn + '</div>');
+      m.bindPopup('<div style="font-size:12px;min-width:170px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + (isTagged ? ' <span style="color:#10b981;font-weight:700">🏷 Tagged</span>' : '') + '<br><div style="margin:3px 0;display:flex;gap:5px;flex-wrap:wrap">' + qBadge + oBadge + '</div>' + esc(addr || '(no address)') + '<br><b>' + priceStr + '</b>' + (dateStr ? ' · ' + esc(dateStr) : '') + '<br>' + tagBtn + recentBadge + '</div>');
       window._dispoMapLayer.addLayer(m);
       if (reopenReq && reopenReq.buyerId === b.id && Math.abs(la - reopenReq.lat) < 1e-6 && Math.abs(lo - reopenReq.lng) < 1e-6) reopenMarker = m;
     });

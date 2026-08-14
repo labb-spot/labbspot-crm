@@ -6425,6 +6425,7 @@
         <th style="padding:8px 10px;text-align:center">PoF</th>
         <th style="padding:8px 10px;text-align:center">Reach if beat</th>
         <th style="padding:8px 10px;text-align:center">Submitted</th>
+        <th style="padding:8px 10px;text-align:center">Notes</th>
         <th style="padding:8px 10px;text-align:center"></th>
       </tr></thead>
       <tbody id="dispo-offers-tbody"></tbody>
@@ -31358,6 +31359,23 @@ async function dispoOfferDelete(id){
   } catch(e){ console.warn('dispoOfferDelete:', e); if(typeof toast==='function') toast('Delete failed: ' + (e.message||e), 'err'); }
 }
 window.dispoOfferDelete = dispoOfferDelete;
+// Popup that shows a buyer's submitted feedback/notes for an offer.
+window.dispoOfferShowNote = function (enc, name) {
+  var txt = ''; try { txt = decodeURIComponent(enc || ''); } catch (_) { txt = String(enc || ''); }
+  var esc = window.escapeHtml || function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); };
+  var ov = document.createElement('div');
+  ov.className = 'dispo-note-ov';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
+  ov.innerHTML = '<div style="max-width:480px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,0.45)">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">'
+    +   '<div style="font-weight:700;font-size:15px">📝 Buyer Feedback' + (name ? ' — ' + esc(name) : '') + '</div>'
+    +   '<button onclick="this.closest(\'.dispo-note-ov\').remove()" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;line-height:1">✕</button>'
+    + '</div>'
+    + '<div style="font-size:14px;line-height:1.55;color:var(--text);white-space:pre-wrap;word-break:break-word">' + (txt ? esc(txt) : '<span style="color:var(--text-dim)">No feedback provided.</span>') + '</div>'
+    + '</div>';
+  document.body.appendChild(ov);
+};
 
 function _dispoOffersPaint(){
   const tbody = document.getElementById('dispo-offers-tbody');
@@ -31420,6 +31438,10 @@ function _dispoOffersPaint(){
       if (o.buyer_email) contactBits.push('<a href="mailto:' + esc(o.buyer_email) + '" style="color:#60a5fa;text-decoration:none">' + esc(o.buyer_email) + '</a>');
       const pof = o.proof_of_funds_url ? '<a href="' + esc(o.proof_of_funds_url) + '" target="_blank" rel="noopener" style="color:#60a5fa">📄 View</a>' : '<span style="color:var(--text-dim)">—</span>';
       const reach = (o.reach_out_if_beaten === true || String(o.reach_out_if_beaten) === 'true') ? '<span style="color:#16a34a;font-weight:700">Yes</span>' : '<span style="color:var(--text-dim)">No</span>';
+      const _hasNote = o.buyer_notes && String(o.buyer_notes).trim();
+      const noteBtn = _hasNote
+        ? '<button onclick="dispoOfferShowNote(\'' + encodeURIComponent(String(o.buyer_notes)).replace(/'/g,'%27') + '\',\'' + String(o.buyer_name || o.buyer_company || '').replace(/[\'"<>\\]/g,'') + '\')" title="Read this buyer\'s feedback" style="background:none;border:1px solid rgba(96,165,250,0.5);color:#60a5fa;border-radius:6px;padding:2px 9px;cursor:pointer;font-size:12px;font-weight:700">📝 Note</button>'
+        : '<span style="color:var(--text-dim)" title="No feedback left">—</span>';
       return '<tr style="border-bottom:1px solid var(--border)">'
         + '<td style="padding:8px 10px;font-weight:600">' + esc(o.property_address || '—') + '</td>'
         + '<td style="padding:8px 10px"><div style="font-weight:600">' + esc(o.buyer_name || o.buyer_company || '—') + '</div>' + (o.buyer_company && o.buyer_name ? '<div class="text-xs" style="color:var(--text-dim)">' + esc(o.buyer_company) + '</div>' : '') + '</td>'
@@ -31429,6 +31451,7 @@ function _dispoOffersPaint(){
         + '<td style="padding:8px 10px;text-align:center">' + pof + '</td>'
         + '<td style="padding:8px 10px;text-align:center">' + reach + '</td>'
         + '<td style="padding:8px 10px;text-align:center;font-size:12px;color:var(--text-dim)">' + esc(dt) + (tm?'<div style="font-size:11px;opacity:.75;margin-top:1px">' + esc(tm) + '</div>':'') + '</td>'
+        + '<td style="padding:8px 10px;text-align:center">' + noteBtn + '</td>'
         + '<td style="padding:8px 10px;text-align:center"><button onclick="dispoOfferDelete(\'' + esc(o.id) + '\')" title="Delete this offer" style="background:none;border:1px solid rgba(239,68,68,0.5);color:#ef4444;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700">✕</button></td>'
         + '</tr>';
     };

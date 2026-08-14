@@ -30737,6 +30737,335 @@ function _dispoScoreBuyerWithPurchases(buyer, deal, dealCoords, dealAttrs, opene
 window._dispoScoreBuyerWithPurchases = _dispoScoreBuyerWithPurchases;
 
 // ---- Per-property buyer tagging ----------------------------------------
+// ============================================================================
+// Buyer Purchase Map (per-property) — FREE: Leaflet + OpenStreetMap tiles.
+// No API key, no billing, and it never geocodes (purchases are already mapped),
+// so opening it costs nothing. The library + tiles are lazy-loaded ONLY when the
+// user clicks 🗺 Map, so it adds zero weight to normal app use. Pins are drawn on
+// a single canvas layer (preferCanvas) so hundreds of dots stay smooth.
+// ----------------------------------------------------------------------------
+function _dispoEnsureLeaflet(cb) {
+  if (window.L && window.L.map && window.L.Control && window.L.Control.Draw) { cb(); return; }
+  window._dispoLeafletQueue = window._dispoLeafletQueue || [];
+  window._dispoLeafletQueue.push(cb);
+  if (window._dispoLeafletLoading) return;
+  window._dispoLeafletLoading = true;
+  var loadCss = function (href) { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; document.head.appendChild(l); };
+  var runQueue = function () {
+    window._dispoLeafletLoading = false;
+    (window._dispoLeafletQueue || []).forEach(function (fn) { try { fn(); } catch (e) {} });
+    window._dispoLeafletQueue = [];
+  };
+  // Step 2: the leaflet-draw plugin (for the boundary tool). Optional — if it
+  // fails, the map still works, just without drawing.
+  var loadDraw = function () {
+    if (window.L.Control && window.L.Control.Draw) { runQueue(); return; }
+    loadCss('https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css');
+    var dj = document.createElement('script');
+    dj.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js';
+    dj.onload = runQueue;
+    dj.onerror = runQueue;
+    document.head.appendChild(dj);
+  };
+  if (window.L && window.L.map) { loadDraw(); return; }
+  // Step 1: core Leaflet.
+  loadCss('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css');
+  var js = document.createElement('script');
+  js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+  js.onload = loadDraw;
+  js.onerror = function () {
+    window._dispoLeafletLoading = false;
+    window._dispoLeafletQueue = [];
+    if (typeof toast === 'function') toast('Map library couldn’t load — check your connection.', 'err');
+  };
+  document.head.appendChild(js);
+}
+// Ray-casting point-in-polygon on lat/lng rings (works for polygons & rectangles).
+function _dispoPtInPoly(lat, lng, ring) {
+  if (!ring || ring.length < 3) return true;
+  var inside = false;
+  for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    var yi = ring[i].lat, xi = ring[i].lng, yj = ring[j].lat, xj = ring[j].lng;
+    var hit = ((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+    if (hit) inside = !inside;
+  }
+  return inside;
+}
+window._dispoToggleBuyerMap = function () {
+  var wrap = document.getElementById('dispo-buyer-map-wrap');
+  if (!wrap) return;
+  window._dispoMapOpen = !window._dispoMapOpen;
+  // Re-render the buyer list so the 🗺 Map button reflects on/off styling.
+  if (typeof window._dispoRenderDealBuyers === 'function') window._dispoRenderDealBuyers();
+  if (!window._dispoMapOpen) {
+    if (window._dispoMapExpanded && typeof window._dispoMapToggleExpand === 'function') window._dispoMapToggleExpand();
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = '';
+  try { wrap.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+  if (!document.getElementById('dispo-buyer-map')) {
+    wrap.innerHTML =
+        '<div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden">'
+      +   '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--border)">'
+      +     '<span style="font-weight:700;font-size:13px">🗺 Buyer Purchase Map</span>'
+      +     '<select id="dispo-map-focus" onchange="_dispoMapSetFocus(this.value)" title="Focus on ONE buyer to see just their purchases + prices, or show all filtered buyers." style="height:30px;padding:0 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;max-width:280px"></select>'
+      +     '<label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim);cursor:pointer;white-space:nowrap" title="Show ONLY purchases within your distance filter (≤ N miles) instead of each buyer’s full history."><input type="checkbox" id="dispo-map-radius" onchange="_dispoMapSetRadiusOnly(this.checked)" style="cursor:pointer">Only within radius</label>'
+      +     '<label id="dispo-map-boundary-lbl" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim);cursor:pointer;white-space:nowrap;opacity:0.5" title="Draw an area with the ▢/⬠ tools at the top-right of the map, then tick this to show only purchases inside it."><input type="checkbox" id="dispo-map-useboundary" onchange="_dispoMapSetUseBoundary(this.checked)" style="cursor:pointer">Use boundary</label>'
+      +     '<button type="button" id="dispo-map-clearbound" onclick="_dispoMapClearBoundary()" style="display:none;padding:3px 9px;font-size:11px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer" title="Erase the drawn area">Clear area</button>'
+      +     '<span id="dispo-map-stats" style="font-size:11px;color:var(--text-dim)"></span>'
+      +     '<button type="button" id="dispo-map-expand" onclick="_dispoMapToggleExpand()" style="margin-left:auto;padding:4px 10px;font-size:12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;white-space:nowrap" title="Pop the map out to fill the screen. Click again to shrink it back.">⛶ Expand</button>'
+      +     '<button type="button" id="dispo-map-lock" onclick="_dispoMapToggleLock()" style="padding:4px 10px;font-size:12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;white-space:nowrap" title="Lock the map so your mouse wheel zooms it. Click again to let the wheel scroll the page normally.">🔓 Scroll moves page</button>'
+      +     '<button type="button" onclick="_dispoToggleBuyerMap()" style="padding:4px 10px;font-size:12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer">✕ Close</button>'
+      +   '</div>'
+      +   '<div id="dispo-buyer-map" style="height:440px;width:100%;background:var(--panel-2);display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:13px">Loading free map…</div>'
+      +   '<div style="font-size:10.5px;color:var(--text-dim);padding:6px 12px;border-top:1px solid var(--border)">Free map · dots = buyers’ past purchases (click for price) · gold pin = this property · use the ▢/⬠ tools (top-right of map) to draw an area, then tick “Use boundary.”</div>'
+      + '</div>';
+  }
+  _dispoEnsureLeaflet(function () {
+    if (!window._dispoMapObj) {
+      var el = document.getElementById('dispo-buyer-map');
+      if (!el) return;
+      // Leaflet's own wheel zoom is OFF; we do a custom variable-step zoom below
+      // so the step scales with zoom level. zoomSnap:0 lets us land on fractional
+      // zooms for smooth control.
+      window._dispoMapObj = L.map(el, { preferCanvas: true, scrollWheelZoom: false, zoomSnap: 0, zoomDelta: 1 });
+      // Custom wheel zoom: BIG steps when zoomed out, SMALL steps when zoomed in.
+      // Rapid trackpad ticks are coalesced into ONE instant zoom per animation
+      // frame (animate:false) so it stays smooth instead of queuing animations.
+      // Only active when locked; otherwise the wheel scrolls the page normally.
+      var _zAccum = 0, _zTicking = false, _zPt = null;
+      el.addEventListener('wheel', function (ev) {
+        if (!window._dispoMapLocked) return;            // unlocked → let page scroll
+        ev.preventDefault(); ev.stopPropagation();
+        var map = window._dispoMapObj; if (!map) return;
+        var rect = el.getBoundingClientRect();
+        _zPt = L.point(ev.clientX - rect.left, ev.clientY - rect.top);
+        var z = map.getZoom(), mn = map.getMinZoom(), mx = map.getMaxZoom();
+        var t = (mx > mn) ? (z - mn) / (mx - mn) : 0.5;  // 0 = far out, 1 = far in
+        var step = 0.9 - 0.65 * t;                       // ~0.9 out … ~0.25 in
+        _zAccum += (ev.deltaY < 0 ? 1 : -1) * step;
+        if (_zTicking) return;
+        _zTicking = true;
+        requestAnimationFrame(function () {
+          _zTicking = false;
+          var m2 = window._dispoMapObj;
+          if (!m2 || !_zAccum) { _zAccum = 0; return; }
+          var target = Math.max(m2.getMinZoom(), Math.min(m2.getMaxZoom(), m2.getZoom() + _zAccum));
+          _zAccum = 0;
+          try { m2.setZoomAround(m2.containerPointToLatLng(_zPt), target, { animate: false }); } catch (e) { m2.setZoom(target); }
+        });
+      }, { passive: false });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(window._dispoMapObj);
+      window._dispoMapLayer = L.layerGroup().addTo(window._dispoMapObj);
+      // Boundary draw tool (leaflet-draw). Drawn shapes live in their own group so
+      // clearing purchase pins each render never erases the boundary.
+      window._dispoDrawnItems = new L.FeatureGroup();
+      window._dispoMapObj.addLayer(window._dispoDrawnItems);
+      if (L.Control && L.Control.Draw) {
+        var drawCtl = new L.Control.Draw({
+          position: 'topright',
+          draw: { polygon: { allowIntersection: false, shapeOptions: { color: '#3b82f6', weight: 2 } }, rectangle: { shapeOptions: { color: '#3b82f6', weight: 2 } }, polyline: false, circle: false, marker: false, circlemarker: false },
+          edit: { featureGroup: window._dispoDrawnItems, remove: true }
+        });
+        window._dispoMapObj.addControl(drawCtl);
+        window._dispoMapObj.on(L.Draw.Event.CREATED, function (e) {
+          window._dispoDrawnItems.clearLayers();       // one boundary at a time
+          window._dispoDrawnItems.addLayer(e.layer);
+          window._dispoBoundaryLayer = e.layer;
+          window._dispoUseBoundary = true;             // auto-apply once drawn
+          window._dispoRenderBuyerMap();
+        });
+        window._dispoMapObj.on(L.Draw.Event.EDITED, function () { window._dispoRenderBuyerMap(); });
+        window._dispoMapObj.on(L.Draw.Event.DELETED, function () { window._dispoBoundaryLayer = null; window._dispoUseBoundary = false; window._dispoRenderBuyerMap(); });
+      }
+    }
+    // A map created inside a hidden container needs a size recalc once shown.
+    setTimeout(function () { if (window._dispoMapObj) window._dispoMapObj.invalidateSize(); _dispoMapUpdateLockBtn(); window._dispoRenderBuyerMap(); }, 60);
+  });
+};
+function _dispoMapUpdateLockBtn() {
+  var b = document.getElementById('dispo-map-lock');
+  if (!b) return;
+  var locked = !!window._dispoMapLocked;
+  b.textContent = locked ? '🔒 Scroll zooms map' : '🔓 Scroll moves page';
+  b.style.borderColor = locked ? '#3b82f6' : 'var(--border)';
+  b.style.background = locked ? 'rgba(59,130,246,0.18)' : 'transparent';
+  b.style.color = locked ? '#60a5fa' : 'var(--text-dim)';
+}
+window._dispoMapToggleExpand = function () {
+  window._dispoMapExpanded = !window._dispoMapExpanded;
+  var wrap = document.getElementById('dispo-buyer-map-wrap');
+  var card = wrap ? wrap.firstElementChild : null;
+  var mapDiv = document.getElementById('dispo-buyer-map');
+  var btn = document.getElementById('dispo-map-expand');
+  var fb = document.getElementById('dispo-deal-filterbar');
+  if (!wrap || !card || !mapDiv) return;
+  if (window._dispoMapExpanded) {
+    // Pin the filter bar to the very top so filters stay usable while expanded.
+    if (fb) {
+      fb.style.position = 'fixed'; fb.style.top = '8px'; fb.style.left = '8px'; fb.style.right = '8px';
+      fb.style.zIndex = '10001'; fb.style.background = 'var(--panel)'; fb.style.border = '1px solid var(--border)';
+      fb.style.borderRadius = '8px'; fb.style.padding = '8px 10px'; fb.style.boxShadow = '0 4px 16px rgba(0,0,0,0.45)';
+    }
+    var fbH = fb ? fb.offsetHeight : 0;
+    wrap.style.cssText = 'position:fixed;top:' + (fbH + 16) + 'px;left:8px;right:8px;bottom:8px;z-index:10000;margin:0';
+    card.style.height = '100%'; card.style.display = 'flex'; card.style.flexDirection = 'column';
+    mapDiv.style.flex = '1'; mapDiv.style.height = 'auto';
+    if (btn) { btn.textContent = '🗕 Shrink'; btn.style.borderColor = '#3b82f6'; btn.style.background = 'rgba(59,130,246,0.18)'; btn.style.color = '#60a5fa'; }
+  } else {
+    if (fb) { ['position', 'top', 'left', 'right', 'zIndex', 'background', 'border', 'borderRadius', 'padding', 'boxShadow'].forEach(function (k) { fb.style[k] = ''; }); }
+    wrap.style.cssText = 'display:block;margin-top:12px';
+    card.style.height = ''; card.style.display = ''; card.style.flexDirection = '';
+    mapDiv.style.flex = ''; mapDiv.style.height = '440px';
+    if (btn) { btn.textContent = '⛶ Expand'; btn.style.borderColor = 'var(--border)'; btn.style.background = 'transparent'; btn.style.color = 'var(--text-dim)'; }
+  }
+  setTimeout(function () { if (window._dispoMapObj) window._dispoMapObj.invalidateSize(); if (window._dispoRenderBuyerMap) window._dispoRenderBuyerMap(); }, 60);
+};
+window._dispoMapToggleLock = function () {
+  // The custom wheel handler reads _dispoMapLocked directly; Leaflet's built-in
+  // wheel zoom stays off so the two never double up.
+  window._dispoMapLocked = !window._dispoMapLocked;
+  _dispoMapUpdateLockBtn();
+};
+window._dispoMapSetFocus = function (id) { window._dispoMapFocusBuyer = id || ''; window._dispoRenderBuyerMap(); };
+window._dispoMapSetRadiusOnly = function (on) { window._dispoMapRadiusOnly = !!on; window._dispoRenderBuyerMap(); };
+window._dispoMapSetUseBoundary = function (on) { window._dispoUseBoundary = !!on; window._dispoRenderBuyerMap(); };
+window._dispoMapToggleTagFromPopup = function (buyerId) {
+  var ctx = window._dispoDealCtx; if (!ctx || !ctx.deal) return;
+  // Flips the tag on this deal, persists it, and re-renders the list; the list
+  // re-render also refreshes the map so the dot + popup update immediately.
+  if (typeof _dispoToggleTag === 'function') _dispoToggleTag(ctx.deal.id, buyerId);
+  if (typeof window._dispoRenderBuyerMap === 'function') window._dispoRenderBuyerMap();
+};
+window._dispoMapClearBoundary = function () {
+  if (window._dispoDrawnItems) { try { window._dispoDrawnItems.clearLayers(); } catch (e) {} }
+  window._dispoBoundaryLayer = null;
+  window._dispoUseBoundary = false;
+  window._dispoRenderBuyerMap();
+};
+window._dispoRenderBuyerMap = function () {
+  if (!window._dispoMapOpen || !window.L || !window._dispoMapObj || !window._dispoMapLayer) return;
+  var ctx = window._dispoDealCtx; if (!ctx) return;
+  var esc = ctx.esc || function (s) { return String(s == null ? '' : s); };
+  var ranked = ctx.rankedFiltered || ctx.rankedAll || [];
+  var taggedSet = (typeof _dispoGetTaggedSet === 'function' && ctx.deal) ? _dispoGetTaggedSet(ctx.deal.id) : new Set();
+  var tcount = ranked.filter(function (r) { return taggedSet.has(r.b.id); }).length;
+  // Populate / refresh the focus dropdown from the current filtered list.
+  var sel = document.getElementById('dispo-map-focus');
+  if (sel) {
+    var ids = ranked.map(function (r) { return r.b.id; });
+    var sig = ids.length + '|t' + tcount + '|' + ids.join(',');
+    if (sel.getAttribute('data-sig') !== sig) {
+      var opts = '<option value="">All filtered buyers (' + ranked.length + ')</option>';
+      opts += '<option value="TAGGED">🏷 Tagged buyers only (' + tcount + ')</option>';
+      ranked.forEach(function (r) { var b = r.b; opts += '<option value="' + esc(b.id) + '">' + (taggedSet.has(b.id) ? '🏷 ' : '') + esc(b.company || b.name || '(no name)') + '</option>'; });
+      sel.innerHTML = opts;
+      sel.setAttribute('data-sig', sig);
+    }
+    if (window._dispoMapFocusBuyer && window._dispoMapFocusBuyer !== 'TAGGED' && ids.indexOf(window._dispoMapFocusBuyer) === -1) window._dispoMapFocusBuyer = '';
+    sel.value = window._dispoMapFocusBuyer || '';
+  }
+  var focus = window._dispoMapFocusBuyer || '';
+  var plot = (focus === 'TAGGED') ? ranked.filter(function (r) { return taggedSet.has(r.b.id); })
+           : focus ? ranked.filter(function (r) { return r.b.id === focus; })
+           : ranked;
+  window._dispoMapLayer.clearLayers();
+  var bounds = [], pinCount = 0, capped = false, totalSpent = 0, spentCount = 0;
+  var CAP = 4000;
+  var palette = ['#10b981', '#3b82f6', '#f59e0b', '#a855f7', '#ef4444', '#14b8a6', '#eab308', '#ec4899', '#22d3ee', '#84cc16'];
+  // Subject coords (computed up front so the radius toggle can measure against them).
+  var dc = ctx.coords;
+  var sla = (dc && dc.lat != null) ? Number(dc.lat) : NaN;
+  var slo = (dc && dc.lng != null) ? Number(dc.lng) : NaN;
+  var haveSubj = isFinite(sla) && isFinite(slo);
+  // "Only within radius" — clip pins to the distance filter (≤ N miles). Needs a
+  // subject location + a positive mile cap + haversine helper; otherwise no-op.
+  var maxMiles = Number((window._dispoFilter || {}).maxMiles) || 0;
+  var radiusOnly = !!window._dispoMapRadiusOnly && haveSubj && maxMiles > 0 && typeof _buyerHaversineMi === 'function';
+  var rc = document.getElementById('dispo-map-radius');
+  if (rc) rc.checked = !!window._dispoMapRadiusOnly;
+  // Boundary filter: only plot purchases inside the drawn shape, when enabled.
+  var hasBoundary = !!window._dispoBoundaryLayer;
+  var boundRing = null;
+  if (hasBoundary && typeof window._dispoBoundaryLayer.getLatLngs === 'function') {
+    var _ll = window._dispoBoundaryLayer.getLatLngs();
+    boundRing = Array.isArray(_ll[0]) ? _ll[0] : _ll;
+  }
+  var useBound = !!window._dispoUseBoundary && !!boundRing;
+  // Sync the boundary controls (enable checkbox + show Clear only once a shape exists).
+  var ubLbl = document.getElementById('dispo-map-boundary-lbl');
+  var ubBox = document.getElementById('dispo-map-useboundary');
+  var clrBtn = document.getElementById('dispo-map-clearbound');
+  if (ubBox) { ubBox.disabled = !hasBoundary; ubBox.checked = useBound; }
+  if (ubLbl) ubLbl.style.opacity = hasBoundary ? '1' : '0.5';
+  if (clrBtn) clrBtn.style.display = hasBoundary ? '' : 'none';
+  plot.forEach(function (r, bi) {
+    var b = r.b;
+    var purchases = (typeof getBuyerPurchases === 'function') ? getBuyerPurchases(b.id) : [];
+    var isTagged = taggedSet.has(b.id);
+    var color = isTagged ? '#10b981' : '#6b7280';   // green = tagged, darker grey = untagged (so the white symbol + outline stay legible)
+    var qstate = (typeof buyerQualState === 'function') ? buyerQualState(b) : 'unknown';
+    var qMeta = qstate === 'qualified' ? { lab: '✓ Qualified', c: '#059669' }
+              : qstate === 'unqualified' ? { lab: '✗ Unqualified', c: '#dc2626' }
+              : qstate === 'vetting' ? { lab: '🔎 Vetting', c: '#d97706' }
+              : { lab: '? Unknown', c: '#6b7280' };
+    var qBadge = '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;background:' + qMeta.c + '22;color:' + qMeta.c + ';border:1px solid ' + qMeta.c + '66">' + qMeta.lab + '</span>';
+    // Current outreach status with this buyer on this deal (popup readable colors).
+    var oKey = (typeof _dispoGetOutreach === 'function') ? (_dispoGetOutreach(ctx.deal.id, b.id) || '') : '';
+    var oMeta = (ctx.OUTREACH || []).filter(function (o) { return o.key === oKey; })[0];
+    var oDark = { reached: '#4338ca', responded: '#b45309', interested: '#059669', inspecting: '#0e7490', 'not-interested': '#b91c1c' };
+    var oc = oDark[oKey] || '#6b7280';
+    var oLabel = oMeta ? (oMeta.icon + ' ' + oMeta.label) : '? Unreached';
+    var oBadge = '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;background:' + oc + '22;color:' + oc + ';border:1px solid ' + oc + '66">' + oLabel + '</span>';
+    purchases.forEach(function (p) {
+      if (!p || p.lat == null || p.lng == null) return;
+      var la = Number(p.lat), lo = Number(p.lng);
+      if (!isFinite(la) || !isFinite(lo)) return;
+      if (radiusOnly && _buyerHaversineMi(la, lo, sla, slo) > maxMiles) return;
+      if (useBound && !_dispoPtInPoly(la, lo, boundRing)) return;
+      if (pinCount >= CAP) { capped = true; return; }
+      pinCount++;
+      bounds.push([la, lo]);
+      var amt = Number(p.sale_amount) || 0;
+      if (amt > 0) { totalSpent += amt; spentCount++; }
+      var addr = [p.address, p.city, p.state, p.zip].filter(Boolean).join(', ');
+      var priceStr = amt > 0 ? '$' + Math.round(amt).toLocaleString() : 'non-market ($0)';
+      var dateRaw = p.sale_date || p.purchase_date || p.date || '';
+      var dateStr = dateRaw ? String(dateRaw).slice(0, 10) : '';
+      var sym = qstate === 'qualified' ? '✓' : qstate === 'unqualified' ? '✗' : qstate === 'vetting' ? '🔍' : '?';
+      var iconHtml = '<div style="width:21px;height:21px;border-radius:50%;background:' + color + ';border:2px solid ' + (isTagged ? '#065f46' : 'rgba(0,0,0,0.5)') + ';box-shadow:0 1px 2px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;font-weight:900;color:#fff;text-shadow:-1px -1px 0 rgba(0,0,0,0.75),1px -1px 0 rgba(0,0,0,0.75),-1px 1px 0 rgba(0,0,0,0.75),1px 1px 0 rgba(0,0,0,0.75)">' + sym + '</div>';
+      var m = L.marker([la, lo], { icon: L.divIcon({ className: 'dispo-buyer-pin', html: iconHtml, iconSize: [20, 20], iconAnchor: [10, 10] }) });
+      var tagBtn = '<button onclick="_dispoMapToggleTagFromPopup(\'' + esc(b.id) + '\')" style="margin-top:7px;padding:4px 10px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid ' + (isTagged ? '#10b981' : '#94a3b8') + ';background:' + (isTagged ? 'rgba(16,185,129,0.15)' : '#fff') + ';color:' + (isTagged ? '#0f766e' : '#334155') + '">' + (isTagged ? '🏷 Untag buyer' : '🏷 Tag buyer') + '</button>';
+      m.bindPopup('<div style="font-size:12px;min-width:170px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + (isTagged ? ' <span style="color:#10b981;font-weight:700">🏷 Tagged</span>' : '') + '<br><div style="margin:3px 0;display:flex;gap:5px;flex-wrap:wrap">' + qBadge + oBadge + '</div>' + esc(addr || '(no address)') + '<br><b>' + priceStr + '</b>' + (dateStr ? ' · ' + esc(dateStr) : '') + '<br>' + tagBtn + '</div>');
+      window._dispoMapLayer.addLayer(m);
+    });
+  });
+  // Subject property — a distinct teardrop PIN (anchored at its tip), drawn on
+  // top so it never hides behind purchase dots.
+  if (haveSubj) {
+    var pinSvg = '<div style="filter:drop-shadow(0 2px 3px rgba(0,0,0,0.5))">'
+      + '<svg width="36" height="48" viewBox="0 0 36 48" xmlns="http://www.w3.org/2000/svg">'
+      +   '<path d="M18 1C9.7 1 3 7.7 3 16c0 10.5 15 30 15 30s15-19.5 15-30C33 7.7 26.3 1 18 1z" fill="#f59e0b" stroke="#ffffff" stroke-width="2.5"/>'
+      +   '<circle cx="18" cy="16" r="6.5" fill="#7c2d12"/>'
+      + '</svg></div>';
+    var subjIcon = L.divIcon({ className: 'dispo-subj-pin', html: pinSvg, iconSize: [36, 48], iconAnchor: [18, 47], popupAnchor: [0, -42] });
+    var sm = L.marker([sla, slo], { icon: subjIcon, zIndexOffset: 1000, keyboard: false });
+    sm.bindPopup('<div style="font-size:12px"><b>🏠 ' + esc(ctx.deal && ctx.deal.address || 'This property') + '</b><br>Subject property</div>');
+    window._dispoMapLayer.addLayer(sm);
+    bounds.push([sla, slo]);
+  }
+  var statsEl = document.getElementById('dispo-map-stats');
+  if (statsEl) {
+    var buyersShown = (focus && focus !== 'TAGGED') ? 1 : plot.length;
+    var avg = spentCount > 0 ? totalSpent / spentCount : 0;
+    statsEl.textContent = buyersShown + ' buyer' + (buyersShown === 1 ? '' : 's') + ' · ' + pinCount + ' purchase' + (pinCount === 1 ? '' : 's')
+      + (spentCount > 0 ? ' · total $' + Math.round(totalSpent).toLocaleString() + ' · avg $' + Math.round(avg).toLocaleString() : '')
+      + (capped ? ' · (showing first ' + CAP + ')' : '');
+  }
+  if (bounds.length) { try { window._dispoMapObj.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 }); } catch (e) {} }
+};
+
 // Tagged buyer IDs live on the deal's JSONB as data._taggedBuyers (an array).
 // Saved by updating ONLY this deal's row directly — never through uwSave — so
 // it can't collide with whatever deal the calculator has loaded.
@@ -31671,7 +32000,17 @@ function buyerRenderPerDealPanel() {
 
     // Stash everything the inner re-renderer needs so it can run without
     // rebuilding the filter bar (which would steal search-input focus).
-    window._dispoDealCtx = { deal: deal, rankedAll: rankedAll, OUTREACH: OUTREACH, esc: esc };
+    window._dispoDealCtx = { deal: deal, coords: _dealCoords, rankedAll: rankedAll, OUTREACH: OUTREACH, esc: esc };
+    // Fresh map state per property open. The map div is rebuilt with the panel,
+    // so tear down any prior Leaflet instance to avoid binding to a detached node.
+    window._dispoMapOpen = false;
+    window._dispoMapFocusBuyer = '';
+    window._dispoBoundaryLayer = null;
+    window._dispoUseBoundary = false;
+    window._dispoDrawnItems = null;
+    window._dispoMapLocked = true;   // default: wheel zooms the map (page scroll locked)
+    window._dispoMapExpanded = false;
+    if (window._dispoMapObj) { try { window._dispoMapObj.remove(); } catch (e) {} window._dispoMapObj = null; window._dispoMapLayer = null; }
 
     // Inner renderer — only touches the buyer list. Filter bar stays intact.
     window._dispoRenderDealBuyers = function () {
@@ -31688,43 +32027,71 @@ function buyerRenderPerDealPanel() {
       const minScore = Number(flt.minScore) || 0;
       const active   = String(flt.active || '');
       const taggedSet = _dispoGetTaggedSet(ctx.deal.id);
-      const ranked = ctx.rankedAll.filter(r => {
-        const b = r.b;
-        if (flt.taggedOnly && !taggedSet.has(b.id)) return false;
-        if (minScore > 0 && (r.score || 0) < minScore) return false;
-        if (active) {
-          const bb = r.buyBox || (typeof getBuyerDerivedBuyBox === 'function' ? getBuyerDerivedBuyBox(b.id) : null);
-          const m  = bb ? bb.monthsSinceLast : null;
-          if (active === '6mo'  && (m == null || m > 6))   return false;
-          if (active === '12mo' && (m == null || m > 12))  return false;
-          if (active === '24mo' && (m == null || m > 24))  return false;
-        }
-        if (search) {
-          const hay = ((b.company || '') + ' ' + (b.name || '') + ' ' + (b.email || '') + ' ' + (b.phone || '')).toLowerCase();
-          if (!hay.includes(search)) return false;
-        }
-        if (outreach) {
-          const cur = _dispoGetOutreach(ctx.deal.id, b.id) || '';
-          if (outreach === 'none') { if (cur) return false; }
-          else if (cur !== outreach) return false;
-        }
-        if (qual) {
-          const q = (typeof buyerQualState === 'function') ? buyerQualState(b) : 'unknown';
-          if (q !== qual) return false;
-        }
-        if (acqMin > 0) {
-          if (!(r.acq >= acqMin)) return false;
-        }
-        if (offer) {
-          // "Made offer" = any buyer with a non-zero number in the Buyer Offer slot.
-          // "No offer yet" = the inverse. Reads from cache.dispoEngagement first,
-          // falls back to the localStorage shadow.
-          const has = (Number(_dispoGetBuyerOffer(ctx.deal.id, b.id)) || 0) > 0;
-          if (offer === 'made'   && !has) return false;
-          if (offer === 'noffer' &&  has) return false;
-        }
-        return true;
-      });
+      let ranked;
+      if (flt.taggedOnly) {
+        // TAGGED MODE: show EVERY tagged buyer for this property, ignoring the
+        // distance / acqs / active / offers / qual / outreach filters. Only the
+        // search box still narrows. Tagged buyers outside the scored pool (e.g.
+        // beyond the mile range, or no purchase data) are pulled straight from
+        // the buyer cache so nothing tagged is ever hidden.
+        const byId = {};
+        ctx.rankedAll.forEach(r => { byId[r.b.id] = r; });
+        ranked = [];
+        taggedSet.forEach(id => {
+          let r = byId[id];
+          if (!r) {
+            const b = (cache.buyers || {})[id];
+            if (!b) return;
+            r = { b: b, score: 0, fallback: true, components: {} };
+          }
+          if (search) {
+            const b = r.b;
+            const hay = ((b.company || '') + ' ' + (b.name || '') + ' ' + (b.email || '') + ' ' + (b.phone || '')).toLowerCase();
+            if (!hay.includes(search)) return;
+          }
+          ranked.push(r);
+        });
+        ranked.sort((a, b) => (b.score || 0) - (a.score || 0) || String(a.b.name || '').toLowerCase().localeCompare(String(b.b.name || '').toLowerCase()));
+      } else {
+        ranked = ctx.rankedAll.filter(r => {
+          const b = r.b;
+          if (minScore > 0 && (r.score || 0) < minScore) return false;
+          if (active) {
+            const bb = r.buyBox || (typeof getBuyerDerivedBuyBox === 'function' ? getBuyerDerivedBuyBox(b.id) : null);
+            const m  = bb ? bb.monthsSinceLast : null;
+            if (active === '6mo'  && (m == null || m > 6))   return false;
+            if (active === '12mo' && (m == null || m > 12))  return false;
+            if (active === '24mo' && (m == null || m > 24))  return false;
+          }
+          if (search) {
+            const hay = ((b.company || '') + ' ' + (b.name || '') + ' ' + (b.email || '') + ' ' + (b.phone || '')).toLowerCase();
+            if (!hay.includes(search)) return false;
+          }
+          if (outreach) {
+            const cur = _dispoGetOutreach(ctx.deal.id, b.id) || '';
+            if (outreach === 'none') { if (cur) return false; }
+            else if (cur !== outreach) return false;
+          }
+          if (qual) {
+            const q = (typeof buyerQualState === 'function') ? buyerQualState(b) : 'unknown';
+            if (q !== qual) return false;
+          }
+          if (acqMin > 0) {
+            if (!(r.acq >= acqMin)) return false;
+          }
+          if (offer) {
+            // "Made offer" = any buyer with a non-zero number in the Buyer Offer slot.
+            const has = (Number(_dispoGetBuyerOffer(ctx.deal.id, b.id)) || 0) > 0;
+            if (offer === 'made'   && !has) return false;
+            if (offer === 'noffer' &&  has) return false;
+          }
+          return true;
+        });
+      }
+      // Expose the current filtered list so the (optional) buyer map can plot it,
+      // and refresh the map in place if it's open (no Leaflet rebuild).
+      ctx.rankedFiltered = ranked;
+      if (window._dispoMapOpen && typeof window._dispoRenderBuyerMap === 'function') { try { window._dispoRenderBuyerMap(); } catch (e) {} }
 
       const renderOutreachRow = (buyerId) => {
         const cur = _dispoGetOutreach(ctx.deal.id, buyerId);
@@ -31755,13 +32122,17 @@ function buyerRenderPerDealPanel() {
           + '</div>';
       };
 
-      const _taggedCount = ctx.rankedAll.filter(r => taggedSet.has(r.b.id)).length;
+      const _taggedCount = taggedSet.size;
       const _tgOn = !!flt.taggedOnly;
+      const _countTotal = _tgOn ? ranked.length : ctx.rankedAll.length;
       const countLine = '<div style="position:relative;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;min-height:28px">'
-        + '<span style="position:absolute;left:0;font-size:11px;color:var(--text-dim)">' + ranked.length + ' of ' + ctx.rankedAll.length + ' buyer' + (ctx.rankedAll.length === 1 ? '' : 's') + ' shown</span>'
+        + '<span style="position:absolute;left:0;font-size:11px;color:var(--text-dim)">' + ranked.length + ' of ' + _countTotal + ' buyer' + (_countTotal === 1 ? '' : 's') + (_tgOn ? ' tagged' : '') + ' shown</span>'
         + '<button type="button" onclick="window._dispoFilter=window._dispoFilter||{};window._dispoFilter.taggedOnly=!window._dispoFilter.taggedOnly;if(window._dispoRenderDealBuyers)window._dispoRenderDealBuyers();" '
         +   'style="padding:5px 14px;font-size:12px;font-weight:700;border-radius:6px;cursor:pointer;white-space:nowrap;border:1px solid ' + (_tgOn ? '#10b981' : 'var(--border)') + ';background:' + (_tgOn ? 'rgba(16,185,129,0.18)' : 'transparent') + ';color:' + (_tgOn ? '#10b981' : 'var(--text-dim)') + '" '
-        +   'title="Show only buyers you\'ve tagged for this property">🏷 Tagged Buyers (' + _taggedCount + ')</button>'
+        +   'title="Show ALL buyers you\'ve tagged for this property (ignores the distance/acqs/active filters; search still works).">🏷 Tagged Buyers (' + _taggedCount + ')</button>'
+        + '<button type="button" onclick="_dispoToggleBuyerMap()" '
+        +   'style="padding:5px 14px;font-size:12px;font-weight:700;border-radius:6px;cursor:pointer;white-space:nowrap;border:1px solid ' + (window._dispoMapOpen ? '#3b82f6' : 'var(--border)') + ';background:' + (window._dispoMapOpen ? 'rgba(59,130,246,0.18)' : 'transparent') + ';color:' + (window._dispoMapOpen ? '#60a5fa' : 'var(--text-dim)') + '" '
+        +   'title="Free map of these buyers’ past purchases (no cost — data is already geocoded). Follows your current filters/Tagged.">🗺 Map</button>'
         + '</div>';
 
       // Special empty state: subject property has no lat/lng yet, so the
@@ -31912,7 +32283,7 @@ function buyerRenderPerDealPanel() {
     // so every field has explicit widths to override it. Search is capped at
     // 320px so it doesn't dominate; a flex spacer pushes filters to the right.
     const filterBarHtml = ''
-      + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap;margin-top:14px;margin-bottom:6px;width:100%;min-width:0">'
+      + '<div id="dispo-deal-filterbar" style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap;margin-top:14px;margin-bottom:6px;width:100%;min-width:0">'
       +   '<input id="dispo-deal-search" type="text" placeholder="🔍 Search…" value="' + esc(flt.search || '') + '" oninput="_dispoSetFilter(\'search\', this.value)" style="flex:0 1 280px;min-width:0;width:280px;max-width:320px;height:30px;padding:0 10px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;box-sizing:border-box">'
       +   '<div style="flex:1 1 auto"></div>'
       +   '<select id="dispo-deal-outreach" onchange="_dispoSetFilter(\'outreach\', this.value)" style="flex:0 0 auto;width:140px;height:30px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;box-sizing:border-box" title="Filter by outreach status">'
@@ -32023,6 +32394,7 @@ function buyerRenderPerDealPanel() {
               + '</div>';
           })()
       +   filterBarHtml
+      +   '<div id="dispo-buyer-map-wrap" style="display:none;margin-top:12px"></div>'
       +   '<div id="dispo-deal-buyers" style="margin-top:6px"></div>'
       + '</div>';
     // Initial buyer-list render. Inputs already in DOM; from here on, every

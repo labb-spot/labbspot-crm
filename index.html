@@ -30333,7 +30333,16 @@ function _dispoSetFilter(key, value) {
   // maxMiles changes the qualifying pool itself (not just the displayed
   // subset), so a full Per Deal re-render is needed to refresh the count.
   if (key === 'maxMiles' && typeof buyerRenderPerDealPanel === 'function') {
+    // Preserve the buyer map: the full rebuild tears it down, so remember if it
+    // was open + its current view, then reopen and restore that view.
+    var _wasOpen = !!window._dispoMapOpen;
+    var _savedView = (_wasOpen && window._dispoMapObj) ? { c: window._dispoMapObj.getCenter(), z: window._dispoMapObj.getZoom() } : null;
     buyerRenderPerDealPanel();
+    if (_wasOpen && typeof window._dispoToggleBuyerMap === 'function') {
+      window._dispoMapPendingView = _savedView;
+      window._dispoMapSuppressScroll = true;   // don't jump the page on a filter change
+      window._dispoToggleBuyerMap();   // reopens, restores view via pendingView
+    }
     return;
   }
   if (typeof _dispoRenderDealBuyers === 'function') _dispoRenderDealBuyers();
@@ -30803,7 +30812,10 @@ window._dispoToggleBuyerMap = function () {
     return;
   }
   wrap.style.display = '';
-  try { wrap.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+  window._dispoMapFitted = false;   // fit once on this open; refreshes keep the view
+  // Only scroll to the map on a genuine user open — not on a filter-triggered reopen.
+  if (!window._dispoMapSuppressScroll) { try { wrap.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {} }
+  window._dispoMapSuppressScroll = false;
   if (!document.getElementById('dispo-buyer-map')) {
     wrap.innerHTML =
         '<div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden">'
@@ -30885,7 +30897,17 @@ window._dispoToggleBuyerMap = function () {
       }
     }
     // A map created inside a hidden container needs a size recalc once shown.
-    setTimeout(function () { if (window._dispoMapObj) window._dispoMapObj.invalidateSize(); _dispoMapUpdateLockBtn(); window._dispoRenderBuyerMap(); }, 60);
+    setTimeout(function () {
+      if (window._dispoMapObj) window._dispoMapObj.invalidateSize();
+      // Restore a preserved view (e.g. after a distance-filter rebuild) instead
+      // of auto-fitting, so the user keeps their zoom/pan.
+      if (window._dispoMapPendingView && window._dispoMapObj) {
+        try { window._dispoMapObj.setView(window._dispoMapPendingView.c, window._dispoMapPendingView.z, { animate: false }); window._dispoMapFitted = true; } catch (e) {}
+        window._dispoMapPendingView = null;
+      }
+      _dispoMapUpdateLockBtn();
+      window._dispoRenderBuyerMap();
+    }, 60);
   });
 };
 function _dispoMapUpdateLockBtn() {
@@ -30933,14 +30955,15 @@ window._dispoMapToggleLock = function () {
   _dispoMapUpdateLockBtn();
 };
 window._dispoMapSetFocus = function (id) { window._dispoMapFocusBuyer = id || ''; window._dispoRenderBuyerMap(); };
-window._dispoMapSetRadiusOnly = function (on) { window._dispoMapRadiusOnly = !!on; window._dispoRenderBuyerMap(); };
+window._dispoMapSetRadiusOnly = function (on) { window._dispoMapRadiusOnly = !!on; window._dispoMapFitted = false; window._dispoRenderBuyerMap(); };
 window._dispoMapSetUseBoundary = function (on) { window._dispoUseBoundary = !!on; window._dispoRenderBuyerMap(); };
-window._dispoMapToggleTagFromPopup = function (buyerId) {
+window._dispoMapToggleTagFromPopup = function (buyerId, lat, lng) {
   var ctx = window._dispoDealCtx; if (!ctx || !ctx.deal) return;
-  // Flips the tag on this deal, persists it, and re-renders the list; the list
-  // re-render also refreshes the map so the dot + popup update immediately.
+  // Remember which pin's popup is open so the map re-render can reopen it.
+  window._dispoMapReopenPopup = { buyerId: buyerId, lat: Number(lat), lng: Number(lng) };
+  // _dispoToggleTag re-renders the list, which triggers a SINGLE map refresh
+  // (via the hook in _dispoRenderDealBuyers) — that refresh reopens the popup.
   if (typeof _dispoToggleTag === 'function') _dispoToggleTag(ctx.deal.id, buyerId);
-  if (typeof window._dispoRenderBuyerMap === 'function') window._dispoRenderBuyerMap();
 };
 window._dispoMapClearBoundary = function () {
   if (window._dispoDrawnItems) { try { window._dispoDrawnItems.clearLayers(); } catch (e) {} }
@@ -30976,6 +30999,7 @@ window._dispoRenderBuyerMap = function () {
            : ranked;
   window._dispoMapLayer.clearLayers();
   var bounds = [], pinCount = 0, capped = false, totalSpent = 0, spentCount = 0;
+  var reopenReq = window._dispoMapReopenPopup || null, reopenMarker = null;
   var CAP = 4000;
   var palette = ['#10b981', '#3b82f6', '#f59e0b', '#a855f7', '#ef4444', '#14b8a6', '#eab308', '#ec4899', '#22d3ee', '#84cc16'];
   // Subject coords (computed up front so the radius toggle can measure against them).
@@ -31043,9 +31067,10 @@ window._dispoRenderBuyerMap = function () {
       var sym = qstate === 'qualified' ? '✓' : qstate === 'unqualified' ? '✗' : qstate === 'vetting' ? '🔍' : '?';
       var iconHtml = '<div style="width:21px;height:21px;border-radius:50%;background:' + color + ';border:2px solid ' + dotBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;font-weight:900;color:#fff;text-shadow:-1px -1px 0 rgba(0,0,0,0.75),1px -1px 0 rgba(0,0,0,0.75),-1px 1px 0 rgba(0,0,0,0.75),1px 1px 0 rgba(0,0,0,0.75)">' + sym + '</div>';
       var m = L.marker([la, lo], { icon: L.divIcon({ className: 'dispo-buyer-pin', html: iconHtml, iconSize: [20, 20], iconAnchor: [10, 10] }) });
-      var tagBtn = '<button onclick="_dispoMapToggleTagFromPopup(\'' + esc(b.id) + '\')" style="margin-top:7px;padding:4px 10px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid ' + (isTagged ? '#10b981' : '#94a3b8') + ';background:' + (isTagged ? 'rgba(16,185,129,0.15)' : '#fff') + ';color:' + (isTagged ? '#0f766e' : '#334155') + '">' + (isTagged ? '🏷 Untag buyer' : '🏷 Tag buyer') + '</button>';
+      var tagBtn = '<button onclick="_dispoMapToggleTagFromPopup(\'' + esc(b.id) + '\',' + la + ',' + lo + ')" style="margin-top:7px;padding:4px 10px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid ' + (isTagged ? '#10b981' : '#94a3b8') + ';background:' + (isTagged ? 'rgba(16,185,129,0.15)' : '#fff') + ';color:' + (isTagged ? '#0f766e' : '#334155') + '">' + (isTagged ? '🏷 Untag buyer' : '🏷 Tag buyer') + '</button>';
       m.bindPopup('<div style="font-size:12px;min-width:170px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + (isTagged ? ' <span style="color:#10b981;font-weight:700">🏷 Tagged</span>' : '') + '<br><div style="margin:3px 0;display:flex;gap:5px;flex-wrap:wrap">' + qBadge + oBadge + '</div>' + esc(addr || '(no address)') + '<br><b>' + priceStr + '</b>' + (dateStr ? ' · ' + esc(dateStr) : '') + '<br>' + tagBtn + '</div>');
       window._dispoMapLayer.addLayer(m);
+      if (reopenReq && reopenReq.buyerId === b.id && Math.abs(la - reopenReq.lat) < 1e-6 && Math.abs(lo - reopenReq.lng) < 1e-6) reopenMarker = m;
     });
   });
   // Subject property — a distinct teardrop PIN (anchored at its tip), drawn on
@@ -31070,7 +31095,12 @@ window._dispoRenderBuyerMap = function () {
       + (spentCount > 0 ? ' · total $' + Math.round(totalSpent).toLocaleString() + ' · avg $' + Math.round(avg).toLocaleString() : '')
       + (capped ? ' · (showing first ' + CAP + ')' : '');
   }
-  if (bounds.length) { try { window._dispoMapObj.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 }); } catch (e) {} }
+  // Fit the view to the pins ONLY on the first render after opening. On later
+  // re-renders (tagging, filter tweaks) keep the user's current zoom/pan.
+  if (bounds.length && !window._dispoMapFitted) { try { window._dispoMapObj.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 }); window._dispoMapFitted = true; } catch (e) {} }
+  // Reopen the popup that was open before a tag toggle, so it stays put.
+  if (reopenMarker) { try { reopenMarker.openPopup(); } catch (e) {} }
+  window._dispoMapReopenPopup = null;
 };
 
 // Tagged buyer IDs live on the deal's JSONB as data._taggedBuyers (an array).

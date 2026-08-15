@@ -31527,8 +31527,28 @@ async function _contactsSectionOpen(){
   renderContactBook();      // paint from cache immediately
   await loadContacts();
   renderContactBook();
+  // Fill in lead-derived contacts WITHOUT needing the Underwriting tab first.
+  // Runs in the background (never blocks the page) and is throttled so it isn't
+  // redone on every open. It loads deals if they aren't in memory yet, then
+  // runs the same lead→contact sync — which re-renders itself if it adds any.
+  _contactsBackgroundSync();
 }
 window._contactsSectionOpen = _contactsSectionOpen;
+function _contactsBackgroundSync(){
+  var COOLDOWN = 3 * 60 * 1000;  // don't re-scan more than once per 3 minutes
+  var now = Date.now();
+  if (_contactsBackgroundSync._last && (now - _contactsBackgroundSync._last) < COOLDOWN) return;
+  _contactsBackgroundSync._last = now;
+  Promise.resolve().then(async function(){
+    try {
+      if ((!cache || !cache.underwrites || !Object.keys(cache.underwrites || {}).length) && typeof loadUnderwrites === 'function') {
+        await loadUnderwrites();   // deals are needed for the sync; cached after first load
+      }
+      if (typeof _uwSyncLeadContacts === 'function') await _uwSyncLeadContacts({ silent: true });
+    } catch (_) {}
+  });
+}
+window._contactsBackgroundSync = _contactsBackgroundSync;
 async function loadContacts(){
   if (typeof sb === 'undefined' || !sb) return;
   try { const { data, error } = await sb.from('contacts').select('*').order('name'); if (error) throw error; window._cbCache = data || []; if (typeof _setLazyStatus === 'function') _setLazyStatus('contacts', 'loaded', window._cbCache.length); }

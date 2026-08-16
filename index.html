@@ -4371,8 +4371,8 @@
       <div data-uw-slot="sell-close-pct"><label class="text-xs">Seller Closing % of ARV<input type="number" id="uw-sell-close-pct" value="2" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="orig-pct"><label class="text-xs">Origination % of ARV<input type="number" id="uw-orig-pct" value="2" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="int-pct"><label class="text-xs">Interest %/yr (of ARV)<input type="number" id="uw-int-pct" value="12" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="sell-agent-pct"><label class="text-xs">Seller Agent %<input type="number" id="uw-sell-agent-pct" value="2.5" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="buy-agent-pct"><label class="text-xs">Buyer Agent %<input type="number" id="uw-buy-agent-pct" value="2.5" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="sell-agent-pct"><label class="text-xs">Seller Agent %<input type="number" id="uw-sell-agent-pct" value="3" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="buy-agent-pct"><label class="text-xs">Buyer Agent %<input type="number" id="uw-buy-agent-pct" value="3" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="loan-rate"><label class="text-xs">Financing Rate %/yr<input type="number" id="uw-loan-rate" value="6.5" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="loan-yrs"><label class="text-xs">Loan Term (yrs)<input type="number" id="uw-loan-yrs" value="30" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <!-- ====== RENTAL editable assumptions (used by both Cash and Financed) ====== -->
@@ -10587,8 +10587,8 @@ function uwNewDeal() {
   const defaults = {
     'uw-max-ltv': '70', 'uw-buy-close-pct': '2', 'uw-purch-sell-close-pct': '1', 'uw-sell-close-pct': '2',
     'uw-orig-pct': '2', 'uw-int-pct': '12',
-    'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '2.5',
-    'uw-buy-agent-pct': '2.5', 'uw-loan-rate': '6.5',
+    'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '3',
+    'uw-buy-agent-pct': '3', 'uw-loan-rate': '6.5',
     'uw-loan-yrs': '30', 'uw-units': '1', 'uw-units-rental': '1',
     // Wholetail defaults — match the documented assumptions in uwComputeExits
     'uw-wt-sale-pct': '75', 'uw-wt-cap-pct': '10',
@@ -11544,8 +11544,8 @@ function uwReset() {
   const defaults = {
     'uw-max-ltv': '70', 'uw-buy-close-pct': '2', 'uw-purch-sell-close-pct': '1', 'uw-sell-close-pct': '2',
     'uw-orig-pct': '2', 'uw-int-pct': '12',
-    'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '2.5',
-    'uw-buy-agent-pct': '2.5', 'uw-loan-rate': '6.5',
+    'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '3',
+    'uw-buy-agent-pct': '3', 'uw-loan-rate': '6.5',
     'uw-loan-yrs': '30', 'uw-units': '1', 'uw-units-rental': '1',
     // Wholetail defaults — match the documented assumptions in uwComputeExits
     'uw-wt-sale-pct': '75', 'uw-wt-cap-pct': '10',
@@ -12767,7 +12767,7 @@ function uwComputeExits(ctx) {
   const { arv, offer, asking, accepted, rehab, flipRehab, rentalRehab, sqft, totalFlipCost, holdingCost,
           sellingCost, moneyCost, buyClose, purchSellClose, purchClosingTotal, sellClose, rent, monthlyExp,
           pi, annualRent, totalMo, idealMarginPct,
-          sellClosePct = 2, sellAgentPct = 2.5, buyAgentPct = 2.5,
+          sellClosePct = 2, sellAgentPct = 3, buyAgentPct = 3,
           closingCost, orig, intDuringHold, builderIns, taxMo, utilMo,
           sellAgent, buyAgent, realProfit, realMargin, flipRoi,
           rentalTaxMo, rentalInsMo, hoaMo, capexMo, vacancyMo, pmMo, cashflow, dscr,
@@ -12795,7 +12795,7 @@ function uwComputeExits(ctx) {
   //         − rehab (flip-grade)
   //         − purchase closing  (3% of accepted/asking — same as buyer side)
   //         − selling closing   (3% of ARV)
-  //         − selling agents    (5% of ARV — 2.5% per agent × 2)
+  //         − selling agents    (6% of ARV — 3% per agent × 2)
   //         − holding costs     (cash buyer's flip-period holding)
   //         − ideal profit      (from the Ideal Flip Profit slider)
   //
@@ -12807,7 +12807,7 @@ function uwComputeExits(ctx) {
   // Then wholesalePurchClose = 3% × MAO. This eliminates the asking-price
   // dependency the old "basis = accepted | asking | buyPrice" formula had.
   const wholesaleClosingPct   = 3;                                        // purchase-side close %
-  // Selling side: closing 3% of ARV + agents 5% of ARV (2.5% per agent × 2)
+  // Selling side: closing 3% of ARV + agents 6% of ARV (3% per agent × 2)
   const wsSellClosePct        = 3;
   const wsSellAgentsPct       = 5;
   const wsSellClose           = arv * (wsSellClosePct / 100);
@@ -18887,8 +18887,8 @@ function _uwCollect() {
 const _UW_ASSUMPTION_DEFAULTS = {
   'uw-max-ltv': '70', 'uw-buy-close-pct': '2', 'uw-purch-sell-close-pct': '1', 'uw-sell-close-pct': '2',
   'uw-orig-pct': '2', 'uw-int-pct': '12',
-  'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '2.5',
-  'uw-buy-agent-pct': '2.5', 'uw-loan-rate': '6.5',
+  'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '3',
+  'uw-buy-agent-pct': '3', 'uw-loan-rate': '6.5',
   'uw-loan-yrs': '30', 'uw-units': '1', 'uw-units-rental': '1',
   'uw-wt-sale-pct': '75', 'uw-wt-cap-pct': '10',
   'uw-wt-reno-mo': '1', 'uw-wt-listed-mo': '2', 'uw-wt-ins': '150',

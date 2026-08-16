@@ -12809,7 +12809,7 @@ function uwComputeExits(ctx) {
   const wholesaleClosingPct   = 3;                                        // purchase-side close %
   // Selling side: closing 3% of ARV + agents 6% of ARV (3% per agent × 2)
   const wsSellClosePct        = 3;
-  const wsSellAgentsPct       = 5;
+  const wsSellAgentsPct       = 6;   // 3% per agent × 2
   const wsSellClose           = arv * (wsSellClosePct / 100);
   const wsSellAgents          = arv * (wsSellAgentsPct / 100);
   // Cash buyer holding — estimate using flip-grade months + ARV-based monthly
@@ -13129,7 +13129,7 @@ function uwComputeExits(ctx) {
   // math; it's a parallel, view-only variant.
   // Turn-key carries a light rehab reserve fixed at 5% of ARV (not a full reno),
   // but still NO pre-rent holding / mowing.
-  const tkRehab           = arv * 0.05;
+  const tkRehab           = arv * 0.06;
   // Full Turn-Key (DSCR-financed) math is computed below, AFTER the Financed
   // rental block, so it can reuse the same DSCR inputs (rate/term/orig/close/fee)
   // and the 70% LTV cap.
@@ -13780,7 +13780,7 @@ function uwComputeExits(ctx) {
           ['Rehab budget', '−' + fmt(fRehab)],
           ['Purchase closing (3%)', '−' + fmt(wholesalePurchClose)],
           ['Selling closing (3% of ARV)', '−' + fmt(wsSellClose)],
-          ['Selling agents (5% of ARV)', '−' + fmt(wsSellAgents)],
+          ['Selling agents (' + wsSellAgentsPct + '% of ARV)', '−' + fmt(wsSellAgents)],
           ['Holding (' + _wsFlMonths + ' mo)', '−' + fmt(wsHolding)],
           ['Ideal profit (' + _wsIfpFinalPct.toFixed(1) + '% of ARV)', '−' + fmt(wsIdealProfit)],
           ['Cash Buyer Max Offer', fmt(cashBuyerMAO)],
@@ -17882,7 +17882,7 @@ function _uwComputeMaxOfferFromData(data) {
   // − holding − idealProfit. This keeps Max Offer independent of asking.
   // wsBuyMax = cashBuyerMAO − $10k assignment floor
   const wsSellClose = arv * 0.03;
-  const wsSellAgents = arv * 0.05;
+  const wsSellAgents = arv * 0.06;
   const wsFlMonths = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
   const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 300;
   const wsHolding = wsHoldingMonthly * wsFlMonths;
@@ -17924,7 +17924,7 @@ window._uwComputeMaxOfferFromData = _uwComputeMaxOfferFromData;
 //                  − rehab (flip-grade)
 //                  − purchase closing (3% of accepted/asking)
 //                  − selling closing (3% of ARV)
-//                  − selling agents (5% of ARV)
+//                  − selling agents (6% of ARV)
 //                  − holding (3% ARV/yr split + $150/mo insurance × wsFlMonths)
 //                  − ideal flip profit (slider %, default 20% Heavy benchmark)
 function _uwComputeWholesaleProfitFromData(data) {
@@ -17969,7 +17969,7 @@ function _uwComputeWholesaleProfitFromData(data) {
   // Purchase closing = 3% of MAO (what cash buyer actually pays), solved
   // algebraically below so MAO is independent of buyPrice/asking.
   const wsSellClose         = arv * 0.03;      // 3% of ARV
-  const wsSellAgents        = arv * 0.05;      // 5% of ARV
+  const wsSellAgents        = arv * 0.06;      // 6% of ARV
   // Holding: cash buyer's flip months = uw-fl-reno-mo + uw-fl-listed-mo
   // (defaults: 2 reno + 3 listed = 5 months)
   const wsFlMonths = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
@@ -30412,7 +30412,7 @@ function _dispoCashFlipMaxFromData(d) {
     if (fRehab <= 0) fRehab = N('uw-rehab-flip', 0) || N('uw-rehab-cost', 0);
   }
   const wsSellClose  = arv * 0.03;
-  const wsSellAgents = arv * 0.05;
+  const wsSellAgents = arv * 0.06;
   const wsFlMonths   = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
   const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 300;
   const wsHolding    = wsHoldingMonthly * wsFlMonths;
@@ -33017,7 +33017,7 @@ function buyerRenderContractsPanel() {
     }
     // Holding (3% ARV/yr split + $150/mo ins) × wsFlMonths
     const wsSellClose  = arv * 0.03;
-    const wsSellAgents = arv * 0.05;
+    const wsSellAgents = arv * 0.06;
     const wsFlMonths   = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
     const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 300;
     const wsHolding    = wsHoldingMonthly * wsFlMonths;
@@ -33199,7 +33199,7 @@ function buyerRenderContractsPanel() {
         // same numbers as the deal calculator's Total Project Cost section.
         var buyingCost  = Math.round(effective * 0.03);                    // 3% of Packet (purchase closing)
         var holdingCost = Math.round(arv * 0.025);                          // ~2.5% ARV (taxes + ins + utilities × ~6 mo hold)
-        var agentCost   = Math.round(arv * 0.05);                           // 5% agent commission on resale
+        var agentCost   = Math.round(arv * 0.06);                           // 5% agent commission on resale
         var resaleClose = Math.round(arv * 0.03);                           // 3% resale closing
         var sellingCost = agentCost + resaleClose;                          // selling-side only (holding added below in display)
         var estProfit   = Math.round(arv - effective - rehabBudget(u) - buyingCost - holdingCost - sellingCost);

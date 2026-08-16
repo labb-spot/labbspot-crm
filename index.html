@@ -30297,7 +30297,9 @@ function _dispoSetOutreach(dealId, buyerId, status) {
   const cur = _dispoGetOutreach(dealId, buyerId);
   const next = (cur === status) ? null : status;
   _dispoUpsertEngagement(dealId, buyerId, { outreach: next });
-  if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+  // Light re-render only (keeps the buyer map open + view). Outreach doesn't
+  // change the qualifying pool, so no full panel rebuild is needed.
+  if (typeof window._dispoRenderDealBuyers === 'function') window._dispoRenderDealBuyers();
 }
 window._dispoSetOutreach = _dispoSetOutreach;
 function _dispoOpenDeal(dealId) {

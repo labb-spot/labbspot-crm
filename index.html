@@ -31169,6 +31169,17 @@ async function _dispoRenderPacketViews(dealId, keepOpen) {
   }
 }
 window._dispoRenderPacketViews = _dispoRenderPacketViews;
+// Per-Deal Refresh button — pulls fresh buyers (new/updated activity) then
+// redraws the panel, which re-queries this property's packet views from the DB.
+window._dispoRefreshPerDeal = async function (btn) {
+  if (btn) { btn.disabled = true; btn.dataset._orig = btn.innerHTML; btn.innerHTML = '⏳ Refreshing…'; }
+  try {
+    if (typeof loadBuyers === 'function') { cache.buyers = null; await loadBuyers(); }
+  } catch (e) { console.warn('per-deal refresh:', e && e.message || e); }
+  try { if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel(); } catch (e) {}
+  // buyerRenderPerDealPanel rebuilt the button, so no need to restore it.
+  if (typeof toast === 'function') toast('Refreshed ✓', 'ok');
+};
 window._dispoTogglePvLog = function () {
   var l = document.getElementById('dispo-pv-log'); if (!l) return;
   var willOpen = (l.style.display === 'none');
@@ -32508,7 +32519,7 @@ function buyerRenderPerDealPanel() {
       + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'
       +   '<button class="btn btn-ghost text-sm" onclick="_dispoCloseDeal()" title="Back to all dispositions">← Back</button>'
       +   '<div style="flex:1"></div>'
-      +   '<button class="btn btn-ghost text-xs" onclick="if(typeof buyerRenderPerDealPanel===\'function\') buyerRenderPerDealPanel();" title="Rescore + redraw using the latest buyer + deal data." style="padding:5px 12px">\u{1F501} Refresh</button>'
+      +   '<button class="btn btn-ghost text-xs" onclick="_dispoRefreshPerDeal(this)" title="Re-pull fresh buyers + this property\'s packet views, then rescore + redraw." style="padding:5px 12px">\u{1F501} Refresh</button>'
       +   '<span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:' + stage.bg + ';color:' + stage.color + '">' + esc(stage.label) + '</span>'
       + '</div>'
       + '<div style="position:relative;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px">'

@@ -2985,10 +2985,13 @@
            so they share the exact same spot.
            • Add    → shown when Offer Status is Closed AND deal isn't routed
            • Remove → shown when the deal IS routed to Renovation/Holdings -->
-      <button class="btn text-sm" id="uw-add-to-reno-btn" onclick="uwAddToRenovation()" style="display:none;position:absolute;bottom:14px;right:14px;z-index:2;white-space:nowrap;background:#f97316;color:white;border:1px solid #f97316;font-weight:600" title="Send this property to the 🔨 Renovation tab. Only available when the Offer Status is Closed.">🔨 Add</button>
-      <button class="btn btn-ghost text-sm" id="uw-remove-routing-btn" style="display:none;position:absolute;bottom:14px;right:14px;z-index:2;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromRouting()" title="Remove this deal from Renovation/Holdings (the deal stays in the 🏁 Finalized tab).">✕ Remove</button>
-      <!-- Dispositions Remove button — only visible when this deal was opened from the Dispositions contracts grid. Clears dispo_contract + routes back. -->
-      <button class="btn btn-ghost text-sm" id="uw-remove-dispo-btn" style="display:none;position:absolute;bottom:14px;right:14px;z-index:3;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromDispositions()" title="Remove this deal from Dispositions (clears the contract stage and returns you to the Dispositions section).">✕ Remove from Dispositions</button>
+      <!-- All corner actions share one flex row so any combination that's visible
+           lays out side by side (no overlap) instead of stacking on the same spot. -->
+      <div style="position:absolute;bottom:14px;right:14px;z-index:3;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn text-sm" id="uw-add-to-reno-btn" onclick="uwAddToRenovation()" style="display:none;white-space:nowrap;background:#f97316;color:white;border:1px solid #f97316;font-weight:600" title="Send this property to the 🔨 Renovation tab. Only available when the Offer Status is Closed.">🔨 Add</button>
+        <button class="btn btn-ghost text-sm" id="uw-remove-routing-btn" style="display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromRouting()" title="Remove this deal from Renovation/Holdings (the deal stays in the 🏁 Finalized tab).">✕ Remove</button>
+        <button class="btn btn-ghost text-sm" id="uw-remove-dispo-btn" style="display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromDispositions()" title="Remove this deal from Dispositions (clears the contract stage and returns you to the Dispositions section).">✕ Remove from Dispositions</button>
+      </div>
       <div class="flex items-start justify-between gap-3" style="flex-wrap:nowrap">
         <div class="flex items-center gap-2" style="flex-shrink:0">
           <button id="uw-back-btn" class="btn btn-ghost text-sm" onclick="uwBackToList()" title="Back to the list" style="flex-shrink:0">← Back</button>

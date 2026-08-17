@@ -31125,6 +31125,68 @@ window._dispoRenderBuyerMap = function () {
   window._dispoMapReopenPopup = null;
 };
 
+// Packet view tracking (Dispositions Per Deal header only). Reads anonymous
+// view rows logged by the public offer packet and shows the count + a click-to-
+// expand log of each view's date/time (Eastern). Query is per-property + cheap.
+async function _dispoRenderPacketViews(dealId, keepOpen) {
+  var wrap = document.getElementById('dispo-packet-views-wrap');
+  if (!wrap || !dealId) return;
+  if (typeof sb === 'undefined' || !sb) { wrap.innerHTML = ''; return; }
+  window._dispoPacketViewsDealId = dealId;
+  if (!keepOpen) window._dispoPvOpen = false;   // start collapsed on a fresh open
+  var zeroChip = '<span style="font-size:11.5px;font-weight:700;color:var(--text-dim);background:rgba(148,163,184,0.14);border:1px solid var(--border);border-radius:999px;padding:4px 12px" title="No one has opened this property’s offer packet yet">👁 0 views</span>';
+  wrap.innerHTML = zeroChip;
+  try {
+    var res = await sb.from('packet_views').select('id,viewed_at,excluded').eq('underwrite_id', dealId).order('viewed_at', { ascending: false });
+    if (res.error) throw res.error;
+    var rows = res.data || [];
+    if (!rows.length) { wrap.innerHTML = zeroChip; return; }
+    var n = rows.filter(function (r) { return !r.excluded; }).length;   // count = non-you
+    var mine = rows.length - n;
+    var open = !!window._dispoPvOpen;
+    var log = rows.map(function (r) {
+      var d = new Date(r.viewed_at);
+      var ds = d.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+      var ts = d.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+      var ex = !!r.excluded;
+      return '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted var(--border);cursor:pointer;font-size:11.5px' + (ex ? ';opacity:0.55' : '') + '">'
+        + '<input type="checkbox" ' + (ex ? 'checked' : '') + ' onchange="_dispoTogglePacketViewMine(\'' + r.id + '\',this.checked)" title="Mark this view as you — removes it from the count">'
+        + '<span style="color:var(--text-dim)' + (ex ? ';text-decoration:line-through' : '') + '">' + ds + ' · ' + ts + '</span>'
+        + (ex ? '<span style="margin-left:auto;font-size:10px;color:#a5b4fc;font-weight:800">YOU</span>' : '')
+        + '</label>';
+    }).join('');
+    wrap.innerHTML =
+        '<button type="button" onclick="_dispoTogglePvLog()" style="font-size:11.5px;font-weight:700;color:#a5b4fc;background:rgba(99,102,241,0.14);border:1px solid rgba(99,102,241,0.4);border-radius:999px;padding:4px 12px;cursor:pointer" title="Click to see each view’s date + time (Eastern) and mark which were you">👁 ' + n + ' packet view' + (n === 1 ? '' : 's') + ' ▾</button>'
+      + (mine > 0 ? ' <span style="font-size:10.5px;color:var(--text-dim)">(' + mine + ' marked you)</span>' : '')
+      + '<div id="dispo-pv-log" style="display:' + (open ? 'block' : 'none') + ';margin-top:8px;max-height:200px;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:4px 12px;max-width:340px">'
+      +   '<div style="font-size:10px;color:var(--text-dim);padding:5px 0 6px;border-bottom:1px solid var(--border)">Tick a view to mark it as you — it won’t count.</div>'
+      +   log
+      + '</div>';
+  } catch (e) {
+    // Table may not exist yet — still show the 0 chip so it's always present.
+    console.warn('_dispoRenderPacketViews:', e && e.message || e);
+    wrap.innerHTML = zeroChip;
+  }
+}
+window._dispoRenderPacketViews = _dispoRenderPacketViews;
+window._dispoTogglePvLog = function () {
+  var l = document.getElementById('dispo-pv-log'); if (!l) return;
+  var willOpen = (l.style.display === 'none');
+  l.style.display = willOpen ? 'block' : 'none';
+  window._dispoPvOpen = willOpen;
+};
+window._dispoTogglePacketViewMine = async function (id, checked) {
+  try {
+    var res = await sb.from('packet_views').update({ excluded: !!checked }).eq('id', id);
+    if (res.error) throw res.error;
+  } catch (e) {
+    console.warn('_dispoTogglePacketViewMine:', e && e.message || e);
+    if (typeof toast === 'function') toast('Could not update view: ' + (e && e.message || e), 'err');
+  }
+  // Re-render with the log kept open so the count updates but the list stays put.
+  if (window._dispoPacketViewsDealId) _dispoRenderPacketViews(window._dispoPacketViewsDealId, true);
+};
+
 // Tagged buyer IDs live on the deal's JSONB as data._taggedBuyers (an array).
 // Saved by updating ONLY this deal's row directly — never through uwSave — so
 // it can't collide with whatever deal the calculator has loaded.
@@ -32449,8 +32511,9 @@ function buyerRenderPerDealPanel() {
       +   '<button class="btn btn-ghost text-xs" onclick="if(typeof buyerRenderPerDealPanel===\'function\') buyerRenderPerDealPanel();" title="Rescore + redraw using the latest buyer + deal data." style="padding:5px 12px">\u{1F501} Refresh</button>'
       +   '<span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:' + stage.bg + ';color:' + stage.color + '">' + esc(stage.label) + '</span>'
       + '</div>'
-      + '<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px">'
-      +   '<div style="font-size:18px;font-weight:700;color:var(--text)">🏠 ' + esc(deal.address || '(no address)') + '</div>'
+      + '<div style="position:relative;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px">'
+      +   '<div id="dispo-packet-views-wrap" style="position:absolute;top:14px;right:16px;text-align:right;z-index:2"></div>'
+      +   '<div style="font-size:18px;font-weight:700;color:var(--text);padding-right:150px">🏠 ' + esc(deal.address || '(no address)') + '</div>'
       +   (locBits ? '<div style="font-size:13px;color:var(--text-dim);margin-top:4px">' + locBits + (deal.county ? ' · ' + esc(deal.county) + ' County' : '') + '</div>' : '')
       +   '<div style="font-size:11px;color:var(--text-dim);letter-spacing:0.4px;text-transform:uppercase;margin-top:12px">🎯 ' + totalMatchCount + ' Qualifying ' + (totalMatchCount === 1 ? 'Buyer' : 'Buyers') + ' (zip ' + esc(deal.zip || '?') + ')</div>'
       // Distance-scoring diagnostic — at a glance the user can see whether
@@ -32501,6 +32564,7 @@ function buyerRenderPerDealPanel() {
     // Initial buyer-list render. Inputs already in DOM; from here on, every
     // filter change re-renders only #dispo-deal-buyers (input focus preserved).
     if (typeof _dispoRenderDealBuyers === 'function') _dispoRenderDealBuyers();
+    if (typeof _dispoRenderPacketViews === 'function') _dispoRenderPacketViews(deal.id);
     return;
   }
 

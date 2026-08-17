@@ -31168,10 +31168,32 @@ async function _dispoRenderPacketViews(dealId, keepOpen) {
   }
 }
 window._dispoRenderPacketViews = _dispoRenderPacketViews;
+// Loads a { underwrite_id: viewCount } map (excluding views marked as you) so the
+// Dispositions LIST cards can show a per-property 👁 count. Loaded once, then
+// re-renders the panel; the Refresh button forces a reload.
+window._dispoViewCounts = window._dispoViewCounts || {};
+async function _dispoLoadViewCounts() {
+  if (typeof sb === 'undefined' || !sb) return;
+  window._dispoViewCountsLoaded = true;   // guard: don't fire again mid-render
+  try {
+    var res = await sb.from('packet_views').select('underwrite_id,excluded');
+    if (res.error) throw res.error;
+    var map = {};
+    (res.data || []).forEach(function (r) {
+      if (r && r.underwrite_id && !r.excluded) map[r.underwrite_id] = (map[r.underwrite_id] || 0) + 1;
+    });
+    window._dispoViewCounts = map;
+    if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+  } catch (e) {
+    console.warn('_dispoLoadViewCounts:', e && e.message || e);
+  }
+}
+window._dispoLoadViewCounts = _dispoLoadViewCounts;
 // Per-Deal Refresh button — pulls fresh buyers (new/updated activity) then
 // redraws the panel, which re-queries this property's packet views from the DB.
 window._dispoRefreshPerDeal = async function (btn) {
   if (btn) { btn.disabled = true; btn.dataset._orig = btn.innerHTML; btn.innerHTML = '⏳ Refreshing…'; }
+  window._dispoViewCountsLoaded = false;   // force packet-view counts to reload
   try {
     if (typeof loadBuyers === 'function') { cache.buyers = null; await loadBuyers(); }
   } catch (e) { console.warn('per-deal refresh:', e && e.message || e); }
@@ -32590,6 +32612,8 @@ function buyerRenderPerDealPanel() {
   // _offerActive flag set when you mark a deal 🌐 Offer This).
   const _isActivePosted = (u) => !!(u && (u.offer_active || (u.data && u.data._offerActive)));
   const _activeCount = dispoDeals.filter(_isActivePosted).length;
+  // Load per-property packet-view counts once (async → re-renders when ready).
+  if (!window._dispoViewCountsLoaded && typeof _dispoLoadViewCounts === 'function') _dispoLoadViewCounts();
   const _stageOpts = ['new', 'assigning', 'hot', 'assigned', 'dead'];
   // Per-stage counts BEFORE filtering — used to label the chips so the user
   // sees how many deals are in each bucket.
@@ -32779,6 +32803,7 @@ function buyerRenderPerDealPanel() {
       +         '</span>'
       +       '</div>'
       +       '<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">'
+      +         '<span style="padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(148,163,184,0.18);color:#cbd5e1;white-space:nowrap" title="Times this property’s offer packet has been viewed (excludes views you marked as you)">👁 ' + ((window._dispoViewCounts || {})[u.id] || 0) + '</span>'
       +         offersCountPill
       +         '<span style="padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(99,102,241,0.18);color:#a5b4fc;white-space:nowrap" title="Buyers in your rolodex whose zip list contains this property\'s zip">' + matchCount + ' match' + (matchCount === 1 ? '' : 'es') + '</span>'
       +         (matchCount > 0

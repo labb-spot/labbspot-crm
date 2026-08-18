@@ -30590,6 +30590,9 @@ function _dispoScoreBuyerWithPurchases(buyer, deal, dealCoords, dealAttrs, opene
     densityNearby: 0,
     acq12mo: 0
   });
+  // "Acqs" badge = the ACTUAL number of purchase records on file for this buyer
+  // (their Purchased Properties), not the manually-typed acquisitions_count.
+  out.acq = purchases.length;
 
   if (!hasPurchases) {
     // No purchase data → score on zip-match alone, capped at 30 so they
@@ -32353,7 +32356,7 @@ function buyerRenderPerDealPanel() {
         if (b.email) contactBits.push('✉️ ' + ctx.esc(b.email));
         const acqChip = r.acq > 0
           ? '<span style="padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(251,191,36,0.18);color:#fbbf24;border:1px solid rgba(251,191,36,0.4)">🏠 ' + r.acq.toLocaleString() + ' acqs</span>'
-          : '';
+          : '<span style="padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(148,163,184,0.16);color:#94a3b8;border:1px solid rgba(148,163,184,0.4)" title="No purchase records on file for this buyer">🏠 0 acqs</span>';
         // Qualification chip — color-coded so the user sees buyer trust at a glance.
         const q = (typeof buyerQualState === 'function') ? buyerQualState(b) : 'unknown';
         const qMeta = q === 'qualified'   ? { lab: '✓ Qualified',   c: '#10b981' }
@@ -36673,8 +36676,9 @@ function renderBuyersList() {
       if (m)      { lo = parseInt(m[1], 10); hi = parseInt(m[2], 10); }
       else if (p) { lo = parseInt(p[1], 10); hi = Infinity; }
       rows = rows.filter(b => {
-        const n = Number(b.acquisitions_count);
-        if (!Number.isFinite(n)) return false;
+        // Use the ACTUAL number of purchase records on file (not the typed
+        // acquisitions_count) so the range matches their Purchased Properties.
+        const n = (typeof getBuyerPurchases === 'function') ? getBuyerPurchases(b.id).length : (Number(b.acquisitions_count) || 0);
         // Lower bound inclusive, upper exclusive — so 10-20 means [10, 20). Avoids
         // double-counting at the boundary.
         return n >= lo && n < hi;

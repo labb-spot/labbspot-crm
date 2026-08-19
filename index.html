@@ -30312,7 +30312,7 @@ function _dispoOpenDeal(dealId) {
   // Reset filter state on deal change so a leftover filter from a previous
   // deal doesn't hide buyers on the new one. Users almost never want
   // cross-deal filter persistence.
-  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 50, active: '12mo', maxMiles: 5 };
+  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '12mo', maxMiles: 0.5 };
   if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
 }
@@ -30333,9 +30333,9 @@ function _dispoGetBuyerOffer(dealId, buyerId) {
 // Per-deal detail-view filter state. Session-only (not persisted) — resets
 // when the user navigates away from the deal. Updated via _dispoSetFilter,
 // which re-renders ONLY the buyer list (preserving search-input focus).
-window._dispoFilter = window._dispoFilter || { search: '', outreach: '', qual: '', acqMin: 0, minScore: 50, active: '12mo', maxMiles: 5 };
+window._dispoFilter = window._dispoFilter || { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '12mo', maxMiles: 0.5 };
 function _dispoSetFilter(key, value) {
-  if (!window._dispoFilter) window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 50, active: '12mo', maxMiles: 5 };
+  if (!window._dispoFilter) window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '12mo', maxMiles: 0.5 };
   window._dispoFilter[key] = value;
   // maxMiles changes the qualifying pool itself (not just the displayed
   // subset), so a full Per Deal re-render is needed to refresh the count.
@@ -30356,7 +30356,7 @@ function _dispoSetFilter(key, value) {
 }
 window._dispoSetFilter = _dispoSetFilter;
 function _dispoClearFilters() {
-  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 50, active: '12mo', maxMiles: 5 };
+  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 0, active: '12mo', maxMiles: 0.5 };
   // Reset the live inputs in the DOM (we only re-render the buyer list, so
   // they'd otherwise still display the old values).
   const s = document.getElementById('dispo-deal-search');     if (s) s.value = '';
@@ -30975,6 +30975,29 @@ window._dispoMapToggleTagFromPopup = function (buyerId, lat, lng) {
   // (via the hook in _dispoRenderDealBuyers) — that refresh reopens the popup.
   if (typeof _dispoToggleTag === 'function') _dispoToggleTag(ctx.deal.id, buyerId);
 };
+// PER-BUYER qualification status (saved to the buyer record everywhere, not
+// just this deal). Updates cache immediately, re-renders, then persists.
+window._dispoMapSetQual = async function (buyerId, state, lat, lng) {
+  var b = (typeof cache !== 'undefined' && cache.buyers) ? cache.buyers[buyerId] : null;
+  if (!b) return;
+  window._dispoMapReopenPopup = { buyerId: buyerId, lat: Number(lat), lng: Number(lng) };
+  var qualification = (state === 'qualified' || state === 'unqualified' || state === 'vetting') ? state : null;
+  var verified = state === 'qualified' ? true : (state === 'unqualified' ? false : null);
+  b.qualification = qualification; b.verified = verified; b.updated_at = new Date().toISOString();
+  if (typeof window._dispoRenderDealBuyers === 'function') window._dispoRenderDealBuyers();
+  try {
+    if (typeof sb !== 'undefined' && sb) {
+      var res = await sb.from('buyers').update({ qualification: qualification, verified: verified }).eq('id', buyerId);
+      if (res && res.error) throw res.error;
+    }
+  } catch (e) { console.warn('_dispoMapSetQual:', e && e.message || e); if (typeof toast === 'function') toast('Status save failed: ' + (e && e.message || e), 'err'); }
+};
+// PER-DEAL outreach status for this property only.
+window._dispoMapSetOutreach = function (dealId, buyerId, status, lat, lng) {
+  window._dispoMapReopenPopup = { buyerId: buyerId, lat: Number(lat), lng: Number(lng) };
+  if (typeof _dispoUpsertEngagement === 'function') _dispoUpsertEngagement(dealId, buyerId, { outreach: status || null });
+  if (typeof window._dispoRenderDealBuyers === 'function') window._dispoRenderDealBuyers();
+};
 window._dispoMapClearBoundary = function () {
   if (window._dispoDrawnItems) { try { window._dispoDrawnItems.clearLayers(); } catch (e) {} }
   window._dispoBoundaryLayer = null;
@@ -31027,6 +31050,7 @@ window._dispoRenderBuyerMap = function () {
   // "Only within radius" — clip pins to the distance filter (≤ N miles). Needs a
   // subject location + a positive mile cap + haversine helper; otherwise no-op.
   var maxMiles = Number((window._dispoFilter || {}).maxMiles) || 0;
+  if (window._dispoMapRadiusOnly === undefined) window._dispoMapRadiusOnly = true;   // default: within radius ON
   var radiusOnly = !!window._dispoMapRadiusOnly && haveSubj && maxMiles > 0 && typeof _buyerHaversineMi === 'function';
   var rc = document.getElementById('dispo-map-radius');
   if (rc) rc.checked = !!window._dispoMapRadiusOnly;
@@ -31095,7 +31119,19 @@ window._dispoRenderBuyerMap = function () {
       var m = L.marker([la, lo], { icon: L.divIcon({ className: 'dispo-buyer-pin', html: iconHtml, iconSize: [20, 20], iconAnchor: [10, 10] }) });
       var tagBtn = '<button onclick="_dispoMapToggleTagFromPopup(\'' + esc(b.id) + '\',' + la + ',' + lo + ')" style="padding:1px 8px;font-size:10px;font-weight:700;line-height:1.5;border-radius:4px;cursor:pointer;vertical-align:middle;border:1px solid ' + (isTagged ? '#10b981' : '#94a3b8') + ';background:' + (isTagged ? 'rgba(16,185,129,0.15)' : '#fff') + ';color:' + (isTagged ? '#0f766e' : '#334155') + '">' + (isTagged ? '🏷 Untag' : '🏷 Tag') + '</button>';
       var openBtn = '<button onclick="buyerOpenAddModal(\'' + esc(b.id) + '\')" title="Open this buyer\'s contact" style="padding:1px 9px;font-size:10.5px;font-weight:700;line-height:1.5;border-radius:4px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">👤 Open</button>';
-      m.bindPopup('<div style="font-size:12px;min-width:170px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + ((b.company && b.name) ? '<div style="font-size:11px;font-weight:700;color:#b45309;margin-top:1px">' + esc(b.name) + '</div>' : '') + '<div style="margin:4px 0;display:flex;gap:5px;flex-wrap:wrap;align-items:center">' + qBadge + oBadge + tagBtn + '</div>' + esc(addr || '(no address)') + '<br><b>' + priceStr + '</b>' + (dateStr ? ' · ' + esc(dateStr) : '') + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px">' + openBtn + recentBadge + '</div>' + '</div>');
+      // Qualification dropdown (PER BUYER — saves to this buyer everywhere).
+      var _qOpts = [['unknown', '? Unknown'], ['vetting', '🔎 Vetting'], ['qualified', '✓ Qualified'], ['unqualified', '✗ Unqualified']];
+      // Content-sized colored badge + a transparent <select> overlaid on top, so
+      // it looks like the old compact chip but is clickable with a ▾ dropdown.
+      var qSelect = '<span style="position:relative;display:inline-flex;vertical-align:middle">'
+        + '<span style="padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap;background:' + qMeta.c + '22;color:' + qMeta.c + ';border:1px solid ' + qMeta.c + '66">' + qMeta.lab + ' ▾</span>'
+        + '<select onchange="_dispoMapSetQual(\'' + esc(b.id) + '\',this.value,' + la + ',' + lo + ')" onclick="event.stopPropagation()" title="Buyer status — saved to this buyer everywhere" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0;color:#111827;background:#ffffff">' + _qOpts.map(function (o) { return '<option value="' + o[0] + '" style="background:#ffffff;color:#111827"' + (o[0] === qstate ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></span>';
+      // Outreach dropdown (PER DEAL — this property only).
+      var _oOpts = [['', '— None'], ['reached', '📞 Reached'], ['responded', '💬 Responded'], ['interested', '👍 Interested'], ['inspecting', '🔎 Inspecting'], ['not-interested', '👎 Not Int']];
+      var oSelect = '<span style="position:relative;display:inline-flex;vertical-align:middle">'
+        + '<span style="padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap;background:' + oc + '22;color:' + oc + ';border:1px solid ' + oc + '66">' + oLabel + ' ▾</span>'
+        + '<select onchange="_dispoMapSetOutreach(\'' + esc(ctx.deal.id) + '\',\'' + esc(b.id) + '\',this.value,' + la + ',' + lo + ')" onclick="event.stopPropagation()" title="Outreach for THIS property" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0;color:#111827;background:#ffffff">' + _oOpts.map(function (o) { return '<option value="' + o[0] + '" style="background:#ffffff;color:#111827"' + (o[0] === oKey ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></span>';
+      m.bindPopup('<div style="font-size:12px;min-width:170px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + ((b.company && b.name) ? '<div style="font-size:11px;font-weight:700;color:#b45309;margin-top:1px">' + esc(b.name) + '</div>' : '') + '<div style="margin:4px 0;display:flex;gap:5px;flex-wrap:wrap;align-items:center">' + qSelect + oSelect + tagBtn + '</div>' + esc(addr || '(no address)') + '<br><b>' + priceStr + '</b>' + (dateStr ? ' · ' + esc(dateStr) : '') + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px">' + openBtn + recentBadge + '</div>' + '</div>');
       window._dispoMapLayer.addLayer(m);
       if (reopenReq && reopenReq.buyerId === b.id && Math.abs(la - reopenReq.lat) < 1e-6 && Math.abs(lo - reopenReq.lng) < 1e-6) reopenMarker = m;
     });

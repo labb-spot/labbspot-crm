@@ -32352,8 +32352,8 @@ function buyerRenderPerDealPanel() {
       innerEl.innerHTML = countLine + '<div style="display:flex;flex-direction:column;gap:10px">' + ranked.map((r, idx) => {
         const b = r.b;
         const contactBits = [];
-        if (b.phone) contactBits.push('📞 ' + ctx.esc(b.phone));
-        if (b.email) contactBits.push('✉️ ' + ctx.esc(b.email));
+        if (b.phone) contactBits.push('<a href="tel:' + ctx.esc(b.phone) + '" onclick="event.stopPropagation()" style="color:#60a5fa;text-decoration:none">📞 ' + ctx.esc(b.phone) + '</a>');
+        if (b.email) contactBits.push('<a href="mailto:' + ctx.esc(b.email) + '" onclick="event.stopPropagation()" style="color:#60a5fa;text-decoration:none">✉️ ' + ctx.esc(b.email) + '</a>');
         const acqChip = r.acq > 0
           ? '<span style="padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(251,191,36,0.18);color:#fbbf24;border:1px solid rgba(251,191,36,0.4)">🏠 ' + r.acq.toLocaleString() + ' acqs</span>'
           : '<span style="padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(148,163,184,0.16);color:#94a3b8;border:1px solid rgba(148,163,184,0.4)" title="No purchase records on file for this buyer">🏠 0 acqs</span>';
@@ -32386,8 +32386,19 @@ function buyerRenderPerDealPanel() {
           + '\n10. Price band fit (5): ' + Math.round(_comps.price || 0)
           + (r.miles != null ? '\nNearest purchase: ' + r.miles.toFixed(2) + 'mi' : '');
         const _scoreBadge = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:28px;padding:0 8px;border-radius:6px;background:' + _scoreColor + '22;border:1px solid ' + _scoreColor + '88;color:' + _scoreColor + ';font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;flex-shrink:0" title="' + ctx.esc(_scoreTitle) + '">' + _score + (r.fallback ? '\u2733' : '') + '</span>';
-        const _milesLine = r.miles != null
-          ? '<div style="font-size:11px;color:var(--text-dim);margin-top:3px">\u{1F4CD} Nearest purchase ' + r.miles.toFixed(2) + 'mi away' + (r.nearestPurchase && (r.nearestPurchase.sale_amount > 0) ? ' \u00B7 $' + Math.round(r.nearestPurchase.sale_amount).toLocaleString() : '') + '</div>'
+        // Months since the nearest purchase's sale date (for "\u00B7 X mo ago").
+        const _npDate = r.nearestPurchase && (r.nearestPurchase.sale_date || r.nearestPurchase.purchase_date || r.nearestPurchase.date);
+        let _npMonths = null;
+        if (_npDate) { const _d = new Date(String(_npDate).slice(0, 10)); if (!isNaN(_d.getTime())) _npMonths = Math.max(0, Math.round((Date.now() - _d.getTime()) / (1000 * 60 * 60 * 24 * 30.44))); }
+        // Single activity line: nearest purchase  |  most-recent-purchase recency.
+        const _nearestPart = r.miles != null
+          ? '\u{1F4CD} Nearest ' + r.miles.toFixed(2) + 'mi away' + (r.nearestPurchase && (r.nearestPurchase.sale_amount > 0) ? ' \u00B7 $' + Math.round(r.nearestPurchase.sale_amount).toLocaleString() : '') + (_npMonths != null ? ' \u00B7 ' + _npMonths + ' mo ago' : '')
+          : '';
+        const _recentPart = (r.buyBox && r.buyBox.monthsSinceLast != null)
+          ? '\u{1F551} Most recent ' + r.buyBox.monthsSinceLast + ' mo ago'
+          : '';
+        const _activityLine = (_nearestPart || _recentPart)
+          ? '<div style="font-size:11px;color:var(--text-dim);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + [_nearestPart, _recentPart].filter(Boolean).join('  <span style="color:var(--text-dim);opacity:0.6">|</span>  ') + '</div>'
           : '';
         const _isTagged = taggedSet.has(b.id);
         const tagBtn = '<button type="button" onclick="event.stopPropagation();_dispoToggleTag(\'' + ctx.esc(ctx.deal.id) + '\',\'' + ctx.esc(b.id) + '\')" title="' + (_isTagged ? 'Tagged for this property \u2014 click to untag' : 'Tag this buyer for this property') + '" style="margin-left:auto;padding:4px 9px;font-size:11px;font-weight:700;border-radius:6px;cursor:pointer;white-space:nowrap;flex-shrink:0;border:1px solid ' + (_isTagged ? '#10b981' : 'var(--border)') + ';background:' + (_isTagged ? 'rgba(16,185,129,0.18)' : 'transparent') + ';color:' + (_isTagged ? '#10b981' : 'var(--text-dim)') + '">' + (_isTagged ? '\uD83C\uDFF7 Tagged' : '\uD83C\uDFF7 Tag') + '</button>';
@@ -32397,13 +32408,12 @@ function buyerRenderPerDealPanel() {
           +     '<div style="font-size:11px;color:var(--text-dim);font-weight:700;width:22px;text-align:center;flex-shrink:0">#' + (idx + 1) + '</div>'
           +     _scoreBadge
           +     '<div style="flex:1;min-width:0">'
-          +       '<div style="font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + ctx.esc(b.company || b.name || '(no name)') + '</div>'
-          +       (b.company && b.name ? '<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + ctx.esc(b.name) + '</div>' : '')
-          +       _milesLine
+          +       '<div style="font-size:14.5px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + ctx.esc(b.company || b.name || '(no name)') + ((b.company && b.name) ? ' <span style="color:#a78bfa;font-weight:700">: ' + ctx.esc(b.name) + '</span>' : '') + '</div>'
+          +       '<div style="font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (contactBits.length ? contactBits.join(' <span style="color:var(--text-dim)">\u00B7</span> ') : '<span style="color:var(--text-dim);opacity:0.5">\uD83D\uDCDE \u2014 \u00B7 \u2709\uFE0F \u2014</span>') + '</div>'
+          +       _activityLine
           +     '</div>'
           +     qChip
           +     acqChip
-          +     (contactBits.length ? '<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;flex-shrink:0">' + contactBits.join(' \u00B7 ') + '</div>' : '')
           +     tagBtn
           +   '</div>'
           // Per-component breakdown strip — 10 small pills, color-coded by % of max earned.

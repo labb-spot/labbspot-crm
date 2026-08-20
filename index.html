@@ -1085,6 +1085,7 @@
   <div class="tab" data-section="renovation" onclick="goSection('renovation')">🔨 Renovation</div>
   <div class="tab" data-section="holdings" onclick="goSection('holdings')">🏘️ Holdings</div>
   <div class="tab" data-section="photos" onclick="goSection('photos')" style="display:inline-flex;align-items:center;gap:6px"><span style="font-size:1em;line-height:1;transform:translateY(-1px)">📷</span><span>Photos</span></div>
+  <div class="tab" data-section="map" onclick="goSection('map')">🗺 Map</div>
 </div>
 
 <!-- SECTION: DATA -->
@@ -6808,6 +6809,18 @@
     </div>
     <div id="ps-drawer-body" style="padding:18px"></div>
   </div>
+</div>
+
+<!-- SECTION: MAP — global map of buyer purchases + underwriting properties -->
+<div id="section-map" class="section-content p-6" style="display:none">
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px">
+    <div style="font-size:20px;font-weight:700">🗺 Map</div>
+    <span id="map-mapped-stats" style="flex:1;text-align:center;font-size:12.5px;color:var(--text-dim);font-weight:600"></span>
+    <button class="btn btn-ghost text-xs" onclick="_mapSectionRefresh(this)" title="Re-pull buyers + properties and redraw">🔁 Refresh</button>
+  </div>
+  <div id="map-chips" style="display:flex;flex-wrap:nowrap;align-items:stretch;gap:10px;margin-bottom:12px"></div>
+  <div id="map-section-canvas" style="height:calc(100vh - 240px);min-height:460px;width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:13px">Loading map…</div>
+  <div style="font-size:11px;color:var(--text-dim);margin-top:8px">Free map · <span style="color:#10b981">●</span> dots = buyers' past purchases (colored by status) · <span style="color:#f97316">■</span> squares = your underwriting properties · click either for details.</div>
 </div>
 
 <!-- SECTION: SOP — Standard Operating Procedure
@@ -31273,6 +31286,287 @@ window._dispoTogglePacketViewMine = async function (id, checked) {
   if (window._dispoPacketViewsDealId) _dispoRenderPacketViews(window._dispoPacketViewsDealId, true);
 };
 
+// ============================================================================
+// MAP SECTION (top-nav 🗺 Map) — a standalone Leaflet map showing ALL buyers'
+// past purchases (dots, colored by status) + ALL geocoded underwriting
+// properties (orange squares). Toggleable layers; click either for a popup.
+// Lazy-loaded; costs nothing until you open the tab. Reuses _dispoEnsureLeaflet.
+// ----------------------------------------------------------------------------
+// Ensure the marker-clustering plugin is loaded (keeps thousands of pins fast by
+// collapsing nearby ones into count bubbles). Falls through if it can't load.
+function _mapEnsureCluster(cb) {
+  if (window.L && window.L.markerClusterGroup) { cb(); return; }
+  ['https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css',
+   'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css'].forEach(function (h) {
+    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = h; document.head.appendChild(l);
+  });
+  var js = document.createElement('script');
+  js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js';
+  js.onload = cb; js.onerror = cb;   // proceed unclustered if it fails
+  document.head.appendChild(js);
+}
+window._mapSectionOpen = function () {
+  var el = document.getElementById('map-section-canvas');
+  if (!el || typeof _dispoEnsureLeaflet !== 'function') return;
+  if (typeof window._mapRenderChips === 'function') window._mapRenderChips();
+  _dispoEnsureLeaflet(function () {
+    _mapEnsureCluster(async function () {
+      try {
+        if (typeof loadBuyers === 'function' && !cache.buyers) await loadBuyers();
+        if (typeof loadBuyerPurchases === 'function' && !cache.buyerPurchases) await loadBuyerPurchases();
+        if (typeof loadUnderwrites === 'function' && (!cache.underwrites || !Object.keys(cache.underwrites || {}).length)) await loadUnderwrites();
+      } catch (e) { console.warn('map section load:', e && e.message || e); }
+      // Only auto-fit bounds on the very first build; afterward keep the user's
+      // pan/zoom so returning from a deal doesn't reset the map view.
+      var firstBuild = !window._mapSectionObj;
+      if (!window._mapSectionObj) {
+        el.innerHTML = ''; el.style.display = 'block';
+        window._mapSectionObj = L.map(el, { preferCanvas: true, scrollWheelZoom: true, zoomSnap: 0, zoomDelta: 1, wheelPxPerZoomLevel: 120 });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(window._mapSectionObj);
+        var _mk = function () { return L.markerClusterGroup ? L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 45, disableClusteringAtZoom: 12, spiderfyOnMaxZoom: true }) : L.layerGroup(); };
+        window._mapSectionBuyerLayer = _mk().addTo(window._mapSectionObj);
+        window._mapSectionPropLayer = _mk().addTo(window._mapSectionObj);
+      }
+      setTimeout(function () { if (window._mapSectionObj) window._mapSectionObj.invalidateSize(); window._mapSectionRender(firstBuild); }, 60);
+    });
+  });
+};
+// Filter chips for the Map section. Empty group = show all of that group.
+window._mapChips = window._mapChips || { buyer: ['tagged', 'qualified'], prop: ['analyzed'], dispo: ['active'] };
+window._mapLayers = window._mapLayers || { buyer: true, prop: true };
+window._mapCounts = window._mapCounts || {};
+window._mapToggleLayer = function (g) {
+  window._mapLayers[g] = !(window._mapLayers[g] !== false);
+  window._mapRenderChips();
+  window._mapSectionRender(false);
+};
+window._mapRenderChips = function () {
+  var el = document.getElementById('map-chips'); if (!el) return;
+  var counts = window._mapCounts || {};
+  var groups = [
+    { g: 'buyer', layer: 'buyer', label: 'Buyers', color: '#10b981', shape: 'circle', months: true, opts: [['tagged', 'Tagged'], ['recent', 'Recent'], ['vetting', 'Vetting'], ['qualified', 'Qualified'], ['unqualified', 'Unqualified']] },
+    { g: 'prop', layer: 'prop', label: 'Properties', color: '#f97316', shape: 'square', opts: [['analyzed', 'Analyzed'], ['hot', 'Hot'], ['contracted', 'Contracted'], ['finalized', 'Finalized']] },
+    { g: 'dispo', layer: 'prop', label: 'Dispositions', color: '#a855f7', shape: 'square', noToggle: true, opts: [['new', 'New'], ['assigning', 'Assigning'], ['hot', 'Hot'], ['assigned', 'Assigned'], ['dead', 'Dead'], ['active', 'Active']] }
+  ];
+  var mkShape = function (shape, color) {
+    return shape === 'square'
+      ? '<span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:' + color + ';border:2px solid #fff;box-shadow:0 1px 2px rgba(0,0,0,0.5);flex:0 0 auto"></span>'
+      : '<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:' + color + ';border:2px solid rgba(0,0,0,0.55);box-shadow:0 1px 2px rgba(0,0,0,0.5);flex:0 0 auto"></span>';
+  };
+  el.innerHTML = groups.map(function (grp) {
+    var layerOn = window._mapLayers[grp.layer] !== false;
+    var head;
+    if (grp.noToggle) {
+      // Non-layer group (Dispositions filters the Properties layer) — same pill styling, no toggle.
+      head = '<span style="display:inline-flex;align-items:center;gap:7px;padding:4px 13px;border-radius:999px;font-size:12.5px;font-weight:800;white-space:nowrap;border:1.5px solid ' + grp.color + ';background:' + (layerOn ? grp.color + '26' : 'transparent') + ';color:' + (layerOn ? grp.color : 'var(--text-dim)') + '">' + mkShape(grp.shape, grp.color) + grp.label + '</span>';
+    } else {
+      head = '<button type="button" onclick="_mapToggleLayer(\'' + grp.layer + '\')" title="Show/hide ' + grp.label + '" style="display:inline-flex;align-items:center;gap:7px;padding:4px 13px;border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;border:1.5px solid ' + grp.color + ';background:' + (layerOn ? grp.color + '26' : 'transparent') + ';color:' + (layerOn ? grp.color : 'var(--text-dim)') + '">' + mkShape(grp.shape, grp.color) + grp.label + '</button>';
+    }
+    var chipBtn = function (o) {
+      var on = (window._mapChips[grp.g] || []).indexOf(o[0]) >= 0;
+      return '<button type="button" onclick="_mapToggleChip(\'' + grp.g + '\',\'' + o[0] + '\')" style="padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;opacity:' + (layerOn ? '1' : '0.4') + ';border:1px solid ' + (on ? grp.color : 'var(--border)') + ';background:' + (on ? grp.color + '22' : 'transparent') + ';color:' + (on ? grp.color : 'var(--text-dim)') + '">' + o[1] + '</button>';
+    };
+    // Promoted chips: same colors as the bottom chips, but a squarer body + size.
+    var topChipBtn = function (o) {
+      var on = (window._mapChips[grp.g] || []).indexOf(o[0]) >= 0;
+      return '<button type="button" onclick="_mapToggleChip(\'' + grp.g + '\',\'' + o[0] + '\')" style="padding:3px 12px;border-radius:8px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;white-space:nowrap;opacity:' + (layerOn ? '1' : '0.4') + ';border:1.5px solid ' + (on ? grp.color : 'var(--border)') + ';background:' + (on ? grp.color + '22' : 'transparent') + ';color:' + (on ? grp.color : 'var(--text-dim)') + '">' + o[1] + '</button>';
+    };
+    // Certain chips are promoted to the TOP-RIGHT of the box; the rest go on the bottom row.
+    var topKeys = { buyer: ['tagged'], prop: ['analyzed'], dispo: ['active'] }[grp.g] || [];
+    var topExtra = grp.opts.filter(function (o) { return topKeys.indexOf(o[0]) >= 0; }).map(topChipBtn).join('');
+    var bottomOpts = grp.opts.filter(function (o) { return topKeys.indexOf(o[0]) < 0; });
+    var monthSel = '';
+    if (grp.months) {
+      // Buyers: recency dropdown sits on the bottom row, right next to Unqualified.
+      var mv = window._mapMonthFilter || '';
+      var mopt = function (v, lab) { return '<option value="' + v + '"' + (mv === v ? ' selected' : '') + ' style="background:#ffffff;color:#111827">' + lab + '</option>'; };
+      monthSel = '<select onchange="_mapSetMonthFilter(this.value)" title="Filter to buyers who purchased within this window" style="width:auto;max-width:110px;flex:0 0 auto;box-sizing:border-box;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ' + (mv ? grp.color : 'var(--border)') + ';background:' + (mv ? grp.color + '22' : 'transparent') + ';color:' + (mv ? grp.color : 'var(--text-dim)') + '">' + mopt('', 'Any time') + mopt('3', '≤ 3mo') + mopt('6', '≤ 6mo') + mopt('12', '≤ 12mo') + mopt('24', '≤ 24mo') + '</select>';
+    }
+    var bottomChips = bottomOpts.map(chipBtn).join('') + monthSel;
+    // Boxed group: top row = pill (left) + promoted chips (right), bottom row = remaining options.
+    // Groups stay side-by-side (one row of boxes); no scrollbar.
+    return '<div style="display:flex;flex-direction:column;gap:6px;padding:6px 10px;border-radius:12px;border:1px solid ' + grp.color + '44;background:' + grp.color + '0d;flex:1 1 auto;min-width:0">'
+      + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + head + (topExtra ? '<div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + topExtra + '</div>' : '') + '</div>'
+      + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + bottomChips + '</div>'
+      + '</div>';
+  }).join('');
+};
+window._mapMonthFilter = (window._mapMonthFilter != null) ? window._mapMonthFilter : '12';
+window._mapSetMonthFilter = function (v) {
+  window._mapMonthFilter = v || '';
+  window._mapRenderChips();
+  window._mapSectionRender(false);
+};
+window._mapToggleChip = function (g, k) {
+  window._mapChips[g] = window._mapChips[g] || [];
+  var i = window._mapChips[g].indexOf(k);
+  if (i >= 0) window._mapChips[g].splice(i, 1); else window._mapChips[g].push(k);
+  // Hot needs the underwrite list computed at least once to populate _uwHotIds.
+  if (g === 'prop' && k === 'hot' && window._mapChips.prop.indexOf('hot') >= 0 && (!window._uwHotIds || !window._uwHotIds.length) && typeof renderUnderwriteList === 'function') { try { renderUnderwriteList(); } catch (e) {} }
+  window._mapRenderChips();
+  window._mapSectionRender(false);
+};
+// Which property chip categories a deal belongs to.
+window._mapPropCats = function (u) {
+  var data = u.data || {};
+  var offer = (data['uw-offer-status'] || '').trim();
+  var packet = (u.packet_status || '').trim();
+  var cats = [];
+  if (offer === 'Closed' || offer === 'Dropped' || packet === 'Closed') cats.push('finalized');
+  if (offer === 'Contracted' || packet === 'Contracted') cats.push('contracted');
+  var flag = function (kk) { return data[kk] === true; };
+  var analyzing = (typeof _uwIsAnalyzing === 'function') ? _uwIsAnalyzing(u) : (packet === '' || packet === 'Evaluating');
+  if (!flag('_needsHelp') && !flag('_isPriority') && !flag('_inChecking') && !analyzing && packet !== 'Closed') cats.push('analyzed');
+  if ((window._uwHotIds || []).indexOf(u.id) >= 0) cats.push('hot');
+  return cats;
+};
+// Dispositions categories for a property: contract stage + Active (live for offers).
+window._mapDispoCats = function (u) {
+  var cats = [];
+  if (u.dispo_contract || (u.data && u.data._dispoContract)) {
+    var stage = (typeof _dispoDealInfoFromRow === 'function') ? (_dispoDealInfoFromRow(u).stage || '') : String(u.dispo_contract || '');
+    if (stage) cats.push(stage);   // 'new' / 'assigning' / 'hot' / 'assigned' / 'dead'
+  }
+  if (u.offer_active || (u.data && u.data._offerActive)) cats.push('active');
+  return cats;
+};
+window._mapSectionRender = function (fit) {
+  if (!window._mapSectionObj || !window._mapSectionBuyerLayer) return;
+  window._mapRenderChips();
+  var _bChips = window._mapChips.buyer || [];
+  var _pChips = window._mapChips.prop || [];
+  var _dChips = window._mapChips.dispo || [];
+  var _recentCut = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  var esc = window.escapeHtml || function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); };
+  var fmt$ = function (v) { var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) && n > 0 ? '$' + Math.round(n).toLocaleString() : ''; };
+  var showBuyers = window._mapLayers.buyer !== false;
+  var showProps = window._mapLayers.prop !== false;
+  window._mapSectionBuyerLayer.clearLayers();
+  window._mapSectionPropLayer.clearLayers();
+  var bounds = [], buyerPins = 0, propPins = 0, CAP = 8000;
+  // A buyer is "tagged" on this global map if they're tagged under ANY property.
+  // Map buyer id -> [property labels] so the popup can name which.
+  var taggedByBuyer = {};
+  Object.values(cache.underwrites || {}).forEach(function (u) {
+    if (!u || !u.data || !Array.isArray(u.data._taggedBuyers)) return;
+    var _lab = u.address || (u.data && u.data['uw-address']) || '(property)';
+    u.data._taggedBuyers.forEach(function (bid) { (taggedByBuyer[bid] = taggedByBuyer[bid] || []).push(_lab); });
+  });
+  // ----- Buyer purchases (dots — same look as the per-deal map) -----
+  if (showBuyers) {
+    Object.values(cache.buyers || {}).forEach(function (b) {
+      if (!b || !b.id) return;
+      var q = (typeof buyerQualState === 'function') ? buyerQualState(b) : 'unknown';
+      var _taggedProps = taggedByBuyer[b.id] || [];
+      var isTagged = _taggedProps.length > 0;
+      var purchases = (typeof getBuyerPurchases === 'function') ? getBuyerPurchases(b.id) : [];
+      // Most-recent purchase timestamp (for the 3/6/12/24-month recency chips).
+      var _maxPurTs = 0;
+      purchases.forEach(function (p) { var t = p && p.sale_date ? new Date(p.sale_date).getTime() : 0; if (t && t > _maxPurTs) _maxPurTs = t; });
+      var _DAY = 24 * 60 * 60 * 1000;
+      var _within = function (mo) { return _maxPurTs > 0 && _maxPurTs >= Date.now() - mo * 30.44 * _DAY; };
+      if (_bChips.length) {
+        var _isRecent = b.created_at && (new Date(b.created_at).getTime() >= _recentCut);
+        if (!_bChips.some(function (c) {
+          return c === 'recent' ? _isRecent
+            : c === 'tagged' ? isTagged
+            : (q === c);
+        })) return;
+      }
+      // Recency dropdown (AND filter): only buyers who purchased within the window.
+      if (window._mapMonthFilter) { if (!_within(parseInt(window._mapMonthFilter, 10))) return; }
+      // Match the per-deal map: untagged = grey; tagged colored by status; a ✓/✗/🔍/? symbol on top.
+      var color = !isTagged ? '#6b7280' : (q === 'qualified' ? '#10b981' : q === 'vetting' ? '#3b82f6' : '#eab308');
+      var dotBorder = !isTagged ? 'rgba(0,0,0,0.5)' : (q === 'qualified' ? '#065f46' : q === 'vetting' ? '#1e3a8a' : '#854d0e');
+      var sym = q === 'qualified' ? '✓' : q === 'unqualified' ? '✗' : q === 'vetting' ? '🔍' : '?';
+      purchases.forEach(function (p) {
+        if (!p || p.lat == null || p.lng == null || buyerPins >= CAP) return;
+        var la = Number(p.lat), lo = Number(p.lng); if (!isFinite(la) || !isFinite(lo)) return;
+        buyerPins++; bounds.push([la, lo]);
+        var amt = Number(p.sale_amount) || 0;
+        var addr = [p.address, p.city, p.state, p.zip].filter(Boolean).join(', ');
+        var iconHtml = '<div style="width:18px;height:18px;border-radius:50%;background:' + color + ';border:2px solid ' + dotBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;font-weight:900;color:#fff;text-shadow:-1px -1px 0 rgba(0,0,0,0.75),1px -1px 0 rgba(0,0,0,0.75),-1px 1px 0 rgba(0,0,0,0.75),1px 1px 0 rgba(0,0,0,0.75)">' + sym + '</div>';
+        var m = L.marker([la, lo], { icon: L.divIcon({ className: 'map-buyer-pin', html: iconHtml, iconSize: [18, 18], iconAnchor: [9, 9] }) });
+        m.bindPopup('<div style="font-size:12px;min-width:150px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + ((b.company && b.name) ? '<br><span style="color:#b45309;font-weight:700">' + esc(b.name) + '</span>' : '') + (isTagged ? '<br><span style="color:#10b981;font-weight:700">🏷 Tagged under: ' + esc(_taggedProps.join(', ')) + '</span>' : '') + '<br>' + esc(addr || '(no address)') + '<br><b>' + (amt > 0 ? '$' + Math.round(amt).toLocaleString() : 'non-market ($0)') + '</b><br><button onclick="buyerOpenAddModal(\'' + esc(b.id) + '\')" style="margin-top:6px;padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">👤 Open buyer</button></div>');
+        window._mapSectionBuyerLayer.addLayer(m);
+      });
+    });
+  }
+  // ----- Underwriting properties (orange squares) -----
+  if (showProps) {
+    Object.values(cache.underwrites || {}).forEach(function (u) {
+      if (!u || u.deleted_at) return;
+      if (_pChips.length || _dChips.length) {
+        var _cats = window._mapPropCats(u);
+        var _dcatsF = window._mapDispoCats(u);
+        if (!(_pChips.some(function (c) { return _cats.indexOf(c) >= 0; }) || _dChips.some(function (c) { return _dcatsF.indexOf(c) >= 0; }))) return;
+      }
+      var dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
+      var la = (dc && dc.lat != null) ? Number(dc.lat) : (u.uw_lat != null ? Number(u.uw_lat) : NaN);
+      var lo = (dc && dc.lng != null) ? Number(dc.lng) : (u.uw_lng != null ? Number(u.uw_lng) : NaN);
+      if (!isFinite(la) || !isFinite(lo)) return;
+      propPins++; bounds.push([la, lo]);
+      var addr = u.address || (u.data && u.data['uw-address']) || '(no address)';
+      var loc = [u.city, u.state, u.zip].filter(Boolean).join(', ');
+      var arv = fmt$(u.data && (u.data['uw-arv-override'] || u.data['uw-arv']));
+      var ask = fmt$((u.data && u.data['uw-asking']) || u.asking);
+      // If the property is in Dispositions, show a dispo-stage icon (separate
+      // from the underwriting icon). Otherwise show the underwriting icon:
+      // Finalized: Closed 🏁 vs Dropped 💀 > Contracted 📝 > Hot 🔥 > Analyzed ✓ > else 📋.
+      // Active (live for offers) turns the square green.
+      var _pcats = window._mapPropCats(u);
+      var _dcats = window._mapDispoCats(u);
+      var _dstage = _dcats.filter(function (c) { return c !== 'active'; })[0];
+      var _isActive = _dcats.indexOf('active') >= 0;
+      var _offerStat = (u.data && u.data['uw-offer-status'] || '').trim();
+      var _isDropped = _offerStat === 'Dropped';
+      var _finIcon = _isDropped ? '💀' : '🏁';
+      var _picon = _dstage
+        ? (_dstage === 'new' ? '📄' : _dstage === 'assigning' ? '🔁' : _dstage === 'hot' ? '🔥' : _dstage === 'assigned' ? '🤝' : _dstage === 'dead' ? '💀' : '📄')
+        : (_pcats.indexOf('finalized') >= 0 ? _finIcon : _pcats.indexOf('contracted') >= 0 ? '📝' : _pcats.indexOf('hot') >= 0 ? '🔥' : _pcats.indexOf('analyzed') >= 0 ? '✓' : '📋');
+      var _sqColor = _isActive ? '#16a34a' : '#f97316';
+      var sq = '<div style="width:18px;height:18px;border-radius:3px;background:' + _sqColor + ';border:2px solid #fff;box-shadow:0 1px 2px rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-size:10px;line-height:1;color:#fff;font-weight:900;text-shadow:0 1px 1px rgba(0,0,0,0.4)">' + _picon + '</div>';
+      var mk = L.marker([la, lo], { icon: L.divIcon({ className: 'map-prop-sq', html: sq, iconSize: [18, 18], iconAnchor: [9, 9] }) });
+      var _dispoLine = (_dstage ? '<br><span style="color:#a855f7;font-weight:700">📄 ' + _dstage.charAt(0).toUpperCase() + _dstage.slice(1) + ' Contract</span>' : '') + (_isActive ? (_dstage ? ' ' : '<br>') + '<span style="color:#16a34a;font-weight:700">🟢 Active</span>' : '');
+      var _finLine = (!_dstage && _pcats.indexOf('finalized') >= 0) ? '<br><span style="color:' + (_isDropped ? '#ef4444' : '#10b981') + ';font-weight:700">' + _finIcon + ' ' + (_isDropped ? 'Dropped' : 'Closed') + '</span>' : '';
+      mk.bindPopup('<div style="font-size:12px;min-width:170px"><b>🏠 ' + esc(addr) + '</b>' + (loc ? '<br>' + esc(loc) : '') + _dispoLine + _finLine + ((arv || ask) ? '<br>' + (arv ? 'ARV ' + arv : '') + (arv && ask ? ' · ' : '') + (ask ? 'Asking ' + ask : '') : '') + '<br><button onclick="_mapSectionOpenDeal(\'' + esc(u.id) + '\')" style="margin-top:6px;padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">Open in Underwriting</button></div>');
+      window._mapSectionPropLayer.addLayer(mk);
+    });
+  }
+  window._mapCounts = { buyer: buyerPins, prop: propPins };
+  window._mapRenderChips();
+  // Totals mapped (geocoded), independent of the current filters.
+  var _totProps = 0;
+  Object.values(cache.underwrites || {}).forEach(function (u) {
+    if (!u || u.deleted_at) return;
+    var dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
+    var la = (dc && dc.lat != null) ? dc.lat : u.uw_lat;
+    if (la != null && isFinite(Number(la))) _totProps++;
+  });
+  var _totPurch = 0;
+  Object.keys(cache.buyerPurchases || {}).forEach(function (k) {
+    (cache.buyerPurchases[k] || []).forEach(function (p) { if (p && p.lat != null && isFinite(Number(p.lat))) _totPurch++; });
+  });
+  var _st = document.getElementById('map-mapped-stats');
+  if (_st) _st.innerHTML = '📍 <b>' + propPins.toLocaleString() + '</b> / ' + _totProps.toLocaleString() + ' properties mapped &nbsp;·&nbsp; <b>' + buyerPins.toLocaleString() + '</b> / ' + _totPurch.toLocaleString() + ' buyer purchases mapped';
+  if (fit && bounds.length) { try { window._mapSectionObj.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 }); } catch (e) {} }
+};
+window._mapSectionOpenDeal = function (id) {
+  if (typeof goSection === 'function') goSection('underwriting');
+  if (typeof uwLoadById === 'function') uwLoadById(id);
+};
+window._mapSectionRefresh = async function (btn) {
+  var prev = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Refreshing…'; }
+  try {
+    cache.buyers = null; if (typeof loadBuyers === 'function') await loadBuyers();
+    cache.buyerPurchases = null; if (typeof loadBuyerPurchases === 'function') await loadBuyerPurchases();
+    cache.underwrites = null; if (typeof loadUnderwrites === 'function') await loadUnderwrites();
+  } catch (e) { console.warn('map refresh:', e && e.message || e); }
+  window._mapSectionRender(true);
+  if (btn) { btn.disabled = false; btn.textContent = prev || '🔁 Refresh'; }
+};
+
 // Tagged buyer IDs live on the deal's JSONB as data._taggedBuyers (an array).
 // Saved by updating ONLY this deal's row directly — never through uwSave — so
 // it can't collide with whatever deal the calculator has loaded.
@@ -35755,6 +36049,10 @@ function buyerOpenAddModal(editId) {
       (editId && cache.buyers && cache.buyers[editId]) ? cache.buyers[editId] : null
     );
   }
+  // This modal lives inside the Dispositions section, so it stays hidden if that
+  // section is display:none (e.g. opened from the Map tab). Reparent to <body> so
+  // it always overlays whatever section is active.
+  if (modal.parentElement !== document.body) { try { document.body.appendChild(modal); } catch (e) {} }
   modal.style.display = 'flex';
   setTimeout(() => {
     // Focus Company first since it's the required field now.
@@ -40776,6 +41074,7 @@ function goSection(s, _opts) {
   }
   if (s === "holdings"   && typeof renderHoldingsList   === "function") renderHoldingsList();
   if (s === "photos"     && typeof loadPhotoSubmissions === "function") loadPhotoSubmissions();
+  if (s === "map"        && typeof _mapSectionOpen       === "function") _mapSectionOpen();
   if (s === "renovation" && typeof renderRenovationList === "function") renderRenovationList();
   if (s === "renovation") {
     // Eagerly load each resource cache so the Contractors/Lenders/Agents/Attorneys

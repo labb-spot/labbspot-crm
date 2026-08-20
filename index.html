@@ -33000,7 +33000,24 @@ function buyerRenderPerDealPanel() {
         innerEl.innerHTML = countLine + '<div style="padding:24px;text-align:center;color:var(--text-dim);font-size:13px;background:var(--panel);border:1px dashed var(--border);border-radius:8px">' + (ctx.rankedAll.length === 0 ? 'No buyers have purchased within 50 miles of this property, and no buyer\'s city/county/zip targets overlap with the subject. Try expanding buyer chips or importing more purchase history.' : 'No buyers match the current filters.') + '</div>';
         return;
       }
-      innerEl.innerHTML = countLine + '<div style="display:flex;flex-direction:column;gap:10px">' + ranked.map((r, idx) => {
+      // ---- Pagination: render 100 buyers per page so filtering stays snappy. ----
+      const D_PAGE_SIZE = 100;
+      const d_total = ranked.length;
+      const d_sig = [ctx.deal.id, search, outreach, qual, acqMin, offer, minScore, active, !!flt.taggedOnly].join('|');
+      if (window._dispoBuyersFilterSig !== d_sig) { window._dispoBuyersFilterSig = d_sig; window._dispoBuyersPage = 0; }
+      let d_page = window._dispoBuyersPage || 0;
+      const d_pages = Math.max(1, Math.ceil(d_total / D_PAGE_SIZE));
+      if (d_page >= d_pages) d_page = d_pages - 1;
+      if (d_page < 0) d_page = 0;
+      window._dispoBuyersPage = d_page;
+      const pageRanked = ranked.slice(d_page * D_PAGE_SIZE, d_page * D_PAGE_SIZE + D_PAGE_SIZE);
+      const d_pagerHtml = d_pages <= 1 ? '' :
+        '<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px;flex-wrap:wrap">'
+        + '<button class="btn btn-ghost text-xs" ' + (d_page <= 0 ? 'disabled' : '') + ' onclick="_dispoBuyersGoPage(' + (d_page - 1) + ')" style="padding:5px 12px">← Prev</button>'
+        + '<span style="font-size:12px;color:var(--text-dim)">Page ' + (d_page + 1) + ' / ' + d_pages + ' · ' + (d_page * D_PAGE_SIZE + 1).toLocaleString() + '–' + Math.min(d_total, (d_page + 1) * D_PAGE_SIZE).toLocaleString() + ' of ' + d_total.toLocaleString() + '</span>'
+        + '<button class="btn btn-ghost text-xs" ' + (d_page >= d_pages - 1 ? 'disabled' : '') + ' onclick="_dispoBuyersGoPage(' + (d_page + 1) + ')" style="padding:5px 12px">Next →</button>'
+        + '</div>';
+      innerEl.innerHTML = countLine + '<div style="display:flex;flex-direction:column;gap:10px">' + pageRanked.map((r, idx) => {
         const b = r.b;
         const contactBits = [];
         if (b.phone) contactBits.push('<a href="tel:' + ctx.esc(b.phone) + '" onclick="event.stopPropagation()" style="color:#60a5fa;text-decoration:none">📞 ' + ctx.esc(b.phone) + '</a>');
@@ -33132,7 +33149,13 @@ function buyerRenderPerDealPanel() {
           +     '</div>'
           +   '</div>'
           + '</div>';
-      }).join('') + '</div>';
+      }).join('') + '</div>' + d_pagerHtml;
+    };
+    window._dispoBuyersGoPage = function (p) {
+      window._dispoBuyersPage = p;
+      if (window._dispoRenderDealBuyers) window._dispoRenderDealBuyers();
+      var el = document.getElementById('dispo-deal-buyers');
+      if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) {} }
     };
 
     // Filter bar — built once. Inputs use _dispoSetFilter which only re-renders
@@ -37274,6 +37297,8 @@ function _buyerUploadedCutoff() {
   }
   return null;
 }
+window._buyersPage = window._buyersPage || 0;
+window._buyersGoPage = function (p) { window._buyersPage = p; if (typeof renderBuyersList === 'function') renderBuyersList(); var t = document.getElementById('buyers-table'); if (t && t.scrollIntoView) { try { t.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) {} } };
 function renderBuyersList() {
   if (!cache.buyers) {
     loadBuyers().then(() => renderBuyersList());
@@ -37454,7 +37479,38 @@ function renderBuyersList() {
     return `<a href="mailto:${esc(v)}" onclick="event.stopPropagation()" style="color:var(--text);text-decoration:none;font-size:12px;display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle" title="Email ${esc(v)}">✉️ ${esc(v)}</a>`;
   };
 
-  tbody.innerHTML = rows.map(b => {
+  // ---- Pagination: render one page of 100 so filtering stays snappy. ----
+  const PAGE_SIZE = 100;
+  const totalRows = rows.length;
+  const _sig = [q, critFilter, qualVal, (window._dispoBuyerScope || '')].join('|');
+  if (window._buyersFilterSig !== _sig) { window._buyersFilterSig = _sig; window._buyersPage = 0; }
+  let _page = window._buyersPage || 0;
+  const _pages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  if (_page >= _pages) _page = _pages - 1;
+  if (_page < 0) _page = 0;
+  window._buyersPage = _page;
+  const pageRows = rows.slice(_page * PAGE_SIZE, _page * PAGE_SIZE + PAGE_SIZE);
+  // Pager control below the table.
+  (function () {
+    let pager = document.getElementById('buyers-pager');
+    if (!pager && tableEl && tableEl.parentNode) {
+      pager = document.createElement('div');
+      pager.id = 'buyers-pager';
+      pager.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px;flex-wrap:wrap';
+      tableEl.parentNode.insertBefore(pager, tableEl.nextSibling);
+    }
+    if (!pager) return;
+    if (_pages <= 1) {
+      pager.innerHTML = '<span style="font-size:12px;color:var(--text-dim)">' + totalRows.toLocaleString() + ' buyer' + (totalRows === 1 ? '' : 's') + '</span>';
+    } else {
+      const from = _page * PAGE_SIZE + 1, to = Math.min(totalRows, (_page + 1) * PAGE_SIZE);
+      pager.innerHTML =
+        '<button class="btn btn-ghost text-xs" ' + (_page <= 0 ? 'disabled' : '') + ' onclick="_buyersGoPage(' + (_page - 1) + ')" style="padding:5px 12px">← Prev</button>'
+        + '<span style="font-size:12px;color:var(--text-dim)">' + from.toLocaleString() + '–' + to.toLocaleString() + ' of ' + totalRows.toLocaleString() + ' · Page ' + (_page + 1) + ' / ' + _pages + '</span>'
+        + '<button class="btn btn-ghost text-xs" ' + (_page >= _pages - 1 ? 'disabled' : '') + ' onclick="_buyersGoPage(' + (_page + 1) + ')" style="padding:5px 12px">Next →</button>';
+    }
+  })();
+  tbody.innerHTML = pageRows.map(b => {
     const name     = esc(b.name || '');
     const company  = esc(b.company || '');
     const stars    = renderStars(b.rating);

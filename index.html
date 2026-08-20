@@ -6820,6 +6820,16 @@
   </div>
   <div id="map-chips" style="display:flex;flex-wrap:nowrap;align-items:stretch;gap:10px;margin-bottom:12px"></div>
   <div id="map-section-canvas" style="height:calc(100vh - 240px);min-height:460px;width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:13px">Loading map…</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
+    <input id="map-search-input" type="text" placeholder="🔍 Search an address, or a buyer / seller name…" onkeydown="if(event.key==='Enter')_mapSectionSearch()" style="flex:0 1 420px;min-width:180px;height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box" />
+    <button class="btn btn-primary text-sm" onclick="_mapSectionSearch()" style="height:38px;white-space:nowrap">Search</button>
+    <button class="btn btn-ghost text-sm" onclick="_mapSectionSearchClear()" style="height:38px;white-space:nowrap">Clear</button>
+    <span id="map-search-type" style="display:inline-flex;align-items:center;gap:5px"></span>
+    <select id="map-search-months" onchange="_mapSectionSearch()" title="Limit buyer results to purchases within this window" style="width:auto;height:38px;padding:0 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;box-sizing:border-box"><option value="">Any time</option><option value="3">≤ 3mo</option><option value="6">≤ 6mo</option><option value="12" selected>≤ 12mo</option><option value="24">≤ 24mo</option></select>
+    <select id="map-search-buys" onchange="_mapSectionSearch()" title="Limit buyer results to buyers with at least this many purchases" style="width:auto;height:38px;padding:0 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;box-sizing:border-box"><option value="">Any #</option><option value="1">1+ buys</option><option value="3">3+ buys</option><option value="5">5+ buys</option><option value="25">25+ buys</option><option value="50">50+ buys</option><option value="100">100+ buys</option></select>
+    <span id="map-search-result" style="font-size:12px;color:var(--text-dim);margin-left:2px"></span>
+  </div>
+  <div id="map-search-results" style="margin-top:10px;display:flex;flex-direction:column;gap:8px"></div>
   <div style="font-size:11px;color:var(--text-dim);margin-top:8px">Free map · <span style="color:#10b981">●</span> dots = buyers' past purchases (colored by status) · <span style="color:#f97316">■</span> squares = your underwriting properties · click either for details.</div>
 </div>
 
@@ -31309,6 +31319,7 @@ window._mapSectionOpen = function () {
   var el = document.getElementById('map-section-canvas');
   if (!el || typeof _dispoEnsureLeaflet !== 'function') return;
   if (typeof window._mapRenderChips === 'function') window._mapRenderChips();
+  if (typeof window._mapRenderSearchTypeChips === 'function') window._mapRenderSearchTypeChips();
   _dispoEnsureLeaflet(function () {
     _mapEnsureCluster(async function () {
       try {
@@ -31333,6 +31344,19 @@ window._mapSectionOpen = function () {
           clearTimeout(window._mapMoveT);
           window._mapMoveT = setTimeout(function () { try { window._mapSectionRender(false); } catch (e) {} }, 250);
         });
+        // Lock control (top-right) — freezes pan/zoom so you don't nudge the view.
+        try {
+          var LockCtl = L.Control.extend({
+            options: { position: 'topright' },
+            onAdd: function () {
+              var d = L.DomUtil.create('div', 'leaflet-bar');
+              d.innerHTML = '<button id="map-lock-btn" onclick="_mapToggleLock()" title="Lock map (disable pan/zoom)" style="width:34px;height:34px;border:none;background:#fff;color:#111827;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px">🔓</button>';
+              L.DomEvent.disableClickPropagation(d);
+              return d;
+            }
+          });
+          window._mapSectionObj.addControl(new LockCtl());
+        } catch (e) {}
       }
       setTimeout(function () { if (window._mapSectionObj) window._mapSectionObj.invalidateSize(); window._mapSectionRender(firstBuild); }, 60);
     });
@@ -31411,6 +31435,165 @@ window._mapSetMinPurchases = function (v) {
   window._mapRenderChips();
   window._mapSectionRender(false);
 };
+// ----- Map search: address or buyer/seller name -----
+// Lists matching properties + buyer cards below the map, drops highlight pins on
+// every match (regardless of chip filters), and lets you click a result to fly to it.
+// Lock/unlock all pan+zoom interaction on the standalone map.
+window._mapSectionLocked = window._mapSectionLocked || false;
+window._mapToggleLock = function () {
+  var m = window._mapSectionObj; if (!m) return;
+  window._mapSectionLocked = !window._mapSectionLocked;
+  var on = window._mapSectionLocked;
+  ['dragging', 'scrollWheelZoom', 'doubleClickZoom', 'boxZoom', 'keyboard', 'touchZoom'].forEach(function (k) {
+    try { if (m[k]) { on ? m[k].disable() : m[k].enable(); } } catch (e) {}
+  });
+  try { if (m.zoomControl && m.zoomControl._container) m.zoomControl._container.style.opacity = on ? '0.4' : '1'; } catch (e) {}
+  var btn = document.getElementById('map-lock-btn');
+  if (btn) {
+    btn.innerHTML = on ? '🔒' : '🔓';
+    btn.title = on ? 'Map locked — click to unlock' : 'Lock map (disable pan/zoom)';
+    btn.style.background = on ? '#ef4444' : '#fff';
+  }
+};
+window._mapSearchType = window._mapSearchType || 'all'; // 'all' | 'property' | 'buyer'
+window._mapSearchHits = [];
+window._mapSectionSearchClear = function () {
+  try { if (window._mapSearchLayer && window._mapSectionObj) window._mapSectionObj.removeLayer(window._mapSearchLayer); } catch (e) {}
+  window._mapSearchLayer = null;
+  window._mapSearchHits = [];
+  var r = document.getElementById('map-search-result'); if (r) r.textContent = '';
+  var list = document.getElementById('map-search-results'); if (list) list.innerHTML = '';
+  var inp = document.getElementById('map-search-input'); if (inp) inp.value = '';
+  window._mapRenderSearchTypeChips();
+};
+window._mapSetSearchType = function (t) { window._mapSearchType = t || 'all'; window._mapRenderSearchTypeChips(); window._mapSectionSearch(); };
+window._mapRenderSearchTypeChips = function () {
+  var el = document.getElementById('map-search-type'); if (!el) return;
+  var cur = window._mapSearchType || 'all';
+  var opts = [['all', 'All'], ['property', '■ Property'], ['buyer', '● Buyer']];
+  el.innerHTML = opts.map(function (o) {
+    var on = cur === o[0];
+    var col = o[0] === 'property' ? '#f97316' : o[0] === 'buyer' ? '#7c3aed' : '#6366f1';
+    return '<button type="button" onclick="_mapSetSearchType(\'' + o[0] + '\')" style="height:32px;padding:0 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;border:1px solid ' + (on ? col : 'var(--border)') + ';background:' + (on ? col + '22' : 'transparent') + ';color:' + (on ? col : 'var(--text-dim)') + '">' + o[1] + '</button>';
+  }).join('');
+};
+window._mapSearchFocus = function (i) {
+  var h = (window._mapSearchHits || [])[i]; if (!h || !window._mapSectionObj) return;
+  try { window._mapSectionObj.setView([h.la, h.lo], 16, { animate: true }); } catch (e) {}
+  if (h._marker) { try { h._marker.openPopup(); } catch (e) {} }
+};
+window._mapSectionSearch = function () {
+  var inp = document.getElementById('map-search-input');
+  var res = document.getElementById('map-search-result');
+  var list = document.getElementById('map-search-results');
+  window._mapRenderSearchTypeChips();
+  var q = (inp && inp.value || '').trim().toLowerCase();
+  if (!window._mapSectionObj) return;
+  try { if (window._mapSearchLayer) window._mapSectionObj.removeLayer(window._mapSearchLayer); } catch (e) {}
+  window._mapSearchLayer = null; window._mapSearchHits = [];
+  if (list) list.innerHTML = '';
+  if (!q) { if (res) res.textContent = ''; return; }
+  var esc = window.escapeHtml || function (s) { return String(s == null ? '' : s); };
+  var type = window._mapSearchType || 'all';
+  var hits = [], CAP = 400;
+  // Search-bar timeframe + min-purchases dropdowns (buyer results only).
+  var _smEl = document.getElementById('map-search-months');
+  var _sbEl = document.getElementById('map-search-buys');
+  var _critMonths = (_smEl && _smEl.value) ? parseInt(_smEl.value, 10) : 0;
+  var _critMinBuys = (_sbEl && _sbEl.value) ? parseInt(_sbEl.value, 10) : 0;
+  var _DAYms = 24 * 60 * 60 * 1000;
+  // Buyers + their purchases.
+  if (type === 'all' || type === 'buyer') {
+    Object.values(cache.buyers || {}).forEach(function (b) {
+      if (!b || !b.id || hits.length >= CAP) return;
+      var nameHit = ((b.company || '') + ' ' + (b.name || '')).toLowerCase().indexOf(q) >= 0;
+      var purchases = (typeof getBuyerPurchases === 'function') ? getBuyerPurchases(b.id) : [];
+      // Criteria gate: enough purchases, and a recent-enough most-recent purchase.
+      if (_critMinBuys && purchases.length < _critMinBuys) return;
+      if (_critMonths) {
+        var _mx = 0;
+        purchases.forEach(function (pp) { var t = pp && pp.sale_date ? new Date(pp.sale_date).getTime() : 0; if (t > _mx) _mx = t; });
+        if (!(_mx > 0 && _mx >= Date.now() - _critMonths * 30.44 * _DAYms)) return;
+      }
+      purchases.forEach(function (p) {
+        if (!p || p.lat == null || p.lng == null || hits.length >= CAP) return;
+        var la = Number(p.lat), lo = Number(p.lng); if (!isFinite(la) || !isFinite(lo)) return;
+        var addr = [p.address, p.city, p.state, p.zip].filter(Boolean).join(', ');
+        if (!(nameHit || addr.toLowerCase().indexOf(q) >= 0)) return;
+        var amt = Number(p.sale_amount) || 0;
+        var pdate = (p.sale_date || p.recording_date || '') ? String(p.sale_date || p.recording_date).slice(0, 10) : '';
+        var plender = String(p.lender_name || '').trim();
+        hits.push({ kind: 'buyer', la: la, lo: lo, color: '#7c3aed', b: b, addr: addr, amt: amt, date: pdate, lender: plender });
+      });
+    });
+  }
+  // Underwriting properties (address, city, or seller/contact name).
+  if (type === 'all' || type === 'property') {
+    Object.values(cache.underwrites || {}).forEach(function (u) {
+      if (!u || u.deleted_at || hits.length >= CAP) return;
+      var addr = u.address || (u.data && u.data['uw-address']) || '';
+      var seller = (u.data && (u.data['uw-contact-name'] || u.data['uw-owner-name'] || u.data['uw-seller-name'])) || u.contact_name || '';
+      var loc = [u.city, u.state, u.zip].filter(Boolean).join(', ');
+      var hay = (addr + ' ' + loc + ' ' + seller).toLowerCase();
+      if (hay.indexOf(q) < 0) return;
+      var dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
+      var la = Number((dc && dc.lat != null) ? dc.lat : u.uw_lat);
+      var lo = Number((dc && dc.lng != null) ? dc.lng : u.uw_lng);
+      if (!isFinite(la) || !isFinite(lo)) return;
+      hits.push({ kind: 'prop', la: la, lo: lo, color: '#f97316', u: u, addr: addr, loc: loc, seller: seller });
+    });
+  }
+  window._mapSearchHits = hits;
+  if (!hits.length) { if (res) res.textContent = 'No matches'; if (list) list.innerHTML = '<div style="font-size:12px;color:var(--text-dim);padding:6px 2px">No matches.</div>'; return; }
+  // Pins on the map.
+  window._mapSearchLayer = L.layerGroup();
+  var bounds = [];
+  hits.forEach(function (h) {
+    bounds.push([h.la, h.lo]);
+    var html = '<div style="width:22px;height:22px;border-radius:50%;background:' + h.color + ';border:3px solid #fff;box-shadow:0 0 0 2px ' + h.color + ',0 2px 5px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900">★</div>';
+    var mk = L.marker([h.la, h.lo], { icon: L.divIcon({ className: 'map-search-hit', html: html, iconSize: [22, 22], iconAnchor: [11, 11] }), zIndexOffset: 1000 });
+    var ttl = h.kind === 'buyer' ? (h.b.company || h.b.name || 'Buyer') : ('🏠 ' + (h.addr || '(property)'));
+    var sub = h.kind === 'buyer' ? h.addr : (h.loc + (h.seller ? ' · ' + h.seller : ''));
+    mk.bindPopup('<div style="font-size:12px;min-width:150px"><b>' + esc(ttl) + '</b>' + (sub ? '<br>' + esc(sub) : '') + '</div>');
+    h._marker = mk;
+    window._mapSearchLayer.addLayer(mk);
+  });
+  window._mapSearchLayer.addTo(window._mapSectionObj);
+  try { window._mapSectionObj.fitBounds(bounds, { padding: [40, 40], maxZoom: hits.length === 1 ? 16 : 14 }); } catch (e) {}
+  if (res) res.textContent = hits.length >= CAP ? (CAP + '+ matches') : (hits.length + (hits.length === 1 ? ' match' : ' matches'));
+  // Result cards below.
+  if (list) {
+    var LIST_CAP = 150;
+    var fmt$ = function (n) { return n > 0 ? '$' + Math.round(n).toLocaleString() : ''; };
+    var _MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    var _fmtDate = function (d) {
+      if (!d) return '';
+      var pr = String(d).slice(0, 10).split('-');
+      if (pr.length !== 3) return d;
+      var mo = _MONTHS[parseInt(pr[1], 10) - 1];
+      return mo ? (mo + ' ' + parseInt(pr[2], 10) + ', ' + pr[0]) : d;
+    };
+    list.innerHTML = hits.slice(0, LIST_CAP).map(function (h, i) {
+      var q2 = encodeURIComponent(h.addr || '');
+      var zUrl = 'https://www.zillow.com/homes/' + q2 + '_rb/';
+      var gUrl = 'https://www.google.com/maps/search/?api=1&query=' + q2;
+      var zg = h.addr ? window._mapZGBtns(zUrl, gUrl, true) : '';
+      var card = 'border:1px solid ' + h.color + '55;border-left:4px solid ' + h.color + ';border-radius:10px;padding:8px 12px;background:var(--panel-2);cursor:pointer';
+      // Easier-to-read Open button on the dark cards.
+      var openBtn = 'height:30px;padding:0 12px;font-size:12px;font-weight:700;border-radius:7px;cursor:pointer;border:1px solid #818cf8;background:#4f46e5;color:#fff;display:inline-flex;align-items:center;white-space:nowrap';
+      if (h.kind === 'buyer') {
+        var nm = (h.b.company && h.b.name) ? (esc(h.b.company) + '<span style="color:#fff"> : </span><span style="color:#b45309;font-weight:800">' + esc(h.b.name) + '</span>') : esc(h.b.company || h.b.name || '(buyer)');
+        var meta = [];
+        if (h.date) meta.push('<span style="color:#eab308;font-weight:700">' + _fmtDate(h.date) + '</span>');
+        if (h.amt > 0) meta.push('<b style="color:var(--text)">' + fmt$(h.amt) + '</b>');
+        if (h.lender) meta.push('🏦 ' + esc(h.lender));
+        return '<div style="' + card + '" onclick="_mapSearchFocus(' + i + ')"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div style="font-size:13px;font-weight:700">● ' + nm + '</div><div style="display:flex;gap:6px;align-items:center" onclick="event.stopPropagation()"><button onclick="buyerOpenAddModal(\'' + esc(h.b.id) + '\')" style="' + openBtn + '">👤 Open buyer</button>' + zg + '</div></div><div style="font-size:12px;color:var(--text-dim);margin-top:3px">' + esc(h.addr || '(no address)') + '</div>' + (meta.length ? '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">' + meta.join(' · ') + '</div>' : '') + '</div>';
+      } else {
+        return '<div style="' + card + '" onclick="_mapSearchFocus(' + i + ')"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div style="font-size:13px;font-weight:700">🏠 ' + esc(h.addr || '(property)') + '</div><div style="display:flex;gap:6px;align-items:center" onclick="event.stopPropagation()"><button onclick="_mapSectionOpenDeal(\'' + esc(h.u.id) + '\')" style="' + openBtn + '">Open in Underwriting</button>' + zg + '</div></div><div style="font-size:12px;color:var(--text-dim);margin-top:3px">' + esc(h.loc || '') + (h.seller ? ' · ' + esc(h.seller) : '') + '</div></div>';
+      }
+    }).join('') + (hits.length > LIST_CAP ? '<div style="font-size:11px;color:var(--text-dim);padding:4px 2px">Showing first ' + LIST_CAP + ' of ' + hits.length + '. Refine your search to narrow it down.</div>' : '');
+  }
+};
 window._mapToggleDispoAll = function () {
   var cur = window._mapChips.dispo || [];
   // Any selected -> clear all; none selected -> select all dispo stages.
@@ -31419,9 +31602,13 @@ window._mapToggleDispoAll = function () {
   window._mapSectionRender(false);
 };
 // Zillow (blue Z) + Google (multicolor G logo) address-search buttons for popups.
-window._mapZGBtns = function (zUrl, gUrl) {
-  var base = 'padding:2px 8px;border-radius:5px;cursor:pointer;background:#fff;display:inline-flex;align-items:center;justify-content:center;line-height:1;height:22px';
-  var gSvg = '<svg width="13" height="13" viewBox="0 0 48 48" style="display:block">'
+// big=true → larger, matched-size buttons for the search result cards.
+window._mapZGBtns = function (zUrl, gUrl, big) {
+  var base = big
+    ? 'width:34px;height:30px;border-radius:7px;cursor:pointer;background:#fff;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex:0 0 auto'
+    : 'padding:2px 8px;border-radius:5px;cursor:pointer;background:#fff;display:inline-flex;align-items:center;justify-content:center;line-height:1;height:22px';
+  var gDim = big ? '16' : '13';
+  var gSvg = '<svg width="' + gDim + '" height="' + gDim + '" viewBox="0 0 48 48" style="display:block">'
     + '<path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>'
     + '<path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>'
     + '<path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>'

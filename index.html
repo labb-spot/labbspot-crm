@@ -1079,28 +1079,37 @@
 <!-- SECTION TABS -->
 <div id="section-tabs-row" class="px-6 pt-4 flex items-center gap-2 border-b border-[var(--border)]">
   <div class="tab active" data-section="marketing" onclick="goSection('marketing')">📣 Marketing</div>
-  <div class="tab" data-section="results" onclick="goSection('results')">📈 Results</div>
   <div class="tab" data-section="underwriting" onclick="window._dispoReturnTo=null; window._planReturnTo=null; if(typeof uwToggleDispoStageBar==='function') uwToggleDispoStageBar(); if(typeof uwBackToList==='function') uwBackToList(); goSection('underwriting')">📐 Underwriting</div>
   <div class="tab" data-section="dispositions" onclick="goSection('dispositions')">🤝 Dispositions</div>
   <div class="tab" data-section="renovation" onclick="goSection('renovation')">🔨 Renovation</div>
   <div class="tab" data-section="holdings" onclick="goSection('holdings')">🏘️ Holdings</div>
   <div class="tab" data-section="photos" onclick="goSection('photos')" style="display:inline-flex;align-items:center;gap:6px"><span style="font-size:1em;line-height:1;transform:translateY(-1px)">📷</span><span>Photos</span></div>
+  <div class="tab" data-section="map" onclick="goSection('map')">🗺 Map</div>
 </div>
 
 <!-- SECTION: DATA -->
 <!-- Marketing / Imports shared sub-tab bar — shown for both sections so Imports
      highlights like a real sub-tab. Toggled + highlighted in goSection(). -->
 <div id="mkt-subbar" class="px-6 pt-4">
-  <div class="flex items-center gap-2" style="flex-wrap:wrap;min-width:0">
+  <div class="flex items-center gap-3" style="flex-wrap:wrap;min-width:0">
     <div class="flex items-center gap-1 panel p-1 w-fit">
       <div class="subtab" id="mkt-pill-imports" onclick="goSection('data')" title="Data imports &amp; uploads.">📥 Imports</div>
     </div>
+    <span style="color:#ffffff;font-size:28px;font-weight:800;opacity:0.9;user-select:none;display:inline-flex;align-items:center;justify-content:center;align-self:stretch;line-height:0;transform:translateY(-2px)">→</span>
     <div class="flex items-center gap-1 panel p-1 w-fit">
       <div class="subtab active" data-mview="lists" onclick="goMarketingView('lists')">📋 Lists</div>
       <div class="subtab" data-mview="vendors" onclick="goMarketingView('vendors')">🏢 Vendors</div>
     </div>
+    <span style="color:#ffffff;font-size:28px;font-weight:800;opacity:0.9;user-select:none;display:inline-flex;align-items:center;justify-content:center;align-self:stretch;line-height:0;transform:translateY(-2px)">→</span>
     <div class="flex items-center gap-1 panel p-1 w-fit">
       <div class="subtab" data-mview="campaigns" onclick="goMarketingView('campaigns')" title="Saved campaign snapshots — pick vendors, export ready-to-call CSVs.">🎯 Campaigns</div>
+    </div>
+    <span style="color:#ffffff;font-size:28px;font-weight:800;opacity:0.9;user-select:none;display:inline-flex;align-items:center;justify-content:center;align-self:stretch;line-height:0;transform:translateY(-2px)">→</span>
+    <!-- Results views (moved here from the old top-nav Results tab). -->
+    <div class="flex items-center gap-1 panel p-1 w-fit">
+      <div class="subtab" id="mkt-pill-logs" onclick="goSection('reports')" title="Call logs &amp; notebook.">📝 Logs</div>
+      <div class="subtab" id="mkt-pill-records" onclick="goResView('records')" title="Call results records.">📋 Records</div>
+      <div class="subtab" id="mkt-pill-overview" onclick="goResView('overview')" title="Results overview & analytics.">📊 Overview</div>
     </div>
     <div class="flex items-center gap-1 panel p-1 w-fit" style="margin-left:auto">
       <div class="subtab" id="mkt-pill-diagnose" onclick="diagnoseLists()" title="Inspect DB row counts across every table">🔍 Diagnose</div>
@@ -2782,6 +2791,7 @@
     </div>
     <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
       <div class="subtab subtab-compact" onclick="_leaveDispoToView('per-deal')" title="Go to Per Deal view.">🎯 Per Deal</div>
+      <div class="subtab subtab-compact" onclick="_leaveDispoToView('offers')" title="Go to Offers view.">💵 Offers</div>
     </div>
   </div>
 
@@ -2821,12 +2831,13 @@
       <div class="subtab subtab-compact" data-uwview="contracted" onclick="goUwView('contracted'); renderUnderwriteList();">📝 Contracted <span id="uw-contracted-count" class="badge warn" style="margin-left:3px;font-size:9px">—</span></div>
       <div class="subtab subtab-compact" data-uwview="closed" onclick="goUwView('closed'); renderUnderwriteList();" title="Finalized — deals that closed successfully or were dropped. Set the Offer Status to Closed or Dropped to land a deal here.">🏁 Finalized <span id="uw-closed-count" class="badge ok" style="margin-left:3px;font-size:9px">—</span></div>
     </div>
-    <!-- Cleanup / soft-delete pill — its own group, visually disconnected from
-         the workflow strip. 🔍 Dupes is temporary (remove after the one-time
-         cleanup is done); 🗑️ Trash is permanent. -->
+    <!-- Sold — its own separated bubble. Leads whose location matches a buyer
+         purchase (shared geocode) within the selected window. Same idea as the
+         big map's "Leads Sold". -->
     <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:13px">
-      <div class="subtab subtab-compact" data-uwview="trash" onclick="goUwView('trash'); renderUwTrash();" title="Soft-deleted underwrites. Restore them or permanently delete from here. Nothing is hard-deleted from anywhere else in the app.">🗑️ Trash <span id="uw-trash-count" class="badge" style="margin-left:3px;font-size:9px;background:rgba(148,163,184,0.2);color:#94a3b8">—</span></div>
+      <div class="subtab subtab-compact" data-uwview="sold" onclick="goUwView('sold');" title="Sold — underwriting leads that a buyer purchased (matched by shared geocode). Pick a window inside.">💰 Sold <span id="uw-sold-count" class="badge" style="margin-left:3px;font-size:9px;background:rgba(239,68,68,0.18);color:#f87171">—</span></div>
     </div>
+    <!-- Trash moved into the 📋 All Deals toolbar (🗑️ button). -->
   </div>
 
   <!-- GIS Maps subview — collected county assessor / GIS portal links per
@@ -2985,10 +2996,13 @@
            so they share the exact same spot.
            • Add    → shown when Offer Status is Closed AND deal isn't routed
            • Remove → shown when the deal IS routed to Renovation/Holdings -->
-      <button class="btn text-sm" id="uw-add-to-reno-btn" onclick="uwAddToRenovation()" style="display:none;position:absolute;bottom:14px;right:14px;z-index:2;white-space:nowrap;background:#f97316;color:white;border:1px solid #f97316;font-weight:600" title="Send this property to the 🔨 Renovation tab. Only available when the Offer Status is Closed.">🔨 Add</button>
-      <button class="btn btn-ghost text-sm" id="uw-remove-routing-btn" style="display:none;position:absolute;bottom:14px;right:14px;z-index:2;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromRouting()" title="Remove this deal from Renovation/Holdings (the deal stays in the 🏁 Finalized tab).">✕ Remove</button>
-      <!-- Dispositions Remove button — only visible when this deal was opened from the Dispositions contracts grid. Clears dispo_contract + routes back. -->
-      <button class="btn btn-ghost text-sm" id="uw-remove-dispo-btn" style="display:none;position:absolute;bottom:14px;right:14px;z-index:3;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromDispositions()" title="Remove this deal from Dispositions (clears the contract stage and returns you to the Dispositions section).">✕ Remove from Dispositions</button>
+      <!-- All corner actions share one flex row so any combination that's visible
+           lays out side by side (no overlap) instead of stacking on the same spot. -->
+      <div style="position:absolute;bottom:14px;right:14px;z-index:3;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn text-sm" id="uw-add-to-reno-btn" onclick="uwAddToRenovation()" style="display:none;white-space:nowrap;background:#f97316;color:white;border:1px solid #f97316;font-weight:600" title="Send this property to the 🔨 Renovation tab. Only available when the Offer Status is Closed.">🔨 Add</button>
+        <button class="btn btn-ghost text-sm" id="uw-remove-routing-btn" style="display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromRouting()" title="Remove this deal from Renovation/Holdings (the deal stays in the 🏁 Finalized tab).">✕ Remove</button>
+        <button class="btn btn-ghost text-sm" id="uw-remove-dispo-btn" style="display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromDispositions()" title="Remove this deal from Dispositions (clears the contract stage and returns you to the Dispositions section).">✕ Remove from Dispositions</button>
+      </div>
       <div class="flex items-start justify-between gap-3" style="flex-wrap:nowrap">
         <div class="flex items-center gap-2" style="flex-shrink:0">
           <button id="uw-back-btn" class="btn btn-ghost text-sm" onclick="uwBackToList()" title="Back to the list" style="flex-shrink:0">← Back</button>
@@ -4371,8 +4385,8 @@
       <div data-uw-slot="sell-close-pct"><label class="text-xs">Seller Closing % of ARV<input type="number" id="uw-sell-close-pct" value="2" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="orig-pct"><label class="text-xs">Origination % of ARV<input type="number" id="uw-orig-pct" value="2" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="int-pct"><label class="text-xs">Interest %/yr (of ARV)<input type="number" id="uw-int-pct" value="12" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="sell-agent-pct"><label class="text-xs">Seller Agent %<input type="number" id="uw-sell-agent-pct" value="2.5" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="buy-agent-pct"><label class="text-xs">Buyer Agent %<input type="number" id="uw-buy-agent-pct" value="2.5" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="sell-agent-pct"><label class="text-xs">Seller Agent %<input type="number" id="uw-sell-agent-pct" value="3" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="buy-agent-pct"><label class="text-xs">Buyer Agent %<input type="number" id="uw-buy-agent-pct" value="3" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="loan-rate"><label class="text-xs">Financing Rate %/yr<input type="number" id="uw-loan-rate" value="6.5" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <div data-uw-slot="loan-yrs"><label class="text-xs">Loan Term (yrs)<input type="number" id="uw-loan-yrs" value="30" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
       <!-- ====== RENTAL editable assumptions (used by both Cash and Financed) ====== -->
@@ -5310,6 +5324,46 @@
     </div>
   </div><!-- /uwview-trash -->
 
+  <!-- ============ Underwriting: 💰 Sold subview ============
+       Leads whose geocode matches a buyer purchase within the chosen window.
+       Same logic as the big map's "Leads Sold". ============ -->
+  <div id="uwview-sold" class="uwview" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center mb-3 gap-2" style="flex-wrap:wrap">
+        <div class="font-semibold text-lg" style="white-space:nowrap">💰 Sold Leads</div>
+        <input id="uw-sold-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUwSold()" style="flex:1 1 240px;min-width:180px;height:36px">
+        <select id="uw-sold-months" onchange="renderUwSold()" title="Show leads sold within this window" style="width:auto;height:36px;padding:0 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;box-sizing:border-box">
+          <option value="1">Sold ≤ 1mo</option>
+          <option value="3">Sold ≤ 3mo</option>
+          <option value="6">Sold ≤ 6mo</option>
+          <option value="12" selected>Sold ≤ 12mo</option>
+          <option value="24">Sold ≤ 24mo</option>
+          <option value="0">Sold — any time</option>
+        </select>
+        <span style="display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden;height:36px">
+          <button type="button" id="uw-sold-scope-contacted" onclick="_uwSoldSetScope('contacted')" title="Sold leads that ARE in your Underwriting (you have a property card)." style="height:36px;padding:0 13px;border:none;cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600;font-size:13px;white-space:nowrap">Contacted</button>
+          <button type="button" id="uw-sold-scope-uncontacted" onclick="_uwSoldSetScope('uncontacted')" title="Sold properties from your marketing lists that are NOT in Underwriting (no property card exists)." style="height:36px;padding:0 13px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600;font-size:13px;white-space:nowrap">Uncontacted</button>
+        </span>
+        <button class="btn btn-ghost text-sm" onclick="renderUwSold()" style="margin-left:auto">🔁 Refresh</button>
+      </div>
+      <div id="uw-sold-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">No sold leads in this window.</div>
+      <div class="overflow-auto" style="max-height:600px">
+        <table style="width:100%;font-size:13px;table-layout:fixed">
+          <thead>
+            <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
+              <th style="padding:8px 10px;text-align:left;width:26%">Address</th>
+              <th style="padding:8px 10px;text-align:center;width:14%">Sold Date</th>
+              <th style="padding:8px 10px;text-align:center;width:11%">Sale $</th>
+              <th style="padding:8px 10px;text-align:left;width:21%">Buyer</th>
+              <th style="padding:8px 14px 8px 10px;text-align:right;width:28%">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="uw-sold-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /uwview-sold -->
+
   <!-- ============ Underwriting: Checking subview ============
        Properties marked by their underwriter as ready for verification.
        Reviewer opens, walks through, and clicks "✓ Verify & Move to Analyzed"
@@ -5413,6 +5467,7 @@
                calculator cascade and re-saves the corrected Flip / Wholetail /
                Refi profits back to Supabase. Useful when the math has changed
                and you want to refresh stale numbers all at once. -->
+          <button id="uwall-trash-btn" class="btn btn-ghost text-sm" onclick="_uwAllToggleTrash(this)" title="Trash — show soft-deleted deals in this table. Click again to return to active deals." style="padding:6px 10px;border:1px solid rgba(148,163,184,0.35);color:#94a3b8;white-space:nowrap">🗑️ <span id="uw-trash-count" class="badge" style="margin-left:2px;font-size:9px;background:rgba(148,163,184,0.2);color:#94a3b8">—</span></button>
           <button class="btn btn-ghost text-sm" onclick="_uwSyncMotivatedLeads()" title="Sync motivated leads — pulls any motivated leads from your Results tab into ⭐ Priority. Runs automatically when leads arrive; this just forces a re-scan." style="padding:6px 10px">🔄</button>
           <button class="btn btn-ghost text-sm" onclick="uwGeocodeAllOpen()" title="Geocode All — one-time batch: geocode every underwrite missing a place_id and save uw_lat / uw_lng / uw_place_id. Pause/resume safe. Required before the 🔍 Dupes panel can detect duplicates." style="padding:6px 10px">🌐</button>
           <button class="btn btn-ghost text-sm" onclick="uwRescanAllProfits()" title="Open each deal in the calculator one-by-one, recompute Flip / Wholetail / Refi profits with the current math, and save the corrected values to Supabase. Use this once after big formula changes to refresh stale numbers app-wide." style="white-space:nowrap;border:1px solid rgba(99,102,241,0.4);color:#a5b4fc">🔄 Rescan</button>
@@ -5424,7 +5479,7 @@
       <div class="overflow-auto" style="max-height:600px">
         <table style="width:100%;font-size:13px">
           <thead>
-            <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
+            <tr id="uw-all-thead-normal" style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
               <th style="padding:8px 10px;text-align:left">Address</th>
               <th style="padding:8px 10px;text-align:left">Offer</th>
               <th style="padding:8px 10px;text-align:center">ARV / Rent</th>
@@ -5434,6 +5489,13 @@
               <th id="uw-th-all-em" style="padding:8px 10px;text-align:center;cursor:pointer;user-select:none" onclick="_uwToggleEmSort('all')" title="Click to sort by Financed Flip profit">Exit Margins</th>
               <th id="uw-th-all-imp" style="padding:8px 10px;text-align:left;cursor:pointer;user-select:none" onclick="_uwToggleImpSort('all')" title="Click to sort by import date">Imported</th>
               <th style="padding:8px 10px;text-align:center">Actions</th>
+            </tr>
+            <tr id="uw-all-thead-trash" style="display:none;color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
+              <th style="padding:8px 10px;text-align:left">Address</th>
+              <th style="padding:8px 10px;text-align:center">Deleted</th>
+              <th style="padding:8px 10px;text-align:center">Results</th>
+              <th style="padding:8px 10px;text-align:center">Disposition</th>
+              <th style="padding:8px 10px;text-align:right">Actions</th>
             </tr>
           </thead>
           <tbody id="uw-all-tbody"></tbody>
@@ -6383,6 +6445,10 @@
       <div class="subtab subtab-compact" data-dispoview="per-deal" onclick="setDispoView('per-deal')" title="Show buyers whose Cities / Counties / Zips list overlaps with a deal's zip code.">🎯 Per Deal</div>
       <div class="subtab subtab-compact" data-dispoview="offers" onclick="setDispoView('offers')" title="Offers — coming soon.">💵 Offers</div>
     </div>
+    <!-- Sold — its own separated bubble. Analytics on every sold property. -->
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact" data-dispoview="sold" onclick="setDispoView('sold')" title="Sold Tracker — totals, months, tags, ZIPs & cities across every sold property.">💰 Sold</div>
+    </div>
   </div>
   <!-- Per Deal panel — shown only when the 'per-deal' subview is active.
        Top: the currently-open deal's address.  Bottom: the single best-match
@@ -6430,6 +6496,22 @@
       </tr></thead>
       <tbody id="dispo-offers-tbody"></tbody>
     </table></div>
+  </div>
+  <!-- Sold Tracker panel — analytics over every buyer purchase (sold property). -->
+  <div id="dispo-sold-panel" class="panel p-5 mb-3" style="display:none">
+    <div class="flex items-center gap-2 mb-3" style="flex-wrap:wrap">
+      <div class="font-semibold text-lg" style="white-space:nowrap">💰 Sold Tracker</div>
+      <select id="res-sold-year" onchange="renderResultsSold()" title="Show a specific calendar year (Jan–Dec), or all years" style="width:auto;height:34px;padding:0 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;box-sizing:border-box;margin-left:auto"></select>
+      <select id="res-sold-window" onchange="renderResultsSold()" title="When 'All years' is selected, limit to sales within this window" style="width:auto;height:34px;padding:0 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;box-sizing:border-box">
+        <option value="0" selected>All time</option>
+        <option value="3">Last 3mo</option>
+        <option value="6">Last 6mo</option>
+        <option value="12">Last 12mo</option>
+        <option value="24">Last 24mo</option>
+      </select>
+      <button class="btn btn-ghost text-sm" onclick="renderResultsSold()" style="height:34px">🔁 Refresh</button>
+    </div>
+    <div id="res-sold-body"></div>
   </div>
   <!-- Contracts panel — shown when a contracts subview is active. Stays a
        placeholder until you wire it to the underwrites/contracts table; the
@@ -6804,6 +6886,29 @@
     </div>
     <div id="ps-drawer-body" style="padding:18px"></div>
   </div>
+</div>
+
+<!-- SECTION: MAP — global map of buyer purchases + underwriting properties -->
+<div id="section-map" class="section-content p-6" style="display:none">
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px">
+    <div style="font-size:20px;font-weight:700">🗺 Map</div>
+    <span id="map-mapped-stats" style="flex:1;text-align:center;font-size:12.5px;color:var(--text-dim);font-weight:600"></span>
+    <button class="btn btn-ghost text-xs" onclick="_mapSectionRefresh(this)" title="Re-pull buyers + properties and redraw">🔁 Refresh</button>
+  </div>
+  <div id="map-chips" style="display:flex;flex-wrap:nowrap;align-items:stretch;gap:10px;margin-bottom:12px"></div>
+  <div id="map-section-canvas" style="height:calc(100vh - 240px);min-height:460px;width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:13px">Loading map…</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
+    <input id="map-search-input" type="text" placeholder="🔍 Search an address, or a buyer / seller name…" onkeydown="if(event.key==='Enter')_mapSectionSearch()" style="flex:0 1 420px;min-width:180px;height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box" />
+    <button class="btn btn-primary text-sm" onclick="_mapSectionSearch()" style="height:38px;white-space:nowrap">Search</button>
+    <button class="btn btn-ghost text-sm" onclick="_mapSectionSearchClear()" style="height:38px;white-space:nowrap">Clear</button>
+    <span id="map-search-type" style="display:inline-flex;align-items:center;gap:5px"></span>
+    <select id="map-search-months" onchange="_mapSectionSearch()" title="Limit buyer results to purchases within this window" style="width:auto;height:38px;padding:0 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;box-sizing:border-box"><option value="">Any time</option><option value="3">≤ 3mo</option><option value="6">≤ 6mo</option><option value="12" selected>≤ 12mo</option><option value="24">≤ 24mo</option></select>
+    <select id="map-search-buys" onchange="_mapSectionSearch()" title="Limit buyer results to buyers with at least this many purchases" style="width:auto;height:38px;padding:0 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;box-sizing:border-box"><option value="">Any #</option><option value="1">1+ buys</option><option value="3">3+ buys</option><option value="5">5+ buys</option><option value="25">25+ buys</option><option value="50">50+ buys</option><option value="100">100+ buys</option></select>
+    <select id="map-search-sold" onchange="_mapSectionSearch()" title="Show underwriting leads that SOLD — a buyer purchase shares the same location — within this window" style="width:auto;height:38px;padding:0 8px;background:var(--panel-2);border:1px solid #ef4444;border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;box-sizing:border-box"><option value="">Leads Sold: Off</option><option value="1">Sold ≤ 1mo</option><option value="3">Sold ≤ 3mo</option><option value="6">Sold ≤ 6mo</option><option value="12">Sold ≤ 12mo</option><option value="24">Sold ≤ 24mo</option></select>
+    <span id="map-search-result" style="font-size:12px;color:var(--text-dim);margin-left:2px"></span>
+  </div>
+  <div id="map-search-results" style="margin-top:10px;display:flex;flex-direction:column;gap:8px"></div>
+  <div style="font-size:11px;color:var(--text-dim);margin-top:8px">Free map · <span style="color:#10b981">●</span> dots = buyers' past purchases (colored by status) · <span style="color:#f97316">■</span> squares = your underwriting properties · click either for details.</div>
 </div>
 
 <!-- SECTION: SOP — Standard Operating Procedure
@@ -9418,10 +9523,11 @@ function goUwView(v) {
   // List/workflow views all toggle the subtab bar. The calculator is a
   // per-property detail view (no subtab). 'hot' is a cross-cutting computed
   // view — eligible for active-tab styling and Back-button restoration.
-  if (v === 'all' || v === 'analyzing' || v === 'analyzed' || v === 'help' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps' || v === 'trash') {
+  if (v === 'all' || v === 'analyzing' || v === 'analyzed' || v === 'help' || v === 'priority' || v === 'checking' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps' || v === 'trash' || v === 'sold') {
     document.querySelectorAll('#section-underwriting .subtab').forEach(t => t.classList.toggle('active', t.dataset.uwview === v));
-    if (v === 'all' || v === 'analyzing' || v === 'analyzed' || v === 'priority' || v === 'checking' || v === 'help' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps' || v === 'trash') _uwLastListView = v;
+    if (v === 'all' || v === 'analyzing' || v === 'analyzed' || v === 'priority' || v === 'checking' || v === 'help' || v === 'hot' || v === 'offered' || v === 'inspection' || v === 'contracted' || v === 'closed' || v === 'gis-maps' || v === 'trash' || v === 'sold') _uwLastListView = v;
   }
+  if (v === 'sold' && typeof renderUwSold === 'function') renderUwSold();
   document.querySelectorAll('#section-underwriting .uwview').forEach(el => el.style.display = 'none');
   const target = document.getElementById('uwview-' + v);
   if (target) target.style.display = '';
@@ -10587,8 +10693,8 @@ function uwNewDeal() {
   const defaults = {
     'uw-max-ltv': '70', 'uw-buy-close-pct': '2', 'uw-purch-sell-close-pct': '1', 'uw-sell-close-pct': '2',
     'uw-orig-pct': '2', 'uw-int-pct': '12',
-    'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '2.5',
-    'uw-buy-agent-pct': '2.5', 'uw-loan-rate': '6.5',
+    'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '3',
+    'uw-buy-agent-pct': '3', 'uw-loan-rate': '6.5',
     'uw-loan-yrs': '30', 'uw-units': '1', 'uw-units-rental': '1',
     // Wholetail defaults — match the documented assumptions in uwComputeExits
     'uw-wt-sale-pct': '75', 'uw-wt-cap-pct': '10',
@@ -11544,8 +11650,8 @@ function uwReset() {
   const defaults = {
     'uw-max-ltv': '70', 'uw-buy-close-pct': '2', 'uw-purch-sell-close-pct': '1', 'uw-sell-close-pct': '2',
     'uw-orig-pct': '2', 'uw-int-pct': '12',
-    'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '2.5',
-    'uw-buy-agent-pct': '2.5', 'uw-loan-rate': '6.5',
+    'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '3',
+    'uw-buy-agent-pct': '3', 'uw-loan-rate': '6.5',
     'uw-loan-yrs': '30', 'uw-units': '1', 'uw-units-rental': '1',
     // Wholetail defaults — match the documented assumptions in uwComputeExits
     'uw-wt-sale-pct': '75', 'uw-wt-cap-pct': '10',
@@ -12767,7 +12873,7 @@ function uwComputeExits(ctx) {
   const { arv, offer, asking, accepted, rehab, flipRehab, rentalRehab, sqft, totalFlipCost, holdingCost,
           sellingCost, moneyCost, buyClose, purchSellClose, purchClosingTotal, sellClose, rent, monthlyExp,
           pi, annualRent, totalMo, idealMarginPct,
-          sellClosePct = 2, sellAgentPct = 2.5, buyAgentPct = 2.5,
+          sellClosePct = 2, sellAgentPct = 3, buyAgentPct = 3,
           closingCost, orig, intDuringHold, builderIns, taxMo, utilMo,
           sellAgent, buyAgent, realProfit, realMargin, flipRoi,
           rentalTaxMo, rentalInsMo, hoaMo, capexMo, vacancyMo, pmMo, cashflow, dscr,
@@ -12795,7 +12901,7 @@ function uwComputeExits(ctx) {
   //         − rehab (flip-grade)
   //         − purchase closing  (3% of accepted/asking — same as buyer side)
   //         − selling closing   (3% of ARV)
-  //         − selling agents    (5% of ARV — 2.5% per agent × 2)
+  //         − selling agents    (6% of ARV — 3% per agent × 2)
   //         − holding costs     (cash buyer's flip-period holding)
   //         − ideal profit      (from the Ideal Flip Profit slider)
   //
@@ -12807,9 +12913,9 @@ function uwComputeExits(ctx) {
   // Then wholesalePurchClose = 3% × MAO. This eliminates the asking-price
   // dependency the old "basis = accepted | asking | buyPrice" formula had.
   const wholesaleClosingPct   = 3;                                        // purchase-side close %
-  // Selling side: closing 3% of ARV + agents 5% of ARV (2.5% per agent × 2)
+  // Selling side: closing 3% of ARV + agents 6% of ARV (3% per agent × 2)
   const wsSellClosePct        = 3;
-  const wsSellAgentsPct       = 5;
+  const wsSellAgentsPct       = 6;   // 3% per agent × 2
   const wsSellClose           = arv * (wsSellClosePct / 100);
   const wsSellAgents          = arv * (wsSellAgentsPct / 100);
   // Cash buyer holding — estimate using flip-grade months + ARV-based monthly
@@ -13129,7 +13235,7 @@ function uwComputeExits(ctx) {
   // math; it's a parallel, view-only variant.
   // Turn-key carries a light rehab reserve fixed at 5% of ARV (not a full reno),
   // but still NO pre-rent holding / mowing.
-  const tkRehab           = arv * 0.05;
+  const tkRehab           = arv * 0.06;
   // Full Turn-Key (DSCR-financed) math is computed below, AFTER the Financed
   // rental block, so it can reuse the same DSCR inputs (rate/term/orig/close/fee)
   // and the 70% LTV cap.
@@ -13780,7 +13886,7 @@ function uwComputeExits(ctx) {
           ['Rehab budget', '−' + fmt(fRehab)],
           ['Purchase closing (3%)', '−' + fmt(wholesalePurchClose)],
           ['Selling closing (3% of ARV)', '−' + fmt(wsSellClose)],
-          ['Selling agents (5% of ARV)', '−' + fmt(wsSellAgents)],
+          ['Selling agents (' + wsSellAgentsPct + '% of ARV)', '−' + fmt(wsSellAgents)],
           ['Holding (' + _wsFlMonths + ' mo)', '−' + fmt(wsHolding)],
           ['Ideal profit (' + _wsIfpFinalPct.toFixed(1) + '% of ARV)', '−' + fmt(wsIdealProfit)],
           ['Cash Buyer Max Offer', fmt(cashBuyerMAO)],
@@ -13836,7 +13942,7 @@ function uwComputeExits(ctx) {
           ['Purchase closing (3%)', '−' + fmt(wtPurchClosingTotal)],
           ['Resale closing (3%)', '−' + fmt(wtSaleClosingTotal)],
           ['Agent commissions (' + (sellAgentPct + buyAgentPct) + '%)', '−' + fmt(wtAgentTotal)],
-          ['Total Financing Cost', '−' + fmt(wtFinOrig + wtFinTotalInt + wtDrawCost)],
+          ['Total Financing Cost' + (arv > 0 ? ' (' + (Math.round((wtFinOrig + wtFinTotalInt + wtDrawCost) / arv * 10000) / 100) + '% of ARV)' : ''), '−' + fmt(wtFinOrig + wtFinTotalInt + wtDrawCost)],
           ['💰 Total Capital Invested', fmt(wtFinCapital), 'redhl'],
           ['Total Project Cost', fmt(wholetailSale - wtFinProfit), 'cost'],
           ['Net profit', fmt(wtFinProfit), 'profit'],
@@ -13948,7 +14054,7 @@ function uwComputeExits(ctx) {
           ['Purchase Closing (3% of purchase)', '−' + fmt(flPurchClosingTotal)],
           ['Resale Closing (3% of resale)', '−' + fmt(flipSellClose)],
           ['Agent Commissions (' + (sellAgentPct + buyAgentPct) + '% of resale)', '−' + fmt(flipSellAgent + flipBuyerAgent)],
-          ['Total Financing Cost', '−' + fmt(flHmOrig + flHmTotalInt + flDrawCost)],
+          ['Total Financing Cost' + (arv > 0 ? ' (' + (Math.round((flHmOrig + flHmTotalInt + flDrawCost) / arv * 10000) / 100) + '% of ARV)' : ''), '−' + fmt(flHmOrig + flHmTotalInt + flDrawCost)],
           ['💰 Total Capital Invested', fmt(flipFinCapital), 'redhl'],
           ['Total Project Cost', fmt(flipSale - flipFinProfit), 'cost'],
           ['Net profit', fmt(flipFinProfit), 'profit'],
@@ -17882,7 +17988,7 @@ function _uwComputeMaxOfferFromData(data) {
   // − holding − idealProfit. This keeps Max Offer independent of asking.
   // wsBuyMax = cashBuyerMAO − $10k assignment floor
   const wsSellClose = arv * 0.03;
-  const wsSellAgents = arv * 0.05;
+  const wsSellAgents = arv * 0.06;
   const wsFlMonths = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
   const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 300;
   const wsHolding = wsHoldingMonthly * wsFlMonths;
@@ -17924,7 +18030,7 @@ window._uwComputeMaxOfferFromData = _uwComputeMaxOfferFromData;
 //                  − rehab (flip-grade)
 //                  − purchase closing (3% of accepted/asking)
 //                  − selling closing (3% of ARV)
-//                  − selling agents (5% of ARV)
+//                  − selling agents (6% of ARV)
 //                  − holding (3% ARV/yr split + $150/mo insurance × wsFlMonths)
 //                  − ideal flip profit (slider %, default 20% Heavy benchmark)
 function _uwComputeWholesaleProfitFromData(data) {
@@ -17969,7 +18075,7 @@ function _uwComputeWholesaleProfitFromData(data) {
   // Purchase closing = 3% of MAO (what cash buyer actually pays), solved
   // algebraically below so MAO is independent of buyPrice/asking.
   const wsSellClose         = arv * 0.03;      // 3% of ARV
-  const wsSellAgents        = arv * 0.05;      // 5% of ARV
+  const wsSellAgents        = arv * 0.06;      // 6% of ARV
   // Holding: cash buyer's flip months = uw-fl-reno-mo + uw-fl-listed-mo
   // (defaults: 2 reno + 3 listed = 5 months)
   const wsFlMonths = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
@@ -18887,8 +18993,8 @@ function _uwCollect() {
 const _UW_ASSUMPTION_DEFAULTS = {
   'uw-max-ltv': '70', 'uw-buy-close-pct': '2', 'uw-purch-sell-close-pct': '1', 'uw-sell-close-pct': '2',
   'uw-orig-pct': '2', 'uw-int-pct': '12',
-  'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '2.5',
-  'uw-buy-agent-pct': '2.5', 'uw-loan-rate': '6.5',
+  'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '3',
+  'uw-buy-agent-pct': '3', 'uw-loan-rate': '6.5',
   'uw-loan-yrs': '30', 'uw-units': '1', 'uw-units-rental': '1',
   'uw-wt-sale-pct': '75', 'uw-wt-cap-pct': '10',
   'uw-wt-reno-mo': '1', 'uw-wt-listed-mo': '2', 'uw-wt-ins': '150',
@@ -28367,6 +28473,140 @@ function renderUwTrash() {
 }
 window.renderUwTrash = renderUwTrash;
 
+// 💰 Sold Leads — underwriting properties whose geocode matches a buyer purchase
+// within the selected window (same idea as the big map's "Leads Sold").
+function _uwBuildSoldIndex() {
+  const idx = {};
+  const keyOf = (la, lo) => Math.round(la * 1e4) + '|' + Math.round(lo * 1e4);
+  Object.values(cache.buyers || {}).forEach(b => {
+    const pr = (typeof getBuyerPurchases === 'function') ? getBuyerPurchases(b.id) : [];
+    pr.forEach(p => {
+      if (!p || p.lat == null || p.lng == null) return;
+      const la = Number(p.lat), lo = Number(p.lng); if (!isFinite(la) || !isFinite(lo)) return;
+      const ts = p.sale_date ? new Date(p.sale_date).getTime() : 0; if (!ts) return;
+      const k = keyOf(la, lo), cur = idx[k];
+      if (!cur || ts > cur.ts) idx[k] = { ts, date: String(p.sale_date).slice(0, 10), buyer: (b.company || b.name || ''), buyerId: b.id, amt: Number(p.sale_amount) || 0 };
+    });
+  });
+  return idx;
+}
+window._uwSoldScope = window._uwSoldScope || 'contacted'; // 'contacted' | 'uncontacted'
+function _uwSoldSetScope(s) { window._uwSoldScope = s || 'contacted'; renderUwSold(); }
+window._uwSoldSetScope = _uwSoldSetScope;
+function _uwSoldKeyOf(la, lo) { return Math.round(la * 1e4) + '|' + Math.round(lo * 1e4); }
+function _uwSoldMatch(idx, la, lo, cutoff) {
+  const kla = Math.round(la * 1e4), klo = Math.round(lo * 1e4);
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+    const c = idx[(kla + dx) + '|' + (klo + dy)];
+    if (c && (!cutoff || c.ts >= cutoff)) return c;
+  }
+  return null;
+}
+function renderUwSold() {
+  const tbody = document.getElementById('uw-sold-tbody');
+  const empty = document.getElementById('uw-sold-empty');
+  const badge = document.getElementById('uw-sold-count');
+  if (!tbody) return;
+  if (typeof loadBuyers === 'function' && !cache.buyers) { loadBuyers().then(renderUwSold); }
+  if (typeof loadBuyerPurchases === 'function' && !cache.buyerPurchases) { Promise.resolve(loadBuyerPurchases()).then(renderUwSold).catch(() => {}); }
+  const scope = window._uwSoldScope || 'contacted';
+  // Scope button highlight.
+  ['contacted', 'uncontacted'].forEach(s => {
+    const b = document.getElementById('uw-sold-scope-' + s);
+    if (b) { const on = scope === s; b.style.background = on ? 'rgba(99,102,241,0.18)' : 'transparent'; b.style.color = on ? '#a5b4fc' : 'var(--text-dim)'; }
+  });
+  const months = parseInt((document.getElementById('uw-sold-months')?.value ?? '12'), 10) || 0;
+  const cutoff = months ? Date.now() - months * 30.44 * 24 * 60 * 60 * 1000 : 0;
+  const idx = _uwBuildSoldIndex();
+  const q = (document.getElementById('uw-sold-search')?.value || '').trim().toLowerCase();
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const fmtDate = (d) => { const pr = String(d || '').slice(0, 10).split('-'); if (pr.length !== 3) return d || '—'; const mo = MONTHS[parseInt(pr[1], 10) - 1]; return mo ? (mo + ' ' + parseInt(pr[2], 10) + ', ' + pr[0]) : d; };
+  const rows = [];
+  // Set of underwrite geocode keys — used to EXCLUDE those from "Uncontacted".
+  const uwKeys = new Set();
+  Object.values(cache.underwrites || {}).forEach(u => {
+    if (!u || u.deleted_at) return;
+    const dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
+    const la = Number((dc && dc.lat != null) ? dc.lat : u.uw_lat);
+    const lo = Number((dc && dc.lng != null) ? dc.lng : u.uw_lng);
+    if (isFinite(la) && isFinite(lo)) uwKeys.add(_uwSoldKeyOf(la, lo));
+  });
+  // Geocode → marketing property (for its flags/tags), so both scopes can show tags.
+  const propByKey = {};
+  Object.values(cache.properties || {}).forEach(p => {
+    if (!p || p.lat == null || p.lng == null) return;
+    const la = Number(p.lat), lo = Number(p.lng); if (!isFinite(la) || !isFinite(lo)) return;
+    propByKey[_uwSoldKeyOf(la, lo)] = p;
+  });
+  const _activeTags = (flags) => (flags && typeof flags === 'object') ? Object.keys(flags).filter(k => flags[k] === true) : [];
+  if (scope === 'contacted') {
+    // Underwriting leads that sold.
+    Object.values(cache.underwrites || {}).forEach(u => {
+      if (!u || u.deleted_at) return;
+      const dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
+      const la = Number((dc && dc.lat != null) ? dc.lat : u.uw_lat);
+      const lo = Number((dc && dc.lng != null) ? dc.lng : u.uw_lng);
+      if (!isFinite(la) || !isFinite(lo)) return;
+      const hit = _uwSoldMatch(idx, la, lo, cutoff);
+      if (!hit) return;
+      const addr = u.address || (u.data && u.data['uw-address']) || '';
+      if (q && ![addr, u.city, u.state, u.zip, hit.buyer].map(x => String(x || '').toLowerCase()).join(' ').includes(q)) return;
+      const _mp = propByKey[_uwSoldKeyOf(la, lo)];
+      const _num = v => { const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) && n > 0 ? n : null; };
+      const _cands = [_num((u.data && u.data['uw-asking']) || u.asking), _num(u.data && u.data['uw-accepted'])].filter(x => x != null);
+      const _b = (cache.buyers || {})[hit.buyerId];
+      rows.push({ id: u.id, addr, city: u.city, state: u.state, zip: u.zip, hit, hasProp: true, tags: _activeTags(_mp && _mp.flags), sysDate: u.created_at, myPrice: (_cands.length ? Math.min.apply(null, _cands) : null), contactName: (_b && _b.name) || '' });
+    });
+  } else {
+    // Marketing-list properties that sold but are NOT in Underwriting.
+    Object.values(cache.properties || {}).forEach(p => {
+      if (!p || p.lat == null || p.lng == null) return;
+      const la = Number(p.lat), lo = Number(p.lng);
+      if (!isFinite(la) || !isFinite(lo)) return;
+      if (uwKeys.has(_uwSoldKeyOf(la, lo))) return; // already in underwriting → Contacted, skip
+      const hit = _uwSoldMatch(idx, la, lo, cutoff);
+      if (!hit) return;
+      const addr = p.street || p.address || p.property_address || '';
+      if (q && ![addr, p.city, p.state, p.zip, hit.buyer].map(x => String(x || '').toLowerCase()).join(' ').includes(q)) return;
+      const _b = (cache.buyers || {})[hit.buyerId];
+      rows.push({ id: p.id, addr, city: p.city, state: p.state, zip: p.zip, hit, hasProp: false, tags: _activeTags(p.flags), sysDate: p.created_at, myPrice: null, contactName: (_b && _b.name) || '' });
+    });
+  }
+  rows.sort((a, b) => b.hit.ts - a.hit.ts);
+  if (badge) { badge.textContent = rows.length.toLocaleString(); badge.style.display = ''; }
+  if (!rows.length) {
+    tbody.innerHTML = '';
+    if (empty) { empty.textContent = q ? 'No sold leads match your search.' : (scope === 'uncontacted' ? 'No uncontacted sold properties in this window.' : 'No sold leads in this window.'); empty.style.display = ''; }
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  tbody.innerHTML = rows.map(r => {
+    const hit = r.hit;
+    const cityLine = [r.city, r.state, r.zip].filter(Boolean).join(', ');
+    const amt = hit.amt > 0 ? '$' + Math.round(hit.amt).toLocaleString() : '—';
+    const buyerBtn = hit.buyerId ? '<button onclick="buyerOpenAddModal(\'' + _uwEsc(hit.buyerId) + '\')" style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap">👤 Open buyer</button>' : '';
+    const propBtn = r.hasProp
+      ? '<button onclick="uwLoadById(\'' + _uwEsc(r.id) + '\')" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.4);color:#10b981;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap">🏠 Open property</button>'
+      : '<button disabled title="This came from a marketing list — no property card exists in Underwriting." style="background:transparent;border:1px solid var(--border);color:var(--text-dim);padding:5px 10px;border-radius:6px;cursor:not-allowed;font-size:11px;font-weight:600;white-space:nowrap;opacity:0.5">🏠 Open property</button>';
+    const tagsHtml = (r.tags && r.tags.length)
+      ? '<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">' + r.tags.map(t => '<span style="font-size:9px;line-height:1.4;padding:1px 6px;border-radius:4px;background:rgba(148,163,184,0.15);border:1px solid rgba(148,163,184,0.3);color:#cbd5e1;white-space:nowrap">' + _uwEsc(t) + '</span>').join('') + '</div>'
+      : '';
+    return '<tr style="border-bottom:1px solid var(--border)">'
+      + '<td style="padding:10px;text-align:left"><div style="font-weight:600">' + _uwEsc(r.addr || '—') + '</div>'
+      +   (cityLine ? '<div style="font-size:11px;color:var(--text-dim);margin-top:2px">' + _uwEsc(cityLine) + '</div>' : '') + tagsHtml + '</td>'
+      + '<td style="padding:10px;text-align:center;font-size:12px;color:#eab308;font-weight:700">' + _uwEsc(fmtDate(hit.date))
+      +   (r.sysDate ? '<div style="font-size:10px;color:var(--text-dim);font-weight:500;margin-top:2px">' + (r.hasProp ? 'UW: ' : 'Added: ') + _uwEsc(fmtDate(r.sysDate)) + '</div>' : '') + '</td>'
+      + '<td style="padding:10px;text-align:center;font-weight:600">' + amt
+      +   '<div style="font-size:10px;color:var(--text-dim);font-weight:500;margin-top:2px">Mine: ' + (r.myPrice != null ? '$' + Math.round(r.myPrice).toLocaleString() : '?') + '</div></td>'
+      + '<td style="padding:10px;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + _uwEsc(hit.buyer || '') + '"><div style="overflow:hidden;text-overflow:ellipsis">' + _uwEsc(hit.buyer || '—') + '</div>'
+      +   (r.contactName ? '<div style="font-size:10px;color:var(--text-dim);font-weight:500;margin-top:2px;overflow:hidden;text-overflow:ellipsis">' + _uwEsc(r.contactName) + '</div>' : '') + '</td>'
+      + '<td style="padding:10px 14px 10px 10px;white-space:nowrap"><div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:nowrap;align-items:center">'
+      +   buyerBtn + propBtn
+      + '</div></td></tr>';
+  }).join('');
+}
+window.renderUwSold = renderUwSold;
+
 async function uwRestore(id) {
   const u = (cache.underwritesDeleted || {})[id];
   if (!u) return;
@@ -29967,7 +30207,7 @@ window.inspectorDelete = inspectorDelete;
 // All views render the SAME Buyers panel but with different filtering applied
 // inside renderBuyersList (see _dispoFilter usage there).
 let _dispoActiveView = 'new-contract';
-const _DISPO_VIEWS = ['recent','vetting','unknown','qualified','unqualified','per-deal','offers','new-contract','assigning-contract','hot-contract','assigned-contract','dead-contract'];
+const _DISPO_VIEWS = ['recent','vetting','unknown','qualified','unqualified','per-deal','offers','sold','new-contract','assigning-contract','hot-contract','assigned-contract','dead-contract'];
 
 function setDispoView(view) {
   _dispoActiveView = _DISPO_VIEWS.indexOf(view) >= 0 ? view : 'recent';
@@ -29980,6 +30220,7 @@ function setDispoView(view) {
   if (typeof _dispoUpdateCounts === 'function') _dispoUpdateCounts();
   const isPerDeal   = (_dispoActiveView === 'per-deal');
   const isOffers    = (_dispoActiveView === 'offers');
+  const isSold      = (_dispoActiveView === 'sold');
   const isContract  = (_dispoActiveView === 'new-contract' || _dispoActiveView === 'hot-contract' || _dispoActiveView === 'assigning-contract' || _dispoActiveView === 'assigned-contract' || _dispoActiveView === 'dead-contract');
   // Show/hide the mutually-exclusive surfaces: buyer table / per-deal panel /
   // contracts panel / offers panel.
@@ -29987,10 +30228,13 @@ function setDispoView(view) {
   const perPanel = document.getElementById('dispo-perdeal-panel');
   const conPanel = document.getElementById('dispo-contracts-panel');
   const offPanel = document.getElementById('dispo-offers-panel');
-  if (wrap)     wrap.style.display     = (isPerDeal || isContract || isOffers) ? 'none' : '';
+  const soldPanel = document.getElementById('dispo-sold-panel');
+  if (wrap)     wrap.style.display     = (isPerDeal || isContract || isOffers || isSold) ? 'none' : '';
   if (perPanel) perPanel.style.display = isPerDeal  ? '' : 'none';
   if (conPanel) conPanel.style.display = isContract ? '' : 'none';
   if (offPanel) offPanel.style.display = isOffers   ? '' : 'none';
+  if (soldPanel) soldPanel.style.display = isSold   ? '' : 'none';
+  if (isSold) { if (typeof renderResultsSold === 'function') renderResultsSold(); return; }
   if (isOffers) { if (typeof renderDispoOffers === 'function') renderDispoOffers(); return; }
   if (isContract) {
     // Reskin the contracts panel header to match the active subtab.
@@ -30297,7 +30541,9 @@ function _dispoSetOutreach(dealId, buyerId, status) {
   const cur = _dispoGetOutreach(dealId, buyerId);
   const next = (cur === status) ? null : status;
   _dispoUpsertEngagement(dealId, buyerId, { outreach: next });
-  if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+  // Light re-render only (keeps the buyer map open + view). Outreach doesn't
+  // change the qualifying pool, so no full panel rebuild is needed.
+  if (typeof window._dispoRenderDealBuyers === 'function') window._dispoRenderDealBuyers();
 }
 window._dispoSetOutreach = _dispoSetOutreach;
 function _dispoOpenDeal(dealId) {
@@ -30306,7 +30552,7 @@ function _dispoOpenDeal(dealId) {
   // Reset filter state on deal change so a leftover filter from a previous
   // deal doesn't hide buyers on the new one. Users almost never want
   // cross-deal filter persistence.
-  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 50, active: '12mo', maxMiles: 5 };
+  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 3, minScore: 0, active: '12mo', maxMiles: 0.5 };
   if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
 }
@@ -30327,9 +30573,9 @@ function _dispoGetBuyerOffer(dealId, buyerId) {
 // Per-deal detail-view filter state. Session-only (not persisted) — resets
 // when the user navigates away from the deal. Updated via _dispoSetFilter,
 // which re-renders ONLY the buyer list (preserving search-input focus).
-window._dispoFilter = window._dispoFilter || { search: '', outreach: '', qual: '', acqMin: 0, minScore: 50, active: '12mo', maxMiles: 5 };
+window._dispoFilter = window._dispoFilter || { search: '', outreach: '', qual: '', acqMin: 3, minScore: 0, active: '12mo', maxMiles: 0.5 };
 function _dispoSetFilter(key, value) {
-  if (!window._dispoFilter) window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 50, active: '12mo', maxMiles: 5 };
+  if (!window._dispoFilter) window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 3, minScore: 0, active: '12mo', maxMiles: 0.5 };
   window._dispoFilter[key] = value;
   // maxMiles changes the qualifying pool itself (not just the displayed
   // subset), so a full Per Deal re-render is needed to refresh the count.
@@ -30350,7 +30596,7 @@ function _dispoSetFilter(key, value) {
 }
 window._dispoSetFilter = _dispoSetFilter;
 function _dispoClearFilters() {
-  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 0, minScore: 50, active: '12mo', maxMiles: 5 };
+  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 3, minScore: 0, active: '12mo', maxMiles: 0.5 };
   // Reset the live inputs in the DOM (we only re-render the buyer list, so
   // they'd otherwise still display the old values).
   const s = document.getElementById('dispo-deal-search');     if (s) s.value = '';
@@ -30412,7 +30658,7 @@ function _dispoCashFlipMaxFromData(d) {
     if (fRehab <= 0) fRehab = N('uw-rehab-flip', 0) || N('uw-rehab-cost', 0);
   }
   const wsSellClose  = arv * 0.03;
-  const wsSellAgents = arv * 0.05;
+  const wsSellAgents = arv * 0.06;
   const wsFlMonths   = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
   const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 300;
   const wsHolding    = wsHoldingMonthly * wsFlMonths;
@@ -30585,6 +30831,9 @@ function _dispoScoreBuyerWithPurchases(buyer, deal, dealCoords, dealAttrs, opene
     densityNearby: 0,
     acq12mo: 0
   });
+  // "Acqs" badge = the ACTUAL number of purchase records on file for this buyer
+  // (their Purchased Properties), not the manually-typed acquisitions_count.
+  out.acq = purchases.length;
 
   if (!hasPurchases) {
     // No purchase data → score on zip-match alone, capped at 30 so they
@@ -30966,6 +31215,29 @@ window._dispoMapToggleTagFromPopup = function (buyerId, lat, lng) {
   // (via the hook in _dispoRenderDealBuyers) — that refresh reopens the popup.
   if (typeof _dispoToggleTag === 'function') _dispoToggleTag(ctx.deal.id, buyerId);
 };
+// PER-BUYER qualification status (saved to the buyer record everywhere, not
+// just this deal). Updates cache immediately, re-renders, then persists.
+window._dispoMapSetQual = async function (buyerId, state, lat, lng) {
+  var b = (typeof cache !== 'undefined' && cache.buyers) ? cache.buyers[buyerId] : null;
+  if (!b) return;
+  window._dispoMapReopenPopup = { buyerId: buyerId, lat: Number(lat), lng: Number(lng) };
+  var qualification = (state === 'qualified' || state === 'unqualified' || state === 'vetting') ? state : null;
+  var verified = state === 'qualified' ? true : (state === 'unqualified' ? false : null);
+  b.qualification = qualification; b.verified = verified; b.updated_at = new Date().toISOString();
+  if (typeof window._dispoRenderDealBuyers === 'function') window._dispoRenderDealBuyers();
+  try {
+    if (typeof sb !== 'undefined' && sb) {
+      var res = await sb.from('buyers').update({ qualification: qualification, verified: verified }).eq('id', buyerId);
+      if (res && res.error) throw res.error;
+    }
+  } catch (e) { console.warn('_dispoMapSetQual:', e && e.message || e); if (typeof toast === 'function') toast('Status save failed: ' + (e && e.message || e), 'err'); }
+};
+// PER-DEAL outreach status for this property only.
+window._dispoMapSetOutreach = function (dealId, buyerId, status, lat, lng) {
+  window._dispoMapReopenPopup = { buyerId: buyerId, lat: Number(lat), lng: Number(lng) };
+  if (typeof _dispoUpsertEngagement === 'function') _dispoUpsertEngagement(dealId, buyerId, { outreach: status || null });
+  if (typeof window._dispoRenderDealBuyers === 'function') window._dispoRenderDealBuyers();
+};
 window._dispoMapClearBoundary = function () {
   if (window._dispoDrawnItems) { try { window._dispoDrawnItems.clearLayers(); } catch (e) {} }
   window._dispoBoundaryLayer = null;
@@ -31018,6 +31290,7 @@ window._dispoRenderBuyerMap = function () {
   // "Only within radius" — clip pins to the distance filter (≤ N miles). Needs a
   // subject location + a positive mile cap + haversine helper; otherwise no-op.
   var maxMiles = Number((window._dispoFilter || {}).maxMiles) || 0;
+  if (window._dispoMapRadiusOnly === undefined) window._dispoMapRadiusOnly = true;   // default: within radius ON
   var radiusOnly = !!window._dispoMapRadiusOnly && haveSubj && maxMiles > 0 && typeof _buyerHaversineMi === 'function';
   var rc = document.getElementById('dispo-map-radius');
   if (rc) rc.checked = !!window._dispoMapRadiusOnly;
@@ -31065,7 +31338,7 @@ window._dispoRenderBuyerMap = function () {
       var tt = dr ? new Date(String(dr).slice(0, 10)).getTime() : NaN;
       if (isFinite(tt) && tt >= _actCutoff) recentCount++;
     });
-    var recentBadge = '<div style="text-align:right;margin-top:7px;font-size:10.5px;color:#475569;font-weight:700">🏠 ' + recentCount + ' purchase' + (recentCount === 1 ? '' : 's') + ' · ' + _actLabel + '</div>';
+    var recentBadge = '<span style="font-size:10.5px;color:#475569;font-weight:700;white-space:nowrap">🏠 ' + recentCount + ' purchase' + (recentCount === 1 ? '' : 's') + ' · ' + _actLabel + '</span>';
     purchases.forEach(function (p) {
       if (!p || p.lat == null || p.lng == null) return;
       var la = Number(p.lat), lo = Number(p.lng);
@@ -31084,8 +31357,21 @@ window._dispoRenderBuyerMap = function () {
       var sym = qstate === 'qualified' ? '✓' : qstate === 'unqualified' ? '✗' : qstate === 'vetting' ? '🔍' : '?';
       var iconHtml = '<div style="width:21px;height:21px;border-radius:50%;background:' + color + ';border:2px solid ' + dotBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;font-weight:900;color:#fff;text-shadow:-1px -1px 0 rgba(0,0,0,0.75),1px -1px 0 rgba(0,0,0,0.75),-1px 1px 0 rgba(0,0,0,0.75),1px 1px 0 rgba(0,0,0,0.75)">' + sym + '</div>';
       var m = L.marker([la, lo], { icon: L.divIcon({ className: 'dispo-buyer-pin', html: iconHtml, iconSize: [20, 20], iconAnchor: [10, 10] }) });
-      var tagBtn = '<button onclick="_dispoMapToggleTagFromPopup(\'' + esc(b.id) + '\',' + la + ',' + lo + ')" style="margin-top:7px;padding:4px 10px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid ' + (isTagged ? '#10b981' : '#94a3b8') + ';background:' + (isTagged ? 'rgba(16,185,129,0.15)' : '#fff') + ';color:' + (isTagged ? '#0f766e' : '#334155') + '">' + (isTagged ? '🏷 Untag buyer' : '🏷 Tag buyer') + '</button>';
-      m.bindPopup('<div style="font-size:12px;min-width:170px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + (isTagged ? ' <span style="color:#10b981;font-weight:700">🏷 Tagged</span>' : '') + '<br><div style="margin:3px 0;display:flex;gap:5px;flex-wrap:wrap">' + qBadge + oBadge + '</div>' + esc(addr || '(no address)') + '<br><b>' + priceStr + '</b>' + (dateStr ? ' · ' + esc(dateStr) : '') + '<br>' + tagBtn + recentBadge + '</div>');
+      var tagBtn = '<button onclick="_dispoMapToggleTagFromPopup(\'' + esc(b.id) + '\',' + la + ',' + lo + ')" style="padding:1px 8px;font-size:10px;font-weight:700;line-height:1.5;border-radius:4px;cursor:pointer;vertical-align:middle;border:1px solid ' + (isTagged ? '#10b981' : '#94a3b8') + ';background:' + (isTagged ? 'rgba(16,185,129,0.15)' : '#fff') + ';color:' + (isTagged ? '#0f766e' : '#334155') + '">' + (isTagged ? '🏷 Untag' : '🏷 Tag') + '</button>';
+      var openBtn = '<button onclick="buyerOpenAddModal(\'' + esc(b.id) + '\')" title="Open this buyer\'s contact" style="padding:1px 9px;font-size:10.5px;font-weight:700;line-height:1.5;border-radius:4px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">👤 Open</button>';
+      // Qualification dropdown (PER BUYER — saves to this buyer everywhere).
+      var _qOpts = [['unknown', '? Unknown'], ['vetting', '🔎 Vetting'], ['qualified', '✓ Qualified'], ['unqualified', '✗ Unqualified']];
+      // Content-sized colored badge + a transparent <select> overlaid on top, so
+      // it looks like the old compact chip but is clickable with a ▾ dropdown.
+      var qSelect = '<span style="position:relative;display:inline-flex;vertical-align:middle">'
+        + '<span style="padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap;background:' + qMeta.c + '22;color:' + qMeta.c + ';border:1px solid ' + qMeta.c + '66">' + qMeta.lab + ' ▾</span>'
+        + '<select onchange="_dispoMapSetQual(\'' + esc(b.id) + '\',this.value,' + la + ',' + lo + ')" onclick="event.stopPropagation()" title="Buyer status — saved to this buyer everywhere" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0;color:#111827;background:#ffffff">' + _qOpts.map(function (o) { return '<option value="' + o[0] + '" style="background:#ffffff;color:#111827"' + (o[0] === qstate ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></span>';
+      // Outreach dropdown (PER DEAL — this property only).
+      var _oOpts = [['', '— None'], ['reached', '📞 Reached'], ['responded', '💬 Responded'], ['interested', '👍 Interested'], ['inspecting', '🔎 Inspecting'], ['not-interested', '👎 Not Int']];
+      var oSelect = '<span style="position:relative;display:inline-flex;vertical-align:middle">'
+        + '<span style="padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap;background:' + oc + '22;color:' + oc + ';border:1px solid ' + oc + '66">' + oLabel + ' ▾</span>'
+        + '<select onchange="_dispoMapSetOutreach(\'' + esc(ctx.deal.id) + '\',\'' + esc(b.id) + '\',this.value,' + la + ',' + lo + ')" onclick="event.stopPropagation()" title="Outreach for THIS property" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0;color:#111827;background:#ffffff">' + _oOpts.map(function (o) { return '<option value="' + o[0] + '" style="background:#ffffff;color:#111827"' + (o[0] === oKey ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></span>';
+      m.bindPopup('<div style="font-size:12px;min-width:170px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + ((b.company && b.name) ? '<div style="font-size:11px;font-weight:700;color:#b45309;margin-top:1px">' + esc(b.name) + '</div>' : '') + '<div style="margin:4px 0;display:flex;gap:5px;flex-wrap:nowrap;align-items:center;white-space:nowrap">' + qSelect + oSelect + tagBtn + '</div>' + esc(addr || '(no address)') + '<br><b>' + priceStr + '</b>' + (dateStr ? ' · ' + esc(dateStr) : '') + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px">' + openBtn + recentBadge + '</div>' + '</div>');
       window._dispoMapLayer.addLayer(m);
       if (reopenReq && reopenReq.buyerId === b.id && Math.abs(la - reopenReq.lat) < 1e-6 && Math.abs(lo - reopenReq.lng) < 1e-6) reopenMarker = m;
     });
@@ -31118,6 +31404,689 @@ window._dispoRenderBuyerMap = function () {
   // Reopen the popup that was open before a tag toggle, so it stays put.
   if (reopenMarker) { try { reopenMarker.openPopup(); } catch (e) {} }
   window._dispoMapReopenPopup = null;
+};
+
+// Packet view tracking (Dispositions Per Deal header only). Reads anonymous
+// view rows logged by the public offer packet and shows the count + a click-to-
+// expand log of each view's date/time (Eastern). Query is per-property + cheap.
+async function _dispoRenderPacketViews(dealId, keepOpen) {
+  var wrap = document.getElementById('dispo-packet-views-wrap');
+  if (!wrap || !dealId) return;
+  if (typeof sb === 'undefined' || !sb) { wrap.innerHTML = ''; return; }
+  window._dispoPacketViewsDealId = dealId;
+  if (!keepOpen) window._dispoPvOpen = false;   // start collapsed on a fresh open
+  var zeroChip = '<span style="font-size:11.5px;font-weight:700;color:var(--text-dim);background:rgba(148,163,184,0.14);border:1px solid var(--border);border-radius:999px;padding:4px 12px" title="No one has opened this property’s offer packet yet">👁 0 views</span>';
+  wrap.innerHTML = zeroChip;
+  try {
+    var res = await sb.from('packet_views').select('id,viewed_at,excluded').eq('underwrite_id', dealId).order('viewed_at', { ascending: false });
+    if (res.error) throw res.error;
+    var rows = res.data || [];
+    if (!rows.length) { wrap.innerHTML = zeroChip; return; }
+    var n = rows.filter(function (r) { return !r.excluded; }).length;   // count = non-you
+    var mine = rows.length - n;
+    var open = !!window._dispoPvOpen;
+    var log = rows.map(function (r) {
+      var d = new Date(r.viewed_at);
+      var ds = d.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+      var ts = d.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+      var ex = !!r.excluded;
+      return '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted var(--border);cursor:pointer;font-size:11.5px' + (ex ? ';opacity:0.55' : '') + '">'
+        + '<input type="checkbox" ' + (ex ? 'checked' : '') + ' onchange="_dispoTogglePacketViewMine(\'' + r.id + '\',this.checked)" title="Mark this view as you — removes it from the count">'
+        + '<span style="color:var(--text-dim)' + (ex ? ';text-decoration:line-through' : '') + '">' + ds + ' · ' + ts + '</span>'
+        + (ex ? '<span style="margin-left:auto;font-size:10px;color:#a5b4fc;font-weight:800">YOU</span>' : '')
+        + '</label>';
+    }).join('');
+    wrap.innerHTML =
+        '<button type="button" onclick="_dispoTogglePvLog()" style="font-size:11.5px;font-weight:700;color:#a5b4fc;background:rgba(99,102,241,0.14);border:1px solid rgba(99,102,241,0.4);border-radius:999px;padding:4px 12px;cursor:pointer" title="Click to see each view’s date + time (Eastern) and mark which were you">👁 ' + n + ' packet view' + (n === 1 ? '' : 's') + ' ▾</button>'
+      + '<div id="dispo-pv-log" style="display:' + (open ? 'block' : 'none') + ';margin-top:8px;max-height:200px;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:4px 12px;max-width:340px">'
+      +   '<div style="font-size:10px;color:var(--text-dim);padding:5px 0 6px;border-bottom:1px solid var(--border)">Tick a view to mark it as you — it won’t count.</div>'
+      +   log
+      + '</div>';
+  } catch (e) {
+    // Table may not exist yet — still show the 0 chip so it's always present.
+    console.warn('_dispoRenderPacketViews:', e && e.message || e);
+    wrap.innerHTML = zeroChip;
+  }
+}
+window._dispoRenderPacketViews = _dispoRenderPacketViews;
+// Loads a { underwrite_id: viewCount } map (excluding views marked as you) so the
+// Dispositions LIST cards can show a per-property 👁 count. Loaded once, then
+// re-renders the panel; the Refresh button forces a reload.
+window._dispoViewCounts = window._dispoViewCounts || {};
+async function _dispoLoadViewCounts() {
+  if (typeof sb === 'undefined' || !sb) return;
+  window._dispoViewCountsLoaded = true;   // guard: don't fire again mid-render
+  try {
+    var res = await sb.from('packet_views').select('underwrite_id,excluded');
+    if (res.error) throw res.error;
+    var map = {};
+    (res.data || []).forEach(function (r) {
+      if (r && r.underwrite_id && !r.excluded) map[r.underwrite_id] = (map[r.underwrite_id] || 0) + 1;
+    });
+    window._dispoViewCounts = map;
+    if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+  } catch (e) {
+    console.warn('_dispoLoadViewCounts:', e && e.message || e);
+  }
+}
+window._dispoLoadViewCounts = _dispoLoadViewCounts;
+// Rebuild the Per-Deal panel but keep the buyer map open + at the same view.
+// Used by actions that must fully re-render (buyer save, distance filter) so
+// they don't dump the user out of the map.
+window._dispoRebuildPerDealKeepMap = function () {
+  var wasOpen = !!window._dispoMapOpen;
+  var savedView = (wasOpen && window._dispoMapObj) ? { c: window._dispoMapObj.getCenter(), z: window._dispoMapObj.getZoom() } : null;
+  if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+  if (wasOpen && typeof window._dispoToggleBuyerMap === 'function') {
+    window._dispoMapPendingView = savedView;
+    window._dispoMapSuppressScroll = true;
+    window._dispoToggleBuyerMap();
+  }
+};
+// Per-Deal Refresh button — pulls fresh buyers (new/updated activity) then
+// redraws the panel, which re-queries this property's packet views from the DB.
+window._dispoRefreshPerDeal = async function (btn) {
+  if (btn) { btn.disabled = true; btn.dataset._orig = btn.innerHTML; btn.innerHTML = '⏳ Refreshing…'; }
+  window._dispoViewCountsLoaded = false;   // force packet-view counts to reload
+  try {
+    if (typeof loadBuyers === 'function') { cache.buyers = null; await loadBuyers(); }
+  } catch (e) { console.warn('per-deal refresh:', e && e.message || e); }
+  try { if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel(); } catch (e) {}
+  // buyerRenderPerDealPanel rebuilt the button, so no need to restore it.
+  if (typeof toast === 'function') toast('Refreshed ✓', 'ok');
+};
+window._dispoTogglePvLog = function () {
+  var l = document.getElementById('dispo-pv-log'); if (!l) return;
+  var willOpen = (l.style.display === 'none');
+  l.style.display = willOpen ? 'block' : 'none';
+  window._dispoPvOpen = willOpen;
+};
+window._dispoTogglePacketViewMine = async function (id, checked) {
+  try {
+    var res = await sb.from('packet_views').update({ excluded: !!checked }).eq('id', id);
+    if (res.error) throw res.error;
+  } catch (e) {
+    console.warn('_dispoTogglePacketViewMine:', e && e.message || e);
+    if (typeof toast === 'function') toast('Could not update view: ' + (e && e.message || e), 'err');
+  }
+  // Re-render with the log kept open so the count updates but the list stays put.
+  if (window._dispoPacketViewsDealId) _dispoRenderPacketViews(window._dispoPacketViewsDealId, true);
+};
+
+// ============================================================================
+// MAP SECTION (top-nav 🗺 Map) — a standalone Leaflet map showing ALL buyers'
+// past purchases (dots, colored by status) + ALL geocoded underwriting
+// properties (orange squares). Toggleable layers; click either for a popup.
+// Lazy-loaded; costs nothing until you open the tab. Reuses _dispoEnsureLeaflet.
+// ----------------------------------------------------------------------------
+// Ensure the marker-clustering plugin is loaded (keeps thousands of pins fast by
+// collapsing nearby ones into count bubbles). Falls through if it can't load.
+function _mapEnsureCluster(cb) {
+  if (window.L && window.L.markerClusterGroup) { cb(); return; }
+  ['https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css',
+   'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css'].forEach(function (h) {
+    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = h; document.head.appendChild(l);
+  });
+  var js = document.createElement('script');
+  js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js';
+  js.onload = cb; js.onerror = cb;   // proceed unclustered if it fails
+  document.head.appendChild(js);
+}
+window._mapSectionOpen = function () {
+  var el = document.getElementById('map-section-canvas');
+  if (!el || typeof _dispoEnsureLeaflet !== 'function') return;
+  if (typeof window._mapRenderChips === 'function') window._mapRenderChips();
+  if (typeof window._mapRenderSearchTypeChips === 'function') window._mapRenderSearchTypeChips();
+  _dispoEnsureLeaflet(function () {
+    _mapEnsureCluster(async function () {
+      try {
+        if (typeof loadBuyers === 'function' && !cache.buyers) await loadBuyers();
+        if (typeof loadBuyerPurchases === 'function' && !cache.buyerPurchases) await loadBuyerPurchases();
+        if (typeof loadUnderwrites === 'function' && (!cache.underwrites || !Object.keys(cache.underwrites || {}).length)) await loadUnderwrites();
+      } catch (e) { console.warn('map section load:', e && e.message || e); }
+      // Only auto-fit bounds on the very first build; afterward keep the user's
+      // pan/zoom so returning from a deal doesn't reset the map view.
+      var firstBuild = !window._mapSectionObj;
+      if (!window._mapSectionObj) {
+        el.innerHTML = ''; el.style.display = 'block';
+        window._mapSectionObj = L.map(el, { preferCanvas: true, scrollWheelZoom: true, zoomSnap: 0, zoomDelta: 1, wheelPxPerZoomLevel: 120 });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(window._mapSectionObj);
+        var _mk = function () { return L.markerClusterGroup ? L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 45, disableClusteringAtZoom: 12, spiderfyOnMaxZoom: true }) : L.layerGroup(); };
+        window._mapSectionBuyerLayer = _mk().addTo(window._mapSectionObj);
+        window._mapSectionPropLayer = _mk().addTo(window._mapSectionObj);
+        // When there are more buyer points than the cap, re-render on pan/zoom so
+        // the area now in view gets filled. No-op (and no re-render) when under cap.
+        window._mapSectionObj.on('moveend', function () {
+          if (!window._mapCapping) return;
+          clearTimeout(window._mapMoveT);
+          window._mapMoveT = setTimeout(function () { try { window._mapSectionRender(false); } catch (e) {} }, 250);
+        });
+        // Lock control (top-right) — freezes pan/zoom so you don't nudge the view.
+        try {
+          var LockCtl = L.Control.extend({
+            options: { position: 'topright' },
+            onAdd: function () {
+              var d = L.DomUtil.create('div', 'leaflet-bar');
+              d.innerHTML = '<button id="map-lock-btn" onclick="_mapToggleLock()" title="Lock map (disable pan/zoom)" style="width:34px;height:34px;border:none;background:#fff;color:#111827;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px">🔓</button>';
+              L.DomEvent.disableClickPropagation(d);
+              return d;
+            }
+          });
+          window._mapSectionObj.addControl(new LockCtl());
+        } catch (e) {}
+      }
+      setTimeout(function () { if (window._mapSectionObj) window._mapSectionObj.invalidateSize(); window._mapSectionRender(firstBuild); }, 60);
+    });
+  });
+};
+// Filter chips for the Map section. Empty group = show all of that group.
+window._mapChips = window._mapChips || { buyer: ['tagged', 'qualified'], prop: ['analyzed'], dispo: ['active'] };
+window._mapLayers = window._mapLayers || { buyer: true, prop: true };
+window._mapCounts = window._mapCounts || {};
+window._mapToggleLayer = function (g) {
+  window._mapLayers[g] = !(window._mapLayers[g] !== false);
+  window._mapRenderChips();
+  window._mapSectionRender(false);
+};
+window._mapRenderChips = function () {
+  var el = document.getElementById('map-chips'); if (!el) return;
+  var counts = window._mapCounts || {};
+  var groups = [
+    { g: 'buyer', layer: 'buyer', label: 'Buyers', color: '#10b981', shape: 'circle', months: true, opts: [['tagged', 'Tagged'], ['recent', 'Recent'], ['vetting', 'Vetting'], ['qualified', 'Qualified'], ['unqualified', 'Unqualified']] },
+    { g: 'prop', layer: 'prop', label: 'Properties', color: '#f97316', shape: 'square', opts: [['analyzed', 'Analyzed'], ['all', 'All'], ['hot', 'Hot'], ['contracted', 'Contracted'], ['finalized', 'Finalized']] },
+    { g: 'dispo', layer: 'prop', label: 'Dispositions', color: '#a855f7', shape: 'square', noToggle: true, opts: [['new', 'New'], ['assigning', 'Assigning'], ['hot', 'Hot'], ['assigned', 'Assigned'], ['dead', 'Dead'], ['active', 'Active']] }
+  ];
+  var mkShape = function (shape, color) {
+    return shape === 'square'
+      ? '<span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:' + color + ';border:2px solid #fff;box-shadow:0 1px 2px rgba(0,0,0,0.5);flex:0 0 auto"></span>'
+      : '<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:' + color + ';border:2px solid rgba(0,0,0,0.55);box-shadow:0 1px 2px rgba(0,0,0,0.5);flex:0 0 auto"></span>';
+  };
+  el.innerHTML = groups.map(function (grp) {
+    var layerOn = window._mapLayers[grp.layer] !== false;
+    var head;
+    if (grp.noToggle) {
+      // Dispositions filters the Properties layer. The pill toggles all dispo chips on/off;
+      // it reads as "on" whenever any dispo chip is selected.
+      var dispoOn = (window._mapChips[grp.g] || []).length > 0;
+      head = '<button type="button" onclick="_mapToggleDispoAll()" title="Toggle all Dispositions filters" style="display:inline-flex;align-items:center;gap:7px;padding:4px 13px;border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;border:1.5px solid ' + grp.color + ';background:' + (dispoOn ? grp.color + '26' : 'transparent') + ';color:' + (dispoOn ? grp.color : 'var(--text-dim)') + '">' + mkShape(grp.shape, grp.color) + grp.label + '</button>';
+    } else {
+      head = '<button type="button" onclick="_mapToggleLayer(\'' + grp.layer + '\')" title="Show/hide ' + grp.label + '" style="display:inline-flex;align-items:center;gap:7px;padding:4px 13px;border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;border:1.5px solid ' + grp.color + ';background:' + (layerOn ? grp.color + '26' : 'transparent') + ';color:' + (layerOn ? grp.color : 'var(--text-dim)') + '">' + mkShape(grp.shape, grp.color) + grp.label + '</button>';
+    }
+    var chipBtn = function (o) {
+      var on = (window._mapChips[grp.g] || []).indexOf(o[0]) >= 0;
+      return '<button type="button" onclick="_mapToggleChip(\'' + grp.g + '\',\'' + o[0] + '\')" style="padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;opacity:' + (layerOn ? '1' : '0.4') + ';border:1px solid ' + (on ? grp.color : 'var(--border)') + ';background:' + (on ? grp.color + '22' : 'transparent') + ';color:' + (on ? grp.color : 'var(--text-dim)') + '">' + o[1] + '</button>';
+    };
+    // Promoted chips: same colors as the bottom chips, but a squarer body + size.
+    var topChipBtn = function (o) {
+      var on = (window._mapChips[grp.g] || []).indexOf(o[0]) >= 0;
+      return '<button type="button" onclick="_mapToggleChip(\'' + grp.g + '\',\'' + o[0] + '\')" style="padding:3px 12px;border-radius:8px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;white-space:nowrap;opacity:' + (layerOn ? '1' : '0.4') + ';border:1.5px solid ' + (on ? grp.color : 'var(--border)') + ';background:' + (on ? grp.color + '22' : 'transparent') + ';color:' + (on ? grp.color : 'var(--text-dim)') + '">' + o[1] + '</button>';
+    };
+    // Certain chips are promoted to the TOP-RIGHT of the box; the rest go on the bottom row.
+    var topKeys = { buyer: ['tagged'], prop: ['analyzed'], dispo: ['active'] }[grp.g] || [];
+    var topExtra = grp.opts.filter(function (o) { return topKeys.indexOf(o[0]) >= 0; }).map(topChipBtn).join('');
+    var bottomOpts = grp.opts.filter(function (o) { return topKeys.indexOf(o[0]) < 0; });
+    var monthSel = '';
+    if (grp.months) {
+      // Buyers: recency dropdown sits on the bottom row, right next to Unqualified.
+      var mv = window._mapMonthFilter || '';
+      var mopt = function (v, lab) { return '<option value="' + v + '"' + (mv === v ? ' selected' : '') + ' style="background:#ffffff;color:#111827">' + lab + '</option>'; };
+      monthSel = '<select onchange="_mapSetMonthFilter(this.value)" title="Filter to buyers who purchased within this window" style="width:auto;max-width:110px;flex:0 0 auto;box-sizing:border-box;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ' + (mv ? grp.color : 'var(--border)') + ';background:' + (mv ? grp.color + '22' : 'transparent') + ';color:' + (mv ? grp.color : 'var(--text-dim)') + '">' + mopt('', 'Any time') + mopt('3', '≤ 3mo') + mopt('6', '≤ 6mo') + mopt('12', '≤ 12mo') + mopt('24', '≤ 24mo') + '</select>';
+      // Min-purchases dropdown, next to the timeframe one.
+      var pv = window._mapMinPurchases || '';
+      var popt = function (v, lab) { return '<option value="' + v + '"' + (pv === v ? ' selected' : '') + ' style="background:#ffffff;color:#111827">' + lab + '</option>'; };
+      monthSel += '<select onchange="_mapSetMinPurchases(this.value)" title="Only buyers with at least this many purchases" style="width:auto;max-width:120px;flex:0 0 auto;box-sizing:border-box;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ' + (pv ? grp.color : 'var(--border)') + ';background:' + (pv ? grp.color + '22' : 'transparent') + ';color:' + (pv ? grp.color : 'var(--text-dim)') + '">' + popt('', 'Any #') + popt('1', '1+ buys') + popt('3', '3+ buys') + popt('5', '5+ buys') + popt('25', '25+ buys') + popt('50', '50+ buys') + popt('100', '100+ buys') + '</select>';
+    }
+    var bottomChips = bottomOpts.map(chipBtn).join('') + monthSel;
+    // Boxed group: top row = pill (left) + promoted chips (right), bottom row = remaining options.
+    // Groups stay side-by-side (one row of boxes); no scrollbar.
+    return '<div style="display:flex;flex-direction:column;gap:6px;padding:6px 10px;border-radius:12px;border:1px solid ' + grp.color + '44;background:' + grp.color + '0d;flex:1 1 auto;min-width:0">'
+      + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + head + (topExtra ? '<div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + topExtra + '</div>' : '') + '</div>'
+      + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + bottomChips + '</div>'
+      + '</div>';
+  }).join('');
+};
+window._mapMonthFilter = (window._mapMonthFilter != null) ? window._mapMonthFilter : '12';
+window._mapMinPurchases = (window._mapMinPurchases != null) ? window._mapMinPurchases : '3';
+window._mapSetMinPurchases = function (v) {
+  window._mapMinPurchases = v || '';
+  window._mapRenderChips();
+  window._mapSectionRender(false);
+};
+// ----- Map search: address or buyer/seller name -----
+// Lists matching properties + buyer cards below the map, drops highlight pins on
+// every match (regardless of chip filters), and lets you click a result to fly to it.
+// Lock/unlock all pan+zoom interaction on the standalone map.
+window._mapSectionLocked = window._mapSectionLocked || false;
+window._mapToggleLock = function () {
+  var m = window._mapSectionObj; if (!m) return;
+  window._mapSectionLocked = !window._mapSectionLocked;
+  var on = window._mapSectionLocked;
+  ['dragging', 'scrollWheelZoom', 'doubleClickZoom', 'boxZoom', 'keyboard', 'touchZoom'].forEach(function (k) {
+    try { if (m[k]) { on ? m[k].disable() : m[k].enable(); } } catch (e) {}
+  });
+  try { if (m.zoomControl && m.zoomControl._container) m.zoomControl._container.style.opacity = on ? '0.4' : '1'; } catch (e) {}
+  var btn = document.getElementById('map-lock-btn');
+  if (btn) {
+    btn.innerHTML = on ? '🔒' : '🔓';
+    btn.title = on ? 'Map locked — click to unlock' : 'Lock map (disable pan/zoom)';
+    btn.style.background = on ? '#ef4444' : '#fff';
+  }
+};
+window._mapSearchType = window._mapSearchType || 'all'; // 'all' | 'property' | 'buyer'
+window._mapSearchHits = [];
+window._mapSectionSearchClear = function () {
+  try { if (window._mapSearchLayer && window._mapSectionObj) window._mapSectionObj.removeLayer(window._mapSearchLayer); } catch (e) {}
+  window._mapSearchLayer = null;
+  window._mapSearchHits = [];
+  var r = document.getElementById('map-search-result'); if (r) r.textContent = '';
+  var list = document.getElementById('map-search-results'); if (list) list.innerHTML = '';
+  var inp = document.getElementById('map-search-input'); if (inp) inp.value = '';
+  window._mapRenderSearchTypeChips();
+};
+window._mapSetSearchType = function (t) { window._mapSearchType = t || 'all'; window._mapRenderSearchTypeChips(); window._mapSectionSearch(); };
+window._mapRenderSearchTypeChips = function () {
+  var el = document.getElementById('map-search-type'); if (!el) return;
+  var cur = window._mapSearchType || 'all';
+  var opts = [['all', 'All'], ['property', '■ Property'], ['buyer', '● Buyer']];
+  el.innerHTML = opts.map(function (o) {
+    var on = cur === o[0];
+    var col = o[0] === 'property' ? '#f97316' : o[0] === 'buyer' ? '#7c3aed' : '#6366f1';
+    return '<button type="button" onclick="_mapSetSearchType(\'' + o[0] + '\')" style="height:32px;padding:0 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;border:1px solid ' + (on ? col : 'var(--border)') + ';background:' + (on ? col + '22' : 'transparent') + ';color:' + (on ? col : 'var(--text-dim)') + '">' + o[1] + '</button>';
+  }).join('');
+};
+window._mapSearchFocus = function (i) {
+  var h = (window._mapSearchHits || [])[i]; if (!h || !window._mapSectionObj) return;
+  try { window._mapSectionObj.setView([h.la, h.lo], 16, { animate: true }); } catch (e) {}
+  if (h._marker) { try { h._marker.openPopup(); } catch (e) {} }
+};
+window._mapSectionSearch = function () {
+  var inp = document.getElementById('map-search-input');
+  var res = document.getElementById('map-search-result');
+  var list = document.getElementById('map-search-results');
+  window._mapRenderSearchTypeChips();
+  var q = (inp && inp.value || '').trim().toLowerCase();
+  if (!window._mapSectionObj) return;
+  try { if (window._mapSearchLayer) window._mapSectionObj.removeLayer(window._mapSearchLayer); } catch (e) {}
+  window._mapSearchLayer = null; window._mapSearchHits = [];
+  if (list) list.innerHTML = '';
+  var esc = window.escapeHtml || function (s) { return String(s == null ? '' : s); };
+  var type = window._mapSearchType || 'all';
+  var hits = [], CAP = 400;
+  var _DAYms = 24 * 60 * 60 * 1000;
+  // Search-bar timeframe + min-purchases dropdowns (buyer results only).
+  var _smEl = document.getElementById('map-search-months');
+  var _sbEl = document.getElementById('map-search-buys');
+  var _critMonths = (_smEl && _smEl.value) ? parseInt(_smEl.value, 10) : 0;
+  var _critMinBuys = (_sbEl && _sbEl.value) ? parseInt(_sbEl.value, 10) : 0;
+  // "Leads Sold" dropdown: underwriting leads whose location matches a buyer
+  // purchase (shared geocode) with a sale in the window.
+  var _soEl = document.getElementById('map-search-sold');
+  var _soldMonths = (_soEl && _soEl.value) ? parseInt(_soEl.value, 10) : 0;
+  // Empty query is allowed only when Leads-Sold mode is on (it lists them all).
+  if (!q && !_soldMonths) { if (res) res.textContent = ''; return; }
+  // Build a geocode index of buyer purchases (rounded to ~11m) → most recent sale.
+  var _soldIndex = null, _soldCutoff = 0, _keyOf = function (la, lo) { return Math.round(la * 1e4) + '|' + Math.round(lo * 1e4); };
+  if (_soldMonths) {
+    _soldCutoff = Date.now() - _soldMonths * 30.44 * _DAYms;
+    _soldIndex = {};
+    Object.values(cache.buyers || {}).forEach(function (b) {
+      var pr = (typeof getBuyerPurchases === 'function') ? getBuyerPurchases(b.id) : [];
+      pr.forEach(function (p) {
+        if (!p || p.lat == null || p.lng == null) return;
+        var la = Number(p.lat), lo = Number(p.lng); if (!isFinite(la) || !isFinite(lo)) return;
+        var ts = p.sale_date ? new Date(p.sale_date).getTime() : 0; if (!ts) return;
+        var k = _keyOf(la, lo), cur = _soldIndex[k];
+        if (!cur || ts > cur.ts) _soldIndex[k] = { ts: ts, date: String(p.sale_date).slice(0, 10), buyer: (b.company || b.name || ''), amt: Number(p.sale_amount) || 0, buyerId: b.id };
+      });
+    });
+  }
+  // Buyers + their purchases (text-driven — needs a query).
+  if (q && (type === 'all' || type === 'buyer')) {
+    Object.values(cache.buyers || {}).forEach(function (b) {
+      if (!b || !b.id || hits.length >= CAP) return;
+      var nameHit = ((b.company || '') + ' ' + (b.name || '')).toLowerCase().indexOf(q) >= 0;
+      var purchases = (typeof getBuyerPurchases === 'function') ? getBuyerPurchases(b.id) : [];
+      // Criteria gate: enough purchases, and a recent-enough most-recent purchase.
+      if (_critMinBuys && purchases.length < _critMinBuys) return;
+      if (_critMonths) {
+        var _mx = 0;
+        purchases.forEach(function (pp) { var t = pp && pp.sale_date ? new Date(pp.sale_date).getTime() : 0; if (t > _mx) _mx = t; });
+        if (!(_mx > 0 && _mx >= Date.now() - _critMonths * 30.44 * _DAYms)) return;
+      }
+      purchases.forEach(function (p) {
+        if (!p || p.lat == null || p.lng == null || hits.length >= CAP) return;
+        var la = Number(p.lat), lo = Number(p.lng); if (!isFinite(la) || !isFinite(lo)) return;
+        var addr = [p.address, p.city, p.state, p.zip].filter(Boolean).join(', ');
+        if (!(nameHit || addr.toLowerCase().indexOf(q) >= 0)) return;
+        var amt = Number(p.sale_amount) || 0;
+        var pdate = (p.sale_date || p.recording_date || '') ? String(p.sale_date || p.recording_date).slice(0, 10) : '';
+        var plender = String(p.lender_name || '').trim();
+        hits.push({ kind: 'buyer', la: la, lo: lo, color: '#7c3aed', b: b, addr: addr, amt: amt, date: pdate, lender: plender });
+      });
+    });
+  }
+  // Underwriting properties (address, city, or seller/contact name).
+  // Leads-Sold mode forces the property section on (it's a property-only view).
+  if (type === 'all' || type === 'property' || _soldMonths) {
+    Object.values(cache.underwrites || {}).forEach(function (u) {
+      if (!u || u.deleted_at || hits.length >= CAP) return;
+      var addr = u.address || (u.data && u.data['uw-address']) || '';
+      var seller = (u.data && (u.data['uw-contact-name'] || u.data['uw-owner-name'] || u.data['uw-seller-name'])) || u.contact_name || '';
+      var loc = [u.city, u.state, u.zip].filter(Boolean).join(', ');
+      var hay = (addr + ' ' + loc + ' ' + seller).toLowerCase();
+      if (q && hay.indexOf(q) < 0) return;
+      var dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
+      var la = Number((dc && dc.lat != null) ? dc.lat : u.uw_lat);
+      var lo = Number((dc && dc.lng != null) ? dc.lng : u.uw_lng);
+      if (!isFinite(la) || !isFinite(lo)) return;
+      // Leads-Sold gate: require a buyer purchase at this location within the window.
+      var soldInfo = null;
+      if (_soldMonths) {
+        var kla = Math.round(la * 1e4), klo = Math.round(lo * 1e4);
+        for (var dx = -1; dx <= 1 && !soldInfo; dx++) for (var dy = -1; dy <= 1; dy++) {
+          var cand = _soldIndex[(kla + dx) + '|' + (klo + dy)];
+          if (cand && cand.ts >= _soldCutoff) { soldInfo = cand; break; }
+        }
+        if (!soldInfo) return;
+      }
+      hits.push({ kind: 'prop', la: la, lo: lo, color: soldInfo ? '#ef4444' : '#f97316', u: u, addr: addr, loc: loc, seller: seller, sold: soldInfo });
+    });
+  }
+  window._mapSearchHits = hits;
+  if (!hits.length) { if (res) res.textContent = 'No matches'; if (list) list.innerHTML = '<div style="font-size:12px;color:var(--text-dim);padding:6px 2px">No matches.</div>'; return; }
+  // Pins on the map.
+  window._mapSearchLayer = L.layerGroup();
+  var bounds = [];
+  hits.forEach(function (h) {
+    bounds.push([h.la, h.lo]);
+    var html = '<div style="width:22px;height:22px;border-radius:50%;background:' + h.color + ';border:3px solid #fff;box-shadow:0 0 0 2px ' + h.color + ',0 2px 5px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900">★</div>';
+    var mk = L.marker([h.la, h.lo], { icon: L.divIcon({ className: 'map-search-hit', html: html, iconSize: [22, 22], iconAnchor: [11, 11] }), zIndexOffset: 1000 });
+    var ttl = h.kind === 'buyer' ? (h.b.company || h.b.name || 'Buyer') : ('🏠 ' + (h.addr || '(property)'));
+    var sub = h.kind === 'buyer' ? h.addr : (h.loc + (h.seller ? ' · ' + h.seller : ''));
+    mk.bindPopup('<div style="font-size:12px;min-width:150px"><b>' + esc(ttl) + '</b>' + (sub ? '<br>' + esc(sub) : '') + '</div>');
+    h._marker = mk;
+    window._mapSearchLayer.addLayer(mk);
+  });
+  window._mapSearchLayer.addTo(window._mapSectionObj);
+  try { window._mapSectionObj.fitBounds(bounds, { padding: [40, 40], maxZoom: hits.length === 1 ? 16 : 14 }); } catch (e) {}
+  if (res) res.textContent = hits.length >= CAP ? (CAP + '+ matches') : (hits.length + (hits.length === 1 ? ' match' : ' matches'));
+  // Result cards below.
+  if (list) {
+    var LIST_CAP = 150;
+    var fmt$ = function (n) { return n > 0 ? '$' + Math.round(n).toLocaleString() : ''; };
+    var _MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    var _fmtDate = function (d) {
+      if (!d) return '';
+      var pr = String(d).slice(0, 10).split('-');
+      if (pr.length !== 3) return d;
+      var mo = _MONTHS[parseInt(pr[1], 10) - 1];
+      return mo ? (mo + ' ' + parseInt(pr[2], 10) + ', ' + pr[0]) : d;
+    };
+    list.innerHTML = hits.slice(0, LIST_CAP).map(function (h, i) {
+      var q2 = encodeURIComponent(h.addr || '');
+      var zUrl = 'https://www.zillow.com/homes/' + q2 + '_rb/';
+      var gUrl = 'https://www.google.com/maps/search/?api=1&query=' + q2;
+      var zg = h.addr ? window._mapZGBtns(zUrl, gUrl, true) : '';
+      var card = 'border:1px solid ' + h.color + '55;border-left:4px solid ' + h.color + ';border-radius:10px;padding:8px 12px;background:var(--panel-2);cursor:pointer';
+      // Easier-to-read Open button on the dark cards.
+      var openBtn = 'height:30px;padding:0 12px;font-size:12px;font-weight:700;border-radius:7px;cursor:pointer;border:1px solid #818cf8;background:#4f46e5;color:#fff;display:inline-flex;align-items:center;white-space:nowrap';
+      if (h.kind === 'buyer') {
+        var nm = (h.b.company && h.b.name) ? (esc(h.b.company) + '<span style="color:#fff"> : </span><span style="color:#b45309;font-weight:800">' + esc(h.b.name) + '</span>') : esc(h.b.company || h.b.name || '(buyer)');
+        var meta = [];
+        if (h.date) meta.push('<span style="color:#eab308;font-weight:700">' + _fmtDate(h.date) + '</span>');
+        if (h.amt > 0) meta.push('<b style="color:var(--text)">' + fmt$(h.amt) + '</b>');
+        if (h.lender) meta.push('🏦 ' + esc(h.lender));
+        return '<div style="' + card + '" onclick="_mapSearchFocus(' + i + ')"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div style="font-size:13px;font-weight:700">● ' + nm + '</div><div style="display:flex;gap:6px;align-items:center" onclick="event.stopPropagation()"><button onclick="buyerOpenAddModal(\'' + esc(h.b.id) + '\')" style="' + openBtn + '">👤 Open buyer</button>' + zg + '</div></div><div style="font-size:12px;color:var(--text-dim);margin-top:3px">' + esc(h.addr || '(no address)') + '</div>' + (meta.length ? '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">' + meta.join(' · ') + '</div>' : '') + '</div>';
+      } else {
+        var soldLine = h.sold ? '<div style="font-size:12px;margin-top:2px"><span style="color:#ef4444;font-weight:800">💰 SOLD</span> <span style="color:#eab308;font-weight:700">' + esc(_fmtDate(h.sold.date)) + '</span>' + (h.sold.amt > 0 ? ' · <b style="color:var(--text)">' + fmt$(h.sold.amt) + '</b>' : '') + (h.sold.buyer ? ' · <span style="color:var(--text-dim)">to ' + esc(h.sold.buyer) + '</span>' : '') + '</div>' : '';
+        var soldBuyerBtn = (h.sold && h.sold.buyerId) ? '<button onclick="buyerOpenAddModal(\'' + esc(h.sold.buyerId) + '\')" style="' + openBtn + '">👤 Open buyer</button>' : '';
+        return '<div style="' + card + '" onclick="_mapSearchFocus(' + i + ')"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div style="font-size:13px;font-weight:700">🏠 ' + esc(h.addr || '(property)') + '</div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap" onclick="event.stopPropagation()"><button onclick="_mapSectionOpenDeal(\'' + esc(h.u.id) + '\')" style="' + openBtn + '">Open in Underwriting</button>' + soldBuyerBtn + zg + '</div></div><div style="font-size:12px;color:var(--text-dim);margin-top:3px">' + esc(h.loc || '') + (h.seller ? ' · ' + esc(h.seller) : '') + '</div>' + soldLine + '</div>';
+      }
+    }).join('') + (hits.length > LIST_CAP ? '<div style="font-size:11px;color:var(--text-dim);padding:4px 2px">Showing first ' + LIST_CAP + ' of ' + hits.length + '. Refine your search to narrow it down.</div>' : '');
+  }
+};
+window._mapToggleDispoAll = function () {
+  var cur = window._mapChips.dispo || [];
+  // Any selected -> clear all; none selected -> select all dispo stages.
+  window._mapChips.dispo = cur.length ? [] : ['new', 'assigning', 'hot', 'assigned', 'dead', 'active'];
+  window._mapRenderChips();
+  window._mapSectionRender(false);
+};
+// Zillow (blue Z) + Google (multicolor G logo) address-search buttons for popups.
+// big=true → larger, matched-size buttons for the search result cards.
+window._mapZGBtns = function (zUrl, gUrl, big) {
+  var base = big
+    ? 'width:34px;height:30px;border-radius:7px;cursor:pointer;background:#fff;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex:0 0 auto'
+    : 'padding:2px 8px;border-radius:5px;cursor:pointer;background:#fff;display:inline-flex;align-items:center;justify-content:center;line-height:1;height:22px';
+  var gDim = big ? '16' : '13';
+  var gSvg = '<svg width="' + gDim + '" height="' + gDim + '" viewBox="0 0 48 48" style="display:block">'
+    + '<path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>'
+    + '<path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>'
+    + '<path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>'
+    + '<path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+  return '<button onclick="window.open(\'' + zUrl + '\',\'_blank\')" title="Search this address on Zillow" style="' + base + ';border:1px solid #006aff;color:#006aff;font-size:13px;font-weight:800">Z</button>'
+    + '<button onclick="window.open(\'' + gUrl + '\',\'_blank\')" title="Search this address on Google" style="' + base + ';border:1px solid #dadce0">' + gSvg + '</button>';
+};
+window._mapSetMonthFilter = function (v) {
+  window._mapMonthFilter = v || '';
+  window._mapRenderChips();
+  window._mapSectionRender(false);
+};
+window._mapToggleChip = function (g, k) {
+  window._mapChips[g] = window._mapChips[g] || [];
+  var i = window._mapChips[g].indexOf(k);
+  if (i >= 0) window._mapChips[g].splice(i, 1); else window._mapChips[g].push(k);
+  // Hot needs the underwrite list computed at least once to populate _uwHotIds.
+  if (g === 'prop' && k === 'hot' && window._mapChips.prop.indexOf('hot') >= 0 && (!window._uwHotIds || !window._uwHotIds.length) && typeof renderUnderwriteList === 'function') { try { renderUnderwriteList(); } catch (e) {} }
+  window._mapRenderChips();
+  window._mapSectionRender(false);
+};
+// Which property chip categories a deal belongs to.
+window._mapPropCats = function (u) {
+  var data = u.data || {};
+  var offer = (data['uw-offer-status'] || '').trim();
+  var packet = (u.packet_status || '').trim();
+  var cats = [];
+  if (offer === 'Closed' || offer === 'Dropped' || packet === 'Closed') cats.push('finalized');
+  if (offer === 'Contracted' || packet === 'Contracted') cats.push('contracted');
+  var flag = function (kk) { return data[kk] === true; };
+  var analyzing = (typeof _uwIsAnalyzing === 'function') ? _uwIsAnalyzing(u) : (packet === '' || packet === 'Evaluating');
+  if (!flag('_needsHelp') && !flag('_isPriority') && !flag('_inChecking') && !analyzing && packet !== 'Closed') cats.push('analyzed');
+  if ((window._uwHotIds || []).indexOf(u.id) >= 0) cats.push('hot');
+  return cats;
+};
+// Dispositions categories for a property: contract stage + Active (live for offers).
+window._mapDispoCats = function (u) {
+  var cats = [];
+  if (u.dispo_contract || (u.data && u.data._dispoContract)) {
+    var stage = (typeof _dispoDealInfoFromRow === 'function') ? (_dispoDealInfoFromRow(u).stage || '') : String(u.dispo_contract || '');
+    if (stage) cats.push(stage);   // 'new' / 'assigning' / 'hot' / 'assigned' / 'dead'
+  }
+  if (u.offer_active || (u.data && u.data._offerActive)) cats.push('active');
+  return cats;
+};
+window._mapSectionRender = function (fit) {
+  if (!window._mapSectionObj || !window._mapSectionBuyerLayer) return;
+  window._mapRenderChips();
+  var _bChips = window._mapChips.buyer || [];
+  var _pChips = window._mapChips.prop || [];
+  var _dChips = window._mapChips.dispo || [];
+  var _recentCut = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  var esc = window.escapeHtml || function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); };
+  var fmt$ = function (v) { var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) && n > 0 ? '$' + Math.round(n).toLocaleString() : ''; };
+  var showBuyers = window._mapLayers.buyer !== false;
+  var showProps = window._mapLayers.prop !== false;
+  window._mapSectionBuyerLayer.clearLayers();
+  window._mapSectionPropLayer.clearLayers();
+  var bounds = [], buyerPins = 0, propPins = 0, CAP = 20000;
+  // When we have to cap, prefer plotting whatever's inside the current view so
+  // zooming into an area fills that area first. Only matters if candidates > CAP.
+  var _viewBounds = null;
+  try { if (window._mapSectionObj && typeof window._mapSectionObj.getBounds === 'function') _viewBounds = window._mapSectionObj.getBounds(); } catch (e) {}
+  // A buyer is "tagged" on this global map if they're tagged under an ACTIVE property.
+  // (Tags on closed/dead deals are ignored so the popup list stays short + relevant.)
+  // Map buyer id -> [active property labels] so the popup can name which.
+  var taggedByBuyer = {};
+  Object.values(cache.underwrites || {}).forEach(function (u) {
+    if (!u || !u.data || !Array.isArray(u.data._taggedBuyers)) return;
+    if (!(u.offer_active || (u.data && u.data._offerActive))) return; // active deals only
+    var _lab = u.address || (u.data && u.data['uw-address']) || '(property)';
+    u.data._taggedBuyers.forEach(function (bid) { (taggedByBuyer[bid] = taggedByBuyer[bid] || []).push(_lab); });
+  });
+  // ----- Buyer purchases (dots — same look as the per-deal map) -----
+  var _buyerCand = [];
+  if (showBuyers) {
+    Object.values(cache.buyers || {}).forEach(function (b) {
+      if (!b || !b.id) return;
+      var q = (typeof buyerQualState === 'function') ? buyerQualState(b) : 'unknown';
+      var _taggedProps = taggedByBuyer[b.id] || [];
+      var isTagged = _taggedProps.length > 0;
+      var purchases = (typeof getBuyerPurchases === 'function') ? getBuyerPurchases(b.id) : [];
+      // Most-recent purchase timestamp (for the 3/6/12/24-month recency chips).
+      var _maxPurTs = 0;
+      purchases.forEach(function (p) { var t = p && p.sale_date ? new Date(p.sale_date).getTime() : 0; if (t && t > _maxPurTs) _maxPurTs = t; });
+      var _DAY = 24 * 60 * 60 * 1000;
+      var _within = function (mo) { return _maxPurTs > 0 && _maxPurTs >= Date.now() - mo * 30.44 * _DAY; };
+      if (_bChips.length) {
+        var _isRecent = b.created_at && (new Date(b.created_at).getTime() >= _recentCut);
+        if (!_bChips.some(function (c) {
+          return c === 'recent' ? _isRecent
+            : c === 'tagged' ? isTagged
+            : (q === c);
+        })) return;
+      }
+      // Recency dropdown (AND filter): only buyers who purchased within the window.
+      if (window._mapMonthFilter) { if (!_within(parseInt(window._mapMonthFilter, 10))) return; }
+      // Min-purchases dropdown (AND filter): only buyers with at least N purchases.
+      if (window._mapMinPurchases) { if (purchases.length < parseInt(window._mapMinPurchases, 10)) return; }
+      // Match the per-deal map: untagged = grey; tagged colored by status; a ✓/✗/🔍/? symbol on top.
+      var color = !isTagged ? '#6b7280' : (q === 'qualified' ? '#10b981' : q === 'vetting' ? '#3b82f6' : '#eab308');
+      var dotBorder = !isTagged ? 'rgba(0,0,0,0.5)' : (q === 'qualified' ? '#065f46' : q === 'vetting' ? '#1e3a8a' : '#854d0e');
+      var sym = q === 'qualified' ? '✓' : q === 'unqualified' ? '✗' : q === 'vetting' ? '🔍' : '?';
+      purchases.forEach(function (p) {
+        if (!p || p.lat == null || p.lng == null) return;
+        var la = Number(p.lat), lo = Number(p.lng); if (!isFinite(la) || !isFinite(lo)) return;
+        _buyerCand.push({ la: la, lo: lo, b: b, p: p, color: color, dotBorder: dotBorder, sym: sym, isTagged: isTagged, taggedProps: _taggedProps });
+      });
+    });
+    // Prefer in-view points when we're over the cap, so the area you're looking
+    // at always loads first. (No effect when total ≤ CAP.)
+    window._mapCapping = _buyerCand.length > CAP;
+    if (window._mapCapping && _viewBounds) {
+      _buyerCand.sort(function (a, b) { return (_viewBounds.contains([b.la, b.lo]) ? 1 : 0) - (_viewBounds.contains([a.la, a.lo]) ? 1 : 0); });
+    }
+    var _lim = Math.min(_buyerCand.length, CAP);
+    for (var _ci = 0; _ci < _lim; _ci++) {
+      var c = _buyerCand[_ci], b = c.b, p = c.p;
+      buyerPins++; bounds.push([c.la, c.lo]);
+      var amt = Number(p.sale_amount) || 0;
+      var addr = [p.address, p.city, p.state, p.zip].filter(Boolean).join(', ');
+      var _bq = encodeURIComponent(addr);
+      var _bzUrl = 'https://www.zillow.com/homes/' + _bq + '_rb/';
+      var _bgUrl = 'https://www.google.com/maps/search/?api=1&query=' + _bq;
+      var iconHtml = '<div style="width:18px;height:18px;border-radius:50%;background:' + c.color + ';border:2px solid ' + c.dotBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;font-weight:900;color:#fff;text-shadow:-1px -1px 0 rgba(0,0,0,0.75),1px -1px 0 rgba(0,0,0,0.75),-1px 1px 0 rgba(0,0,0,0.75),1px 1px 0 rgba(0,0,0,0.75)">' + c.sym + '</div>';
+      var m = L.marker([c.la, c.lo], { icon: L.divIcon({ className: 'map-buyer-pin', html: iconHtml, iconSize: [18, 18], iconAnchor: [9, 9] }) });
+      var _zgBtns = (addr ? '<span style="margin-left:auto;display:inline-flex;gap:5px">' + window._mapZGBtns(_bzUrl, _bgUrl) + '</span>' : '');
+      m.bindPopup('<div style="font-size:12px;min-width:150px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + ((b.company && b.name) ? '<br><span style="color:#b45309;font-weight:700">' + esc(b.name) + '</span>' : '') + (c.isTagged ? '<br><span style="color:#10b981;font-weight:700">🏷 Tagged under: ' + esc(c.taggedProps.join(', ')) + '</span>' : '') + '<br>' + esc(addr || '(no address)') + '<br><b>' + (amt > 0 ? '$' + Math.round(amt).toLocaleString() : 'non-market ($0)') + '</b><br><div style="display:flex;align-items:center;gap:5px;margin-top:6px"><button onclick="buyerOpenAddModal(\'' + esc(b.id) + '\')" style="padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">👤 Open buyer</button>' + _zgBtns + '</div></div>');
+      window._mapSectionBuyerLayer.addLayer(m);
+    }
+  } else { window._mapCapping = false; }
+  // ----- Underwriting properties (colored squares) -----
+  {
+    Object.values(cache.underwrites || {}).forEach(function (u) {
+      if (!u || u.deleted_at) return;
+      var _pcats = window._mapPropCats(u);
+      var _dcats = window._mapDispoCats(u);
+      var pMatch = _pChips.indexOf('all') >= 0 || _pChips.some(function (c) { return _pcats.indexOf(c) >= 0; });
+      var dMatch = _dChips.some(function (c) { return _dcats.indexOf(c) >= 0; });
+      // When the Properties layer is ON: show all (no chips) or anything matching a
+      // selected prop/dispo chip. When it's OFF: keep only dispo-selected properties up.
+      var _showThis = showProps
+        ? ((_pChips.length || _dChips.length) ? (pMatch || dMatch) : true)
+        : dMatch;
+      if (!_showThis) return;
+      var dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
+      var la = (dc && dc.lat != null) ? Number(dc.lat) : (u.uw_lat != null ? Number(u.uw_lat) : NaN);
+      var lo = (dc && dc.lng != null) ? Number(dc.lng) : (u.uw_lng != null ? Number(u.uw_lng) : NaN);
+      if (!isFinite(la) || !isFinite(lo)) return;
+      propPins++; bounds.push([la, lo]);
+      var addr = u.address || (u.data && u.data['uw-address']) || '(no address)';
+      var loc = [u.city, u.state, u.zip].filter(Boolean).join(', ');
+      // Zillow / Google search links for this address (open in a new tab).
+      var _fullAddr = [addr, loc].filter(Boolean).join(', ');
+      var _q = encodeURIComponent(_fullAddr);
+      var _gUrl = 'https://www.google.com/maps/search/?api=1&query=' + _q;
+      var _zUrl = 'https://www.zillow.com/homes/' + _q + '_rb/';
+      var arv = fmt$(u.data && (u.data['uw-arv-override'] || u.data['uw-arv']));
+      // Show Asking or Accepted price — whichever is LOWER — on its own line above ARV.
+      var _num = function (v) { var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) && n > 0 ? n : null; };
+      var _askN = _num((u.data && u.data['uw-asking']) || u.asking);
+      var _accN = _num(u.data && u.data['uw-accepted']);
+      var _priceCands = [];
+      if (_askN != null) _priceCands.push(['Asking', _askN]);
+      if (_accN != null) _priceCands.push(['Accepted', _accN]);
+      _priceCands.sort(function (a, b) { return a[1] - b[1]; });
+      var _priceLine = _priceCands.length ? 'Price: $' + Math.round(_priceCands[0][1]).toLocaleString() : '';
+      // If the property is in Dispositions, show a dispo-stage icon (separate
+      // from the underwriting icon). Otherwise show the underwriting icon:
+      // Finalized: Closed 🏁 vs Dropped 💀 > Contracted 📝 > Hot 🔥 > Analyzed ✓ > else 📋.
+      var _dstage = _dcats.filter(function (c) { return c !== 'active'; })[0];
+      var _isActive = _dcats.indexOf('active') >= 0;
+      var _offerStat = (u.data && u.data['uw-offer-status'] || '').trim();
+      var _isDropped = _offerStat === 'Dropped';
+      var _finIcon = _isDropped ? '💀' : '🏁';
+      var _picon = _dstage
+        ? (_dstage === 'new' ? '📄' : _dstage === 'assigning' ? '🔁' : _dstage === 'hot' ? '🔥' : _dstage === 'assigned' ? '🤝' : _dstage === 'dead' ? '💀' : '📄')
+        : (_pcats.indexOf('finalized') >= 0 ? _finIcon : _pcats.indexOf('contracted') >= 0 ? '📝' : _pcats.indexOf('hot') >= 0 ? '🔥' : _pcats.indexOf('analyzed') >= 0 ? '✓' : '?');
+      // Box color by category: skull (dead/dropped) = red; not-yet-analyzed (?) = grey;
+      // in-dispositions or contracted = purple; finalized (closed) = green; analyzed/other = orange.
+      var _isSkull = (_picon === '💀');
+      var _isUnknown = (_picon === '?');
+      var _sqColor = _isSkull ? '#ef4444'
+        : _isUnknown ? '#6b7280'
+        : (_dstage || _pcats.indexOf('contracted') >= 0) ? '#a855f7'
+        : (_pcats.indexOf('finalized') >= 0) ? '#16a34a'
+        : '#f97316';
+      var sq = '<div style="width:18px;height:18px;border-radius:3px;background:' + _sqColor + ';border:2px solid #fff;box-shadow:0 1px 2px rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-size:10px;line-height:1;color:#fff;font-weight:900;text-shadow:0 1px 1px rgba(0,0,0,0.4)">' + _picon + '</div>';
+      var mk = L.marker([la, lo], { icon: L.divIcon({ className: 'map-prop-sq', html: sq, iconSize: [18, 18], iconAnchor: [9, 9] }) });
+      var _dispoLine = (_dstage ? '<br><span style="color:#a855f7;font-weight:700">📄 ' + _dstage.charAt(0).toUpperCase() + _dstage.slice(1) + ' Contract</span>' : '') + (_isActive ? (_dstage ? ' ' : '<br>') + '<span style="color:#16a34a;font-weight:700">🟢 Active</span>' : '');
+      var _finLine = (!_dstage && _pcats.indexOf('finalized') >= 0) ? '<br><span style="color:' + (_isDropped ? '#ef4444' : '#10b981') + ';font-weight:700">' + _finIcon + ' ' + (_isDropped ? 'Dropped' : 'Closed') + '</span>' : '';
+      mk.bindPopup('<div style="font-size:12px;min-width:170px"><b>🏠 ' + esc(addr) + '</b>' + (loc ? '<br>' + esc(loc) : '') + _dispoLine + _finLine + (_priceLine ? '<br><b>' + _priceLine + '</b>' : '') + (arv ? '<br>ARV: ' + arv : '') + '<br><div style="display:flex;align-items:center;gap:5px;margin-top:6px"><button onclick="_mapSectionOpenDeal(\'' + esc(u.id) + '\')" style="padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">Open in Underwriting</button><span style="margin-left:auto;display:inline-flex;gap:5px">' + window._mapZGBtns(_zUrl, _gUrl) + '</span></div></div>');
+      window._mapSectionPropLayer.addLayer(mk);
+    });
+  }
+  window._mapCounts = { buyer: buyerPins, prop: propPins };
+  window._mapRenderChips();
+  // Totals mapped (geocoded), independent of the current filters.
+  var _totProps = 0;
+  Object.values(cache.underwrites || {}).forEach(function (u) {
+    if (!u || u.deleted_at) return;
+    var dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
+    var la = (dc && dc.lat != null) ? dc.lat : u.uw_lat;
+    if (la != null && isFinite(Number(la))) _totProps++;
+  });
+  var _totPurch = 0;
+  Object.keys(cache.buyerPurchases || {}).forEach(function (k) {
+    (cache.buyerPurchases[k] || []).forEach(function (p) { if (p && p.lat != null && isFinite(Number(p.lat))) _totPurch++; });
+  });
+  var _st = document.getElementById('map-mapped-stats');
+  if (_st) _st.innerHTML = '📍 <b>' + propPins.toLocaleString() + '</b> / ' + _totProps.toLocaleString() + ' properties mapped &nbsp;·&nbsp; <b>' + buyerPins.toLocaleString() + '</b> / ' + _totPurch.toLocaleString() + ' buyer purchases mapped';
+  if (fit && bounds.length) { try { window._mapSectionObj.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 }); } catch (e) {} }
+};
+window._mapSectionOpenDeal = function (id) {
+  if (typeof goSection === 'function') goSection('underwriting');
+  if (typeof uwLoadById === 'function') uwLoadById(id);
+};
+window._mapSectionRefresh = async function (btn) {
+  var prev = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Refreshing…'; }
+  try {
+    cache.buyers = null; if (typeof loadBuyers === 'function') await loadBuyers();
+    cache.buyerPurchases = null; if (typeof loadBuyerPurchases === 'function') await loadBuyerPurchases();
+    cache.underwrites = null; if (typeof loadUnderwrites === 'function') await loadUnderwrites();
+  } catch (e) { console.warn('map refresh:', e && e.message || e); }
+  window._mapSectionRender(true);
+  if (btn) { btn.disabled = false; btn.textContent = prev || '🔁 Refresh'; }
 };
 
 // Tagged buyer IDs live on the deal's JSONB as data._taggedBuyers (an array).
@@ -31527,8 +32496,28 @@ async function _contactsSectionOpen(){
   renderContactBook();      // paint from cache immediately
   await loadContacts();
   renderContactBook();
+  // Fill in lead-derived contacts WITHOUT needing the Underwriting tab first.
+  // Runs in the background (never blocks the page) and is throttled so it isn't
+  // redone on every open. It loads deals if they aren't in memory yet, then
+  // runs the same lead→contact sync — which re-renders itself if it adds any.
+  _contactsBackgroundSync();
 }
 window._contactsSectionOpen = _contactsSectionOpen;
+function _contactsBackgroundSync(){
+  var COOLDOWN = 3 * 60 * 1000;  // don't re-scan more than once per 3 minutes
+  var now = Date.now();
+  if (_contactsBackgroundSync._last && (now - _contactsBackgroundSync._last) < COOLDOWN) return;
+  _contactsBackgroundSync._last = now;
+  Promise.resolve().then(async function(){
+    try {
+      if ((!cache || !cache.underwrites || !Object.keys(cache.underwrites || {}).length) && typeof loadUnderwrites === 'function') {
+        await loadUnderwrites();   // deals are needed for the sync; cached after first load
+      }
+      if (typeof _uwSyncLeadContacts === 'function') await _uwSyncLeadContacts({ silent: true });
+    } catch (_) {}
+  });
+}
+window._contactsBackgroundSync = _contactsBackgroundSync;
 async function loadContacts(){
   if (typeof sb === 'undefined' || !sb) return;
   try { const { data, error } = await sb.from('contacts').select('*').order('name'); if (error) throw error; window._cbCache = data || []; if (typeof _setLazyStatus === 'function') _setLazyStatus('contacts', 'loaded', window._cbCache.length); }
@@ -32227,14 +33216,31 @@ function buyerRenderPerDealPanel() {
         innerEl.innerHTML = countLine + '<div style="padding:24px;text-align:center;color:var(--text-dim);font-size:13px;background:var(--panel);border:1px dashed var(--border);border-radius:8px">' + (ctx.rankedAll.length === 0 ? 'No buyers have purchased within 50 miles of this property, and no buyer\'s city/county/zip targets overlap with the subject. Try expanding buyer chips or importing more purchase history.' : 'No buyers match the current filters.') + '</div>';
         return;
       }
-      innerEl.innerHTML = countLine + '<div style="display:flex;flex-direction:column;gap:10px">' + ranked.map((r, idx) => {
+      // ---- Pagination: render 100 buyers per page so filtering stays snappy. ----
+      const D_PAGE_SIZE = 100;
+      const d_total = ranked.length;
+      const d_sig = [ctx.deal.id, search, outreach, qual, acqMin, offer, minScore, active, !!flt.taggedOnly].join('|');
+      if (window._dispoBuyersFilterSig !== d_sig) { window._dispoBuyersFilterSig = d_sig; window._dispoBuyersPage = 0; }
+      let d_page = window._dispoBuyersPage || 0;
+      const d_pages = Math.max(1, Math.ceil(d_total / D_PAGE_SIZE));
+      if (d_page >= d_pages) d_page = d_pages - 1;
+      if (d_page < 0) d_page = 0;
+      window._dispoBuyersPage = d_page;
+      const pageRanked = ranked.slice(d_page * D_PAGE_SIZE, d_page * D_PAGE_SIZE + D_PAGE_SIZE);
+      const d_pagerHtml = d_pages <= 1 ? '' :
+        '<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px;flex-wrap:wrap">'
+        + '<button class="btn btn-ghost text-xs" ' + (d_page <= 0 ? 'disabled' : '') + ' onclick="_dispoBuyersGoPage(' + (d_page - 1) + ')" style="padding:5px 12px">← Prev</button>'
+        + '<span style="font-size:12px;color:var(--text-dim)">Page ' + (d_page + 1) + ' / ' + d_pages + ' · ' + (d_page * D_PAGE_SIZE + 1).toLocaleString() + '–' + Math.min(d_total, (d_page + 1) * D_PAGE_SIZE).toLocaleString() + ' of ' + d_total.toLocaleString() + '</span>'
+        + '<button class="btn btn-ghost text-xs" ' + (d_page >= d_pages - 1 ? 'disabled' : '') + ' onclick="_dispoBuyersGoPage(' + (d_page + 1) + ')" style="padding:5px 12px">Next →</button>'
+        + '</div>';
+      innerEl.innerHTML = countLine + '<div style="display:flex;flex-direction:column;gap:10px">' + pageRanked.map((r, idx) => {
         const b = r.b;
         const contactBits = [];
-        if (b.phone) contactBits.push('📞 ' + ctx.esc(b.phone));
-        if (b.email) contactBits.push('✉️ ' + ctx.esc(b.email));
+        if (b.phone) contactBits.push('<a href="tel:' + ctx.esc(b.phone) + '" onclick="event.stopPropagation()" style="color:#60a5fa;text-decoration:none">📞 ' + ctx.esc(b.phone) + '</a>');
+        if (b.email) contactBits.push('<a href="mailto:' + ctx.esc(b.email) + '" onclick="event.stopPropagation()" style="color:#60a5fa;text-decoration:none">✉️ ' + ctx.esc(b.email) + '</a>');
         const acqChip = r.acq > 0
           ? '<span style="padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(251,191,36,0.18);color:#fbbf24;border:1px solid rgba(251,191,36,0.4)">🏠 ' + r.acq.toLocaleString() + ' acqs</span>'
-          : '';
+          : '<span style="padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(148,163,184,0.16);color:#94a3b8;border:1px solid rgba(148,163,184,0.4)" title="No purchase records on file for this buyer">🏠 0 acqs</span>';
         // Qualification chip — color-coded so the user sees buyer trust at a glance.
         const q = (typeof buyerQualState === 'function') ? buyerQualState(b) : 'unknown';
         const qMeta = q === 'qualified'   ? { lab: '✓ Qualified',   c: '#10b981' }
@@ -32264,8 +33270,19 @@ function buyerRenderPerDealPanel() {
           + '\n10. Price band fit (5): ' + Math.round(_comps.price || 0)
           + (r.miles != null ? '\nNearest purchase: ' + r.miles.toFixed(2) + 'mi' : '');
         const _scoreBadge = '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:28px;padding:0 8px;border-radius:6px;background:' + _scoreColor + '22;border:1px solid ' + _scoreColor + '88;color:' + _scoreColor + ';font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;flex-shrink:0" title="' + ctx.esc(_scoreTitle) + '">' + _score + (r.fallback ? '\u2733' : '') + '</span>';
-        const _milesLine = r.miles != null
-          ? '<div style="font-size:11px;color:var(--text-dim);margin-top:3px">\u{1F4CD} Nearest purchase ' + r.miles.toFixed(2) + 'mi away' + (r.nearestPurchase && (r.nearestPurchase.sale_amount > 0) ? ' \u00B7 $' + Math.round(r.nearestPurchase.sale_amount).toLocaleString() : '') + '</div>'
+        // Months since the nearest purchase's sale date (for "\u00B7 X mo ago").
+        const _npDate = r.nearestPurchase && (r.nearestPurchase.sale_date || r.nearestPurchase.purchase_date || r.nearestPurchase.date);
+        let _npMonths = null;
+        if (_npDate) { const _d = new Date(String(_npDate).slice(0, 10)); if (!isNaN(_d.getTime())) _npMonths = Math.max(0, Math.round((Date.now() - _d.getTime()) / (1000 * 60 * 60 * 24 * 30.44))); }
+        // Single activity line: nearest purchase  |  most-recent-purchase recency.
+        const _nearestPart = r.miles != null
+          ? '\u{1F4CD} Nearest ' + r.miles.toFixed(2) + 'mi away' + (r.nearestPurchase && (r.nearestPurchase.sale_amount > 0) ? ' \u00B7 $' + Math.round(r.nearestPurchase.sale_amount).toLocaleString() : '') + (_npMonths != null ? ' \u00B7 ' + _npMonths + ' mo ago' : '')
+          : '';
+        const _recentPart = (r.buyBox && r.buyBox.monthsSinceLast != null)
+          ? '\u{1F551} Most recent ' + r.buyBox.monthsSinceLast + ' mo ago'
+          : '';
+        const _activityLine = (_nearestPart || _recentPart)
+          ? '<div style="font-size:11px;color:var(--text-dim);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + [_nearestPart, _recentPart].filter(Boolean).join('  <span style="color:var(--text-dim);opacity:0.6">|</span>  ') + '</div>'
           : '';
         const _isTagged = taggedSet.has(b.id);
         const tagBtn = '<button type="button" onclick="event.stopPropagation();_dispoToggleTag(\'' + ctx.esc(ctx.deal.id) + '\',\'' + ctx.esc(b.id) + '\')" title="' + (_isTagged ? 'Tagged for this property \u2014 click to untag' : 'Tag this buyer for this property') + '" style="margin-left:auto;padding:4px 9px;font-size:11px;font-weight:700;border-radius:6px;cursor:pointer;white-space:nowrap;flex-shrink:0;border:1px solid ' + (_isTagged ? '#10b981' : 'var(--border)') + ';background:' + (_isTagged ? 'rgba(16,185,129,0.18)' : 'transparent') + ';color:' + (_isTagged ? '#10b981' : 'var(--text-dim)') + '">' + (_isTagged ? '\uD83C\uDFF7 Tagged' : '\uD83C\uDFF7 Tag') + '</button>';
@@ -32275,13 +33292,12 @@ function buyerRenderPerDealPanel() {
           +     '<div style="font-size:11px;color:var(--text-dim);font-weight:700;width:22px;text-align:center;flex-shrink:0">#' + (idx + 1) + '</div>'
           +     _scoreBadge
           +     '<div style="flex:1;min-width:0">'
-          +       '<div style="font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + ctx.esc(b.company || b.name || '(no name)') + '</div>'
-          +       (b.company && b.name ? '<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + ctx.esc(b.name) + '</div>' : '')
-          +       _milesLine
+          +       '<div style="font-size:14.5px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + ctx.esc(b.company || b.name || '(no name)') + ((b.company && b.name) ? ' : <span style="color:#fbbf24;font-weight:700">' + ctx.esc(b.name) + '</span>' : '') + '</div>'
+          +       '<div style="font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (contactBits.length ? contactBits.join(' <span style="color:var(--text-dim)">\u00B7</span> ') : '<span style="color:var(--text-dim);opacity:0.5">\uD83D\uDCDE \u2014 \u00B7 \u2709\uFE0F \u2014</span>') + '</div>'
+          +       _activityLine
           +     '</div>'
           +     qChip
           +     acqChip
-          +     (contactBits.length ? '<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;flex-shrink:0">' + contactBits.join(' \u00B7 ') + '</div>' : '')
           +     tagBtn
           +   '</div>'
           // Per-component breakdown strip — 10 small pills, color-coded by % of max earned.
@@ -32349,7 +33365,13 @@ function buyerRenderPerDealPanel() {
           +     '</div>'
           +   '</div>'
           + '</div>';
-      }).join('') + '</div>';
+      }).join('') + '</div>' + d_pagerHtml;
+    };
+    window._dispoBuyersGoPage = function (p) {
+      window._dispoBuyersPage = p;
+      if (window._dispoRenderDealBuyers) window._dispoRenderDealBuyers();
+      var el = document.getElementById('dispo-deal-buyers');
+      if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) {} }
     };
 
     // Filter bar — built once. Inputs use _dispoSetFilter which only re-renders
@@ -32381,6 +33403,7 @@ function buyerRenderPerDealPanel() {
       +   '<select id="dispo-deal-acq" onchange="_dispoSetFilter(\'acqMin\', Number(this.value)||0)" style="flex:0 0 auto;width:175px;height:30px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;box-sizing:border-box" title="Minimum acquisitions">'
       +     '<option value="0"'   + (Number(flt.acqMin) === 0   ? ' selected' : '') + '>Any Acquisitions</option>'
       +     '<option value="1"'   + (Number(flt.acqMin) === 1   ? ' selected' : '') + '>1+ Acquisitions</option>'
+      +     '<option value="3"'   + (Number(flt.acqMin) === 3   ? ' selected' : '') + '>3+ Acquisitions</option>'
       +     '<option value="5"'   + (Number(flt.acqMin) === 5   ? ' selected' : '') + '>5+ Acquisitions</option>'
       +     '<option value="10"'  + (Number(flt.acqMin) === 10  ? ' selected' : '') + '>10+ Acquisitions</option>'
       +     '<option value="25"'  + (Number(flt.acqMin) === 25  ? ' selected' : '') + '>25+ Acquisitions</option>'
@@ -32421,11 +33444,12 @@ function buyerRenderPerDealPanel() {
       + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'
       +   '<button class="btn btn-ghost text-sm" onclick="_dispoCloseDeal()" title="Back to all dispositions">← Back</button>'
       +   '<div style="flex:1"></div>'
-      +   '<button class="btn btn-ghost text-xs" onclick="if(typeof buyerRenderPerDealPanel===\'function\') buyerRenderPerDealPanel();" title="Rescore + redraw using the latest buyer + deal data." style="padding:5px 12px">\u{1F501} Refresh</button>'
+      +   '<button class="btn btn-ghost text-xs" onclick="_dispoRefreshPerDeal(this)" title="Re-pull fresh buyers + this property\'s packet views, then rescore + redraw." style="padding:5px 12px">\u{1F501} Refresh</button>'
       +   '<span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:' + stage.bg + ';color:' + stage.color + '">' + esc(stage.label) + '</span>'
       + '</div>'
-      + '<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px">'
-      +   '<div style="font-size:18px;font-weight:700;color:var(--text)">🏠 ' + esc(deal.address || '(no address)') + '</div>'
+      + '<div style="position:relative;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px">'
+      +   '<div id="dispo-packet-views-wrap" style="position:absolute;top:14px;right:16px;text-align:right;z-index:2"></div>'
+      +   '<div style="font-size:18px;font-weight:700;color:var(--text);padding-right:150px">🏠 ' + esc(deal.address || '(no address)') + '</div>'
       +   (locBits ? '<div style="font-size:13px;color:var(--text-dim);margin-top:4px">' + locBits + (deal.county ? ' · ' + esc(deal.county) + ' County' : '') + '</div>' : '')
       +   '<div style="font-size:11px;color:var(--text-dim);letter-spacing:0.4px;text-transform:uppercase;margin-top:12px">🎯 ' + totalMatchCount + ' Qualifying ' + (totalMatchCount === 1 ? 'Buyer' : 'Buyers') + ' (zip ' + esc(deal.zip || '?') + ')</div>'
       // Distance-scoring diagnostic — at a glance the user can see whether
@@ -32476,6 +33500,7 @@ function buyerRenderPerDealPanel() {
     // Initial buyer-list render. Inputs already in DOM; from here on, every
     // filter change re-renders only #dispo-deal-buyers (input focus preserved).
     if (typeof _dispoRenderDealBuyers === 'function') _dispoRenderDealBuyers();
+    if (typeof _dispoRenderPacketViews === 'function') _dispoRenderPacketViews(deal.id);
     return;
   }
 
@@ -32483,10 +33508,16 @@ function buyerRenderPerDealPanel() {
   // LIST VIEW — show every dispo property as a clickable summary row.
   // ============================================================
   // Filter state (persisted in window so re-renders don't lose it).
-  window._dispoPerDealListFilter = window._dispoPerDealListFilter || { search: '', stages: [] };
+  window._dispoPerDealListFilter = window._dispoPerDealListFilter || { search: '', stages: [], activeOnly: true };
   const _flt = window._dispoPerDealListFilter;
   const _searchLo = String(_flt.search || '').trim().toLowerCase();
   const _stageSet = new Set(Array.isArray(_flt.stages) ? _flt.stages : []);
+  // "Active" = property is posted / live for offers (offer_active column or the
+  // _offerActive flag set when you mark a deal 🌐 Offer This).
+  const _isActivePosted = (u) => !!(u && (u.offer_active || (u.data && u.data._offerActive)));
+  const _activeCount = dispoDeals.filter(_isActivePosted).length;
+  // Load per-property packet-view counts once (async → re-renders when ready).
+  if (!window._dispoViewCountsLoaded && typeof _dispoLoadViewCounts === 'function') _dispoLoadViewCounts();
   const _stageOpts = ['new', 'assigning', 'hot', 'assigned', 'dead'];
   // Per-stage counts BEFORE filtering — used to label the chips so the user
   // sees how many deals are in each bucket.
@@ -32501,6 +33532,7 @@ function buyerRenderPerDealPanel() {
   const _filteredDeals = dispoDeals.filter(u => {
     const info = _dispoDealInfoFromRow(u);
     if (!info) return false;
+    if (_flt.activeOnly && !_isActivePosted(u)) return false;
     if (_stageSet.size > 0 && !_stageSet.has(info.stage || '')) return false;
     if (_searchLo) {
       const hay = ((info.address || '') + ' ' + (info.city || '') + ' ' + (info.state || '') + ' ' + (info.zip || '')).toLowerCase();
@@ -32532,6 +33564,10 @@ function buyerRenderPerDealPanel() {
     +     '<span style="font-size:10px;color:var(--text-dim);font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-right:4px">Stages:</span>'
     +     _stageOpts.map(_stageChip).join('')
     +   '</div>'
+    +   '<button type="button" onclick="_dispoPerDealToggleActive()" '
+    +     'style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;'
+    +     'background:' + (_flt.activeOnly ? 'rgba(16,185,129,0.18)' : 'transparent') + ';border:1px solid ' + (_flt.activeOnly ? '#10b981' : 'var(--border)') + ';color:' + (_flt.activeOnly ? '#10b981' : 'var(--text-dim)') + '" '
+    +     'title="Show only Active (posted / live for offers) properties">🟢 Active <span style="opacity:0.7">' + _activeCount + '</span></button>'
     +   '<button type="button" onclick="_dispoPerDealClearFilter()" '
     +     'style="height:32px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:12px;cursor:pointer;white-space:nowrap" '
     +     'title="Clear search + stage filters">\u2715 Clear</button>'
@@ -32556,10 +33592,7 @@ function buyerRenderPerDealPanel() {
             }
             return '<span id="dispo-save-status" style="display:inline-flex;align-items:center;height:32px;padding:0 10px;border-radius:6px;background:' + bg + ';border:1px solid ' + bd + ';color:' + col + ';font-size:11px;font-weight:600;white-space:nowrap" title="' + esc(ttl) + '">' + label + '</span>';
           })()
-    +   '<button type="button" onclick="_dispoTestCloudWrite()" '
-    +     'style="height:32px;padding:0 10px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;cursor:pointer;white-space:nowrap;font-weight:600" '
-    +     'title="Run a test write to Supabase to verify the cloud save path is working. Safe \u2014 it inserts then deletes a test row.">\u{1F9EA} Test</button>'
-    +   '<button type="button" onclick="if(typeof buyerRenderPerDealPanel===\'function\') buyerRenderPerDealPanel();" '
+    +   '<button type="button" onclick="_dispoRefreshPerDeal(this)" '
     +     'style="height:32px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;cursor:pointer;white-space:nowrap;font-weight:600" '
     +     'title="Rescore + redraw using the latest buyer + deal data.">\u{1F501} Refresh</button>'
     + '</div>'
@@ -32674,6 +33707,7 @@ function buyerRenderPerDealPanel() {
       +         '</span>'
       +       '</div>'
       +       '<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">'
+      +         '<span style="padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(148,163,184,0.18);color:#cbd5e1;white-space:nowrap" title="Times this property’s offer packet has been viewed (excludes views you marked as you)">👁 ' + ((window._dispoViewCounts || {})[u.id] || 0) + '</span>'
       +         offersCountPill
       +         '<span style="padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(99,102,241,0.18);color:#a5b4fc;white-space:nowrap" title="Buyers in your rolodex whose zip list contains this property\'s zip">' + matchCount + ' match' + (matchCount === 1 ? '' : 'es') + '</span>'
       +         (matchCount > 0
@@ -32719,8 +33753,15 @@ function _dispoPerDealToggleStage(stage) {
 }
 window._dispoPerDealToggleStage = _dispoPerDealToggleStage;
 
+function _dispoPerDealToggleActive() {
+  window._dispoPerDealListFilter = window._dispoPerDealListFilter || { search: '', stages: [], activeOnly: false };
+  window._dispoPerDealListFilter.activeOnly = !window._dispoPerDealListFilter.activeOnly;
+  if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+}
+window._dispoPerDealToggleActive = _dispoPerDealToggleActive;
+
 function _dispoPerDealClearFilter() {
-  window._dispoPerDealListFilter = { search: '', stages: [] };
+  window._dispoPerDealListFilter = { search: '', stages: [], activeOnly: true };
   if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
 }
 window._dispoPerDealClearFilter = _dispoPerDealClearFilter;
@@ -32997,7 +34038,7 @@ function buyerRenderContractsPanel() {
     }
     // Holding (3% ARV/yr split + $150/mo ins) × wsFlMonths
     const wsSellClose  = arv * 0.03;
-    const wsSellAgents = arv * 0.05;
+    const wsSellAgents = arv * 0.06;
     const wsFlMonths   = N('uw-fl-reno-mo', 2) + N('uw-fl-listed-mo', 3);
     const wsHoldingMonthly = (arv * 0.01 / 12) * 3 + 300;
     const wsHolding    = wsHoldingMonthly * wsFlMonths;
@@ -33179,7 +34220,7 @@ function buyerRenderContractsPanel() {
         // same numbers as the deal calculator's Total Project Cost section.
         var buyingCost  = Math.round(effective * 0.03);                    // 3% of Packet (purchase closing)
         var holdingCost = Math.round(arv * 0.025);                          // ~2.5% ARV (taxes + ins + utilities × ~6 mo hold)
-        var agentCost   = Math.round(arv * 0.05);                           // 5% agent commission on resale
+        var agentCost   = Math.round(arv * 0.06);                           // 5% agent commission on resale
         var resaleClose = Math.round(arv * 0.03);                           // 3% resale closing
         var sellingCost = agentCost + resaleClose;                          // selling-side only (holding added below in display)
         var estProfit   = Math.round(arv - effective - rehabBudget(u) - buyingCost - holdingCost - sellingCost);
@@ -35554,6 +36595,10 @@ function buyerOpenAddModal(editId) {
       (editId && cache.buyers && cache.buyers[editId]) ? cache.buyers[editId] : null
     );
   }
+  // This modal lives inside the Dispositions section, so it stays hidden if that
+  // section is display:none (e.g. opened from the Map tab). Reparent to <body> so
+  // it always overlays whatever section is active.
+  if (modal.parentElement !== document.body) { try { document.body.appendChild(modal); } catch (e) {} }
   modal.style.display = 'flex';
   setTimeout(() => {
     // Focus Company first since it's the required field now.
@@ -35664,8 +36709,9 @@ async function buyerSaveNew() {
     buyerCloseAddModal();
     renderBuyersList();
     // Per Deal scoring depends on buyer.zips — refresh that panel too so a
-    // newly-added zip surfaces matching properties immediately.
-    if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+    // newly-added zip surfaces matching properties immediately. Keeps the map open.
+    if (typeof window._dispoRebuildPerDealKeepMap === 'function') window._dispoRebuildPerDealKeepMap();
+    else if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
   } catch (e) {
     console.warn('buyerSaveNew:', e);
     if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
@@ -36467,6 +37513,8 @@ function _buyerUploadedCutoff() {
   }
   return null;
 }
+window._buyersPage = window._buyersPage || 0;
+window._buyersGoPage = function (p) { window._buyersPage = p; if (typeof renderBuyersList === 'function') renderBuyersList(); var t = document.getElementById('buyers-table'); if (t && t.scrollIntoView) { try { t.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) {} } };
 function renderBuyersList() {
   if (!cache.buyers) {
     loadBuyers().then(() => renderBuyersList());
@@ -36536,8 +37584,9 @@ function renderBuyersList() {
       if (m)      { lo = parseInt(m[1], 10); hi = parseInt(m[2], 10); }
       else if (p) { lo = parseInt(p[1], 10); hi = Infinity; }
       rows = rows.filter(b => {
-        const n = Number(b.acquisitions_count);
-        if (!Number.isFinite(n)) return false;
+        // Use the ACTUAL number of purchase records on file (not the typed
+        // acquisitions_count) so the range matches their Purchased Properties.
+        const n = (typeof getBuyerPurchases === 'function') ? getBuyerPurchases(b.id).length : (Number(b.acquisitions_count) || 0);
         // Lower bound inclusive, upper exclusive — so 10-20 means [10, 20). Avoids
         // double-counting at the boundary.
         return n >= lo && n < hi;
@@ -36646,7 +37695,38 @@ function renderBuyersList() {
     return `<a href="mailto:${esc(v)}" onclick="event.stopPropagation()" style="color:var(--text);text-decoration:none;font-size:12px;display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle" title="Email ${esc(v)}">✉️ ${esc(v)}</a>`;
   };
 
-  tbody.innerHTML = rows.map(b => {
+  // ---- Pagination: render one page of 100 so filtering stays snappy. ----
+  const PAGE_SIZE = 100;
+  const totalRows = rows.length;
+  const _sig = [q, critFilter, qualVal, (window._dispoBuyerScope || '')].join('|');
+  if (window._buyersFilterSig !== _sig) { window._buyersFilterSig = _sig; window._buyersPage = 0; }
+  let _page = window._buyersPage || 0;
+  const _pages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  if (_page >= _pages) _page = _pages - 1;
+  if (_page < 0) _page = 0;
+  window._buyersPage = _page;
+  const pageRows = rows.slice(_page * PAGE_SIZE, _page * PAGE_SIZE + PAGE_SIZE);
+  // Pager control below the table.
+  (function () {
+    let pager = document.getElementById('buyers-pager');
+    if (!pager && tableEl && tableEl.parentNode) {
+      pager = document.createElement('div');
+      pager.id = 'buyers-pager';
+      pager.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px;flex-wrap:wrap';
+      tableEl.parentNode.insertBefore(pager, tableEl.nextSibling);
+    }
+    if (!pager) return;
+    if (_pages <= 1) {
+      pager.innerHTML = '<span style="font-size:12px;color:var(--text-dim)">' + totalRows.toLocaleString() + ' buyer' + (totalRows === 1 ? '' : 's') + '</span>';
+    } else {
+      const from = _page * PAGE_SIZE + 1, to = Math.min(totalRows, (_page + 1) * PAGE_SIZE);
+      pager.innerHTML =
+        '<button class="btn btn-ghost text-xs" ' + (_page <= 0 ? 'disabled' : '') + ' onclick="_buyersGoPage(' + (_page - 1) + ')" style="padding:5px 12px">← Prev</button>'
+        + '<span style="font-size:12px;color:var(--text-dim)">' + from.toLocaleString() + '–' + to.toLocaleString() + ' of ' + totalRows.toLocaleString() + ' · Page ' + (_page + 1) + ' / ' + _pages + '</span>'
+        + '<button class="btn btn-ghost text-xs" ' + (_page >= _pages - 1 ? 'disabled' : '') + ' onclick="_buyersGoPage(' + (_page + 1) + ')" style="padding:5px 12px">Next →</button>';
+    }
+  })();
+  tbody.innerHTML = pageRows.map(b => {
     const name     = esc(b.name || '');
     const company  = esc(b.company || '');
     const stars    = renderStars(b.rating);
@@ -38497,6 +39577,39 @@ function _buyerUpdateRetryButtonCount() {
 }
 window._buyerUpdateRetryButtonCount = _buyerUpdateRetryButtonCount;
 
+window._uwAllShowTrash = window._uwAllShowTrash || false;
+// Trash-style row (used in the All table when the 🗑️ toggle is on).
+function _uwRenderTrashRow(u) {
+  const addr = u.address || '—';
+  const cityLine = [u.city, u.state, u.zip].filter(Boolean).join(', ');
+  let deletedAt = '—';
+  try { deletedAt = new Date(u.deleted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (_) {}
+  const results = (typeof _uwResultsCountFor === 'function') ? _uwResultsCountFor(u) : '';
+  const dispo = (typeof _uwDispositionFor === 'function') ? _uwDispositionFor(u) : '';
+  return '<tr style="border-bottom:1px solid var(--border)">'
+    + '<td style="padding:10px;text-align:left"><div style="font-weight:600">' + _uwEsc(addr) + '</div>'
+    +   (cityLine ? '<div style="font-size:11px;color:var(--text-dim);margin-top:2px">' + _uwEsc(cityLine) + '</div>' : '') + '</td>'
+    + '<td style="padding:10px;text-align:center;font-size:12px;color:var(--text-dim)">' + deletedAt + '</td>'
+    + '<td style="padding:10px;text-align:center">' + results + '</td>'
+    + '<td style="padding:10px;text-align:center">' + _uwEsc(dispo) + '</td>'
+    + '<td style="padding:10px;text-align:right;white-space:nowrap">'
+    +   '<button onclick="uwRestore(\'' + u.id + '\')" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.4);color:#10b981;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;margin-right:6px">↩ Restore</button>'
+    +   '<button onclick="uwHardDelete(\'' + u.id + '\')" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.4);color:#ef4444;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600" title="Permanently delete this row. Cannot be undone.">✕ Permanent</button>'
+    + '</td></tr>';
+}
+window._uwRenderTrashRow = _uwRenderTrashRow;
+function _uwAllToggleTrash(btn) {
+  window._uwAllShowTrash = !window._uwAllShowTrash;
+  const on = window._uwAllShowTrash;
+  const b = btn || document.getElementById('uwall-trash-btn');
+  if (b) {
+    b.style.background = on ? 'rgba(148,163,184,0.22)' : '';
+    b.style.borderColor = on ? '#94a3b8' : 'rgba(148,163,184,0.35)';
+    b.style.color = on ? '#e2e8f0' : '#94a3b8';
+  }
+  if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
+}
+window._uwAllToggleTrash = _uwAllToggleTrash;
 function renderUnderwriteList() {
   // Lazy-load on first visit to either list view
   if (!cache.underwrites) {
@@ -39178,6 +40291,28 @@ function renderUnderwriteList() {
   const allEmpty = document.getElementById('uw-all-empty');
   if (allTbody) {
     const allSearch = (document.getElementById('uw-all-search')?.value || '').toLowerCase().trim();
+    // Toggle which header row shows (normal vs trash columns).
+    const _thN = document.getElementById('uw-all-thead-normal');
+    const _thT = document.getElementById('uw-all-thead-trash');
+    if (_thN) _thN.style.display = window._uwAllShowTrash ? 'none' : '';
+    if (_thT) _thT.style.display = window._uwAllShowTrash ? '' : 'none';
+    if (window._uwAllShowTrash) {
+      // TRASH MODE — same panel, but trash-style rows (Restore / Permanent).
+      let trashRows = Object.values(cache.underwritesDeleted || {})
+        .filter(u => u && u.deleted_at)
+        .sort((a, b) => new Date(b.deleted_at || 0).getTime() - new Date(a.deleted_at || 0).getTime());
+      if (allSearch) trashRows = trashRows.filter(u => _uwSearchMatch(u, allSearch));
+      if (!trashRows.length) {
+        allTbody.innerHTML = '';
+        if (allEmpty) { allEmpty.textContent = allSearch ? 'No matches in Trash.' : 'Trash is empty.'; allEmpty.style.display = ''; }
+        _uwRenderPageNav('all', { rows: [], page: 1, totalPages: 1, total: 0, start: 0, end: 0 });
+      } else {
+        if (allEmpty) allEmpty.style.display = 'none';
+        const trashPaged = _uwPaginate('all', trashRows);
+        allTbody.innerHTML = trashPaged.rows.map(_uwRenderTrashRow).join('');
+        _uwRenderPageNav('all', trashPaged);
+      }
+    } else {
     const allDateOk = _uwBuildDateFilter('all');
     const allSrcOk  = _uwBuildSourceFilter('all');
     const allFiltered = _uwApplyAllSorts(all.filter(u => {
@@ -39188,13 +40323,14 @@ function renderUnderwriteList() {
     }), 'all');
     if (!allFiltered.length) {
       allTbody.innerHTML = '';
-      if (allEmpty) allEmpty.style.display = '';
+      if (allEmpty) { allEmpty.textContent = 'No deals yet. Add one in the Analyzing tab.'; allEmpty.style.display = ''; }
       _uwRenderPageNav('all', { rows: [], page: 1, totalPages: 1, total: 0, start: 0, end: 0 });
     } else {
       if (allEmpty) allEmpty.style.display = 'none';
       const allPaged = _uwPaginate('all', allFiltered);
       allTbody.innerHTML = allPaged.rows.map(renderRow).join('');
       _uwRenderPageNav('all', allPaged);
+    }
     }
     const allCount = document.getElementById('uw-all-count');
     if (allCount) {
@@ -40573,6 +41709,7 @@ function goSection(s, _opts) {
   }
   if (s === "holdings"   && typeof renderHoldingsList   === "function") renderHoldingsList();
   if (s === "photos"     && typeof loadPhotoSubmissions === "function") loadPhotoSubmissions();
+  if (s === "map"        && typeof _mapSectionOpen       === "function") _mapSectionOpen();
   if (s === "renovation" && typeof renderRenovationList === "function") renderRenovationList();
   if (s === "renovation") {
     // Eagerly load each resource cache so the Contractors/Lenders/Agents/Attorneys
@@ -40591,7 +41728,9 @@ function goSection(s, _opts) {
   // If we're in Dispositions mode (deal opened from the dispo contracts grid),
   // keep the Dispositions tab highlighted instead of jumping to the actual physical
   // section (which is Underwriting — that's where the calculator lives).
-  const _navHighlight = (window._dispoReturnTo === "dispositions" && s === "underwriting") ? "dispositions" : s;
+  // Results + Logs now live inside the Marketing group — keep Marketing highlighted.
+  const _navHighlight = (window._dispoReturnTo === "dispositions" && s === "underwriting") ? "dispositions"
+    : (s === "results" || s === "reports" || s === "data") ? "marketing" : s;
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.section === _navHighlight));
   // Contacts + Plan live on header buttons — highlight them orange when active.
   (function(){ var b=document.getElementById('header-contacts-btn'); if(b){ var on=(_navHighlight==='contacts'); b.style.background=on?'rgba(34,197,94,0.18)':''; b.style.color=on?'#86efac':''; b.style.borderColor=on?'rgba(34,197,94,0.5)':''; } })();
@@ -40603,30 +41742,35 @@ function goSection(s, _opts) {
   if (target) target.style.display = (s === "sop") ? "flex" : "block";
   // Shared Marketing/Imports sub-tab bar: visible for both, with Imports
   // highlighted when you're in the Imports (data) section.
+  // Marketing group bar (Imports → Lists/Vendors → Campaigns → Logs/Records/Overview).
+  // Visible across Marketing, Data, Results and Logs so those all feel like one group.
   const _mktBar = document.getElementById('mkt-subbar');
-  if (_mktBar) _mktBar.style.display = (s === 'marketing' || s === 'data') ? '' : 'none';
+  if (_mktBar) _mktBar.style.display = (s === 'marketing' || s === 'data' || s === 'results' || s === 'reports') ? '' : 'none';
   const _impPill = document.getElementById('mkt-pill-imports');
   if (_impPill) _impPill.classList.toggle('active', s === 'data');
-  if (s === 'data') {
+  // Highlight the right Results/Logs pill.
+  var _lp = document.getElementById('mkt-pill-logs'); if (_lp) _lp.classList.toggle('active', s === 'reports');
+  var _rp = document.getElementById('mkt-pill-records');
+  var _op = document.getElementById('mkt-pill-overview');
+  if (s === 'data' || s === 'reports') {
     document.querySelectorAll('#mkt-subbar .subtab[data-mview]').forEach(t => t.classList.remove('active'));
+    if (_rp) _rp.classList.remove('active'); if (_op) _op.classList.remove('active');
   } else if (s === 'marketing') {
-    // Keep the active marketing pill in sync with whichever subview is shown.
+    if (_rp) _rp.classList.remove('active'); if (_op) _op.classList.remove('active');
     const shown = Array.from(document.querySelectorAll('#section-marketing .mview')).find(el => el && el.style.display !== 'none');
     const v = shown ? shown.id.replace('mview-', '') : 'lists';
     if (typeof goMarketingView === 'function') goMarketingView(v);
-  }
-  // Shared Results/Logs sub-tab bar: visible for both, Logs highlighted when in Logs.
-  const _resBar = document.getElementById('res-subbar');
-  if (_resBar) _resBar.style.display = (s === 'results' || s === 'reports') ? '' : 'none';
-  const _logsPill = document.getElementById('res-pill-logs');
-  if (_logsPill) _logsPill.classList.toggle('active', s === 'reports');
-  if (s === 'reports') {
-    document.querySelectorAll('#res-subbar .subtab[data-resview]').forEach(t => t.classList.remove('active'));
   } else if (s === 'results') {
+    document.querySelectorAll('#mkt-subbar .subtab[data-mview]').forEach(t => t.classList.remove('active'));
     const shownR = Array.from(document.querySelectorAll('[data-resview-panel]')).find(el => el && el.style.display !== 'none');
     const rv = shownR ? shownR.dataset.resviewPanel : 'records';
     if (typeof goResView === 'function') goResView(rv);
+    if (_rp) _rp.classList.toggle('active', rv === 'records');
+    if (_op) _op.classList.toggle('active', rv === 'overview');
   }
+  // Old Results/Logs sub-tab bar is retired (merged into the Marketing bar).
+  const _resBar = document.getElementById('res-subbar');
+  if (_resBar) _resBar.style.display = 'none';
   // Toggle a body class so the fullscreen CSS for SOP (hides section-tabs
   // row, sizes the section to fill the viewport) only applies when SOP is
   // the active section.
@@ -41329,15 +42473,22 @@ function toggleSopSection() {
 }
 window.toggleSopSection = toggleSopSection;
 function goResView(v) {
-  // If we're currently in the Logs (reports) section, switch back to Results first.
+  // Show the Results section content. Marketing stays the highlighted tab, and the
+  // Marketing group bar (with Logs/Records/Overview) stays visible.
   const _rsec = document.getElementById('section-results');
   if (_rsec && _rsec.style.display === 'none') {
     document.querySelectorAll('.section-content').forEach(el => el.style.display = 'none');
     _rsec.style.display = 'block';
-    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.section === 'results'));
-    const _bar = document.getElementById('res-subbar'); if (_bar) _bar.style.display = '';
-    const _lp = document.getElementById('res-pill-logs'); if (_lp) _lp.classList.remove('active');
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.section === 'marketing'));
+    const _mktBar = document.getElementById('mkt-subbar'); if (_mktBar) _mktBar.style.display = '';
+    const _resBar = document.getElementById('res-subbar'); if (_resBar) _resBar.style.display = 'none';
+    document.body.classList.remove('sop-active');
   }
+  // Sync the Marketing-bar pills.
+  document.querySelectorAll('#mkt-subbar .subtab[data-mview]').forEach(t => t.classList.remove('active'));
+  var _lp = document.getElementById('mkt-pill-logs'); if (_lp) _lp.classList.remove('active');
+  var _rp = document.getElementById('mkt-pill-records'); if (_rp) _rp.classList.toggle('active', v === 'records');
+  var _op = document.getElementById('mkt-pill-overview'); if (_op) _op.classList.toggle('active', v === 'overview');
   document.querySelectorAll('.subtab[data-resview]').forEach(t => t.classList.toggle('active', t.dataset.resview === v));
   document.querySelectorAll('[data-resview-panel]').forEach(p => { p.style.display = (p.dataset.resviewPanel === v) ? '' : 'none'; });
   if (v === 'records') {
@@ -41345,6 +42496,162 @@ function goResView(v) {
     if (typeof renderResults === 'function') renderResults();
   }
 }
+
+// 💰 Sold Tracker — analytics over every buyer purchase (a "sold" property),
+// cross-referenced against your marketing lists + underwriting by geocode.
+function renderResultsSold() {
+  const body = document.getElementById('res-sold-body');
+  if (!body) return;
+  if (typeof loadBuyers === 'function' && !cache.buyers) { loadBuyers().then(renderResultsSold); }
+  if (typeof loadBuyerPurchases === 'function' && !cache.buyerPurchases) { Promise.resolve(loadBuyerPurchases()).then(renderResultsSold).catch(() => {}); }
+  const esc = window.escapeHtml || (s => String(s == null ? '' : s));
+  const keyOf = (la, lo) => Math.round(la * 1e4) + '|' + Math.round(lo * 1e4);
+  const months = parseInt((document.getElementById('res-sold-window')?.value ?? '0'), 10) || 0;
+  const cutoff = months ? Date.now() - months * 30.44 * 24 * 60 * 60 * 1000 : 0;
+  // Populate the Year dropdown from the data (once), keeping the current pick.
+  const yearSel = document.getElementById('res-sold-year');
+  const allYears = new Set();
+  Object.values(cache.buyerPurchases || {}).forEach(arr => (arr || []).forEach(p => { if (p && p.sale_date) { const y = String(p.sale_date).slice(0, 4); if (/^\d{4}$/.test(y)) allYears.add(y); } }));
+  if (yearSel) {
+    const years = Array.from(allYears).sort((a, b) => Number(b) - Number(a));
+    const sig = years.join(',');
+    if (yearSel.dataset.built !== sig) {
+      const prev = yearSel.value;
+      yearSel.innerHTML = '<option value="all">All years</option>' + years.map(y => '<option value="' + y + '">' + y + '</option>').join('');
+      yearSel.dataset.built = sig;
+      // Default to the CURRENT year (if there's data for it), else the latest year.
+      const _cy = String(new Date().getFullYear());
+      const _def = years.indexOf(_cy) >= 0 ? _cy : (years[0] || 'all');
+      yearSel.value = (prev && (prev === 'all' || years.indexOf(prev) >= 0)) ? prev : _def;
+    }
+  }
+  const activeYear = (yearSel && yearSel.value && yearSel.value !== 'all') ? yearSel.value : '';
+  // Windows dropdown only applies when "All years" is selected.
+  const winEl = document.getElementById('res-sold-window'); if (winEl) winEl.style.opacity = activeYear ? '0.4' : '1';
+  // Marketing property + underwrite geocode maps.
+  const propByKey = {};
+  Object.values(cache.properties || {}).forEach(p => {
+    if (!p || p.lat == null || p.lng == null) return;
+    const la = Number(p.lat), lo = Number(p.lng); if (!isFinite(la) || !isFinite(lo)) return;
+    propByKey[keyOf(la, lo)] = p;
+  });
+  const uwKeys = new Set();
+  Object.values(cache.underwrites || {}).forEach(u => {
+    if (!u || u.deleted_at) return;
+    const dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
+    const la = Number((dc && dc.lat != null) ? dc.lat : u.uw_lat);
+    const lo = Number((dc && dc.lng != null) ? dc.lng : u.uw_lng);
+    if (isFinite(la) && isFinite(lo)) uwKeys.add(keyOf(la, lo));
+  });
+  // Set of buyers you've tagged under any property.
+  const taggedBuyerSet = new Set();
+  Object.values(cache.underwrites || {}).forEach(u => { if (u && u.data && Array.isArray(u.data._taggedBuyers)) u.data._taggedBuyers.forEach(id => taggedBuyerSet.add(String(id))); });
+  // Tally over all purchases (filtered by year or window).
+  let total = 0, inList = 0, inUw = 0, neither = 0, tbTotal = 0, qbTotal = 0, noTagSold = 0, amtSum = 0, amtN = 0;
+  const byMonth = {}, tagTally = {};   // byMonth[ym] = {t, l, u, b: tagged-buyer, q: qualified-buyer}
+  const byZip = {}, byCity = {}, zipCity = {};
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  Object.entries(cache.buyerPurchases || {}).forEach(([buyerId, arr]) => {
+    const isTaggedBuyer = taggedBuyerSet.has(String(buyerId));
+    const _bObj = (cache.buyers || {})[buyerId];
+    const isQualBuyer = (_bObj && typeof buyerQualState === 'function') ? (buyerQualState(_bObj) === 'qualified') : false;
+    (arr || []).forEach(p => {
+      if (!p || !p.sale_date) return;
+      const ts = new Date(p.sale_date).getTime(); if (!ts) return;
+      const yr = String(p.sale_date).slice(0, 4);
+      if (activeYear) { if (yr !== activeYear) return; }
+      else if (cutoff && ts < cutoff) return;
+      total++;
+      const amt = Number(p.sale_amount) || 0; if (amt > 0) { amtSum += amt; amtN++; }
+      const cty = String(p.city || '').trim();
+      const ck = cty ? (cty + (p.state ? ', ' + String(p.state).trim() : '')) : '';
+      const zip = String(p.zip || '').trim().slice(0, 5); if (zip) { byZip[zip] = (byZip[zip] || 0) + 1; if (ck && !zipCity[zip]) zipCity[zip] = ck; }
+      if (ck) byCity[ck] = (byCity[ck] || 0) + 1;
+      const moi = Number(String(p.sale_date).slice(5, 7));   // 1–12
+      const mm = byMonth[moi] || (byMonth[moi] = { t: 0, l: 0, u: 0, b: 0, q: 0 });
+      mm.t++;
+      const hasCoord = (p.lat != null && p.lng != null && isFinite(Number(p.lat)) && isFinite(Number(p.lng)));
+      const k = hasCoord ? keyOf(Number(p.lat), Number(p.lng)) : null;
+      const mp = k ? propByKey[k] : null;
+      const isUw = k ? uwKeys.has(k) : false;
+      if (mp) { inList++; mm.l++; const fl = (mp.flags && typeof mp.flags === 'object') ? mp.flags : {}; let _anyFlag = false; Object.keys(fl).forEach(t => { if (fl[t] === true) { _anyFlag = true; tagTally[t] = (tagTally[t] || 0) + 1; } }); if (!_anyFlag) noTagSold++; }
+      if (isUw) { inUw++; mm.u++; }
+      if (isTaggedBuyer) { tbTotal++; mm.b++; }
+      if (isQualBuyer) { qbTotal++; mm.q++; }
+      if (!mp && !isUw) neither++;
+    });
+  });
+  const fmt = n => n.toLocaleString();
+  const avg = amtN ? '$' + Math.round(amtSum / amtN).toLocaleString() : '—';
+  // Cards.
+  const card = (label, val, color, sub) => '<div style="flex:1 1 150px;min-width:140px;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:14px 16px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-dim);font-weight:700">' + label + '</div><div style="font-size:26px;font-weight:800;color:' + (color || 'var(--text)') + ';margin-top:4px">' + val + '</div>' + (sub ? '<div style="font-size:11px;color:var(--text-dim);margin-top:2px">' + sub + '</div>' : '') + '</div>';
+  const cards = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
+    + card('Total Sold', fmt(total), '#eab308', 'buyer purchases')
+    + card('In My Lists', fmt(inList), '#10b981', total ? Math.round(inList / total * 100) + '% of sold' : '')
+    + card('In Underwriting', fmt(inUw), '#a5b4fc', total ? Math.round(inUw / total * 100) + '% of sold' : '')
+    + card('Tagged Buyer', fmt(tbTotal), '#f472b6', 'bought by a tagged buyer')
+    + card('Qualified Buyer', fmt(qbTotal), '#22d3ee', 'bought by a qualified buyer')
+    + card('Not Tracked', fmt(neither), '#94a3b8', 'not in lists or UW')
+    + card('Avg Sale $', avg, 'var(--text)', amtN + ' priced')
+    + '</div>';
+  // Month breakdown: always Jan–Dec, in calendar order.
+  const monthRows = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const MONTHS_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const monthLabel = moi => MONTHS_FULL[moi - 1];
+  const maxMonth = Math.max(1, ...monthRows.map(moi => (byMonth[moi] ? byMonth[moi].t : 0)));
+  const bar = (v, color) => '<div style="width:100%;background:rgba(148,163,184,0.12);border-radius:4px;height:11px;overflow:hidden"><div style="width:' + Math.round((v / maxMonth) * 100) + '%;height:100%;min-width:' + (v > 0 ? '3px' : '0') + ';background:' + color + '"></div></div>';
+  const legendDot = (c, lbl) => '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:var(--text-dim)"><span style="width:10px;height:10px;border-radius:2px;background:' + c + ';display:inline-block"></span>' + lbl + '</span>';
+  const monthsHtml = '<div style="flex:1 1 380px;min-width:320px;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px"><div style="font-weight:700">📅 Sold by Month' + (activeYear ? ' · ' + activeYear : '') + '</div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">' + legendDot('#eab308', 'Total') + legendDot('#10b981', 'In List') + legendDot('#a5b4fc', 'In UW') + legendDot('#f472b6', 'Tagged Buy') + legendDot('#22d3ee', 'Qual Buy') + '</div></div>'
+    + (monthRows.length ? monthRows.map(moi => {
+      const m = byMonth[moi] || { t: 0, l: 0, u: 0, b: 0, q: 0 };
+      const numCell = (v, c) => '<div style="height:11px;line-height:11px;color:' + c + '">' + fmt(v) + '</div>';
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px">'
+        + '<div style="width:82px;font-size:12px;color:var(--text-dim);flex:0 0 auto;white-space:nowrap">' + monthLabel(moi) + '</div>'
+        + '<div style="flex:1;display:flex;flex-direction:column;gap:2px">' + bar(m.t, 'linear-gradient(90deg,#eab308,#f59e0b)') + bar(m.l, '#10b981') + bar(m.u, '#a5b4fc') + bar(m.b, '#f472b6') + bar(m.q, '#22d3ee') + '</div>'
+        + '<div style="width:52px;flex:0 0 auto;display:flex;flex-direction:column;gap:2px;text-align:right;font-size:10px;font-weight:700">' + numCell(m.t, '#eab308') + numCell(m.l, '#10b981') + numCell(m.u, '#a5b4fc') + numCell(m.b, '#f472b6') + numCell(m.q, '#22d3ee') + '</div>'
+        + '</div>';
+    }).join('') : '<div style="color:var(--text-dim);font-size:13px">No sales in this window.</div>') + '</div>';
+  // Top tags among sold (from list matches). Denominator = every property that carries that tag.
+  const tagTotal = {}; let noTagTotal = 0;
+  Object.values(cache.properties || {}).forEach(p => { const fl = (p && p.flags && typeof p.flags === 'object') ? p.flags : {}; let any = false; Object.keys(fl).forEach(t => { if (fl[t] === true) { any = true; tagTotal[t] = (tagTotal[t] || 0) + 1; } }); if (!any) noTagTotal++; });
+  const tagRows = Object.keys(tagTally).sort((a, b) => tagTally[b] - tagTally[a]).slice(0, 15);
+  const maxTag = tagRows.length ? tagTally[tagRows[0]] : 1;
+  const tagsHtml = '<div style="flex:1 1 340px;min-width:300px;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px"><div style="font-weight:700;margin-bottom:4px">🏷️ Top Tags That Sold</div><div style="font-size:11px;color:var(--text-dim);margin-bottom:10px">sold / total tagged in your lists</div>'
+    + (tagRows.length ? tagRows.map(t => {
+      const n = tagTally[t], tot = tagTotal[t] || 0;
+      const rate = tot ? (n / tot * 100) : 0;   // sell-through: how many of the tagged sold
+      const pct = Math.min(100, Math.round(rate));
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px"><div style="width:130px;font-size:12px;color:var(--text-dim);flex:0 0 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(t) + '">' + esc(t) + '</div>'
+        + '<div style="flex:1;background:rgba(148,163,184,0.12);border-radius:5px;height:16px;overflow:hidden" title="' + rate.toFixed(1) + '% of tagged sold"><div style="width:' + pct + '%;height:100%;min-width:' + (n > 0 ? '3px' : '0') + ';background:linear-gradient(90deg,#10b981,#059669)"></div></div>'
+        + '<div style="width:120px;text-align:right;font-size:12px;font-weight:700;white-space:nowrap"><span style="color:#10b981">' + fmt(n) + '</span> <span style="color:var(--text-dim);font-weight:500">/ ' + fmt(tot) + '</span> <span style="color:var(--text-dim);font-weight:500;font-size:11px">(' + rate.toFixed(1) + '%)</span></div></div>';
+    }).join('') : '<div style="color:var(--text-dim);font-size:13px">No tagged sold properties in this window.</div>')
+    + (function () {
+      const rate = noTagTotal ? (noTagSold / noTagTotal * 100) : 0, pct = Math.min(100, Math.round(rate));
+      return '<div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)"><div style="width:130px;font-size:12px;color:var(--text-dim);flex:0 0 auto;font-style:italic">No Tag</div>'
+        + '<div style="flex:1;background:rgba(148,163,184,0.12);border-radius:5px;height:16px;overflow:hidden" title="' + rate.toFixed(1) + '% of untagged sold"><div style="width:' + pct + '%;height:100%;min-width:' + (noTagSold > 0 ? '3px' : '0') + ';background:#94a3b8"></div></div>'
+        + '<div style="width:120px;text-align:right;font-size:12px;font-weight:700;white-space:nowrap"><span style="color:#cbd5e1">' + fmt(noTagSold) + '</span> <span style="color:var(--text-dim);font-weight:500">/ ' + fmt(noTagTotal) + '</span> <span style="color:var(--text-dim);font-weight:500;font-size:11px">(' + rate.toFixed(1) + '%)</span></div></div>';
+    })() + '</div>';
+  // Highest-selling ZIPs + Cities (top 12 each by sold count).
+  const rankChart = (title, obj, color, labelFn, labelW) => {
+    const rows = Object.keys(obj).sort((a, b) => obj[b] - obj[a]).slice(0, 12);
+    const mx = rows.length ? obj[rows[0]] : 1;
+    return '<div style="flex:1 1 340px;min-width:300px;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px"><div style="font-weight:700;margin-bottom:10px">' + title + '</div>'
+      + (rows.length ? rows.map(k => {
+        const n = obj[k], pct = Math.round(n / mx * 100), lbl = labelFn ? labelFn(k) : k;
+        return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px"><div style="width:' + (labelW || 120) + 'px;font-size:12px;color:var(--text-dim);flex:0 0 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(lbl) + '">' + esc(lbl) + '</div>'
+          + '<div style="flex:1;background:rgba(148,163,184,0.12);border-radius:5px;height:16px;overflow:hidden"><div style="width:' + pct + '%;height:100%;min-width:3px;background:' + color + '"></div></div>'
+          + '<div style="width:52px;text-align:right;font-size:12px;font-weight:700">' + fmt(n) + '</div></div>';
+      }).join('') : '<div style="color:var(--text-dim);font-size:13px">No sales in this window.</div>') + '</div>';
+  };
+  const zipHtml = rankChart('📍 Highest-Selling ZIP Codes', byZip, 'linear-gradient(90deg,#38bdf8,#0ea5e9)', k => k + (zipCity[k] ? ' (' + zipCity[k] + ')' : ''), 180);
+  const cityHtml = rankChart('🏙️ Highest-Selling Cities', byCity, 'linear-gradient(90deg,#c084fc,#a855f7)');
+  body.innerHTML = cards
+    + '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">' + monthsHtml + tagsHtml + '</div>'
+    + '<div style="display:flex;gap:12px;flex-wrap:wrap">' + zipHtml + cityHtml + '</div>';
+}
+window.renderResultsSold = renderResultsSold;
 
 function goView(v) {
   document.querySelectorAll(".subtab[data-view]").forEach(t => t.classList.toggle("active", t.dataset.view === v));
@@ -43911,6 +45218,7 @@ async function loadAllFromDB() {
     _setLazyStatus('phones',    'loading');
     _setLazyStatus('emails',    'loading');
     _setLazyStatus('skiptrace', 'loading');
+    _setLazyStatus('contacts',  'loading');
   }
   // BACKGROUND PHASE — fire phones / emails / skiptrace_records but DON'T await.
   // Each updates the lazy-load banner + reruns dependent widgets on resolve.
@@ -43945,6 +45253,10 @@ async function loadAllFromDB() {
       if (typeof _setLazyStatus === 'function') _setLazyStatus('skiptrace', 'loaded', (rows||[]).length);
       _rerenderAfterLazy();
     }).catch(() => { if (typeof _setLazyStatus === 'function') _setLazyStatus('skiptrace', 'error'); });
+    // Contacts: fetch in the background at boot too, so its status check flips
+    // to ✓ on its own instead of waiting until Underwriting/Dispositions is opened.
+    // loadContacts() sets its own 'loaded'/'error' status.
+    try { if (typeof loadContacts === 'function') loadContacts(); } catch (e) { console.warn('boot loadContacts:', e); }
     safe(tracked('phones', () => fetchAll('phones')), []).then(rows => {
       cache.phones = {};
       (rows || []).forEach(ph => { cache.phones[ph.id] = ph; });

@@ -31525,7 +31525,15 @@ window._mapSectionRender = function (fit) {
       var addr = u.address || (u.data && u.data['uw-address']) || '(no address)';
       var loc = [u.city, u.state, u.zip].filter(Boolean).join(', ');
       var arv = fmt$(u.data && (u.data['uw-arv-override'] || u.data['uw-arv']));
-      var ask = fmt$((u.data && u.data['uw-asking']) || u.asking);
+      // Show Asking or Accepted price — whichever is LOWER — on its own line above ARV.
+      var _num = function (v) { var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) && n > 0 ? n : null; };
+      var _askN = _num((u.data && u.data['uw-asking']) || u.asking);
+      var _accN = _num(u.data && u.data['uw-accepted']);
+      var _priceCands = [];
+      if (_askN != null) _priceCands.push(['Asking', _askN]);
+      if (_accN != null) _priceCands.push(['Accepted', _accN]);
+      _priceCands.sort(function (a, b) { return a[1] - b[1]; });
+      var _priceLine = _priceCands.length ? 'Price: $' + Math.round(_priceCands[0][1]).toLocaleString() : '';
       // If the property is in Dispositions, show a dispo-stage icon (separate
       // from the underwriting icon). Otherwise show the underwriting icon:
       // Finalized: Closed 🏁 vs Dropped 💀 > Contracted 📝 > Hot 🔥 > Analyzed ✓ > else 📋.
@@ -31548,7 +31556,7 @@ window._mapSectionRender = function (fit) {
       var mk = L.marker([la, lo], { icon: L.divIcon({ className: 'map-prop-sq', html: sq, iconSize: [18, 18], iconAnchor: [9, 9] }) });
       var _dispoLine = (_dstage ? '<br><span style="color:#a855f7;font-weight:700">📄 ' + _dstage.charAt(0).toUpperCase() + _dstage.slice(1) + ' Contract</span>' : '') + (_isActive ? (_dstage ? ' ' : '<br>') + '<span style="color:#16a34a;font-weight:700">🟢 Active</span>' : '');
       var _finLine = (!_dstage && _pcats.indexOf('finalized') >= 0) ? '<br><span style="color:' + (_isDropped ? '#ef4444' : '#10b981') + ';font-weight:700">' + _finIcon + ' ' + (_isDropped ? 'Dropped' : 'Closed') + '</span>' : '';
-      mk.bindPopup('<div style="font-size:12px;min-width:170px"><b>🏠 ' + esc(addr) + '</b>' + (loc ? '<br>' + esc(loc) : '') + _dispoLine + _finLine + ((arv || ask) ? '<br>' + (arv ? 'ARV ' + arv : '') + (arv && ask ? ' · ' : '') + (ask ? 'Asking ' + ask : '') : '') + '<br><button onclick="_mapSectionOpenDeal(\'' + esc(u.id) + '\')" style="margin-top:6px;padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">Open in Underwriting</button></div>');
+      mk.bindPopup('<div style="font-size:12px;min-width:170px"><b>🏠 ' + esc(addr) + '</b>' + (loc ? '<br>' + esc(loc) : '') + _dispoLine + _finLine + (_priceLine ? '<br><b>' + _priceLine + '</b>' : '') + (arv ? '<br>ARV: ' + arv : '') + '<br><button onclick="_mapSectionOpenDeal(\'' + esc(u.id) + '\')" style="margin-top:6px;padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">Open in Underwriting</button></div>');
       window._mapSectionPropLayer.addLayer(mk);
     });
   }

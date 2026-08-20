@@ -31357,8 +31357,10 @@ window._mapRenderChips = function () {
     var layerOn = window._mapLayers[grp.layer] !== false;
     var head;
     if (grp.noToggle) {
-      // Non-layer group (Dispositions filters the Properties layer) — same pill styling, no toggle.
-      head = '<span style="display:inline-flex;align-items:center;gap:7px;padding:4px 13px;border-radius:999px;font-size:12.5px;font-weight:800;white-space:nowrap;border:1.5px solid ' + grp.color + ';background:' + (layerOn ? grp.color + '26' : 'transparent') + ';color:' + (layerOn ? grp.color : 'var(--text-dim)') + '">' + mkShape(grp.shape, grp.color) + grp.label + '</span>';
+      // Dispositions filters the Properties layer. The pill toggles all dispo chips on/off;
+      // it reads as "on" whenever any dispo chip is selected.
+      var dispoOn = (window._mapChips[grp.g] || []).length > 0;
+      head = '<button type="button" onclick="_mapToggleDispoAll()" title="Toggle all Dispositions filters" style="display:inline-flex;align-items:center;gap:7px;padding:4px 13px;border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;border:1.5px solid ' + grp.color + ';background:' + (dispoOn ? grp.color + '26' : 'transparent') + ';color:' + (dispoOn ? grp.color : 'var(--text-dim)') + '">' + mkShape(grp.shape, grp.color) + grp.label + '</button>';
     } else {
       head = '<button type="button" onclick="_mapToggleLayer(\'' + grp.layer + '\')" title="Show/hide ' + grp.label + '" style="display:inline-flex;align-items:center;gap:7px;padding:4px 13px;border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;border:1.5px solid ' + grp.color + ';background:' + (layerOn ? grp.color + '26' : 'transparent') + ';color:' + (layerOn ? grp.color : 'var(--text-dim)') + '">' + mkShape(grp.shape, grp.color) + grp.label + '</button>';
     }
@@ -31392,6 +31394,13 @@ window._mapRenderChips = function () {
   }).join('');
 };
 window._mapMonthFilter = (window._mapMonthFilter != null) ? window._mapMonthFilter : '12';
+window._mapToggleDispoAll = function () {
+  var cur = window._mapChips.dispo || [];
+  // Any selected -> clear all; none selected -> select all dispo stages.
+  window._mapChips.dispo = cur.length ? [] : ['new', 'assigning', 'hot', 'assigned', 'dead', 'active'];
+  window._mapRenderChips();
+  window._mapSectionRender(false);
+};
 window._mapSetMonthFilter = function (v) {
   window._mapMonthFilter = v || '';
   window._mapRenderChips();
@@ -31444,11 +31453,13 @@ window._mapSectionRender = function (fit) {
   window._mapSectionBuyerLayer.clearLayers();
   window._mapSectionPropLayer.clearLayers();
   var bounds = [], buyerPins = 0, propPins = 0, CAP = 8000;
-  // A buyer is "tagged" on this global map if they're tagged under ANY property.
-  // Map buyer id -> [property labels] so the popup can name which.
+  // A buyer is "tagged" on this global map if they're tagged under an ACTIVE property.
+  // (Tags on closed/dead deals are ignored so the popup list stays short + relevant.)
+  // Map buyer id -> [active property labels] so the popup can name which.
   var taggedByBuyer = {};
   Object.values(cache.underwrites || {}).forEach(function (u) {
     if (!u || !u.data || !Array.isArray(u.data._taggedBuyers)) return;
+    if (!(u.offer_active || (u.data && u.data._offerActive))) return; // active deals only
     var _lab = u.address || (u.data && u.data['uw-address']) || '(property)';
     u.data._taggedBuyers.forEach(function (bid) { (taggedByBuyer[bid] = taggedByBuyer[bid] || []).push(_lab); });
   });
@@ -31492,15 +31503,20 @@ window._mapSectionRender = function (fit) {
       });
     });
   }
-  // ----- Underwriting properties (orange squares) -----
-  if (showProps) {
+  // ----- Underwriting properties (colored squares) -----
+  {
     Object.values(cache.underwrites || {}).forEach(function (u) {
       if (!u || u.deleted_at) return;
-      if (_pChips.length || _dChips.length) {
-        var _cats = window._mapPropCats(u);
-        var _dcatsF = window._mapDispoCats(u);
-        if (!(_pChips.some(function (c) { return _cats.indexOf(c) >= 0; }) || _dChips.some(function (c) { return _dcatsF.indexOf(c) >= 0; }))) return;
-      }
+      var _pcats = window._mapPropCats(u);
+      var _dcats = window._mapDispoCats(u);
+      var pMatch = _pChips.some(function (c) { return _pcats.indexOf(c) >= 0; });
+      var dMatch = _dChips.some(function (c) { return _dcats.indexOf(c) >= 0; });
+      // When the Properties layer is ON: show all (no chips) or anything matching a
+      // selected prop/dispo chip. When it's OFF: keep only dispo-selected properties up.
+      var _showThis = showProps
+        ? ((_pChips.length || _dChips.length) ? (pMatch || dMatch) : true)
+        : dMatch;
+      if (!_showThis) return;
       var dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
       var la = (dc && dc.lat != null) ? Number(dc.lat) : (u.uw_lat != null ? Number(u.uw_lat) : NaN);
       var lo = (dc && dc.lng != null) ? Number(dc.lng) : (u.uw_lng != null ? Number(u.uw_lng) : NaN);
@@ -31513,9 +31529,6 @@ window._mapSectionRender = function (fit) {
       // If the property is in Dispositions, show a dispo-stage icon (separate
       // from the underwriting icon). Otherwise show the underwriting icon:
       // Finalized: Closed 🏁 vs Dropped 💀 > Contracted 📝 > Hot 🔥 > Analyzed ✓ > else 📋.
-      // Active (live for offers) turns the square green.
-      var _pcats = window._mapPropCats(u);
-      var _dcats = window._mapDispoCats(u);
       var _dstage = _dcats.filter(function (c) { return c !== 'active'; })[0];
       var _isActive = _dcats.indexOf('active') >= 0;
       var _offerStat = (u.data && u.data['uw-offer-status'] || '').trim();
@@ -31524,7 +31537,13 @@ window._mapSectionRender = function (fit) {
       var _picon = _dstage
         ? (_dstage === 'new' ? '📄' : _dstage === 'assigning' ? '🔁' : _dstage === 'hot' ? '🔥' : _dstage === 'assigned' ? '🤝' : _dstage === 'dead' ? '💀' : '📄')
         : (_pcats.indexOf('finalized') >= 0 ? _finIcon : _pcats.indexOf('contracted') >= 0 ? '📝' : _pcats.indexOf('hot') >= 0 ? '🔥' : _pcats.indexOf('analyzed') >= 0 ? '✓' : '📋');
-      var _sqColor = _isActive ? '#16a34a' : '#f97316';
+      // Box color by category: skull (dead/dropped) keeps the old color; in-dispositions
+      // or contracted = purple; finalized (closed) = green; analyzed/other = orange.
+      var _isSkull = (_picon === '💀');
+      var _sqColor = _isSkull ? '#ef4444'
+        : (_dstage || _pcats.indexOf('contracted') >= 0) ? '#a855f7'
+        : (_pcats.indexOf('finalized') >= 0) ? '#16a34a'
+        : '#f97316';
       var sq = '<div style="width:18px;height:18px;border-radius:3px;background:' + _sqColor + ';border:2px solid #fff;box-shadow:0 1px 2px rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;font-size:10px;line-height:1;color:#fff;font-weight:900;text-shadow:0 1px 1px rgba(0,0,0,0.4)">' + _picon + '</div>';
       var mk = L.marker([la, lo], { icon: L.divIcon({ className: 'map-prop-sq', html: sq, iconSize: [18, 18], iconAnchor: [9, 9] }) });
       var _dispoLine = (_dstage ? '<br><span style="color:#a855f7;font-weight:700">📄 ' + _dstage.charAt(0).toUpperCase() + _dstage.slice(1) + ' Contract</span>' : '') + (_isActive ? (_dstage ? ' ' : '<br>') + '<span style="color:#16a34a;font-weight:700">🟢 Active</span>' : '');

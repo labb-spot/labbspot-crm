@@ -31345,7 +31345,7 @@ window._mapRenderChips = function () {
   var counts = window._mapCounts || {};
   var groups = [
     { g: 'buyer', layer: 'buyer', label: 'Buyers', color: '#10b981', shape: 'circle', months: true, opts: [['tagged', 'Tagged'], ['recent', 'Recent'], ['vetting', 'Vetting'], ['qualified', 'Qualified'], ['unqualified', 'Unqualified']] },
-    { g: 'prop', layer: 'prop', label: 'Properties', color: '#f97316', shape: 'square', opts: [['analyzed', 'Analyzed'], ['hot', 'Hot'], ['contracted', 'Contracted'], ['finalized', 'Finalized']] },
+    { g: 'prop', layer: 'prop', label: 'Properties', color: '#f97316', shape: 'square', opts: [['analyzed', 'Analyzed'], ['all', 'All'], ['hot', 'Hot'], ['contracted', 'Contracted'], ['finalized', 'Finalized']] },
     { g: 'dispo', layer: 'prop', label: 'Dispositions', color: '#a855f7', shape: 'square', noToggle: true, opts: [['new', 'New'], ['assigning', 'Assigning'], ['hot', 'Hot'], ['assigned', 'Assigned'], ['dead', 'Dead'], ['active', 'Active']] }
   ];
   var mkShape = function (shape, color) {
@@ -31509,7 +31509,7 @@ window._mapSectionRender = function (fit) {
       if (!u || u.deleted_at) return;
       var _pcats = window._mapPropCats(u);
       var _dcats = window._mapDispoCats(u);
-      var pMatch = _pChips.some(function (c) { return _pcats.indexOf(c) >= 0; });
+      var pMatch = _pChips.indexOf('all') >= 0 || _pChips.some(function (c) { return _pcats.indexOf(c) >= 0; });
       var dMatch = _dChips.some(function (c) { return _dcats.indexOf(c) >= 0; });
       // When the Properties layer is ON: show all (no chips) or anything matching a
       // selected prop/dispo chip. When it's OFF: keep only dispo-selected properties up.

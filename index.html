@@ -31544,11 +31544,13 @@ window._mapSectionRender = function (fit) {
       var _finIcon = _isDropped ? '💀' : '🏁';
       var _picon = _dstage
         ? (_dstage === 'new' ? '📄' : _dstage === 'assigning' ? '🔁' : _dstage === 'hot' ? '🔥' : _dstage === 'assigned' ? '🤝' : _dstage === 'dead' ? '💀' : '📄')
-        : (_pcats.indexOf('finalized') >= 0 ? _finIcon : _pcats.indexOf('contracted') >= 0 ? '📝' : _pcats.indexOf('hot') >= 0 ? '🔥' : _pcats.indexOf('analyzed') >= 0 ? '✓' : '📋');
-      // Box color by category: skull (dead/dropped) keeps the old color; in-dispositions
-      // or contracted = purple; finalized (closed) = green; analyzed/other = orange.
+        : (_pcats.indexOf('finalized') >= 0 ? _finIcon : _pcats.indexOf('contracted') >= 0 ? '📝' : _pcats.indexOf('hot') >= 0 ? '🔥' : _pcats.indexOf('analyzed') >= 0 ? '✓' : '?');
+      // Box color by category: skull (dead/dropped) = red; not-yet-analyzed (?) = grey;
+      // in-dispositions or contracted = purple; finalized (closed) = green; analyzed/other = orange.
       var _isSkull = (_picon === '💀');
+      var _isUnknown = (_picon === '?');
       var _sqColor = _isSkull ? '#ef4444'
+        : _isUnknown ? '#6b7280'
         : (_dstage || _pcats.indexOf('contracted') >= 0) ? '#a855f7'
         : (_pcats.indexOf('finalized') >= 0) ? '#16a34a'
         : '#f97316';

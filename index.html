@@ -6827,6 +6827,7 @@
     <span id="map-search-type" style="display:inline-flex;align-items:center;gap:5px"></span>
     <select id="map-search-months" onchange="_mapSectionSearch()" title="Limit buyer results to purchases within this window" style="width:auto;height:38px;padding:0 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;box-sizing:border-box"><option value="">Any time</option><option value="3">≤ 3mo</option><option value="6">≤ 6mo</option><option value="12" selected>≤ 12mo</option><option value="24">≤ 24mo</option></select>
     <select id="map-search-buys" onchange="_mapSectionSearch()" title="Limit buyer results to buyers with at least this many purchases" style="width:auto;height:38px;padding:0 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;box-sizing:border-box"><option value="">Any #</option><option value="1">1+ buys</option><option value="3">3+ buys</option><option value="5">5+ buys</option><option value="25">25+ buys</option><option value="50">50+ buys</option><option value="100">100+ buys</option></select>
+    <select id="map-search-sold" onchange="_mapSectionSearch()" title="Show underwriting leads that SOLD — a buyer purchase shares the same location — within this window" style="width:auto;height:38px;padding:0 8px;background:var(--panel-2);border:1px solid #ef4444;border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;box-sizing:border-box"><option value="">Leads Sold: Off</option><option value="1">Sold ≤ 1mo</option><option value="3">Sold ≤ 3mo</option><option value="6">Sold ≤ 6mo</option><option value="12">Sold ≤ 12mo</option><option value="24">Sold ≤ 24mo</option></select>
     <span id="map-search-result" style="font-size:12px;color:var(--text-dim);margin-left:2px"></span>
   </div>
   <div id="map-search-results" style="margin-top:10px;display:flex;flex-direction:column;gap:8px"></div>
@@ -31492,18 +31493,39 @@ window._mapSectionSearch = function () {
   try { if (window._mapSearchLayer) window._mapSectionObj.removeLayer(window._mapSearchLayer); } catch (e) {}
   window._mapSearchLayer = null; window._mapSearchHits = [];
   if (list) list.innerHTML = '';
-  if (!q) { if (res) res.textContent = ''; return; }
   var esc = window.escapeHtml || function (s) { return String(s == null ? '' : s); };
   var type = window._mapSearchType || 'all';
   var hits = [], CAP = 400;
+  var _DAYms = 24 * 60 * 60 * 1000;
   // Search-bar timeframe + min-purchases dropdowns (buyer results only).
   var _smEl = document.getElementById('map-search-months');
   var _sbEl = document.getElementById('map-search-buys');
   var _critMonths = (_smEl && _smEl.value) ? parseInt(_smEl.value, 10) : 0;
   var _critMinBuys = (_sbEl && _sbEl.value) ? parseInt(_sbEl.value, 10) : 0;
-  var _DAYms = 24 * 60 * 60 * 1000;
-  // Buyers + their purchases.
-  if (type === 'all' || type === 'buyer') {
+  // "Leads Sold" dropdown: underwriting leads whose location matches a buyer
+  // purchase (shared geocode) with a sale in the window.
+  var _soEl = document.getElementById('map-search-sold');
+  var _soldMonths = (_soEl && _soEl.value) ? parseInt(_soEl.value, 10) : 0;
+  // Empty query is allowed only when Leads-Sold mode is on (it lists them all).
+  if (!q && !_soldMonths) { if (res) res.textContent = ''; return; }
+  // Build a geocode index of buyer purchases (rounded to ~11m) → most recent sale.
+  var _soldIndex = null, _soldCutoff = 0, _keyOf = function (la, lo) { return Math.round(la * 1e4) + '|' + Math.round(lo * 1e4); };
+  if (_soldMonths) {
+    _soldCutoff = Date.now() - _soldMonths * 30.44 * _DAYms;
+    _soldIndex = {};
+    Object.values(cache.buyers || {}).forEach(function (b) {
+      var pr = (typeof getBuyerPurchases === 'function') ? getBuyerPurchases(b.id) : [];
+      pr.forEach(function (p) {
+        if (!p || p.lat == null || p.lng == null) return;
+        var la = Number(p.lat), lo = Number(p.lng); if (!isFinite(la) || !isFinite(lo)) return;
+        var ts = p.sale_date ? new Date(p.sale_date).getTime() : 0; if (!ts) return;
+        var k = _keyOf(la, lo), cur = _soldIndex[k];
+        if (!cur || ts > cur.ts) _soldIndex[k] = { ts: ts, date: String(p.sale_date).slice(0, 10), buyer: (b.company || b.name || ''), amt: Number(p.sale_amount) || 0, buyerId: b.id };
+      });
+    });
+  }
+  // Buyers + their purchases (text-driven — needs a query).
+  if (q && (type === 'all' || type === 'buyer')) {
     Object.values(cache.buyers || {}).forEach(function (b) {
       if (!b || !b.id || hits.length >= CAP) return;
       var nameHit = ((b.company || '') + ' ' + (b.name || '')).toLowerCase().indexOf(q) >= 0;
@@ -31528,19 +31550,30 @@ window._mapSectionSearch = function () {
     });
   }
   // Underwriting properties (address, city, or seller/contact name).
-  if (type === 'all' || type === 'property') {
+  // Leads-Sold mode forces the property section on (it's a property-only view).
+  if (type === 'all' || type === 'property' || _soldMonths) {
     Object.values(cache.underwrites || {}).forEach(function (u) {
       if (!u || u.deleted_at || hits.length >= CAP) return;
       var addr = u.address || (u.data && u.data['uw-address']) || '';
       var seller = (u.data && (u.data['uw-contact-name'] || u.data['uw-owner-name'] || u.data['uw-seller-name'])) || u.contact_name || '';
       var loc = [u.city, u.state, u.zip].filter(Boolean).join(', ');
       var hay = (addr + ' ' + loc + ' ' + seller).toLowerCase();
-      if (hay.indexOf(q) < 0) return;
+      if (q && hay.indexOf(q) < 0) return;
       var dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
       var la = Number((dc && dc.lat != null) ? dc.lat : u.uw_lat);
       var lo = Number((dc && dc.lng != null) ? dc.lng : u.uw_lng);
       if (!isFinite(la) || !isFinite(lo)) return;
-      hits.push({ kind: 'prop', la: la, lo: lo, color: '#f97316', u: u, addr: addr, loc: loc, seller: seller });
+      // Leads-Sold gate: require a buyer purchase at this location within the window.
+      var soldInfo = null;
+      if (_soldMonths) {
+        var kla = Math.round(la * 1e4), klo = Math.round(lo * 1e4);
+        for (var dx = -1; dx <= 1 && !soldInfo; dx++) for (var dy = -1; dy <= 1; dy++) {
+          var cand = _soldIndex[(kla + dx) + '|' + (klo + dy)];
+          if (cand && cand.ts >= _soldCutoff) { soldInfo = cand; break; }
+        }
+        if (!soldInfo) return;
+      }
+      hits.push({ kind: 'prop', la: la, lo: lo, color: soldInfo ? '#ef4444' : '#f97316', u: u, addr: addr, loc: loc, seller: seller, sold: soldInfo });
     });
   }
   window._mapSearchHits = hits;
@@ -31589,7 +31622,9 @@ window._mapSectionSearch = function () {
         if (h.lender) meta.push('🏦 ' + esc(h.lender));
         return '<div style="' + card + '" onclick="_mapSearchFocus(' + i + ')"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div style="font-size:13px;font-weight:700">● ' + nm + '</div><div style="display:flex;gap:6px;align-items:center" onclick="event.stopPropagation()"><button onclick="buyerOpenAddModal(\'' + esc(h.b.id) + '\')" style="' + openBtn + '">👤 Open buyer</button>' + zg + '</div></div><div style="font-size:12px;color:var(--text-dim);margin-top:3px">' + esc(h.addr || '(no address)') + '</div>' + (meta.length ? '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">' + meta.join(' · ') + '</div>' : '') + '</div>';
       } else {
-        return '<div style="' + card + '" onclick="_mapSearchFocus(' + i + ')"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div style="font-size:13px;font-weight:700">🏠 ' + esc(h.addr || '(property)') + '</div><div style="display:flex;gap:6px;align-items:center" onclick="event.stopPropagation()"><button onclick="_mapSectionOpenDeal(\'' + esc(h.u.id) + '\')" style="' + openBtn + '">Open in Underwriting</button>' + zg + '</div></div><div style="font-size:12px;color:var(--text-dim);margin-top:3px">' + esc(h.loc || '') + (h.seller ? ' · ' + esc(h.seller) : '') + '</div></div>';
+        var soldLine = h.sold ? '<div style="font-size:12px;margin-top:2px"><span style="color:#ef4444;font-weight:800">💰 SOLD</span> <span style="color:#eab308;font-weight:700">' + esc(_fmtDate(h.sold.date)) + '</span>' + (h.sold.amt > 0 ? ' · <b style="color:var(--text)">' + fmt$(h.sold.amt) + '</b>' : '') + (h.sold.buyer ? ' · <span style="color:var(--text-dim)">to ' + esc(h.sold.buyer) + '</span>' : '') + '</div>' : '';
+        var soldBuyerBtn = (h.sold && h.sold.buyerId) ? '<button onclick="buyerOpenAddModal(\'' + esc(h.sold.buyerId) + '\')" style="' + openBtn + '">👤 Open buyer</button>' : '';
+        return '<div style="' + card + '" onclick="_mapSearchFocus(' + i + ')"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><div style="font-size:13px;font-weight:700">🏠 ' + esc(h.addr || '(property)') + '</div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap" onclick="event.stopPropagation()"><button onclick="_mapSectionOpenDeal(\'' + esc(h.u.id) + '\')" style="' + openBtn + '">Open in Underwriting</button>' + soldBuyerBtn + zg + '</div></div><div style="font-size:12px;color:var(--text-dim);margin-top:3px">' + esc(h.loc || '') + (h.seller ? ' · ' + esc(h.seller) : '') + '</div>' + soldLine + '</div>';
       }
     }).join('') + (hits.length > LIST_CAP ? '<div style="font-size:11px;color:var(--text-dim);padding:4px 2px">Showing first ' + LIST_CAP + ' of ' + hits.length + '. Refine your search to narrow it down.</div>' : '');
   }

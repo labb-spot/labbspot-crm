@@ -44432,6 +44432,7 @@ async function loadAllFromDB() {
     _setLazyStatus('phones',    'loading');
     _setLazyStatus('emails',    'loading');
     _setLazyStatus('skiptrace', 'loading');
+    _setLazyStatus('contacts',  'loading');
   }
   // BACKGROUND PHASE — fire phones / emails / skiptrace_records but DON'T await.
   // Each updates the lazy-load banner + reruns dependent widgets on resolve.
@@ -44466,6 +44467,10 @@ async function loadAllFromDB() {
       if (typeof _setLazyStatus === 'function') _setLazyStatus('skiptrace', 'loaded', (rows||[]).length);
       _rerenderAfterLazy();
     }).catch(() => { if (typeof _setLazyStatus === 'function') _setLazyStatus('skiptrace', 'error'); });
+    // Contacts: fetch in the background at boot too, so its status check flips
+    // to ✓ on its own instead of waiting until Underwriting/Dispositions is opened.
+    // loadContacts() sets its own 'loaded'/'error' status.
+    try { if (typeof loadContacts === 'function') loadContacts(); } catch (e) { console.warn('boot loadContacts:', e); }
     safe(tracked('phones', () => fetchAll('phones')), []).then(rows => {
       cache.phones = {};
       (rows || []).forEach(ph => { cache.phones[ph.id] = ph; });

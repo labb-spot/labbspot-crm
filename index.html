@@ -31326,6 +31326,13 @@ window._mapSectionOpen = function () {
         var _mk = function () { return L.markerClusterGroup ? L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 45, disableClusteringAtZoom: 12, spiderfyOnMaxZoom: true }) : L.layerGroup(); };
         window._mapSectionBuyerLayer = _mk().addTo(window._mapSectionObj);
         window._mapSectionPropLayer = _mk().addTo(window._mapSectionObj);
+        // When there are more buyer points than the cap, re-render on pan/zoom so
+        // the area now in view gets filled. No-op (and no re-render) when under cap.
+        window._mapSectionObj.on('moveend', function () {
+          if (!window._mapCapping) return;
+          clearTimeout(window._mapMoveT);
+          window._mapMoveT = setTimeout(function () { try { window._mapSectionRender(false); } catch (e) {} }, 250);
+        });
       }
       setTimeout(function () { if (window._mapSectionObj) window._mapSectionObj.invalidateSize(); window._mapSectionRender(firstBuild); }, 60);
     });
@@ -31463,7 +31470,11 @@ window._mapSectionRender = function (fit) {
   var showProps = window._mapLayers.prop !== false;
   window._mapSectionBuyerLayer.clearLayers();
   window._mapSectionPropLayer.clearLayers();
-  var bounds = [], buyerPins = 0, propPins = 0, CAP = 8000;
+  var bounds = [], buyerPins = 0, propPins = 0, CAP = 20000;
+  // When we have to cap, prefer plotting whatever's inside the current view so
+  // zooming into an area fills that area first. Only matters if candidates > CAP.
+  var _viewBounds = null;
+  try { if (window._mapSectionObj && typeof window._mapSectionObj.getBounds === 'function') _viewBounds = window._mapSectionObj.getBounds(); } catch (e) {}
   // A buyer is "tagged" on this global map if they're tagged under an ACTIVE property.
   // (Tags on closed/dead deals are ignored so the popup list stays short + relevant.)
   // Map buyer id -> [active property labels] so the popup can name which.
@@ -31475,6 +31486,7 @@ window._mapSectionRender = function (fit) {
     u.data._taggedBuyers.forEach(function (bid) { (taggedByBuyer[bid] = taggedByBuyer[bid] || []).push(_lab); });
   });
   // ----- Buyer purchases (dots — same look as the per-deal map) -----
+  var _buyerCand = [];
   if (showBuyers) {
     Object.values(cache.buyers || {}).forEach(function (b) {
       if (!b || !b.id) return;
@@ -31502,22 +31514,33 @@ window._mapSectionRender = function (fit) {
       var dotBorder = !isTagged ? 'rgba(0,0,0,0.5)' : (q === 'qualified' ? '#065f46' : q === 'vetting' ? '#1e3a8a' : '#854d0e');
       var sym = q === 'qualified' ? '✓' : q === 'unqualified' ? '✗' : q === 'vetting' ? '🔍' : '?';
       purchases.forEach(function (p) {
-        if (!p || p.lat == null || p.lng == null || buyerPins >= CAP) return;
+        if (!p || p.lat == null || p.lng == null) return;
         var la = Number(p.lat), lo = Number(p.lng); if (!isFinite(la) || !isFinite(lo)) return;
-        buyerPins++; bounds.push([la, lo]);
-        var amt = Number(p.sale_amount) || 0;
-        var addr = [p.address, p.city, p.state, p.zip].filter(Boolean).join(', ');
-        var _bq = encodeURIComponent(addr);
-        var _bzUrl = 'https://www.zillow.com/homes/' + _bq + '_rb/';
-        var _bgUrl = 'https://www.google.com/maps/search/?api=1&query=' + _bq;
-        var iconHtml = '<div style="width:18px;height:18px;border-radius:50%;background:' + color + ';border:2px solid ' + dotBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;font-weight:900;color:#fff;text-shadow:-1px -1px 0 rgba(0,0,0,0.75),1px -1px 0 rgba(0,0,0,0.75),-1px 1px 0 rgba(0,0,0,0.75),1px 1px 0 rgba(0,0,0,0.75)">' + sym + '</div>';
-        var m = L.marker([la, lo], { icon: L.divIcon({ className: 'map-buyer-pin', html: iconHtml, iconSize: [18, 18], iconAnchor: [9, 9] }) });
-        var _zgBtns = (addr ? '<span style="margin-left:auto;display:inline-flex;gap:5px">' + window._mapZGBtns(_bzUrl, _bgUrl) + '</span>' : '');
-        m.bindPopup('<div style="font-size:12px;min-width:150px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + ((b.company && b.name) ? '<br><span style="color:#b45309;font-weight:700">' + esc(b.name) + '</span>' : '') + (isTagged ? '<br><span style="color:#10b981;font-weight:700">🏷 Tagged under: ' + esc(_taggedProps.join(', ')) + '</span>' : '') + '<br>' + esc(addr || '(no address)') + '<br><b>' + (amt > 0 ? '$' + Math.round(amt).toLocaleString() : 'non-market ($0)') + '</b><br><div style="display:flex;align-items:center;gap:5px;margin-top:6px"><button onclick="buyerOpenAddModal(\'' + esc(b.id) + '\')" style="padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">👤 Open buyer</button>' + _zgBtns + '</div></div>');
-        window._mapSectionBuyerLayer.addLayer(m);
+        _buyerCand.push({ la: la, lo: lo, b: b, p: p, color: color, dotBorder: dotBorder, sym: sym, isTagged: isTagged, taggedProps: _taggedProps });
       });
     });
-  }
+    // Prefer in-view points when we're over the cap, so the area you're looking
+    // at always loads first. (No effect when total ≤ CAP.)
+    window._mapCapping = _buyerCand.length > CAP;
+    if (window._mapCapping && _viewBounds) {
+      _buyerCand.sort(function (a, b) { return (_viewBounds.contains([b.la, b.lo]) ? 1 : 0) - (_viewBounds.contains([a.la, a.lo]) ? 1 : 0); });
+    }
+    var _lim = Math.min(_buyerCand.length, CAP);
+    for (var _ci = 0; _ci < _lim; _ci++) {
+      var c = _buyerCand[_ci], b = c.b, p = c.p;
+      buyerPins++; bounds.push([c.la, c.lo]);
+      var amt = Number(p.sale_amount) || 0;
+      var addr = [p.address, p.city, p.state, p.zip].filter(Boolean).join(', ');
+      var _bq = encodeURIComponent(addr);
+      var _bzUrl = 'https://www.zillow.com/homes/' + _bq + '_rb/';
+      var _bgUrl = 'https://www.google.com/maps/search/?api=1&query=' + _bq;
+      var iconHtml = '<div style="width:18px;height:18px;border-radius:50%;background:' + c.color + ';border:2px solid ' + c.dotBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;font-weight:900;color:#fff;text-shadow:-1px -1px 0 rgba(0,0,0,0.75),1px -1px 0 rgba(0,0,0,0.75),-1px 1px 0 rgba(0,0,0,0.75),1px 1px 0 rgba(0,0,0,0.75)">' + c.sym + '</div>';
+      var m = L.marker([c.la, c.lo], { icon: L.divIcon({ className: 'map-buyer-pin', html: iconHtml, iconSize: [18, 18], iconAnchor: [9, 9] }) });
+      var _zgBtns = (addr ? '<span style="margin-left:auto;display:inline-flex;gap:5px">' + window._mapZGBtns(_bzUrl, _bgUrl) + '</span>' : '');
+      m.bindPopup('<div style="font-size:12px;min-width:150px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + ((b.company && b.name) ? '<br><span style="color:#b45309;font-weight:700">' + esc(b.name) + '</span>' : '') + (c.isTagged ? '<br><span style="color:#10b981;font-weight:700">🏷 Tagged under: ' + esc(c.taggedProps.join(', ')) + '</span>' : '') + '<br>' + esc(addr || '(no address)') + '<br><b>' + (amt > 0 ? '$' + Math.round(amt).toLocaleString() : 'non-market ($0)') + '</b><br><div style="display:flex;align-items:center;gap:5px;margin-top:6px"><button onclick="buyerOpenAddModal(\'' + esc(b.id) + '\')" style="padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">👤 Open buyer</button>' + _zgBtns + '</div></div>');
+      window._mapSectionBuyerLayer.addLayer(m);
+    }
+  } else { window._mapCapping = false; }
   // ----- Underwriting properties (colored squares) -----
   {
     Object.values(cache.underwrites || {}).forEach(function (u) {

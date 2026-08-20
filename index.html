@@ -31509,10 +31509,10 @@ window._mapSectionRender = function (fit) {
         var addr = [p.address, p.city, p.state, p.zip].filter(Boolean).join(', ');
         var _bq = encodeURIComponent(addr);
         var _bzUrl = 'https://www.zillow.com/homes/' + _bq + '_rb/';
-        var _bgUrl = 'https://www.google.com/search?q=' + _bq;
+        var _bgUrl = 'https://www.google.com/maps/search/?api=1&query=' + _bq;
         var iconHtml = '<div style="width:18px;height:18px;border-radius:50%;background:' + color + ';border:2px solid ' + dotBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;font-weight:900;color:#fff;text-shadow:-1px -1px 0 rgba(0,0,0,0.75),1px -1px 0 rgba(0,0,0,0.75),-1px 1px 0 rgba(0,0,0,0.75),1px 1px 0 rgba(0,0,0,0.75)">' + sym + '</div>';
         var m = L.marker([la, lo], { icon: L.divIcon({ className: 'map-buyer-pin', html: iconHtml, iconSize: [18, 18], iconAnchor: [9, 9] }) });
-        var _zgBtns = (addr ? window._mapZGBtns(_bzUrl, _bgUrl) : '');
+        var _zgBtns = (addr ? '<span style="margin-left:auto;display:inline-flex;gap:5px">' + window._mapZGBtns(_bzUrl, _bgUrl) + '</span>' : '');
         m.bindPopup('<div style="font-size:12px;min-width:150px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + ((b.company && b.name) ? '<br><span style="color:#b45309;font-weight:700">' + esc(b.name) + '</span>' : '') + (isTagged ? '<br><span style="color:#10b981;font-weight:700">🏷 Tagged under: ' + esc(_taggedProps.join(', ')) + '</span>' : '') + '<br>' + esc(addr || '(no address)') + '<br><b>' + (amt > 0 ? '$' + Math.round(amt).toLocaleString() : 'non-market ($0)') + '</b><br><div style="display:flex;align-items:center;gap:5px;margin-top:6px"><button onclick="buyerOpenAddModal(\'' + esc(b.id) + '\')" style="padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">👤 Open buyer</button>' + _zgBtns + '</div></div>');
         window._mapSectionBuyerLayer.addLayer(m);
       });
@@ -31542,7 +31542,7 @@ window._mapSectionRender = function (fit) {
       // Zillow / Google search links for this address (open in a new tab).
       var _fullAddr = [addr, loc].filter(Boolean).join(', ');
       var _q = encodeURIComponent(_fullAddr);
-      var _gUrl = 'https://www.google.com/search?q=' + _q;
+      var _gUrl = 'https://www.google.com/maps/search/?api=1&query=' + _q;
       var _zUrl = 'https://www.zillow.com/homes/' + _q + '_rb/';
       var arv = fmt$(u.data && (u.data['uw-arv-override'] || u.data['uw-arv']));
       // Show Asking or Accepted price — whichever is LOWER — on its own line above ARV.
@@ -31578,7 +31578,7 @@ window._mapSectionRender = function (fit) {
       var mk = L.marker([la, lo], { icon: L.divIcon({ className: 'map-prop-sq', html: sq, iconSize: [18, 18], iconAnchor: [9, 9] }) });
       var _dispoLine = (_dstage ? '<br><span style="color:#a855f7;font-weight:700">📄 ' + _dstage.charAt(0).toUpperCase() + _dstage.slice(1) + ' Contract</span>' : '') + (_isActive ? (_dstage ? ' ' : '<br>') + '<span style="color:#16a34a;font-weight:700">🟢 Active</span>' : '');
       var _finLine = (!_dstage && _pcats.indexOf('finalized') >= 0) ? '<br><span style="color:' + (_isDropped ? '#ef4444' : '#10b981') + ';font-weight:700">' + _finIcon + ' ' + (_isDropped ? 'Dropped' : 'Closed') + '</span>' : '';
-      mk.bindPopup('<div style="font-size:12px;min-width:170px"><b>🏠 ' + esc(addr) + '</b>' + (loc ? '<br>' + esc(loc) : '') + _dispoLine + _finLine + (_priceLine ? '<br><b>' + _priceLine + '</b>' : '') + (arv ? '<br>ARV: ' + arv : '') + '<br><div style="display:flex;align-items:center;gap:5px;margin-top:6px"><button onclick="_mapSectionOpenDeal(\'' + esc(u.id) + '\')" style="padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">Open in Underwriting</button>' + window._mapZGBtns(_zUrl, _gUrl) + '</div></div>');
+      mk.bindPopup('<div style="font-size:12px;min-width:170px"><b>🏠 ' + esc(addr) + '</b>' + (loc ? '<br>' + esc(loc) : '') + _dispoLine + _finLine + (_priceLine ? '<br><b>' + _priceLine + '</b>' : '') + (arv ? '<br>ARV: ' + arv : '') + '<br><div style="display:flex;align-items:center;gap:5px;margin-top:6px"><button onclick="_mapSectionOpenDeal(\'' + esc(u.id) + '\')" style="padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">Open in Underwriting</button><span style="margin-left:auto;display:inline-flex;gap:5px">' + window._mapZGBtns(_zUrl, _gUrl) + '</span></div></div>');
       window._mapSectionPropLayer.addLayer(mk);
     });
   }

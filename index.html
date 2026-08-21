@@ -42646,9 +42646,9 @@ function renderResultsSold() {
       + '<div id="sold-rank-' + id + '" style="max-height:360px;overflow-y:auto;padding-right:22px">'
       + (rows.length ? rows.map(k => {
         const n = obj[k], pct = Math.round(n / mx * 100), lbl = labelFn ? labelFn(k) : k;
-        return '<div class="sold-rank-row" data-s="' + esc(String(lbl).toLowerCase()) + '" style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap;margin-bottom:7px"><div style="width:' + (labelW || 120) + 'px;font-size:12px;color:var(--text-dim);flex:0 0 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(lbl) + '">' + esc(lbl) + '</div>'
-          + '<div style="flex:1 1 0;min-width:0;background:rgba(148,163,184,0.12);border-radius:5px;height:16px;overflow:hidden"><div style="width:' + pct + '%;height:100%;min-width:3px;background:' + color + '"></div></div>'
-          + '<div style="width:54px;text-align:right;font-size:12px;font-weight:700;flex:0 0 auto">' + fmt(n) + '</div></div>';
+        return '<div class="sold-rank-row" data-s="' + esc(String(lbl).toLowerCase()) + '" style="display:grid;grid-template-columns:' + (labelW || 120) + 'px 1fr 54px;align-items:center;gap:8px;margin-bottom:7px"><div style="font-size:12px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="' + esc(lbl) + '">' + esc(lbl) + '</div>'
+          + '<div style="min-width:0;background:rgba(148,163,184,0.12);border-radius:5px;height:16px;overflow:hidden"><div style="width:' + pct + '%;height:100%;min-width:3px;background:' + color + '"></div></div>'
+          + '<div style="text-align:right;font-size:12px;font-weight:700">' + fmt(n) + '</div></div>';
       }).join('') : '<div style="color:var(--text-dim);font-size:13px">No sales in this window.</div>') + '</div></div>';
   };
   const zipHtml = rankChart('📍 Highest-Selling ZIP Codes', byZip, 'linear-gradient(90deg,#38bdf8,#0ea5e9)', k => k + (zipCity[k] ? ' (' + zipCity[k] + ')' : ''), 150, 'zip');

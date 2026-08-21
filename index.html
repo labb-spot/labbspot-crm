@@ -6896,9 +6896,8 @@
     <button class="btn btn-ghost text-xs" onclick="_mapSectionRefresh(this)" title="Re-pull buyers + properties and redraw">🔁 Refresh</button>
   </div>
   <div id="map-chips" style="display:flex;flex-wrap:nowrap;align-items:stretch;gap:10px;margin-bottom:12px"></div>
-  <div id="map-section-canvas" style="height:calc(100vh - 240px);min-height:460px;width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:13px">Loading map…</div>
-  <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
-    <input id="map-search-input" type="text" placeholder="🔍 Search an address, or a buyer / seller name…" onkeydown="if(event.key==='Enter')_mapSectionSearch()" style="flex:0 1 420px;min-width:180px;height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box" />
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <input id="map-search-input" type="text" placeholder="🔍 Search an address, or a buyer / seller name…" oninput="_mapSearchLive()" onkeydown="if(event.key==='Enter')_mapSectionSearch()" style="flex:0 1 420px;min-width:180px;height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box" />
     <button class="btn btn-primary text-sm" onclick="_mapSectionSearch()" style="height:38px;white-space:nowrap">Search</button>
     <button class="btn btn-ghost text-sm" onclick="_mapSectionSearchClear()" style="height:38px;white-space:nowrap">Clear</button>
     <span id="map-search-type" style="display:inline-flex;align-items:center;gap:5px"></span>
@@ -6907,8 +6906,8 @@
     <select id="map-search-sold" onchange="_mapSectionSearch()" title="Show underwriting leads that SOLD — a buyer purchase shares the same location — within this window" style="width:auto;height:38px;padding:0 8px;background:var(--panel-2);border:1px solid #ef4444;border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;box-sizing:border-box"><option value="">Leads Sold: Off</option><option value="1">Sold ≤ 1mo</option><option value="3">Sold ≤ 3mo</option><option value="6">Sold ≤ 6mo</option><option value="12">Sold ≤ 12mo</option><option value="24">Sold ≤ 24mo</option></select>
     <span id="map-search-result" style="font-size:12px;color:var(--text-dim);margin-left:2px"></span>
   </div>
+  <div id="map-section-canvas" style="height:calc(100vh - 240px);min-height:460px;width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:13px">Loading map…</div>
   <div id="map-search-results" style="margin-top:10px;display:flex;flex-direction:column;gap:8px"></div>
-  <div style="font-size:11px;color:var(--text-dim);margin-top:8px">Free map · <span style="color:#10b981">●</span> dots = buyers' past purchases (colored by status) · <span style="color:#f97316">■</span> squares = your underwriting properties · click either for details.</div>
 </div>
 
 <!-- SECTION: SOP — Standard Operating Procedure
@@ -31689,6 +31688,9 @@ window._mapSectionSearchClear = function () {
   try { if (window._mapSearchLayer && window._mapSectionObj) window._mapSectionObj.removeLayer(window._mapSearchLayer); } catch (e) {}
   window._mapSearchLayer = null;
   window._mapSearchHits = [];
+  var _hadLive = !!window._mapLiveQuery;
+  window._mapLiveQuery = '';
+  if (_hadLive) { try { window._mapSectionRender(false); } catch (e) {} }
   var r = document.getElementById('map-search-result'); if (r) r.textContent = '';
   var list = document.getElementById('map-search-results'); if (list) list.innerHTML = '';
   var inp = document.getElementById('map-search-input'); if (inp) inp.value = '';
@@ -31710,7 +31712,26 @@ window._mapSearchFocus = function (i) {
   try { window._mapSectionObj.setView([h.la, h.lo], 16, { animate: true }); } catch (e) {}
   if (h._marker) { try { h._marker.openPopup(); } catch (e) {} }
 };
+// Live as you type (debounced): just FILTER the map dots/squares by the typed text
+// (entity/company name, contact name, or address). No highlight pins, no result cards.
+window._mapLiveQuery = window._mapLiveQuery || '';
+window._mapSearchLive = function () {
+  clearTimeout(window._mapSearchT);
+  window._mapSearchT = setTimeout(function () {
+    var inp = document.getElementById('map-search-input');
+    window._mapLiveQuery = (inp && inp.value || '').trim().toLowerCase();
+    // Clear any prior full-search highlight pins + result cards while live-filtering.
+    try { if (window._mapSearchLayer && window._mapSectionObj) { window._mapSectionObj.removeLayer(window._mapSearchLayer); window._mapSearchLayer = null; } } catch (e) {}
+    var list = document.getElementById('map-search-results'); if (list) list.innerHTML = '';
+    var res = document.getElementById('map-search-result'); if (res) res.textContent = '';
+    try { window._mapSectionRender(false); } catch (e) {}
+  }, 220);
+};
 window._mapSectionSearch = function () {
+  // Pressing Search runs the full experience — clear the live dot-filter first so all
+  // markers return, then drop highlight pins + populate the result cards below the map.
+  window._mapLiveQuery = '';
+  try { window._mapSectionRender(false); } catch (e) {}
   var inp = document.getElementById('map-search-input');
   var res = document.getElementById('map-search-result');
   var list = document.getElementById('map-search-results');
@@ -31970,6 +31991,12 @@ window._mapSectionRender = function (fit) {
       if (window._mapMonthFilter) { if (!_within(parseInt(window._mapMonthFilter, 10))) return; }
       // Min-purchases dropdown (AND filter): only buyers with at least N purchases.
       if (window._mapMinPurchases) { if (purchases.length < parseInt(window._mapMinPurchases, 10)) return; }
+      // Live-typed filter: entity/company name OR contact name (else per-purchase address).
+      var _lq = (window._mapLiveQuery || '');
+      var _nameHit = _lq ? (((b.company || '') + ' ' + (b.name || '')).toLowerCase().indexOf(_lq) >= 0) : true;
+      if (_lq && !_nameHit) {
+        if (!purchases.some(function (p) { return p && [p.address, p.city, p.state, p.zip].filter(Boolean).join(', ').toLowerCase().indexOf(_lq) >= 0; })) return;
+      }
       // Match the per-deal map: untagged = grey; tagged colored by status; a ✓/✗/🔍/? symbol on top.
       var color = !isTagged ? '#6b7280' : (q === 'qualified' ? '#10b981' : q === 'vetting' ? '#3b82f6' : '#eab308');
       var dotBorder = !isTagged ? 'rgba(0,0,0,0.5)' : (q === 'qualified' ? '#065f46' : q === 'vetting' ? '#1e3a8a' : '#854d0e');
@@ -31977,6 +32004,7 @@ window._mapSectionRender = function (fit) {
       purchases.forEach(function (p) {
         if (!p || p.lat == null || p.lng == null) return;
         var la = Number(p.lat), lo = Number(p.lng); if (!isFinite(la) || !isFinite(lo)) return;
+        if (_lq && !_nameHit) { if ([p.address, p.city, p.state, p.zip].filter(Boolean).join(', ').toLowerCase().indexOf(_lq) < 0) return; }
         _buyerCand.push({ la: la, lo: lo, b: b, p: p, color: color, dotBorder: dotBorder, sym: sym, isTagged: isTagged, taggedProps: _taggedProps });
       });
     });
@@ -32016,6 +32044,13 @@ window._mapSectionRender = function (fit) {
         ? ((_pChips.length || _dChips.length) ? (pMatch || dMatch) : true)
         : dMatch;
       if (!_showThis) return;
+      // Live-typed filter: address / city / seller-contact name.
+      if (window._mapLiveQuery) {
+        var _plq = window._mapLiveQuery;
+        var _pseller = (u.data && (u.data['uw-contact-name'] || u.data['uw-owner-name'] || u.data['uw-seller-name'])) || u.contact_name || '';
+        var _phay = ((u.address || (u.data && u.data['uw-address']) || '') + ' ' + [u.city, u.state, u.zip].filter(Boolean).join(' ') + ' ' + _pseller).toLowerCase();
+        if (_phay.indexOf(_plq) < 0) return;
+      }
       var dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
       var la = (dc && dc.lat != null) ? Number(dc.lat) : (u.uw_lat != null ? Number(u.uw_lat) : NaN);
       var lo = (dc && dc.lng != null) ? Number(dc.lng) : (u.uw_lng != null ? Number(u.uw_lng) : NaN);

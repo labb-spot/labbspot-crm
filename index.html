@@ -30552,7 +30552,7 @@ function _dispoOpenDeal(dealId) {
   // Reset filter state on deal change so a leftover filter from a previous
   // deal doesn't hide buyers on the new one. Users almost never want
   // cross-deal filter persistence.
-  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 3, minScore: 0, active: '12mo', maxMiles: 0.5 };
+  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 2, minScore: 0, active: '12mo', maxMiles: 0.5 };
   if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
 }
@@ -30573,9 +30573,9 @@ function _dispoGetBuyerOffer(dealId, buyerId) {
 // Per-deal detail-view filter state. Session-only (not persisted) — resets
 // when the user navigates away from the deal. Updated via _dispoSetFilter,
 // which re-renders ONLY the buyer list (preserving search-input focus).
-window._dispoFilter = window._dispoFilter || { search: '', outreach: '', qual: '', acqMin: 3, minScore: 0, active: '12mo', maxMiles: 0.5 };
+window._dispoFilter = window._dispoFilter || { search: '', outreach: '', qual: '', acqMin: 2, minScore: 0, active: '12mo', maxMiles: 0.5 };
 function _dispoSetFilter(key, value) {
-  if (!window._dispoFilter) window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 3, minScore: 0, active: '12mo', maxMiles: 0.5 };
+  if (!window._dispoFilter) window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 2, minScore: 0, active: '12mo', maxMiles: 0.5 };
   window._dispoFilter[key] = value;
   // maxMiles changes the qualifying pool itself (not just the displayed
   // subset), so a full Per Deal re-render is needed to refresh the count.
@@ -30596,7 +30596,7 @@ function _dispoSetFilter(key, value) {
 }
 window._dispoSetFilter = _dispoSetFilter;
 function _dispoClearFilters() {
-  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 3, minScore: 0, active: '12mo', maxMiles: 0.5 };
+  window._dispoFilter = { search: '', outreach: '', qual: '', acqMin: 2, minScore: 0, active: '12mo', maxMiles: 0.5 };
   // Reset the live inputs in the DOM (we only re-render the buyer list, so
   // they'd otherwise still display the old values).
   const s = document.getElementById('dispo-deal-search');     if (s) s.value = '';
@@ -31634,7 +31634,7 @@ window._mapRenderChips = function () {
       // Min-purchases dropdown, next to the timeframe one.
       var pv = window._mapMinPurchases || '';
       var popt = function (v, lab) { return '<option value="' + v + '"' + (pv === v ? ' selected' : '') + ' style="background:#ffffff;color:#111827">' + lab + '</option>'; };
-      monthSel += '<select onchange="_mapSetMinPurchases(this.value)" title="Only buyers with at least this many purchases" style="width:auto;max-width:120px;flex:0 0 auto;box-sizing:border-box;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ' + (pv ? grp.color : 'var(--border)') + ';background:' + (pv ? grp.color + '22' : 'transparent') + ';color:' + (pv ? grp.color : 'var(--text-dim)') + '">' + popt('', 'Any #') + popt('1', '1+ buys') + popt('3', '3+ buys') + popt('5', '5+ buys') + popt('25', '25+ buys') + popt('50', '50+ buys') + popt('100', '100+ buys') + '</select>';
+      monthSel += '<select onchange="_mapSetMinPurchases(this.value)" title="Only buyers with at least this many purchases" style="width:auto;max-width:120px;flex:0 0 auto;box-sizing:border-box;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ' + (pv ? grp.color : 'var(--border)') + ';background:' + (pv ? grp.color + '22' : 'transparent') + ';color:' + (pv ? grp.color : 'var(--text-dim)') + '">' + popt('', 'Any #') + popt('1', '1+ buys') + popt('2', '2+ buys') + popt('3', '3+ buys') + popt('5', '5+ buys') + popt('10', '10+ buys') + popt('25', '25+ buys') + popt('50', '50+ buys') + popt('100', '100+ buys') + '</select>';
     }
     var bottomChips = bottomOpts.map(chipBtn).join('') + monthSel;
     // Boxed group: top row = pill (left) + promoted chips (right), bottom row = remaining options.
@@ -31646,7 +31646,7 @@ window._mapRenderChips = function () {
   }).join('');
 };
 window._mapMonthFilter = (window._mapMonthFilter != null) ? window._mapMonthFilter : '12';
-window._mapMinPurchases = (window._mapMinPurchases != null) ? window._mapMinPurchases : '3';
+window._mapMinPurchases = (window._mapMinPurchases != null) ? window._mapMinPurchases : '2';
 window._mapSetMinPurchases = function (v) {
   window._mapMinPurchases = v || '';
   window._mapRenderChips();
@@ -33403,6 +33403,7 @@ function buyerRenderPerDealPanel() {
       +   '<select id="dispo-deal-acq" onchange="_dispoSetFilter(\'acqMin\', Number(this.value)||0)" style="flex:0 0 auto;width:175px;height:30px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;box-sizing:border-box" title="Minimum acquisitions">'
       +     '<option value="0"'   + (Number(flt.acqMin) === 0   ? ' selected' : '') + '>Any Acquisitions</option>'
       +     '<option value="1"'   + (Number(flt.acqMin) === 1   ? ' selected' : '') + '>1+ Acquisitions</option>'
+      +     '<option value="2"'   + (Number(flt.acqMin) === 2   ? ' selected' : '') + '>2+ Acquisitions</option>'
       +     '<option value="3"'   + (Number(flt.acqMin) === 3   ? ' selected' : '') + '>3+ Acquisitions</option>'
       +     '<option value="5"'   + (Number(flt.acqMin) === 5   ? ' selected' : '') + '>5+ Acquisitions</option>'
       +     '<option value="10"'  + (Number(flt.acqMin) === 10  ? ' selected' : '') + '>10+ Acquisitions</option>'

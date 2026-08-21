@@ -31997,9 +31997,10 @@ window._mapSectionRender = function (fit) {
       if (_lq && !_nameHit) {
         if (!purchases.some(function (p) { return p && [p.address, p.city, p.state, p.zip].filter(Boolean).join(', ').toLowerCase().indexOf(_lq) >= 0; })) return;
       }
-      // Match the per-deal map: untagged = grey; tagged colored by status; a ✓/✗/🔍/? symbol on top.
-      var color = !isTagged ? '#6b7280' : (q === 'qualified' ? '#10b981' : q === 'vetting' ? '#3b82f6' : '#eab308');
-      var dotBorder = !isTagged ? 'rgba(0,0,0,0.5)' : (q === 'qualified' ? '#065f46' : q === 'vetting' ? '#1e3a8a' : '#854d0e');
+      // Big map colors circles by qualification (different from the per-deal map):
+      // qualified = green, unqualified = red, vetting = blue, unknown = grey.
+      var color = q === 'qualified' ? '#10b981' : q === 'unqualified' ? '#ef4444' : q === 'vetting' ? '#3b82f6' : '#6b7280';
+      var dotBorder = q === 'qualified' ? '#065f46' : q === 'unqualified' ? '#7f1d1d' : q === 'vetting' ? '#1e3a8a' : 'rgba(0,0,0,0.5)';
       var sym = q === 'qualified' ? '✓' : q === 'unqualified' ? '✗' : q === 'vetting' ? '🔍' : '?';
       purchases.forEach(function (p) {
         if (!p || p.lat == null || p.lng == null) return;

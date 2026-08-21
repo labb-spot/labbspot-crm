@@ -31672,6 +31672,17 @@ window._mapToggleLock = function () {
     btn.style.background = on ? '#ef4444' : '#fff';
   }
 };
+// Re-draw the standalone Map's markers in place (keeps center/zoom) — used after a
+// buyer edit so the changed status/color updates without zooming you out.
+function _mapSoftRefreshIfOpen() {
+  try {
+    var sec = document.getElementById('section-map');
+    if (sec && sec.style.display !== 'none' && window._mapSectionObj && typeof window._mapSectionRender === 'function') {
+      window._mapSectionRender(false);
+    }
+  } catch (e) {}
+}
+window._mapSoftRefreshIfOpen = _mapSoftRefreshIfOpen;
 window._mapSearchType = window._mapSearchType || 'all'; // 'all' | 'property' | 'buyer'
 window._mapSearchHits = [];
 window._mapSectionSearchClear = function () {
@@ -36713,6 +36724,7 @@ async function buyerSaveNew() {
     // newly-added zip surfaces matching properties immediately. Keeps the map open.
     if (typeof window._dispoRebuildPerDealKeepMap === 'function') window._dispoRebuildPerDealKeepMap();
     else if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+    _mapSoftRefreshIfOpen();
   } catch (e) {
     console.warn('buyerSaveNew:', e);
     if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
@@ -36736,6 +36748,7 @@ async function buyerDeleteFromModal() {
     if (typeof toast === 'function') toast('Deleted ' + nm, 'ok');
     buyerCloseAddModal();
     renderBuyersList();
+    _mapSoftRefreshIfOpen();
   } catch (e) {
     console.warn('buyerDeleteFromModal:', e);
     if (typeof toast === 'function') toast('Delete failed: ' + (e.message || 'unknown'), 'err');

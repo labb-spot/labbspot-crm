@@ -6126,7 +6126,7 @@
         <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
           <button class="btn btn-primary text-sm" onclick="lenderOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new lender to your rolodex.">+ Add Lender</button>
           <button class="btn text-sm" onclick="window.open('https://submit.labbllc.com/loan','_blank')" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1;background:#6366f1;color:#fff;border:1px solid #6366f1;font-weight:600" title="Open the Borrower Intake & Experience form to fill out.">📝 Loan Form</button>
-          <button type="button" id="lenders-verified-filter" data-active="false" onclick="toggleVerifiedFilter('lenders-verified-filter', 'renderLendersList')" title="Click to show only verified lenders. Click again to show all." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
+          <button type="button" id="lenders-verified-filter" data-active="true" onclick="toggleVerifiedFilter('lenders-verified-filter', 'renderLendersList')" title="Click to show only verified lenders. Click again to show all." style="height:38px;padding:0 14px;background:#10b981;border:1px solid #10b981;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease;box-shadow:0 0 0 2px rgba(16,185,129,0.25)">✓ Verified</button>
           <select id="lenders-type-filter" onchange="renderLendersList()" title="Filter by loan type / product offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;width:190px">
             <option value="">All loan types</option>
           </select>
@@ -31338,14 +31338,16 @@ window._dispoRenderBuyerMap = function () {
       if (isFinite(tt) && tt >= _actCutoff) recentCount++;
     });
     var recentBadge = '<span style="font-size:10.5px;color:#475569;font-weight:700;white-space:nowrap">🏠 ' + recentCount + ' purchase' + (recentCount === 1 ? '' : 's') + ' · ' + _actLabel + '</span>';
+    var _buyerPinned = false;   // guarantee at least one dot per filtered buyer
     purchases.forEach(function (p) {
       if (!p || p.lat == null || p.lng == null) return;
       var la = Number(p.lat), lo = Number(p.lng);
       if (!isFinite(la) || !isFinite(lo)) return;
       if (radiusOnly && _buyerHaversineMi(la, lo, sla, slo) > maxMiles) return;
       if (useBound && !_dispoPtInPoly(la, lo, boundRing)) return;
-      if (pinCount >= CAP) { capped = true; return; }
-      pinCount++;
+      // Cap only EXTRA pins — a buyer's first dot always draws so no one disappears.
+      if (pinCount >= CAP && _buyerPinned) { capped = true; return; }
+      pinCount++; _buyerPinned = true;
       bounds.push([la, lo]);
       var amt = Number(p.sale_amount) || 0;
       if (amt > 0) { totalSpent += amt; spentCount++; }

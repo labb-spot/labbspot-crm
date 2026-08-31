@@ -4711,7 +4711,7 @@
             <button class="btn btn-ghost text-sm" id="uw-bid-fill-lines-btn" onclick="uwBidFillLineItems()" title="Rebuild this property's bid sheet lines from your standard list &amp; Rehab scope. Restore / start over — custom lines are kept.">📝 Fill Line Items</button>
             <button class="btn btn-ghost text-sm" id="uw-bid-fill-budget-btn" onclick="uwBidFillBudget()" title="Stamp the LABB estimate $ from your Rehab Calculator onto the saved bid lines. Keeps every line; removes nothing.">💲 Fill Budget</button>
             <button class="btn btn-ghost text-sm" id="uw-bid-status-btn" onclick="uwBidToggleStatus()" style="display:none" title="Push this bid sheet live for contractors, or take it down.">🚀 Push to Bid</button>
-            <button class="btn btn-ghost text-sm" id="uw-bid-refresh" onclick="uwBidLoadResponses(true)" style="display:none" title="Refresh contractor responses.">🔁 Refresh Bids</button>
+            <button class="btn btn-ghost text-sm" id="uw-bid-refresh" onclick="_uwRefreshWithFeedback(this,'bids')" style="display:none" title="Refresh contractor responses.">🔁 Refresh Bids</button>
             <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-ghost text-sm" id="uw-bid-copy-link" onclick="uwBidCopyLink()" style="display:none" title="Copy the contractor link for this property's bid sheet.">🔗 Copy Contractor Link</button>
               <button class="btn btn-primary text-sm" id="uw-bid-build-btn" onclick="uwBidBuildFromScope()" title="Open this property's bid sheet from the standard list and tick which lines apply. Click again to close.">✨ Build / Edit Bid Sheet</button>
@@ -4801,7 +4801,7 @@
         <div id="uw-inv-hint" class="text-xs" style="color:var(--text-dim);margin-bottom:10px">Push a live invoice link (built from this property's bid line items, or the standard list) so contractors can submit their invoice. Submitted invoices come back here.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
           <button class="btn btn-primary text-sm" id="uw-inv-status-btn" onclick="uwInvPushToggle()" title="Push this invoice sheet live for contractors, or take it down.">🚀 Push Invoice Live</button>
-          <button class="btn btn-ghost text-sm" id="uw-inv-refresh" onclick="uwInvLoadResponses(true)" style="display:none" title="Refresh contractor invoices.">🔁 Refresh Invoices</button>
+          <button class="btn btn-ghost text-sm" id="uw-inv-refresh" onclick="_uwRefreshWithFeedback(this,'invoices')" style="display:none" title="Refresh contractor invoices.">🔁 Refresh Invoices</button>
           <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-ghost text-sm" id="uw-inv-copy-link" onclick="uwInvCopyLink()" style="display:none" title="Copy the contractor invoice link for this property.">🔗 Copy Invoice Link</button>
           </div>
@@ -6126,6 +6126,7 @@
         <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
           <button class="btn btn-primary text-sm" onclick="lenderOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new lender to your rolodex.">+ Add Lender</button>
           <button class="btn text-sm" onclick="window.open('https://submit.labbllc.com/loan','_blank')" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1;background:#6366f1;color:#fff;border:1px solid #6366f1;font-weight:600" title="Open the Borrower Intake & Experience form to fill out.">📝 Loan Form</button>
+          <button type="button" id="lenders-type-filter-btn" data-val="" onclick="_lenderCycleTypeFilter()" title="Click to cycle: All → PML → HML" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">All</button>
           <button type="button" id="lenders-verified-filter" data-active="true" onclick="toggleVerifiedFilter('lenders-verified-filter', 'renderLendersList')" title="Click to show only verified lenders. Click again to show all." style="height:38px;padding:0 14px;background:#10b981;border:1px solid #10b981;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease;box-shadow:0 0 0 2px rgba(16,185,129,0.25)">✓ Verified</button>
           <select id="lenders-type-filter" onchange="renderLendersList()" title="Filter by loan type / product offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;width:190px">
             <option value="">All loan types</option>
@@ -6156,6 +6157,7 @@
       <div class="flex items-center justify-between" style="margin-bottom:18px;gap:12px;flex-wrap:wrap">
         <div style="font-weight:700;font-size:24px" id="lender-modal-title">🏦 Add Lender</div>
         <div class="flex items-center" style="gap:10px;flex-wrap:wrap">
+          <button type="button" id="lender-type-btn" data-val="" onclick="_lenderCycleType()" style="height:34px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-dim);box-sizing:border-box;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease" title="Lender type — click to cycle PML / HML / Unknown">❓ Unknown</button>
           <button type="button" id="lender-verified-btn" onclick="_toggleVerifiedHeaderBtn('lender')" style="height:34px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-dim);box-sizing:border-box;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease" title="Toggle Verified status">○ Unverified</button>
           <button class="btn btn-ghost" onclick="lenderDeleteFromModal()" id="lender-delete-btn" style="height:34px;padding:0 14px;font-size:13px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none;box-sizing:border-box;line-height:1" title="Delete this entry">🗑 Delete</button>
           <button class="btn btn-ghost" onclick="lenderCloseAddModal()" style="height:34px;padding:0 14px;font-size:13px;box-sizing:border-box;line-height:1" title="Discard changes and close">Cancel</button>
@@ -25906,6 +25908,23 @@ async function uwInvLoadResponses(force){
 }
 window.uwInvLoadResponses = uwInvLoadResponses;
 
+// Refresh button with visible feedback (spins, then "Refreshed ✓") so it's clear it ran.
+window._uwRefreshWithFeedback = async function (btn, kind) {
+  if (!btn) return;
+  if (btn.dataset.busy === '1') return;
+  const orig = btn.dataset.orig || btn.innerHTML;
+  btn.dataset.orig = orig;
+  btn.dataset.busy = '1';
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;animation:lazy-spin 0.8s linear infinite">🔁</span> Refreshing…';
+  try {
+    if (kind === 'bids' && typeof uwBidLoadResponses === 'function') await uwBidLoadResponses(true);
+    else if (kind === 'invoices' && typeof uwInvLoadResponses === 'function') await uwInvLoadResponses(true);
+  } catch (e) { console.warn('refresh:', e); }
+  btn.innerHTML = '<span style="color:#10b981">✓ Refreshed</span>';
+  setTimeout(function () { btn.innerHTML = orig; btn.disabled = false; btn.dataset.busy = '0'; }, 1200);
+};
+
 function _uwRenderInvCompare(req, responses){
   const cmp = document.getElementById('uw-inv-compare');
   if (!cmp) return;
@@ -35195,6 +35214,7 @@ function lenderOpenAddModal(editId) {
   const verResetEl = document.getElementById('lender-add-verified');
   if (verResetEl) verResetEl.checked = false;
   if (typeof _setVerifiedHeaderBtnState === 'function') _setVerifiedHeaderBtnState('lender', false);
+  if (typeof window._lenderSetType === 'function') window._lenderSetType('');
   const hiddenId = document.getElementById('lender-edit-id');
   const title    = document.getElementById('lender-modal-title');
   const delBtn   = document.getElementById('lender-delete-btn');
@@ -35264,6 +35284,7 @@ function lenderOpenAddModal(editId) {
     setVal('lender-add-samerefi-appraisal-type', l.samerefi_appraisal_type);
     if (verResetEl) verResetEl.checked = !!l.verified;
     if (typeof _setVerifiedHeaderBtnState === 'function') _setVerifiedHeaderBtnState('lender', !!l.verified);
+    if (typeof window._lenderSetType === 'function') window._lenderSetType(l.lender_type);
   } else {
     if (hiddenId) hiddenId.value = '';
     if (title)    title.textContent = '🏦 Add Lender';
@@ -35373,7 +35394,8 @@ async function lenderSaveNew() {
       samerefi_min_loan: _num('lender-add-samerefi-min-loan'),
       samerefi_appraisal_type: _str('lender-add-samerefi-appraisal-type'),
     };
-    const payload = Object.assign({ name, phone, email, loan_types: types, city, state, rating, rate_notes: rates, notes, verified }, extPayload);
+    const lender_type = (typeof window._lenderGetTypeFromModal === 'function') ? (window._lenderGetTypeFromModal() || null) : null;
+    const payload = Object.assign({ name, phone, email, loan_types: types, city, state, rating, rate_notes: rates, notes, verified, lender_type }, extPayload);
     let data, error;
     if (editId) {
       ({ data, error } = await sb.from('lenders').update(payload).eq('id', editId).select().single());
@@ -35473,6 +35495,11 @@ function renderLendersList() {
   const verBtn = document.getElementById('lenders-verified-filter');
   const verFilter = !!(verBtn && verBtn.getAttribute('data-active') === 'true');
   if (verFilter) rows = rows.filter(l => l.verified === true);
+
+  // Lender-type filter (All / PML / HML).
+  const typeFbtn = document.getElementById('lenders-type-filter-btn');
+  const typeF = typeFbtn ? (typeFbtn.getAttribute('data-val') || '') : '';
+  if (typeF) rows = rows.filter(l => (l.lender_type || '') === typeF);
 
   const searchEl = document.getElementById('lenders-search');
   const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
@@ -35711,11 +35738,15 @@ function renderLendersList() {
     const verBadge = l.verified
       ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;vertical-align:middle;margin-left:6px" title="Verified — you\'ve closed a loan with them and they\'re proven reliable">✓ Verified</span>'
       : '';
+    const _lt = l.lender_type === 'pml' ? { c: '#6366f1', t: 'Private', ti: 'Private Money Lender' } : l.lender_type === 'hml' ? { c: '#f59e0b', t: 'Hard', ti: 'Hard Money Lender' } : l.lender_type === 'broker' ? { c: '#14b8a6', t: 'Broker', ti: 'Broker' } : null;
+    const typeBadge = _lt
+      ? '<span style="display:inline-flex;align-items:center;padding:2px 7px;background:' + _lt.c + '22;color:' + _lt.c + ';border:1px solid ' + _lt.c + '66;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.5px;vertical-align:middle;margin-left:6px" title="' + _lt.ti + '">' + _lt.t + '</span>'
+      : '';
 
     return `
       <tr style="border-bottom:1px solid var(--border);cursor:pointer" data-lender-id="${esc(l.id)}" onclick="lenderOpenAddModal('${esc(l.id)}')" onmouseover="this.style.background='rgba(148,163,184,0.06)'" onmouseout="this.style.background=''">
         <td style="padding:10px 12px;font-size:13px;vertical-align:top">
-          <div style="font-weight:700;font-size:16px;color:#eab308;display:flex;align-items:center;flex-wrap:wrap;gap:6px">${name}${verBadge}${loansInlineBadge}</div>
+          <div style="font-weight:700;font-size:16px;color:#eab308;display:flex;align-items:center;flex-wrap:wrap;gap:6px">${name}${typeBadge}${verBadge}${loansInlineBadge}</div>
           ${l.rep_name ? `<div style="color:var(--text);font-size:13px;font-weight:500;margin-top:8px;line-height:1.3">👤 ${esc(l.rep_name)}</div>` : ''}
           ${contact ? `<div style="margin-top:5px">${contact}</div>` : ''}
         </td>
@@ -35724,6 +35755,43 @@ function renderLendersList() {
   }).join('');
 }
 window.renderLendersList = renderLendersList;
+
+// ----- Lender type (PML / HML / Unknown) — modal cycler + list filter -----
+const _LENDER_TYPE_META = {
+  '':       { label: '❓ Unknown', bg: 'var(--panel-2)', fg: 'var(--text-dim)', bd: 'var(--border)' },
+  'pml':    { label: '💵 Private', bg: '#6366f1',        fg: '#fff',           bd: '#6366f1' },
+  'hml':    { label: '🏦 Hard',    bg: '#f59e0b',        fg: '#fff',           bd: '#f59e0b' },
+  'broker': { label: '🤝 Broker',  bg: '#14b8a6',        fg: '#fff',           bd: '#14b8a6' }
+};
+window._lenderSetType = function (v) {
+  v = (v === 'pml' || v === 'hml' || v === 'broker') ? v : '';
+  const b = document.getElementById('lender-type-btn'); if (!b) return;
+  const m = _LENDER_TYPE_META[v];
+  b.setAttribute('data-val', v);
+  b.innerHTML = m.label; b.style.background = m.bg; b.style.color = m.fg; b.style.borderColor = m.bd;
+};
+window._lenderCycleType = function () {
+  const b = document.getElementById('lender-type-btn'); if (!b) return;
+  const cur = b.getAttribute('data-val') || '';
+  window._lenderSetType(cur === '' ? 'pml' : cur === 'pml' ? 'hml' : cur === 'hml' ? 'broker' : '');
+};
+window._lenderGetTypeFromModal = function () {
+  const b = document.getElementById('lender-type-btn');
+  return b ? (b.getAttribute('data-val') || '') : '';
+};
+// List filter button: All → PML → HML.
+window._lenderCycleTypeFilter = function () {
+  const b = document.getElementById('lenders-type-filter-btn'); if (!b) return;
+  const cur = b.getAttribute('data-val') || '';
+  const next = cur === '' ? 'pml' : cur === 'pml' ? 'hml' : cur === 'hml' ? 'broker' : '';
+  b.setAttribute('data-val', next);
+  const m = _LENDER_TYPE_META[next];
+  b.innerHTML = next === '' ? 'All' : m.label;
+  b.style.background = next === '' ? 'var(--panel-2)' : m.bg;
+  b.style.color = next === '' ? 'var(--text)' : m.fg;
+  b.style.borderColor = next === '' ? 'var(--border)' : m.bd;
+  if (typeof renderLendersList === 'function') renderLendersList();
+};
 
 // ============================================================
 // AGENTS (realtors) — Renovation → 🤝 Agents subview

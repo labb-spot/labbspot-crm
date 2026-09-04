@@ -1161,16 +1161,125 @@
 
 
   <!-- Subtabs -->
-  <div class="flex items-center gap-1 mb-4 panel p-1 w-fit">
-    <div class="subtab active" data-view="upload" onclick="goView('upload')">⬆️ Upload</div>
-    <div class="subtab" data-view="unverified" onclick="goView('unverified'); renderUnverified();">❓ Unverified <span id="subtab-unverified-badge" class="badge bad" style="margin-left:4px;display:none">0</span></div>
-    <div class="subtab" data-view="properties" onclick="goView('properties')">🏘️ Properties</div>
-    <div class="subtab" data-view="vendors" onclick="goView('vendors')">🏢 Vendors</div>
-    <div class="subtab" data-view="gap-noskip" onclick="goView('gap-noskip'); renderGapNoSkip();">⛔ Non-Skiptraced <span id="subtab-noskip-badge" class="badge bad" style="margin-left:4px;display:none">0</span></div>
-    <div class="subtab" data-view="gap-nomail" onclick="goView('gap-nomail'); renderGapNoMail();">📬 No Mailing <span id="subtab-nomail-badge" class="badge bad" style="margin-left:4px;display:none">0</span></div>
-    <div class="subtab" data-view="gap-nophone" onclick="goView('gap-nophone'); renderGapNoPhone();">☎️ No Phone <span id="subtab-nophone-badge" class="badge bad" style="margin-left:4px;display:none">0</span></div>
-    <div class="subtab" data-view="gap-noemail" onclick="goView('gap-noemail'); renderGapNoEmail();">✉️ No Email <span id="subtab-noemail-badge" class="badge bad" style="margin-left:4px;display:none">0</span></div>
+  <!-- Data section nav: Imports separated from the 3 category boxes -->
+  <div class="flex items-center gap-3 mb-3 flex-wrap">
+    <div class="flex items-center panel p-1 w-fit">
+      <div id="datacat-imports" class="subtab active" onclick="goDataCat('imports')" title="Upload & map new lists">⬆️ Imports</div>
+    </div>
+    <div class="flex items-center gap-1 panel p-1 w-fit">
+      <div id="datacat-props" class="subtab" onclick="goDataCat('props')" title="Every property — filter by geocode status">🏠 Subject Properties <span id="datacat-props-count" class="badge" style="margin-left:4px;display:none">0</span></div>
+      <div id="datacat-mail" class="subtab" onclick="goDataCat('mail')" title="Properties with a mailing address — filter by geocode status">📬 Mailing Addresses <span id="datacat-mail-count" class="badge" style="margin-left:4px;display:none">0</span></div>
+      <div id="datacat-skip" class="subtab" onclick="goDataCat('skip')" title="Skiptrace match status + Has Phone / Email / Mailing filters">📇 Skiptrace Matches <span id="datacat-skip-count" class="badge" style="margin-left:4px;display:none">0</span></div>
+    </div>
   </div>
+  <!-- Per-category switch fields now render inside the Properties panel header
+       (see #dataq-fields there), right-aligned next to the title. -->
+  <!-- Hidden holder: keeps the old subtab badge IDs alive so legacy setters
+       (updateUnverifiedBadge, renderGapNo*) never dereference null. -->
+  <div style="display:none">
+    <span id="subtab-unverified-badge"></span>
+    <span id="subtab-noskip-badge"></span>
+    <span id="subtab-nomail-badge"></span>
+    <span id="subtab-nophone-badge"></span>
+    <span id="subtab-noemail-badge"></span>
+  </div>
+
+  <script>
+  // ---- Data section: 3-category nav (Subject Properties / Mailing Addresses /
+  //      Skiptrace Matches) that reuses the main Properties table as its body.
+  //      Imports is its own separate box (opens the upload view). ----
+  function goDataCat(cat){
+    var boxes = {imports:'datacat-imports', props:'datacat-props', mail:'datacat-mail', skip:'datacat-skip'};
+    Object.keys(boxes).forEach(function(k){ var el=document.getElementById(boxes[k]); if(el) el.classList.toggle('active', k===cat); });
+    var fields = document.getElementById('dataq-fields');
+    if(cat==='imports'){
+      window._dataCat=null;
+      if(fields){ fields.style.display='none'; fields.innerHTML=''; }
+      if(typeof goView==='function') goView('upload');
+      return;
+    }
+    window._dataCat=cat;
+    window._propCategoryDrill=null;
+    if(typeof goView==='function') goView('properties');
+    var titleEl=document.getElementById('dataq-title');
+    if(titleEl) titleEl.textContent = cat==='props'?'Subject Properties':cat==='mail'?'Mailing Addresses':'Skiptrace Matches';
+    _dqRenderFields();
+    try{ if(typeof propPage!=='undefined') propPage=0; }catch(e){}
+    if(typeof renderProperties==='function') renderProperties();
+    _dqUpdateCounts();
+  }
+  function _dqSeg(label, opts, cur, fn){
+    var pills = opts.map(function(o){
+      var on = o.v===cur;
+      return '<span onclick="'+fn+'(\''+o.v+'\')" style="padding:5px 12px;font-size:12px;cursor:pointer;border-right:1px solid var(--border);'+(on?'background:var(--brand);color:#fff;font-weight:600;':'color:var(--text-dim);')+'">'+o.t+'</span>';
+    }).join('');
+    return '<span style="display:inline-flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text-dim)">'+label+'</span><span style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">'+pills+'</span></span>';
+  }
+  function _dqTri(label, which, state){
+    var meta = state===1 ? {bg:'rgba(16,185,129,0.15)',c:'#10b981',b:'#10b981',i:'✓ '}
+             : state===2 ? {bg:'rgba(239,68,68,0.15)',c:'#ef4444',b:'#ef4444',i:'✕ '}
+             : {bg:'var(--panel)',c:'var(--text-dim)',b:'var(--border)',i:'– '};
+    return '<span onclick="_dqCycleHas(\''+which+'\')" title="Off → Include → Exclude" style="padding:5px 12px;font-size:12px;cursor:pointer;border:1px solid '+meta.b+';border-radius:16px;background:'+meta.bg+';color:'+meta.c+'">'+meta.i+label+'</span>';
+  }
+  function _dqRenderFields(){
+    var f=document.getElementById('dataq-fields'); if(!f) return;
+    var cat=window._dataCat, html='';
+    if(cat==='props'){
+      html = _dqSeg('Address status', [{v:'all',t:'All'},{v:'ok',t:'Geocoded'},{v:'unknown',t:'Unknown'}], window._dqGeo||'all', '_dqSetGeo');
+      html += ((window._dqGeo||'all')==='unknown')
+        ? '<button class="btn btn-ghost text-xs" onclick="goView(\'unverified\');goUvView(\'properties\');renderUnverified();" title="Open the geocode retry / local-match workbench">🔧 Fix tools</button>'
+        : '<button class="btn btn-ghost text-xs" disabled title="Switch to Unknown to use the fix tools" style="opacity:0.4;cursor:not-allowed">🔧 Fix tools</button>';
+    } else if(cat==='mail'){
+      html = _dqSeg('Mailing status', [{v:'all',t:'All'},{v:'ok',t:'Geocoded'},{v:'unknown',t:'Unknown'}], window._dqMail||'all', '_dqSetMail');
+      html += ((window._dqMail||'all')==='unknown')
+        ? '<button class="btn btn-ghost text-xs" onclick="goView(\'unverified\');goUvView(\'mailing\');renderUnverifiedMailing();" title="Open the mailing-address verify workbench">🔧 Fix tools</button>'
+        : '<button class="btn btn-ghost text-xs" disabled title="Switch to Unknown to use the fix tools" style="opacity:0.4;cursor:not-allowed">🔧 Fix tools</button>';
+    } else if(cat==='skip'){
+      html = _dqSeg('Skiptrace status', [{v:'all',t:'All'},{v:'matched',t:'Matched'},{v:'unmatched',t:'Unmatched'},{v:'nodata',t:'No Data'}], window._dqSkip||'all', '_dqSetSkip');
+      html += '<span style="width:1px;height:20px;background:var(--border)"></span>';
+      html += '<span style="font-size:12px;color:var(--text-dim)">Filters</span>' + _dqTri('Has Mailing','mail',window._dqHasMail||0) + _dqTri('Has Phone','phone',window._dqHasPhone||0) + _dqTri('Has Email','email',window._dqHasEmail||0);
+      html += (window._dqSkip==='unmatched'||window._dqSkip==='nodata')
+        ? '<button class="btn btn-ghost text-xs" onclick="goView(\'unverified\');goUvView(\'skiptrace\');renderUnmatchedSkip();" title="Open the skiptrace retry workbench">🔧 Fix tools</button>'
+        : '<button class="btn btn-ghost text-xs" disabled title="Switch to Unmatched or No Data to use the fix tools" style="opacity:0.4;cursor:not-allowed">🔧 Fix tools</button>';
+    }
+    f.innerHTML = html;
+    f.style.display = html ? 'flex' : 'none';
+  }
+  function _dqSetGeo(v){ window._dqGeo=v; _dqApply(); }
+  function _dqSetMail(v){ window._dqMail=v; _dqApply(); }
+  function _dqSetSkip(v){ window._dqSkip=v; _dqApply(); }
+  function _dqCycleHas(which){
+    var key = which==='mail'?'_dqHasMail':which==='phone'?'_dqHasPhone':'_dqHasEmail';
+    window[key] = ((window[key]||0)+1)%3;
+    _dqApply();
+  }
+  function _dqApply(){
+    _dqRenderFields();
+    try{ if(typeof propPage!=='undefined') propPage=0; }catch(e){}
+    if(typeof renderProperties==='function') renderProperties();
+  }
+  function _dqBuildSkipSet(){
+    var set=new Set();
+    var sk=(window.cache&&(cache.skiptrace||cache.skiptraceRecords))||{};
+    try{ Object.values(sk).forEach(function(r){ if(r&&r.property_id) set.add(r.property_id); }); }catch(e){}
+    return set;
+  }
+  function _dqUpdateCounts(){
+    try{
+      if(!window.cache||!cache.properties) return;
+      var props=Object.values(cache.properties);
+      var skipSet=_dqBuildSkipSet();
+      var pc=props.length, mc=0, matched=0;
+      props.forEach(function(p){
+        if(p.mail_street||(p._mailings&&p._mailings.length)) mc++;
+        if(skipSet.has(p.id)) matched++;
+      });
+      var set=function(id,n){ var el=document.getElementById(id); if(el){ el.textContent=n.toLocaleString(); el.style.display=''; } };
+      set('datacat-props-count',pc); set('datacat-mail-count',mc); set('datacat-skip-count',matched);
+    }catch(e){}
+  }
+  window.addEventListener('load', function(){ setTimeout(function(){ try{_dqUpdateCounts();}catch(e){} }, 1500); });
+  </script>
 
   <!-- View: Upload -->
   <div id="view-upload" class="view-content">
@@ -1326,14 +1435,19 @@
   <!-- View: Properties -->
   <div id="view-properties" class="view-content" style="display:none">
     <div class="panel p-5">
+      <!-- Row 1: title + per-category switch chips (right-aligned) -->
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+        <div class="font-semibold text-lg" id="dataq-title">Properties</div>
+        <span id="dataq-fields" class="flex items-center flex-wrap" style="display:none;gap:8px 12px"></span>
+      </div>
+      <!-- Row 2: filters (left) · actions (right) -->
       <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div class="font-semibold text-lg">Properties</div>
         <div class="flex items-center gap-2 flex-wrap">
-          <input id="prop-search" placeholder="Search address / owner / city…" style="width:280px" oninput="propPage=0; renderProperties()" />
-          <select id="prop-list-filter" style="width:200px" onchange="propPage=0; renderProperties()">
+          <input id="prop-search" placeholder="Search address / owner / city…" style="width:260px" oninput="propPage=0; renderProperties()" />
+          <select id="prop-list-filter" style="width:180px" onchange="propPage=0; renderProperties()">
             <option value="">All lists</option>
           </select>
-          <select id="prop-flag-filter" style="width:200px" onchange="propPage=0; renderProperties()">
+          <select id="prop-flag-filter" style="width:170px" onchange="propPage=0; renderProperties()">
             <option value="">All flags</option>
           </select>
           <select id="prop-absentee-filter" style="width:160px" onchange="propPage=0; renderProperties()" title="Owner-occupied = mailing = property. Absentee = mailing differs (hotter lead).">
@@ -1341,6 +1455,8 @@
             <option value="yes">📬 Absentee only</option>
             <option value="no">🏠 Owner-occupied only</option>
           </select>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
           <button class="btn btn-ghost text-sm" id="btn-geocode-all" onclick="geocodePendingBatch()">🌍 Geocode</button>
           <button class="btn btn-ghost text-sm" id="btn-geo-errors" onclick="showGeoErrorReview()" style="display:none;color:#ef4444">⚠ Geocode errors</button>
           <button class="btn btn-ghost text-sm" onclick="exportProperties()">⬇️ Export</button>
@@ -1424,139 +1540,6 @@
       <div id="vendors-data-list-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
     </div>
 
-    <div class="panel p-5">
-      <div class="flex items-center justify-between mb-4">
-        <div class="font-semibold text-lg">Skiptrace Vendors</div>
-        <button class="btn btn-primary text-sm" onclick="openVendorModal()">+ Add vendor</button>
-      </div>
-      <div class="overflow-auto">
-        <table>
-          <thead><tr>
-            <th style="cursor:pointer" onclick="sortVendors('name')">Vendor <span class="sort-arrow" data-col="name">↕</span></th>
-            <th style="cursor:pointer" onclick="sortVendors('record_price')">Record price <span class="sort-arrow" data-col="record_price">↕</span></th>
-            <th style="cursor:pointer" onclick="sortVendors('monthly_cost')">Monthly cost <span class="sort-arrow" data-col="monthly_cost">↕</span></th>
-            <th style="cursor:pointer" onclick="sortVendors('records')">Records skiptraced <span class="sort-arrow" data-col="records">↕</span></th>
-            <th style="cursor:pointer" onclick="sortVendors('hits')">Hits <span class="sort-arrow" data-col="hits">↕</span></th>
-            <th style="cursor:pointer" onclick="sortVendors('hit_rate')">Hit rate <span class="sort-arrow" data-col="hit_rate">↕</span></th>
-            <th style="cursor:pointer" onclick="sortVendors('matched')" title="Distinct properties this vendor returned a record for">Props matched <span class="sort-arrow" data-col="matched">↕</span></th>
-            <th style="cursor:pointer" onclick="sortVendors('phones')" title="Distinct properties with at least one phone number from this vendor">Props w/ phone <span class="sort-arrow" data-col="phones">↕</span></th>
-            <th style="cursor:pointer" onclick="sortVendors('emails')" title="Distinct properties with at least one email from this vendor">Props w/ email <span class="sort-arrow" data-col="emails">↕</span></th>
-            <th style="cursor:pointer" onclick="sortVendors('mail')" title="Distinct properties where this vendor's upload included a mailing address">Props w/ mail addr <span class="sort-arrow" data-col="mail">↕</span></th>
-            <th></th>
-          </tr></thead>
-          <tbody id="vendors-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- === Moved from Compare tab === -->
-    <div class="text-xs text-[var(--text-dim)] mt-6 mb-2" style="text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid var(--border);padding-top:16px">📊 Vendor comparison & overlap</div>
-
-
-
-    <!-- Compare sub-nav -->
-    <div class="flex items-center gap-2 p-1 mb-4 panel" style="max-width:fit-content">
-      <div class="subtab active" data-compare="phones" onclick="goCompareTab('phones')">📞 Phone numbers</div>
-      <div class="subtab" data-compare="mail" onclick="goCompareTab('mail')">📬 Mailing addresses</div>
-      <div class="subtab" data-compare="emails" onclick="goCompareTab('emails')">✉️ Emails</div>
-    </div>
-
-    <!-- ============ Phone numbers subtab ============ -->
-    <div id="compare-sub-phones" class="compare-sub">
-
-    <!-- 🔥 Number heat (scoring) -->
-    <div class="panel p-5 mb-4">
-      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
-        <div>
-          <div class="font-semibold text-lg">🔥 Number Heat</div>
-          <div class="text-sm text-[var(--text-dim)]">A phone number's heat = share of providers that returned it for the same property.</div>
-        </div>
-        <div id="scoring-thresholds" class="text-sm" style="color:var(--text-dim)"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
-        <div class="kpi" style="cursor:pointer;transition:transform 0.15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''" onclick="showHeatList('hot')"><div class="kpi-label" style="color:#ef4444">🔥 Hot</div><div class="kpi-value" id="score-hot-total">0</div><div class="kpi-sub" id="score-hot-sub">—</div><div class="text-xs mt-1" style="color:var(--text-dim)">Click to view →</div></div>
-        <div class="kpi" style="cursor:pointer;transition:transform 0.15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''" onclick="showHeatList('warm')"><div class="kpi-label" style="color:#f59e0b">♨️ Warm</div><div class="kpi-value" id="score-warm-total">0</div><div class="kpi-sub" id="score-warm-sub">—</div><div class="text-xs mt-1" style="color:var(--text-dim)">Click to view →</div></div>
-        <div class="kpi" style="cursor:pointer;transition:transform 0.15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''" onclick="showHeatList('cold')"><div class="kpi-label" style="color:#60a5fa">❄️ Cold</div><div class="kpi-value" id="score-cold-total">0</div><div class="kpi-sub" id="score-cold-sub">—</div><div class="text-xs mt-1" style="color:var(--text-dim)">Click to view →</div></div>
-        <div class="kpi" style="cursor:pointer;transition:transform 0.15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''" onclick="showHeatList('hot-slot1')"><div class="kpi-label">🔥 Hot &amp; listed 1st by a provider</div><div class="kpi-value" id="score-hot-slot1">0</div><div class="kpi-sub" id="score-hot-slot1-sub">—</div><div class="text-xs mt-1" style="color:var(--text-dim)">Click to view →</div></div>
-      </div>
-    </div>
-
-    <div class="panel p-5">
-      <div class="font-semibold text-lg mb-1">Vendor Comparison</div>
-      <div class="text-sm text-[var(--text-dim)] mb-4">Side-by-side: each vendor's coverage, heat contribution, overlap with other vendors, cost per hit.</div>
-      <div class="overflow-auto">
-        <table id="compare-table">
-          <thead><tr>
-            <th>Vendor</th>
-            <th>Records</th>
-            <th>Hits</th>
-            <th title="Distinct matched properties ÷ total properties in system">Coverage</th>
-            <th>Unique phones</th>
-            <th title="Warm numbers contributed — 40–70% provider agreement">♨️ Warm</th>
-            <th title="Cold numbers contributed — under 40% provider agreement">❄️ Cold</th>
-            <th title="Share of this vendor's unique phones that are Hot (corroborated by 70%+ of providers). Best per-vendor quality signal.">🔥 Hot share</th>
-            <th title="Hot numbers this specific vendor placed in their phone-1 column. Compare across providers to see whose primary-phone intelligence is strongest.">🔥 Hot @ slot 1</th>
-            <th>Overlap phones</th>
-            <th>Unique emails</th>
-            <th>Cost</th>
-            <th>$/hit</th>
-          </tr></thead>
-          <tbody id="compare-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-    </div><!-- /compare-sub-phones -->
-
-    <!-- ============ Mailing addresses subtab ============ -->
-    <div id="compare-sub-mail" class="compare-sub" style="display:none">
-      <!-- 📬 Mailing address coverage -->
-      <div class="panel p-5 mb-4">
-        <div class="font-semibold text-lg mb-3">📬 Mailing Address Coverage</div>
-        <div class="text-sm text-[var(--text-dim)] mb-3">Best mailing address per property = the most common address seen across the property's original record and every vendor's skiptrace row.</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
-          <div class="kpi" style="cursor:pointer;transition:transform 0.15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''" onclick="showMailList('has')"><div class="kpi-label" style="color:#10b981">📬 With mailing address</div><div class="kpi-value" id="mail-has">0</div><div class="kpi-sub" id="mail-has-sub">—</div><div class="text-xs mt-1" style="color:var(--text-dim)">Click to view →</div></div>
-          <div class="kpi" style="cursor:pointer;transition:transform 0.15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''" onclick="showMailList('none')"><div class="kpi-label" style="color:#ef4444">🚫 No mailing address</div><div class="kpi-value" id="mail-none">0</div><div class="kpi-sub" id="mail-none-sub">—</div><div class="text-xs mt-1" style="color:var(--text-dim)">Click to view →</div></div>
-          <div class="kpi" style="grid-column:span 2"><div class="kpi-label">🏆 Most common mailing address</div><div class="text-base font-medium mt-1" id="mail-most-common" style="word-break:break-word">—</div><div class="kpi-sub" id="mail-most-common-sub">—</div></div>
-        </div>
-      </div>
-      <div class="panel p-5">
-        <div class="font-semibold text-lg mb-1">Coming Next</div>
-        <div class="text-sm text-[var(--text-dim)]">Per-vendor mailing-address contribution (who provided what, which match the property record, absentee-owner scoring).</div>
-      </div>
-    </div><!-- /compare-sub-mail -->
-
-    <!-- ============ Emails subtab ============ -->
-    <div id="compare-sub-emails" class="compare-sub" style="display:none">
-      <div class="panel p-5">
-        <div class="font-semibold text-lg mb-1">✉️ Email Comparison</div>
-        <div class="text-sm text-[var(--text-dim)]">Coming next — hot/warm/cold heat for email addresses, vendor-by-vendor contribution, and coverage stats mirroring the phone-numbers tab.</div>
-      </div>
-    </div><!-- /compare-sub-emails -->
-
-    <!-- Vendor pairwise overlap matrix -->
-  <div class="panel p-5 mb-6">
-    <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
-      <div>
-        <div class="font-semibold text-lg">🤝 Vendor Overlap — 1-on-1</div>
-        <div class="text-xs text-[var(--text-dim)]">For each pair of providers: how many phones / emails / mailing addresses they share on the same property, and how many each has that the other doesn't. Smaller overlap = more differentiated data, higher combined value.</div>
-      </div>
-      <div class="flex items-center gap-2">
-        <select id="pair-kind" style="width:140px" onchange="renderVendorOverlap()">
-          <option value="phones" selected>📞 Phones</option>
-          <option value="emails">✉ Emails</option>
-          <option value="mails">📬 Mailing</option>
-        </select>
-        <button class="btn btn-ghost text-sm" onclick="exportVendorOverlap()">⬇ Export CSV</button>
-      </div>
-    </div>
-    <div class="overflow-auto" style="max-height:500px">
-      <table style="width:100%;font-size:11px;table-layout:auto" id="pair-table">
-        <thead id="pair-thead"></thead>
-        <tbody id="pair-tbody"></tbody>
-      </table>
-    </div>
-    <div class="text-xs text-[var(--text-dim)] mt-2">Cell value = items both row-vendor and column-vendor have for the same property. Diagonal = vendor's total distinct items.</div>
-  </div>
 </div>
 
   <!-- View: Compare -->
@@ -2160,6 +2143,140 @@
         CSV columns: First Name · Last Name · Address · City · State · Zip · Phone 1 · Phone 2 · Phone 3 · Phone 4 · Email 1 · Email 2 · Mailing Address · Mail City · Mail State · Mail Zip
       </div>
     </div>
+    <div class="text-xs text-[var(--text-dim)] mt-6 mb-2" style="text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid var(--border);padding-top:16px">📊 Skiptrace vendor performance</div>
+    <div class="panel p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div class="font-semibold text-lg">Skiptrace Vendors</div>
+        <button class="btn btn-primary text-sm" onclick="openVendorModal()">+ Add vendor</button>
+      </div>
+      <div class="overflow-auto">
+        <table>
+          <thead><tr>
+            <th style="cursor:pointer" onclick="sortVendors('name')">Vendor <span class="sort-arrow" data-col="name">↕</span></th>
+            <th style="cursor:pointer" onclick="sortVendors('record_price')">Record price <span class="sort-arrow" data-col="record_price">↕</span></th>
+            <th style="cursor:pointer" onclick="sortVendors('monthly_cost')">Monthly cost <span class="sort-arrow" data-col="monthly_cost">↕</span></th>
+            <th style="cursor:pointer" onclick="sortVendors('records')">Records skiptraced <span class="sort-arrow" data-col="records">↕</span></th>
+            <th style="cursor:pointer" onclick="sortVendors('hits')">Hits <span class="sort-arrow" data-col="hits">↕</span></th>
+            <th style="cursor:pointer" onclick="sortVendors('hit_rate')">Hit rate <span class="sort-arrow" data-col="hit_rate">↕</span></th>
+            <th style="cursor:pointer" onclick="sortVendors('matched')" title="Distinct properties this vendor returned a record for">Props matched <span class="sort-arrow" data-col="matched">↕</span></th>
+            <th style="cursor:pointer" onclick="sortVendors('phones')" title="Distinct properties with at least one phone number from this vendor">Props w/ phone <span class="sort-arrow" data-col="phones">↕</span></th>
+            <th style="cursor:pointer" onclick="sortVendors('emails')" title="Distinct properties with at least one email from this vendor">Props w/ email <span class="sort-arrow" data-col="emails">↕</span></th>
+            <th style="cursor:pointer" onclick="sortVendors('mail')" title="Distinct properties where this vendor's upload included a mailing address">Props w/ mail addr <span class="sort-arrow" data-col="mail">↕</span></th>
+            <th></th>
+          </tr></thead>
+          <tbody id="vendors-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- === Moved from Compare tab === -->
+    <div class="text-xs text-[var(--text-dim)] mt-6 mb-2" style="text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid var(--border);padding-top:16px">📊 Vendor comparison & overlap</div>
+
+
+
+    <!-- Compare sub-nav -->
+    <div class="flex items-center gap-2 p-1 mb-4 panel" style="max-width:fit-content">
+      <div class="subtab active" data-compare="phones" onclick="goCompareTab('phones')">📞 Phone numbers</div>
+      <div class="subtab" data-compare="mail" onclick="goCompareTab('mail')">📬 Mailing addresses</div>
+      <div class="subtab" data-compare="emails" onclick="goCompareTab('emails')">✉️ Emails</div>
+    </div>
+
+    <!-- ============ Phone numbers subtab ============ -->
+    <div id="compare-sub-phones" class="compare-sub">
+
+    <!-- 🔥 Number heat (scoring) -->
+    <div class="panel p-5 mb-4">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div>
+          <div class="font-semibold text-lg">🔥 Number Heat</div>
+          <div class="text-sm text-[var(--text-dim)]">A phone number's heat = share of providers that returned it for the same property.</div>
+        </div>
+        <div id="scoring-thresholds" class="text-sm" style="color:var(--text-dim)"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+        <div class="kpi" style="cursor:pointer;transition:transform 0.15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''" onclick="showHeatList('hot')"><div class="kpi-label" style="color:#ef4444">🔥 Hot</div><div class="kpi-value" id="score-hot-total">0</div><div class="kpi-sub" id="score-hot-sub">—</div><div class="text-xs mt-1" style="color:var(--text-dim)">Click to view →</div></div>
+        <div class="kpi" style="cursor:pointer;transition:transform 0.15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''" onclick="showHeatList('warm')"><div class="kpi-label" style="color:#f59e0b">♨️ Warm</div><div class="kpi-value" id="score-warm-total">0</div><div class="kpi-sub" id="score-warm-sub">—</div><div class="text-xs mt-1" style="color:var(--text-dim)">Click to view →</div></div>
+        <div class="kpi" style="cursor:pointer;transition:transform 0.15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''" onclick="showHeatList('cold')"><div class="kpi-label" style="color:#60a5fa">❄️ Cold</div><div class="kpi-value" id="score-cold-total">0</div><div class="kpi-sub" id="score-cold-sub">—</div><div class="text-xs mt-1" style="color:var(--text-dim)">Click to view →</div></div>
+        <div class="kpi" style="cursor:pointer;transition:transform 0.15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''" onclick="showHeatList('hot-slot1')"><div class="kpi-label">🔥 Hot &amp; listed 1st by a provider</div><div class="kpi-value" id="score-hot-slot1">0</div><div class="kpi-sub" id="score-hot-slot1-sub">—</div><div class="text-xs mt-1" style="color:var(--text-dim)">Click to view →</div></div>
+      </div>
+    </div>
+
+    <div class="panel p-5">
+      <div class="font-semibold text-lg mb-1">Vendor Comparison</div>
+      <div class="text-sm text-[var(--text-dim)] mb-4">Side-by-side: each vendor's coverage, heat contribution, overlap with other vendors, cost per hit.</div>
+      <div class="overflow-auto">
+        <table id="compare-table">
+          <thead><tr>
+            <th>Vendor</th>
+            <th>Records</th>
+            <th>Hits</th>
+            <th title="Distinct matched properties ÷ total properties in system">Coverage</th>
+            <th>Unique phones</th>
+            <th title="Warm numbers contributed — 40–70% provider agreement">♨️ Warm</th>
+            <th title="Cold numbers contributed — under 40% provider agreement">❄️ Cold</th>
+            <th title="Share of this vendor's unique phones that are Hot (corroborated by 70%+ of providers). Best per-vendor quality signal.">🔥 Hot share</th>
+            <th title="Hot numbers this specific vendor placed in their phone-1 column. Compare across providers to see whose primary-phone intelligence is strongest.">🔥 Hot @ slot 1</th>
+            <th>Overlap phones</th>
+            <th>Unique emails</th>
+            <th>Cost</th>
+            <th>$/hit</th>
+          </tr></thead>
+          <tbody id="compare-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    </div><!-- /compare-sub-phones -->
+
+    <!-- ============ Mailing addresses subtab ============ -->
+    <div id="compare-sub-mail" class="compare-sub" style="display:none">
+      <!-- 📬 Mailing address coverage -->
+      <div class="panel p-5 mb-4">
+        <div class="font-semibold text-lg mb-3">📬 Mailing Address Coverage</div>
+        <div class="text-sm text-[var(--text-dim)] mb-3">Best mailing address per property = the most common address seen across the property's original record and every vendor's skiptrace row.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+          <div class="kpi" style="cursor:pointer;transition:transform 0.15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''" onclick="showMailList('has')"><div class="kpi-label" style="color:#10b981">📬 With mailing address</div><div class="kpi-value" id="mail-has">0</div><div class="kpi-sub" id="mail-has-sub">—</div><div class="text-xs mt-1" style="color:var(--text-dim)">Click to view →</div></div>
+          <div class="kpi" style="cursor:pointer;transition:transform 0.15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''" onclick="showMailList('none')"><div class="kpi-label" style="color:#ef4444">🚫 No mailing address</div><div class="kpi-value" id="mail-none">0</div><div class="kpi-sub" id="mail-none-sub">—</div><div class="text-xs mt-1" style="color:var(--text-dim)">Click to view →</div></div>
+          <div class="kpi" style="grid-column:span 2"><div class="kpi-label">🏆 Most common mailing address</div><div class="text-base font-medium mt-1" id="mail-most-common" style="word-break:break-word">—</div><div class="kpi-sub" id="mail-most-common-sub">—</div></div>
+        </div>
+      </div>
+      <div class="panel p-5">
+        <div class="font-semibold text-lg mb-1">Coming Next</div>
+        <div class="text-sm text-[var(--text-dim)]">Per-vendor mailing-address contribution (who provided what, which match the property record, absentee-owner scoring).</div>
+      </div>
+    </div><!-- /compare-sub-mail -->
+
+    <!-- ============ Emails subtab ============ -->
+    <div id="compare-sub-emails" class="compare-sub" style="display:none">
+      <div class="panel p-5">
+        <div class="font-semibold text-lg mb-1">✉️ Email Comparison</div>
+        <div class="text-sm text-[var(--text-dim)]">Coming next — hot/warm/cold heat for email addresses, vendor-by-vendor contribution, and coverage stats mirroring the phone-numbers tab.</div>
+      </div>
+    </div><!-- /compare-sub-emails -->
+
+    <!-- Vendor pairwise overlap matrix -->
+  <div class="panel p-5 mb-6">
+    <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+      <div>
+        <div class="font-semibold text-lg">🤝 Vendor Overlap — 1-on-1</div>
+        <div class="text-xs text-[var(--text-dim)]">For each pair of providers: how many phones / emails / mailing addresses they share on the same property, and how many each has that the other doesn't. Smaller overlap = more differentiated data, higher combined value.</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <select id="pair-kind" style="width:140px" onchange="renderVendorOverlap()">
+          <option value="phones" selected>📞 Phones</option>
+          <option value="emails">✉ Emails</option>
+          <option value="mails">📬 Mailing</option>
+        </select>
+        <button class="btn btn-ghost text-sm" onclick="exportVendorOverlap()">⬇ Export CSV</button>
+      </div>
+    </div>
+    <div class="overflow-auto" style="max-height:500px">
+      <table style="width:100%;font-size:11px;table-layout:auto" id="pair-table">
+        <thead id="pair-thead"></thead>
+        <tbody id="pair-tbody"></tbody>
+      </table>
+    </div>
+    <div class="text-xs text-[var(--text-dim)] mt-2">Cell value = items both row-vendor and column-vendor have for the same property. Diagonal = vendor's total distinct items.</div>
+  </div>
   </div><!-- /mview-vendors -->
 
   <!-- ============ Marketing: Campaigns subview ============ -->
@@ -40573,6 +40690,16 @@ function goMarketingView(v) {
   if (target) target.style.display = '';
   if (v === 'lists' && typeof renderListTypeWidgets === 'function') renderListTypeWidgets();
   if (v === 'vendors' && typeof renderVendorDownloadTable === 'function') renderVendorDownloadTable();
+  if (v === 'vendors') {
+    // Consolidated: the Skiptrace Vendors table + comparison/overlap panels now
+    // live in this same Marketing → Vendors view, so render them alongside the
+    // campaign-download table (they target global IDs, so a hidden-then-shown
+    // container renders fine).
+    if (typeof renderVendors === 'function') renderVendors();
+    if (typeof renderCompare === 'function') renderCompare();
+    if (typeof renderVendorOverlap === 'function') renderVendorOverlap();
+    if (typeof _renderListScopeChips === 'function') _renderListScopeChips();
+  }
   // Campaigns subview — lazy-load on first visit, then render.
   if (v === 'campaigns' && typeof loadCampaigns === 'function') {
     loadCampaigns().then(() => { if (typeof renderCampaigns === 'function') renderCampaigns(); });
@@ -41342,6 +41469,11 @@ function showListTypeDrill(label) {
   if (!cat) return;
   // Navigate to Data → Properties.
   if (typeof goSection === 'function') goSection('data');
+  // A Marketing-KPI drill uses _propCategoryDrill, not the data-section
+  // category context — clear the latter so the two filters don't stack, and
+  // deactivate the category boxes.
+  window._dataCat = null;
+  ['datacat-imports','datacat-props','datacat-mail','datacat-skip'].forEach(function(id){ var e=document.getElementById(id); if(e) e.classList.remove('active'); });
   if (typeof goView === 'function') goView('properties');
   // Clear the existing exact-match flag dropdown — we're using the
   // category filter instead (substring match against any flag key).
@@ -45609,11 +45741,40 @@ function renderProperties() {
   const filterFlag = document.getElementById('prop-flag-filter').value;
   const filterAbs = (document.getElementById('prop-absentee-filter') || {}).value || '';
   const catDrill = window._propCategoryDrill || null;
+  // Data-section category context (Subject Properties / Mailing Addresses /
+  // Skiptrace Matches). Null when the main Properties tab is used normally.
+  const _dc = window._dataCat;
+  const _dqSkipSet = (_dc === 'skip' && typeof _dqBuildSkipSet === 'function') ? _dqBuildSkipSet() : null;
   const props = Object.values(cache.properties).filter(p => {
     if (filterList && !(p._lists||[]).includes(filterList)) return false;
     if (filterFlag && !p.flags?.[filterFlag]) return false;
     if (filterAbs === 'yes' && !isAbsentee(p)) return false;
     if (filterAbs === 'no' && isAbsentee(p)) return false;
+    // ---- Data-section category filters ----
+    if (_dc === 'props') {
+      const _g = window._dqGeo || 'all';
+      if (_g === 'ok' && p.geocode_status !== 'ok') return false;
+      if (_g === 'unknown' && p.geocode_status === 'ok') return false;
+    } else if (_dc === 'mail') {
+      const _hasMail = !!(p.mail_street) || (p._mailings && p._mailings.length);
+      if (!_hasMail) return false;
+      const _gm = window._dqMail || 'all';
+      if (_gm === 'ok' && p.mail_geocode_status !== 'ok') return false;
+      if (_gm === 'unknown' && p.mail_geocode_status === 'ok') return false;
+    } else if (_dc === 'skip') {
+      const _matched = !!(_dqSkipSet && _dqSkipSet.has(p.id));
+      const _s = window._dqSkip || 'all';
+      if (_s === 'matched' && !_matched) return false;
+      if (_s === 'unmatched' && _matched) return false;
+      const _hp = !!(p._phones && p._phones.length);
+      const _he = !!(p._emails && p._emails.length);
+      const _hm = !!(p.mail_street) || !!(p._mailings && p._mailings.length);
+      if (_s === 'nodata' && (_hp || _he || _hm)) return false;
+      const _fp = window._dqHasPhone||0, _fe = window._dqHasEmail||0, _fm = window._dqHasMail||0;
+      if (_fp===1 && !_hp) return false; if (_fp===2 && _hp) return false;
+      if (_fe===1 && !_he) return false; if (_fe===2 && _he) return false;
+      if (_fm===1 && !_hm) return false; if (_fm===2 && _hm) return false;
+    }
     // Category drill — uses the same predicate as renderListTypeWidgets so
     // the table count always equals the KPI count. "Other" is a special
     // bucket: tagged-but-not-in-any-named-category.

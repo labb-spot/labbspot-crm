@@ -1120,26 +1120,17 @@
 <div id="section-data" class="section-content p-6" style="display:none">
 
   <!-- Mini dashboard -->
-  <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
     <div class="kpi">
       <div class="kpi-label">Lists uploaded</div>
       <div class="kpi-value" id="kpi-lists">0</div>
       <div class="kpi-sub" id="kpi-lists-sub">—</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Properties</div>
+      <div class="kpi-label">Subject properties</div>
       <div class="kpi-value" id="kpi-properties">0</div>
       <div class="kpi-sub">unique, deduped</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Geocoded</div>
-      <div class="kpi-value" id="kpi-geocoded">0</div>
-      <div class="kpi-sub" id="kpi-geocoded-sub">0% complete</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Duplicates caught</div>
-      <div class="kpi-value" id="kpi-dupes">0</div>
-      <div class="kpi-sub">merged into existing</div>
+      <div class="kpi-sub" id="kpi-geocoded-sub">0% geocoded</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">Vendors used</div>
@@ -1147,14 +1138,16 @@
       <div class="kpi-sub" id="kpi-vendors-sub">—</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Total phones</div>
-      <div class="kpi-value" id="kpi-phones">0</div>
-      <div class="kpi-sub">across all vendors</div>
+      <div class="kpi-label">Skiptrace uploads</div>
+      <div class="kpi-value" id="kpi-skipuploads">0</div>
+      <div class="kpi-sub" id="kpi-skipuploads-sub">—</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Total emails</div>
-      <div class="kpi-value" id="kpi-emails">0</div>
-      <div class="kpi-sub">across all vendors</div>
+      <div class="kpi-label">Skiptraced properties</div>
+      <div class="kpi-value" id="kpi-skiptraced">0</div>
+      <div class="kpi-sub" id="kpi-sk-phone">0% with phone</div>
+      <div class="kpi-sub" id="kpi-sk-email">0% with email</div>
+      <div class="kpi-sub" id="kpi-sk-mail">0% with mailing</div>
     </div>
   </div>
 
@@ -45655,25 +45648,59 @@ function renderProviderPhonesWidget() {
 
 function renderKPIs() {
   const props = Object.values(cache.properties);
-  document.getElementById('kpi-properties').textContent = props.length;
+  const totalP = props.length;
+  const _set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+  // Lists uploaded
   const lists = Object.values(cache.lists);
-  document.getElementById('kpi-lists').textContent = lists.length;
-  const lastList = lists[0];
-  document.getElementById('kpi-lists-sub').textContent = lastList ? 'Latest: ' + lastList.name : '—';
+  _set('kpi-lists', lists.length.toLocaleString());
+  // Pick the newest by uploaded_at — cache.lists is keyed/ordered by id (the
+  // loader ignores the uploaded_at sort), so lists[0] was showing a non-latest
+  // list as "Latest".
+  const lastList = lists.length
+    ? lists.reduce((a, b) => ((new Date(b.uploaded_at || 0)) > (new Date(a.uploaded_at || 0)) ? b : a))
+    : null;
+  _set('kpi-lists-sub', lastList ? 'Latest: ' + lastList.name : '—');
+
+  // Subject properties + geocoded % (actual, not rounded-up "100%")
+  _set('kpi-properties', totalP.toLocaleString());
   const geocoded = props.filter(p => p.geocode_status === 'ok').length;
-  document.getElementById('kpi-geocoded').textContent = geocoded;
-  document.getElementById('kpi-geocoded-sub').textContent = props.length ? Math.round(geocoded/props.length*100) + '% complete' : '0%';
-  const totalPhones = props.reduce((s,p) => s + (p._phones?.length || 0), 0);
-  document.getElementById('kpi-phones').textContent = totalPhones;
+  // Floor the % so 16,033 / 16,054 shows 99% (not a misleading 100%) until every
+  // record is truly geocoded; only show 100% when geocoded === total.
+  let geoPct = 0;
+  if (totalP) geoPct = (geocoded >= totalP) ? 100 : Math.min(99, Math.floor(geocoded / totalP * 100));
+  _set('kpi-geocoded-sub', geoPct + '% geocoded');
+
+  // Vendors used
   const usedVendors = new Set();
-  Object.values(cache.skiptrace).forEach(r => usedVendors.add(r.vendor_name));
-  document.getElementById('kpi-vendors').textContent = usedVendors.size;
-  document.getElementById('kpi-vendors-sub').textContent = usedVendors.size ? [...usedVendors].slice(0,3).join(', ') : '—';
-  document.getElementById('kpi-dupes').textContent = cache.dupesCaught || 0;
-  // Total emails
-  const totalEmails = Object.keys(cache.emails || {}).length;
-  const emEl = document.getElementById('kpi-emails');
-  if (emEl) emEl.textContent = totalEmails.toLocaleString();
+  Object.values(cache.skiptrace || {}).forEach(r => { if (r && r.vendor_name) usedVendors.add(r.vendor_name); });
+  _set('kpi-vendors', usedVendors.size);
+  _set('kpi-vendors-sub', usedVendors.size ? [...usedVendors].slice(0, 3).join(', ') : '—');
+
+  // Skiptrace uploads (import batches)
+  const skUploads = Object.values(cache.skipUploads || {});
+  _set('kpi-skipuploads', skUploads.length.toLocaleString());
+  _set('kpi-skipuploads-sub', skUploads.length ? (skUploads.length === 1 ? '1 batch imported' : skUploads.length + ' batches imported') : '—');
+
+  // Skiptraced properties — count of properties with ≥1 skiptrace record, and
+  // hit-rate coverage among THOSE properties (% that came back with data).
+  const skipSet = new Set();
+  Object.values(cache.skiptrace || {}).forEach(r => { if (r && r.property_id) skipSet.add(r.property_id); });
+  let cPhone = 0, cEmail = 0, cMail = 0, cAny = 0;
+  props.forEach(p => {
+    if (!skipSet.has(p.id)) return;
+    const hp = !!(p._phones && p._phones.length);
+    const he = !!(p._emails && p._emails.length);
+    const hm = !!(p.mail_street) || !!(p._mailings && p._mailings.length);
+    if (hp) cPhone++; if (he) cEmail++; if (hm) cMail++;
+    if (hp || he || hm) cAny++;
+  });
+  const denom = skipSet.size;
+  const _pct = n => (denom ? Math.round(n / denom * 100) : 0) + '%';
+  _set('kpi-skiptraced', denom.toLocaleString());
+  _set('kpi-sk-phone', _pct(cPhone) + ' with phone');
+  _set('kpi-sk-email', _pct(cEmail) + ' with email');
+  _set('kpi-sk-mail',  _pct(cMail)  + ' with mailing');
 
   // Show/hide geocode button
   const pending = props.filter(p => p.geocode_status === 'pending').length;

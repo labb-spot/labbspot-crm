@@ -113,6 +113,9 @@
   .subtab { padding: 6px 14px; border-radius: 8px; cursor: pointer; color: var(--text-dim); font-weight: 500; font-size: 13px; transition: all 0.15s; user-select: none; }
   .subtab:hover { color: var(--text); }
   .subtab.active { background: var(--panel-2); color: var(--text); }
+  /* Data-section category tabs: forced equal width + smaller text (wins over .subtab). */
+  .datacat-tab { width: 176px !important; font-size: 10.5px !important; padding: 6px 6px !important; display: inline-flex !important; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; overflow: hidden; box-sizing: border-box; }
+  .datacat-tab .badge { font-size: 9.5px !important; margin-left: 3px !important; padding: 1px 5px !important; }
   /* Compact variant for the underwriting top-nav row so all 10 workflow
      tabs + GIS Maps fit on one line without horizontal scrolling. */
   .subtab-compact { padding: 5px 9px; font-size: 12px; white-space: nowrap; }
@@ -1160,13 +1163,11 @@
       <div id="datacat-imports" class="subtab active" onclick="goDataCat('imports')" title="Upload & map new lists">⬆️ Imports</div>
     </div>
     <div class="flex items-center gap-1 panel p-1 w-fit">
-      <div id="datacat-props" class="subtab" onclick="goDataCat('props')" title="Every property — filter by geocode status">🏠 Subject Properties <span id="datacat-props-count" class="badge" style="margin-left:4px;display:none">0</span></div>
-      <div id="datacat-mail" class="subtab" onclick="goDataCat('mail')" title="Properties with a mailing address — filter by geocode status">📬 Mailing Addresses <span id="datacat-mail-count" class="badge" style="margin-left:4px;display:none">0</span></div>
-      <div id="datacat-skip" class="subtab" onclick="goDataCat('skip')" title="Skiptrace match status + Has Phone / Email / Mailing filters">📇 Skiptrace Matches <span id="datacat-skip-count" class="badge" style="margin-left:4px;display:none">0</span></div>
+      <div id="datacat-props" class="subtab datacat-tab" onclick="goDataCat('props')" title="Every property — filter by geocode status">🏠 Subject Properties <span id="datacat-props-count" class="badge" style="display:none">0</span></div>
+      <div id="datacat-mail" class="subtab datacat-tab" onclick="goDataCat('mail')" title="Properties with a mailing address — filter by geocode status">📬 Mailing Addresses <span id="datacat-mail-count" class="badge" style="display:none">0</span></div>
+      <div id="datacat-skip" class="subtab datacat-tab" onclick="goDataCat('skip')" title="Skiptrace match status + Has Phone / Email / Mailing filters">📇 Skiptrace Matches <span id="datacat-skip-count" class="badge" style="display:none">0</span></div>
     </div>
   </div>
-  <!-- Per-category switch fields now render inside the Properties panel header
-       (see #dataq-fields there), right-aligned next to the title. -->
   <!-- Hidden holder: keeps the old subtab badge IDs alive so legacy setters
        (updateUnverifiedBadge, renderGapNo*) never dereference null. -->
   <div style="display:none">
@@ -1196,17 +1197,90 @@
     if(typeof goView==='function') goView('properties');
     var titleEl=document.getElementById('dataq-title');
     if(titleEl) titleEl.textContent = cat==='props'?'Subject Properties':cat==='mail'?'Mailing Addresses':'Skiptrace Matches';
+    // Provider dropdown + Local/Retry batch buttons are Subject-Properties-only.
+    var _show=(cat==='props'||cat==='mail'||cat==='skip');
+    var _pw=document.getElementById('prop-provider-wrap'); if(_pw) _pw.style.display=_show?'':'none';
+    var _pf=document.getElementById('prop-fix-actions'); if(_pf) _pf.style.display=_show?'':'none';
+    var _ga=document.getElementById('prop-geo-actions'); if(_ga) _ga.style.display=_show?'':'none';
     _dqRenderFields();
     try{ if(typeof propPage!=='undefined') propPage=0; }catch(e){}
-    if(typeof renderProperties==='function') renderProperties();
+    _dqTableMode(_dqBodyMode());
     _dqUpdateCounts();
+  }
+  // Open the deeper Unverified/Unmatched workbench (batch local-match, retry,
+  // per-row actions) in place, subtab bar hidden. The main table already shows
+  // the unverified rows in place via the switch; this is for the fix actions.
+  // One-time: relocate the Unverified Properties table (summary + table) into the
+  // Subject Properties view so it can be shown in place of the main table.
+  // Which body to show for the active category + switch state.
+  function _dqBodyMode(){
+    var c=window._dataCat;
+    if(c==='props') return (window._dqGeo==='unknown') ? 'props' : 'main';
+    if(c==='mail')  return (window._dqMail==='unknown') ? 'mailing' : 'main';
+    if(c==='skip')  return (window._dqSkip==='lost') ? 'skip' : 'main';
+    return 'main';
+  }
+  // Relocate a workbench into the Subject-view table area (once). 'props' moves
+  // just the unverified-properties summary+table (its controls live in the header);
+  // 'mailing'/'skip' move the whole workbench panel (title hidden inline) so all
+  // of their fix-tools controls come along and keep working.
+  // Relocate ONLY the summary + table of a workbench into the Subject-view table
+  // area (once). The workbench's own toolbar stays hidden; a compact control set
+  // lives in the top header instead.
+  function _dqMountUvTable(kind){
+    var mount=document.getElementById('prop-uv-mount'); if(!mount) return;
+    var cfg={ props:{grp:'mount-props',sum:'uv-summary',tbl:'uv-prop-tablewrap'},
+              mailing:{grp:'mount-mail',sum:'uvm-summary',tbl:'uvm-tablewrap'},
+              skip:{grp:'mount-skip',sum:'uvs-summary',tbl:'uvs-tablewrap'} }[kind];
+    if(!cfg || document.getElementById(cfg.grp)) return;
+    var g=document.createElement('div'); g.id=cfg.grp; g.style.display='none'; mount.appendChild(g);
+    var sum=document.getElementById(cfg.sum); var tbl=document.getElementById(cfg.tbl);
+    if(sum) g.appendChild(sum); if(tbl) g.appendChild(tbl);
+  }
+  // Swap ONLY the table area. mode: 'main' | 'props' | 'mailing' | 'skip'.
+  // Everything above the table (category header, search, switch, filters) stays.
+  function _dqTableMode(mode){
+    var mr=document.getElementById('prop-main-region');
+    var um=document.getElementById('prop-uv-mount');
+    if(typeof _dqUpdateGeoButtons==='function') _dqUpdateGeoButtons();
+    if(mode==='main'){
+      if(mr) mr.style.display='';
+      if(um) um.style.display='none';
+      if(typeof renderProperties==='function') renderProperties();
+      return;
+    }
+    _dqMountUvTable(mode);
+    if(mr) mr.style.display='none';
+    if(um) um.style.display='';
+    ['mount-props','mount-mail','mount-skip'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
+    var grp={props:'mount-props',mailing:'mount-mail',skip:'mount-skip'}[mode];
+    var g=document.getElementById(grp); if(g) g.style.display='';
+    if(mode==='props' && typeof renderUnverified==='function') renderUnverified();
+    else if(mode==='mailing' && typeof renderUnverifiedMailing==='function') renderUnverifiedMailing();
+    else if(mode==='skip' && typeof renderUnmatchedSkip==='function') renderUnmatchedSkip();
+  }
+  function _dqFix(view){
+    if(view==='properties'){
+      window._dqGeo='unknown';
+      if(typeof _dqRenderFields==='function') _dqRenderFields();
+      var _pf=document.getElementById('prop-fix-actions'); if(_pf) _pf.style.display='';
+      var _pw=document.getElementById('prop-provider-wrap'); if(_pw) _pw.style.display='';
+      try{ if(typeof propPage!=='undefined') propPage=0; }catch(e){}
+      _dqTableMode('unverified');
+      return;
+    }
+    if(typeof goView==='function') goView('unverified');
+    var bar=document.getElementById('uv-subtab-bar'); if(bar) bar.style.display='none';
+    if(typeof goUvView==='function') goUvView(view);
+    if(view==='mailing' && typeof renderUnverifiedMailing==='function') renderUnverifiedMailing();
+    else if(view==='skiptrace' && typeof renderUnmatchedSkip==='function') renderUnmatchedSkip();
   }
   function _dqSeg(label, opts, cur, fn){
     var pills = opts.map(function(o){
       var on = o.v===cur;
       return '<span onclick="'+fn+'(\''+o.v+'\')" style="padding:5px 12px;font-size:12px;cursor:pointer;border-right:1px solid var(--border);'+(on?'background:var(--brand);color:#fff;font-weight:600;':'color:var(--text-dim);')+'">'+o.t+'</span>';
     }).join('');
-    return '<span style="display:inline-flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text-dim)">'+label+'</span><span style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">'+pills+'</span></span>';
+    return '<span style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">'+pills+'</span></span>';
   }
   function _dqTri(label, which, state){
     var meta = state===1 ? {bg:'rgba(16,185,129,0.15)',c:'#10b981',b:'#10b981',i:'✓ '}
@@ -1219,21 +1293,12 @@
     var cat=window._dataCat, html='';
     if(cat==='props'){
       html = _dqSeg('Address status', [{v:'all',t:'All'},{v:'ok',t:'Geocoded'},{v:'unknown',t:'Unknown'}], window._dqGeo||'all', '_dqSetGeo');
-      html += ((window._dqGeo||'all')==='unknown')
-        ? '<button class="btn btn-ghost text-xs" onclick="goView(\'unverified\');goUvView(\'properties\');renderUnverified();" title="Open the geocode retry / local-match workbench">🔧 Fix tools</button>'
-        : '<button class="btn btn-ghost text-xs" disabled title="Switch to Unknown to use the fix tools" style="opacity:0.4;cursor:not-allowed">🔧 Fix tools</button>';
     } else if(cat==='mail'){
       html = _dqSeg('Mailing status', [{v:'all',t:'All'},{v:'ok',t:'Geocoded'},{v:'unknown',t:'Unknown'}], window._dqMail||'all', '_dqSetMail');
-      html += ((window._dqMail||'all')==='unknown')
-        ? '<button class="btn btn-ghost text-xs" onclick="goView(\'unverified\');goUvView(\'mailing\');renderUnverifiedMailing();" title="Open the mailing-address verify workbench">🔧 Fix tools</button>'
-        : '<button class="btn btn-ghost text-xs" disabled title="Switch to Unknown to use the fix tools" style="opacity:0.4;cursor:not-allowed">🔧 Fix tools</button>';
     } else if(cat==='skip'){
-      html = _dqSeg('Skiptrace status', [{v:'all',t:'All'},{v:'matched',t:'Matched'},{v:'unmatched',t:'Unmatched'},{v:'nodata',t:'No Data'}], window._dqSkip||'all', '_dqSetSkip');
+      html = _dqSeg('Skiptrace status', [{v:'all',t:'All'},{v:'matched',t:'Matched'},{v:'unmatched',t:'Unmatched'},{v:'lost',t:'Lost Data'}], window._dqSkip||'all', '_dqSetSkip');
       html += '<span style="width:1px;height:20px;background:var(--border)"></span>';
-      html += '<span style="font-size:12px;color:var(--text-dim)">Filters</span>' + _dqTri('Has Mailing','mail',window._dqHasMail||0) + _dqTri('Has Phone','phone',window._dqHasPhone||0) + _dqTri('Has Email','email',window._dqHasEmail||0);
-      html += (window._dqSkip==='unmatched'||window._dqSkip==='nodata')
-        ? '<button class="btn btn-ghost text-xs" onclick="goView(\'unverified\');goUvView(\'skiptrace\');renderUnmatchedSkip();" title="Open the skiptrace retry workbench">🔧 Fix tools</button>'
-        : '<button class="btn btn-ghost text-xs" disabled title="Switch to Unmatched or No Data to use the fix tools" style="opacity:0.4;cursor:not-allowed">🔧 Fix tools</button>';
+      html += _dqTri('Has Mailing','mail',window._dqHasMail||0) + _dqTri('Has Phone','phone',window._dqHasPhone||0) + _dqTri('Has Email','email',window._dqHasEmail||0);
     }
     f.innerHTML = html;
     f.style.display = html ? 'flex' : 'none';
@@ -1249,6 +1314,60 @@
   function _dqApply(){
     _dqRenderFields();
     try{ if(typeof propPage!=='undefined') propPage=0; }catch(e){}
+    if(window._dataCat){ _dqTableMode(_dqBodyMode()); return; }
+    if(typeof renderProperties==='function') renderProperties();
+  }
+  // Shared header actions — dispatch to the right workbench function by category,
+  // so all three category headers use one identical control set.
+  function _dqLocalBatch(){
+    var c=window._dataCat;
+    if(c==='mail'){ if(typeof batchLocalMatchUnverifiedMailing==='function') batchLocalMatchUnverifiedMailing(); return; }
+    if(c==='skip'){ if(typeof batchLocalMatchUnmatchedSkip==='function') batchLocalMatchUnmatchedSkip(); return; }
+    if(typeof batchLocalMatchUnverified==='function') batchLocalMatchUnverified();
+  }
+  function _dqRetryBatch(){
+    var c=window._dataCat;
+    if(c==='mail'){ if(typeof verifyAllMailing==='function') verifyAllMailing(); return; }
+    if(c==='skip'){ if(typeof retryBatchUnmatchedSkip==='function') retryBatchUnmatchedSkip(); return; }
+    if(typeof retryBatchUnverified==='function') retryBatchUnverified();
+  }
+  function _dqExport(){
+    var m=(typeof _dqBodyMode==='function')?_dqBodyMode():'main';
+    if(m==='props'){ if(typeof exportUnverified==='function') return exportUnverified(); }
+    else if(m==='mailing'){ if(typeof exportUnverifiedMailing==='function') return exportUnverifiedMailing(); }
+    else if(m==='skip'){ if(typeof exportUnmatchedSkip==='function') return exportUnmatchedSkip(); }
+    if(typeof exportProperties==='function') exportProperties();
+  }
+  // Geocode button — runs the right geocode/verify action per category.
+  function _dqGeocode(){
+    var c=window._dataCat;
+    if(c==='mail'){ if(typeof verifyAllMailing==='function') verifyAllMailing(); return; }
+    if(c==='skip'){ if(typeof retryBatchUnmatchedSkip==='function') retryBatchUnmatchedSkip(); return; }
+    if(typeof geocodePendingBatch==='function') geocodePendingBatch();
+  }
+  // "X failed" button — count + click adapt to the active category.
+  function _dqGeoErrors(){
+    var c=window._dataCat;
+    if(c==='mail'){ var cb=document.getElementById('uvm-only-failed'); if(cb){ cb.checked=true; } if(typeof renderUnverifiedMailing==='function') renderUnverifiedMailing(); return; }
+    if(c==='skip'){ if(typeof renderUnmatchedSkip==='function') renderUnmatchedSkip(); return; }
+    if(typeof showGeoErrorReview==='function') showGeoErrorReview();
+  }
+  function _dqUpdateGeoButtons(){
+    var btn=document.getElementById('btn-geo-errors'); if(!btn) return;
+    var c=window._dataCat;
+    var props=Object.values((window.cache&&cache.properties)||{});
+    var n=0;
+    if(c==='mail') n=props.filter(function(p){return (p.mail_geocode_status||'')==='failed';}).length;
+    else if(c==='skip') n=0;
+    else n=props.filter(function(p){return (p.geocode_status||'')==='failed';}).length;
+    if(n>0){ btn.style.display=''; btn.textContent='⚠ '+n.toLocaleString()+' failed'; }
+    else { btn.style.display='none'; }
+  }
+  function _dqProviderChange(v){
+    var c=window._dataCat;
+    if(c==='mail'){ var e=document.getElementById('uvm-provider-filter'); if(e) e.value=v; if(typeof renderUnverifiedMailing==='function') renderUnverifiedMailing(); return; }
+    if(c==='skip'){ var e2=document.getElementById('uvs-provider-filter'); if(e2) e2.value=v; if(typeof renderUnmatchedSkip==='function') renderUnmatchedSkip(); return; }
+    try{ if(typeof propPage!=='undefined') propPage=0; }catch(_){}
     if(typeof renderProperties==='function') renderProperties();
   }
   function _dqBuildSkipSet(){
@@ -1428,15 +1547,17 @@
   <!-- View: Properties -->
   <div id="view-properties" class="view-content" style="display:none">
     <div class="panel p-5">
-      <!-- Row 1: title + per-category switch chips (right-aligned) -->
+      <!-- Row 1: title + search on the left · status switch pinned to the right -->
       <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
-        <div class="font-semibold text-lg" id="dataq-title">Properties</div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="font-semibold text-lg" id="dataq-title" style="white-space:nowrap">Properties</div>
+          <input id="prop-search" placeholder="Search by Street Address, City, or Contact Name" style="width:358px;max-width:100%;height:36px;padding:8px 14px;font-size:14px;border-radius:8px" oninput="propPage=0; renderProperties()" />
+        </div>
         <span id="dataq-fields" class="flex items-center flex-wrap" style="display:none;gap:8px 12px"></span>
       </div>
       <!-- Row 2: filters (left) · actions (right) -->
       <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div class="flex items-center gap-2 flex-wrap">
-          <input id="prop-search" placeholder="Search address / owner / city…" style="width:260px" oninput="propPage=0; renderProperties()" />
           <select id="prop-list-filter" style="width:180px" onchange="propPage=0; renderProperties()">
             <option value="">All lists</option>
           </select>
@@ -1448,11 +1569,25 @@
             <option value="yes">📬 Absentee only</option>
             <option value="no">🏠 Owner-occupied only</option>
           </select>
+          <span id="prop-provider-wrap" style="display:none">
+            <select id="prop-provider-filter" style="width:160px" onchange="_dqProviderChange(this.value)" title="Geocode attempt method (provider)">
+              <option value="">Any provider</option>
+              <option value="google">Google</option>
+              <option value="census">Census</option>
+              <option value="never">Never tried</option>
+            </select>
+          </span>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
-          <button class="btn btn-ghost text-sm" id="btn-geocode-all" onclick="geocodePendingBatch()">🌍 Geocode</button>
-          <button class="btn btn-ghost text-sm" id="btn-geo-errors" onclick="showGeoErrorReview()" style="display:none;color:#ef4444">⚠ Geocode errors</button>
-          <button class="btn btn-ghost text-sm" onclick="exportProperties()">⬇️ Export</button>
+          <span id="prop-geo-actions">
+            <button class="btn btn-ghost text-sm" id="btn-geocode-all" onclick="_dqGeocode()">🌍 Geocode</button>
+            <button class="btn btn-ghost text-sm" id="btn-geo-errors" onclick="_dqGeoErrors()" style="display:none;color:#ef4444">⚠ Geocode errors</button>
+          </span>
+          <span id="prop-fix-actions" style="display:none">
+            <button class="btn btn-ghost text-sm" onclick="_dqLocalBatch()" title="Match each unverified / unmatched record to a duplicate already in your system — no API cost">🔗 Local batch</button>
+            <button class="btn btn-ghost text-sm" onclick="_dqRetryBatch()" title="Retry / verify the next batch">🔁 Retry batch</button>
+          </span>
+          <button class="btn btn-ghost text-sm" onclick="_dqExport()">⬇️ Export</button>
         </div>
       </div>
       <!-- Category drill chip (shown when user clicked a Marketing KPI) -->
@@ -1475,6 +1610,7 @@
         <button class="btn btn-danger text-xs" onclick="bulkDeleteProps()">Delete selected</button>
       </div>
 
+      <div id="prop-main-region">
       <!-- Total count + page size selector -->
       <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div class="text-sm"><span class="font-semibold" id="prop-total-count">0</span> <span class="text-[var(--text-dim)]">total records</span> <span class="text-[var(--text-dim)]" id="prop-filtered-note"></span></div>
@@ -1516,6 +1652,9 @@
         <div class="text-xs text-[var(--text-dim)]" id="prop-page-info"></div>
         <div class="flex items-center gap-1" id="prop-pagination-bottom"></div>
       </div>
+      </div><!-- /prop-main-region -->
+      <!-- Unverified Properties table gets relocated here when Fix tools / Unknown is active -->
+      <div id="prop-uv-mount" style="display:none"></div>
     </div>
   </div>
 
@@ -1541,8 +1680,9 @@
   <!-- View: Unverified addresses -->
   <div id="view-unverified" class="view-content" style="display:none">
 
-    <!-- Inner subtab bar -->
-    <div class="flex items-center gap-1 mb-4 panel p-1 w-fit">
+    <!-- Inner subtab bar (hidden when arrived via a category "Fix tools" button,
+         which drops you straight into one workbench instead of the 3-subtab view) -->
+    <div id="uv-subtab-bar" class="flex items-center gap-1 mb-4 panel p-1 w-fit">
       <div class="subtab active" data-uvview="properties" onclick="goUvView('properties')">🏠 Unverified Properties <span id="uv-prop-count" class="badge bad" style="margin-left:4px;display:none">0</span></div>
       <div class="subtab" data-uvview="skiptrace" onclick="goUvView('skiptrace')">📞 Unmatched Skiptrace <span id="uv-skip-count" class="badge bad" style="margin-left:4px;display:none">0</span></div>
       <div class="subtab" data-uvview="mailing" onclick="goUvView('mailing')">📬 Unverified Mailing <span id="uv-mail-count" class="badge bad" style="margin-left:4px;display:none">0</span></div>
@@ -1580,8 +1720,8 @@
             <button class="btn btn-ghost text-sm" onclick="exportUnverified()">⬇ Export CSV</button>
           </div>
         </div>
-        <div id="uv-summary" class="text-xs text-[var(--text-dim)] mb-2">—</div>
-        <div class="overflow-auto" style="max-height:600px">
+        <div id="uv-summary" class="mb-2">—</div>
+        <div id="uv-prop-tablewrap" class="overflow-auto" style="max-height:600px">
           <table style="width:100%;font-size:13px">
             <thead><tr style="position:sticky;top:0;background:var(--panel-2);z-index:1">
               <th style="padding:6px 10px;text-align:left">Owner</th>
@@ -1604,7 +1744,7 @@
     <div id="uv-sub-skiptrace" class="uv-sub" style="display:none">
       <div class="panel p-5">
         <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
-          <div>
+          <div style="display:none">
             <div class="font-semibold text-lg">📞 Unmatched Skiptrace Rows</div>
             <div class="text-xs text-[var(--text-dim)]">Rows from a skiptrace upload whose address didn't match any property in the DB. Retry with a geocode to canonicalize the address (often fixes spelling/format issues), or add it as a brand-new property so the vendor's phones/emails can be linked.</div>
           </div>
@@ -1639,8 +1779,8 @@
             <button class="btn btn-ghost text-sm" onclick="exportUnmatchedSkip()">⬇ Export CSV</button>
           </div>
         </div>
-        <div id="uvs-summary" class="text-xs text-[var(--text-dim)] mb-2">—</div>
-        <div class="overflow-auto" style="max-height:600px">
+        <div id="uvs-summary" class="mb-2">—</div>
+        <div id="uvs-tablewrap" class="overflow-auto" style="max-height:600px">
           <table style="width:100%;font-size:13px">
             <thead><tr style="position:sticky;top:0;background:var(--panel-2);z-index:1">
               <th style="padding:6px 10px;text-align:left">Vendor (source)</th>
@@ -1662,11 +1802,11 @@
     <div id="uv-sub-mailing" class="uv-sub" style="display:none">
       <div class="panel p-5">
         <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
-          <div>
+          <div style="display:none">
             <div class="font-semibold text-lg">📬 Unverified Mailing Addresses</div>
             <div class="text-xs text-[var(--text-dim)]">Properties with a mailing address on file that hasn't been run through the geocoder yet, or that the geocoder couldn't verify. A verified mailing address is the strongest absentee-owner signal you have.</div>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
+          <div id="uvm-controls" class="flex items-center gap-2 flex-wrap">
             <label class="text-xs flex items-center gap-1"><input type="checkbox" id="uvm-only-failed" style="width:auto" onchange="renderUnverifiedMailing()"> Only failed</label>
             <label class="text-xs flex items-center gap-1" title="Filter by which provider has been attempted on this mailing.">Provider
               <select id="uvm-provider-filter" style="width:auto;padding:4px 8px;min-width:160px" onchange="renderUnverifiedMailing()">
@@ -1685,8 +1825,8 @@
             <button class="btn btn-ghost text-sm" onclick="exportUnverifiedMailing()">⬇ Export CSV</button>
           </div>
         </div>
-        <div id="uvm-summary" class="text-xs text-[var(--text-dim)] mb-2">—</div>
-        <div class="overflow-auto" style="max-height:600px">
+        <div id="uvm-summary" class="mb-2">—</div>
+        <div id="uvm-tablewrap" class="overflow-auto" style="max-height:600px">
           <table style="width:100%;font-size:13px">
             <thead><tr style="position:sticky;top:0;background:var(--panel-2);z-index:1">
               <th style="padding:6px 10px;text-align:left">Owner</th>
@@ -45707,15 +45847,20 @@ function renderKPIs() {
   const failed = props.filter(p => p.geocode_status === 'failed').length;
   const btn = document.getElementById('btn-geocode-pending');
   if (btn) btn.style.display = pending > 0 ? '' : 'none';
-  // Show "Review failed" button if there are failed geocodes in the DB
+  // Show "Review failed" button if there are failed geocodes in the DB.
+  // Only manage it here when on Subject Properties (or no category) — for
+  // Mailing/Skiptrace the count is category-specific and owned by
+  // _dqUpdateGeoButtons, so don't clobber it back to the property count.
   const errBtn = document.getElementById('btn-geo-errors');
-  if (errBtn && !geocoding) {
+  if (errBtn && !geocoding && (!window._dataCat || window._dataCat === 'props')) {
     if (failed > 0) {
       errBtn.style.display = '';
       errBtn.textContent = `⚠ ${failed} failed`;
     } else if (geoFailedList.length === 0) {
       errBtn.style.display = 'none';
     }
+  } else if (errBtn && typeof _dqUpdateGeoButtons === 'function') {
+    _dqUpdateGeoButtons();
   }
 }
 
@@ -45763,10 +45908,19 @@ function sortArrow(col) {
 
 function renderProperties() {
   const totalAll = Object.keys(cache.properties).length;
+  // Populate the lists dropdown from cache.lists (preserve current selection).
+  (function(){
+    const ls = document.getElementById('prop-list-filter'); if (!ls) return;
+    const cur = ls.value;
+    const lists = Object.values(cache.lists||{}).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    ls.innerHTML = '<option value="">All lists</option>' + lists.map(l=>'<option value="'+escapeHtml(l.id)+'">'+escapeHtml(l.name||'(unnamed)')+'</option>').join('');
+    if (cur) ls.value = cur;
+  })();
   const q = (document.getElementById('prop-search').value||'').toLowerCase().trim();
   const filterList = document.getElementById('prop-list-filter').value;
   const filterFlag = document.getElementById('prop-flag-filter').value;
   const filterAbs = (document.getElementById('prop-absentee-filter') || {}).value || '';
+  const filterProvider = (document.getElementById('prop-provider-filter') || {}).value || '';
   const catDrill = window._propCategoryDrill || null;
   // Data-section category context (Subject Properties / Mailing Addresses /
   // Skiptrace Matches). Null when the main Properties tab is used normally.
@@ -45777,6 +45931,14 @@ function renderProperties() {
     if (filterFlag && !p.flags?.[filterFlag]) return false;
     if (filterAbs === 'yes' && !isAbsentee(p)) return false;
     if (filterAbs === 'no' && isAbsentee(p)) return false;
+    // Provider (geocode attempt method) — Subject Properties only.
+    if (filterProvider && _dc === 'props') {
+      const _lp = (typeof _propLastProvider === 'function') ? _propLastProvider(p) : null;
+      const _isPending = ((p.geocode_status || '') !== 'failed');
+      if (filterProvider === 'google' && _lp !== 'google') return false;
+      else if (filterProvider === 'census' && _lp !== 'census') return false;
+      else if (filterProvider === 'never' && !(_isPending || _lp === null)) return false;
+    }
     // ---- Data-section category filters ----
     if (_dc === 'props') {
       const _g = window._dqGeo || 'all';
@@ -45791,12 +45953,14 @@ function renderProperties() {
     } else if (_dc === 'skip') {
       const _matched = !!(_dqSkipSet && _dqSkipSet.has(p.id));
       const _s = window._dqSkip || 'all';
+      // Matched = property HAS a skiptrace record. No Data = property has NO
+      // skiptrace record attached. (Unmatched = orphan skiptrace rows, shown in
+      // the workbench, not this table.)
       if (_s === 'matched' && !_matched) return false;
       if (_s === 'unmatched' && _matched) return false;
       const _hp = !!(p._phones && p._phones.length);
       const _he = !!(p._emails && p._emails.length);
       const _hm = !!(p.mail_street) || !!(p._mailings && p._mailings.length);
-      if (_s === 'nodata' && (_hp || _he || _hm)) return false;
       const _fp = window._dqHasPhone||0, _fe = window._dqHasEmail||0, _fm = window._dqHasMail||0;
       if (_fp===1 && !_hp) return false; if (_fp===2 && _hp) return false;
       if (_fe===1 && !_he) return false; if (_fe===2 && _he) return false;
@@ -45942,6 +46106,38 @@ function buildPagination(currentPage, totalPages) {
 
   html += `<button class="btn btn-ghost text-xs" ${currentPage>=totalPages-1?'disabled style="opacity:0.3;pointer-events:none"':''} onclick="goPropertyPage(${currentPage+1})">Next →</button>`;
   return html;
+}
+
+// Generic numbered pager (same look as buildPagination) with a custom handler fn.
+function _dqPager(cur, total, goFn) {
+  total = Math.max(1, total);
+  let html = `<button class="btn btn-ghost text-xs" ${cur<=0?'disabled style="opacity:0.3;pointer-events:none"':''} onclick="${goFn}(${cur-1})">← Prev</button>`;
+  const pages = [0];
+  for (let i = Math.max(1, cur-2); i <= Math.min(total-2, cur+2); i++) pages.push(i);
+  if (total > 1) pages.push(total-1);
+  const uniq = [...new Set(pages)].sort((a,b)=>a-b);
+  let prev = -1;
+  for (const pg of uniq) {
+    if (prev >= 0 && pg-prev > 1) html += `<span class="text-xs text-[var(--text-dim)] px-1">…</span>`;
+    const active = pg===cur ? 'background:var(--brand);color:white;border-color:var(--brand)' : '';
+    html += `<button class="btn btn-ghost text-xs" style="padding:4px 10px;min-width:32px;${active}" onclick="${goFn}(${pg})">${pg+1}</button>`;
+    prev = pg;
+  }
+  html += `<button class="btn btn-ghost text-xs" ${cur>=total-1?'disabled style="opacity:0.3;pointer-events:none"':''} onclick="${goFn}(${cur+1})">Next →</button>`;
+  return html;
+}
+// Full top bar: "N total records (…)" on the left, "Per page: [select] [pager]"
+// on the right — matches the main properties table's pagination bar.
+function _dqSummaryBar(leftHtml, cur, total, goFn, sizeVar) {
+  const sz = (sizeVar && window[sizeVar]) ? window[sizeVar] : 100;
+  const opt = (v, l) => `<option value="${v}"${sz===v?' selected':''}>${l}</option>`;
+  const perPage = sizeVar
+    ? `<span class="text-xs text-[var(--text-dim)]">Per page:</span><select style="width:80px" onchange="window['${sizeVar}']=parseInt(this.value)||100; ${goFn}(0);">${opt(10,'10')}${opt(100,'100')}${opt(1000,'1,000')}</select>`
+    : `<span class="text-xs text-[var(--text-dim)]">Per page: 100</span>`;
+  return `<div class="flex items-center justify-between flex-wrap gap-2" style="width:100%">
+    <span>${leftHtml}</span>
+    <span class="flex items-center gap-2 flex-wrap">${perPage}<span class="flex items-center gap-1 flex-wrap">${_dqPager(cur, total, goFn)}</span></span>
+  </div>`;
 }
 
 // --------- Selection / Bulk actions ---------
@@ -52591,7 +52787,16 @@ function renderUnverified() {
   const list = getUnverifiedProps();
   const failedCount = list.filter(p => p.geocode_status === 'failed').length;
   const pendingCount = list.length - failedCount;
-  if (summary) summary.textContent = `${list.length.toLocaleString()} unverified · ${failedCount.toLocaleString()} failed · ${pendingCount.toLocaleString()} pending`;
+  const _UV_PAGE_SIZE = window._uvPageSize || 100;
+  if (typeof window._uvPage === 'undefined') window._uvPage = 0;
+  if (window._uvLastLen !== list.length) { window._uvPage = 0; window._uvLastLen = list.length; }
+  const _uvTotalPages = Math.max(1, Math.ceil(list.length / _UV_PAGE_SIZE));
+  if (window._uvPage >= _uvTotalPages) window._uvPage = _uvTotalPages - 1;
+  if (window._uvPage < 0) window._uvPage = 0;
+  const _uvStart = window._uvPage * _UV_PAGE_SIZE;
+  const _uvPageRows = list.slice(_uvStart, _uvStart + _UV_PAGE_SIZE);
+  const _uvLeft = `<span style="font-size:14px"><span class="font-semibold" style="color:var(--text)">${list.length.toLocaleString()}</span> <span style="color:var(--text-dim)">total records (${list.length.toLocaleString()} unverified · ${failedCount.toLocaleString()} failed · ${pendingCount.toLocaleString()} pending)</span></span>`;
+  if (summary) summary.innerHTML = _dqSummaryBar(_uvLeft, window._uvPage, _uvTotalPages, '_uvGoPage', '_uvPageSize');
   if (!list.length) {
     const q = (document.getElementById('uv-search')?.value || '').trim();
     const includePending = document.getElementById('uv-include-pending')?.checked;
@@ -52604,7 +52809,7 @@ function renderUnverified() {
     }
     return;
   }
-  tbody.innerHTML = list.map(p => {
+  tbody.innerHTML = _uvPageRows.map(p => {
     const id = p.id;
     const e = _uvEdits[id] || {};
     const street = e.street !== undefined ? e.street : (p.street || '');
@@ -52645,8 +52850,13 @@ function renderUnverified() {
         <button class="btn btn-ghost text-xs" onclick="retrySingleUnverified('${id}','google')" title="Retry geocode using Google (paid)">🟢 Google</button>
       </td>
     </tr>`;
-  }).join('');
+  }).join('') + (_uvTotalPages > 1 ? `<tr><td colspan="9" style="padding:10px 12px;text-align:center">
+      <button class="btn btn-ghost text-xs" ${window._uvPage===0?'disabled':''} onclick="_uvGoPage(${window._uvPage-1})">← Prev</button>
+      <span style="margin:0 12px;font-size:12px;color:var(--text-dim)">Page ${window._uvPage+1} of ${_uvTotalPages} · ${list.length.toLocaleString()} rows</span>
+      <button class="btn btn-ghost text-xs" ${window._uvPage>=_uvTotalPages-1?'disabled':''} onclick="_uvGoPage(${window._uvPage+1})">Next →</button>
+    </td></tr>` : '');
 }
+function _uvGoPage(p){ window._uvPage = p; if (typeof renderUnverified === 'function') renderUnverified(); }
 
 function uvEdit(propId, field, value) {
   if (!_uvEdits[propId]) _uvEdits[propId] = {};
@@ -53409,14 +53619,15 @@ function computeUnmatchedSkipRows() {
     }
   });
 
+  window._uvsSkipDiag = { noRaw: [], noStreet: [] };
   for (const u of uploads) {
-    if (!Array.isArray(u.raw_rows) || !Array.isArray(u.raw_headers)) continue;
+    if (!Array.isArray(u.raw_rows) || !Array.isArray(u.raw_headers)) { window._uvsSkipDiag.noRaw.push(u.vendor_name || u.name || u.id); continue; }
     const map = u.column_map || {};
     const streetIdx = (map.street != null ? map.street : map.fullAddress);
     const cityIdx = map.city;
     const stateIdx = map.state;
     const zipIdx = map.zip;
-    if (streetIdx == null) continue;
+    if (streetIdx == null) { window._uvsSkipDiag.noStreet.push(u.vendor_name || u.name || u.id); continue; }
     for (let i = 0; i < u.raw_rows.length; i++) {
       // Precise per-row check first
       // A row is matched if EITHER its source_row_index appears on a record, OR its
@@ -53532,17 +53743,33 @@ async function renderUnmatchedSkip() {
     return [r.street, r.city, r.state, r.zip, r.vendorName].some(x => String(x || '').toLowerCase().includes(q));
   });
 
+  const _UVS_PAGE_SIZE = window._uvsPageSize || 100;
+  if (typeof window._uvsPage === 'undefined') window._uvsPage = 0;
+  if (window._uvsLastLen !== filtered.length) { window._uvsPage = 0; window._uvsLastLen = filtered.length; }
+  const _uvsTotalPages = Math.max(1, Math.ceil(filtered.length / _UVS_PAGE_SIZE));
+  if (window._uvsPage >= _uvsTotalPages) window._uvsPage = _uvsTotalPages - 1;
+  if (window._uvsPage < 0) window._uvsPage = 0;
+  const _uvsStart = window._uvsPage * _UVS_PAGE_SIZE;
+  const _uvsPageRows = filtered.slice(_uvsStart, _uvsStart + _UVS_PAGE_SIZE);
   if (summary) {
     // AIRTIGHT count from upload metadata — instant + identical every refresh.
     const airtight = (typeof computeAirtightUnmatchedCount === 'function') ? computeAirtightUnmatchedCount() : null;
     const failed = (typeof _uploadsFailedToLoad !== 'undefined') ? _uploadsFailedToLoad.length : 0;
     const headline = airtight
-      ? `<span style="color:#10b981">🔒</span> <b>${airtight.remaining.toLocaleString()}</b> unmatched <span style="color:var(--text-dim);font-size:11px">(${airtight.sumRowCount.toLocaleString()} total raw rows − ${airtight.matchedRows.toLocaleString()} distinct addresses matched)</span> <button class="btn btn-ghost text-xs" style="padding:1px 6px;margin-left:6px" onclick="diagnoseUnmatchedCount()" title="Show breakdown of skiptrace_records by match_kind">🔍 Diagnose</button> <button class="btn btn-ghost text-xs" style="padding:1px 6px;margin-left:4px" onclick="cleanupDuplicateSkiptraceRecords()" title="Find and delete duplicate skiptrace_records (same upload_id + address + zip)">🧹 Clean dupes</button>`
-      : `<b>${filtered.length.toLocaleString()}</b> unmatched`;
+      ? `<span style="font-size:14px"><span style="color:#10b981">🔒</span> <span class="font-semibold" style="color:var(--text)">${airtight.remaining.toLocaleString()}</span> <span style="color:var(--text-dim)">total records (${airtight.sumRowCount.toLocaleString()} total raw rows − ${airtight.matchedRows.toLocaleString()} distinct addresses matched)</span></span> <button class="btn btn-ghost text-xs" style="padding:1px 6px;margin-left:6px" onclick="diagnoseUnmatchedCount()" title="Show breakdown of skiptrace_records by match_kind">🔍 Diagnose</button> <button class="btn btn-ghost text-xs" style="padding:1px 6px;margin-left:4px" onclick="cleanupDuplicateSkiptraceRecords()" title="Find and delete duplicate skiptrace_records (same upload_id + address + zip)">🧹 Clean dupes</button> <button class="btn btn-ghost text-xs" style="padding:1px 6px;margin-left:4px" onclick="_dqLoadAllSkip(this)" title="Fetch every upload's raw rows so the table lists ALL unmatched rows, not just the loaded ones">⬇ Load all rows</button>`
+      : `<span style="font-size:14px"><span class="font-semibold" style="color:var(--text)">${filtered.length.toLocaleString()}</span> <span style="color:var(--text-dim)">total records</span></span>`;
     const tableNote = failed > 0
       ? `<div style="margin-top:4px;font-size:11px;color:#f59e0b">⚠ Table below shows ${filtered.length.toLocaleString()} of these — ${failed} upload${failed === 1 ? '' : 's'} FAILED to load raw rows for table display. <button class="btn btn-ghost text-xs" style="padding:2px 8px" onclick="retryFailedUploadLoads()">🔁 Retry failed</button></div>`
       : `<div style="margin-top:4px;font-size:11px;color:var(--text-dim)">Table below shows ${filtered.length.toLocaleString()} of these from loaded uploads.</div>`;
-    summary.innerHTML = headline + tableNote;
+    let diagNote = '';
+    const _diag = window._uvsSkipDiag || { noRaw: [], noStreet: [] };
+    if (_diag.noStreet.length || _diag.noRaw.length) {
+      const parts = [];
+      if (_diag.noStreet.length) parts.push(`${_diag.noStreet.length} upload${_diag.noStreet.length===1?'':'s'} skipped — no street column mapped (${[...new Set(_diag.noStreet)].slice(0,4).join(', ')}${_diag.noStreet.length>4?'…':''})`);
+      if (_diag.noRaw.length) parts.push(`${_diag.noRaw.length} upload${_diag.noRaw.length===1?'':'s'} not loaded`);
+      diagNote = `<div style="margin-top:4px;font-size:11px;color:#f59e0b">⚠ ${parts.join(' · ')} — their rows are NOT shown in this table.</div>`;
+    }
+    summary.innerHTML = _dqSummaryBar(headline, window._uvsPage, _uvsTotalPages, '_uvsGoPage', '_uvsPageSize') + tableNote + diagNote;
   }
 
   // Update badge
@@ -53561,7 +53788,7 @@ async function renderUnmatchedSkip() {
     return;
   }
 
-  tbody.innerHTML = filtered.slice(0, 500).map((r, idx) => {
+  tbody.innerHTML = _uvsPageRows.map((r, idx) => {
     const when = r.uploadedAt ? new Date(r.uploadedAt).toLocaleDateString() : '—';
     const rowKey = r.uploadId + '|' + r.rowIndex;
     const e = _uvsEdits[rowKey] || {};
@@ -53594,7 +53821,29 @@ async function renderUnmatchedSkip() {
         <button class="btn btn-ghost text-xs" onclick="addUnmatchedAsProperty('${escapeHtml(rowKey)}')" title="Create a new property with this (edited) address">➕ Add as property</button>
       </td>
     </tr>`;
-  }).join('') + (filtered.length > 500 ? `<tr><td colspan="8" class="text-center text-[var(--text-dim)] py-3 text-xs">Showing first 500 of ${filtered.length.toLocaleString()}. Filter to narrow down.</td></tr>` : '');
+  }).join('') + (_uvsTotalPages > 1 ? `<tr><td colspan="8" style="padding:10px 12px;text-align:center">
+      <button class="btn btn-ghost text-xs" ${window._uvsPage===0?'disabled':''} onclick="_uvsGoPage(${window._uvsPage-1})">← Prev</button>
+      <span style="margin:0 12px;font-size:12px;color:var(--text-dim)">Page ${window._uvsPage+1} of ${_uvsTotalPages} · ${filtered.length.toLocaleString()} rows</span>
+      <button class="btn btn-ghost text-xs" ${window._uvsPage>=_uvsTotalPages-1?'disabled':''} onclick="_uvsGoPage(${window._uvsPage+1})">Next →</button>
+    </td></tr>` : '');
+}
+function _uvsGoPage(p){ window._uvsPage = p; if (typeof renderUnmatchedSkip === 'function') renderUnmatchedSkip(); }
+
+// Force-load every upload's raw rows so the table can enumerate ALL unmatched
+// rows (not just the ones already loaded into memory), then re-render.
+async function _dqLoadAllSkip(btn){
+  try{
+    if(btn){ btn.disabled = true; btn.textContent = '⏳ Loading…'; }
+    Object.values(cache.skipUploads||{}).forEach(u => { u.raw_rows = null; u.raw_headers = null; });
+    if(typeof ensureAllUploadsRaw === 'function'){
+      await ensureAllUploadsRaw(function(p){ if(btn && !p.finished) btn.textContent = '⏳ ' + p.done + '/' + p.total; });
+    }
+    if(typeof renderUnmatchedSkip === 'function') renderUnmatchedSkip();
+  }catch(e){
+    if(typeof toast === 'function') toast('Load all failed: ' + (e.message || e), 'err');
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = '⬇ Load all rows'; }
+  }
 }
 
 // Track edits to unmatched-skip rows so retry uses the fixed values
@@ -54085,7 +54334,16 @@ function renderUnverifiedMailing() {
   });
   const failCount = all.filter(r => r.status === 'failed').length;
   const pendingCount = all.length - failCount;
-  if (summary) summary.textContent = `${filtered.length.toLocaleString()} shown · ${all.length.toLocaleString()} total unverified · ${failCount.toLocaleString()} failed · ${pendingCount.toLocaleString()} pending`;
+  const _UVM_PAGE_SIZE = window._uvmPageSize || 100;
+  if (typeof window._uvmPage === 'undefined') window._uvmPage = 0;
+  if (window._uvmLastLen !== filtered.length) { window._uvmPage = 0; window._uvmLastLen = filtered.length; }
+  const _uvmTotalPages = Math.max(1, Math.ceil(filtered.length / _UVM_PAGE_SIZE));
+  if (window._uvmPage >= _uvmTotalPages) window._uvmPage = _uvmTotalPages - 1;
+  if (window._uvmPage < 0) window._uvmPage = 0;
+  const _uvmStart = window._uvmPage * _UVM_PAGE_SIZE;
+  const _uvmPageRows = filtered.slice(_uvmStart, _uvmStart + _UVM_PAGE_SIZE);
+  const _uvmLeft = `<span style="font-size:14px"><span class="font-semibold" style="color:var(--text)">${all.length.toLocaleString()}</span> <span style="color:var(--text-dim)">total records (${all.length.toLocaleString()} unverified · ${failCount.toLocaleString()} failed · ${pendingCount.toLocaleString()} pending)</span></span>`;
+  if (summary) summary.innerHTML = _dqSummaryBar(_uvmLeft, window._uvmPage, _uvmTotalPages, '_uvmGoPage', '_uvmPageSize');
 
   const badge = document.getElementById('uv-mail-count');
   if (badge) {
@@ -54103,7 +54361,7 @@ function renderUnverifiedMailing() {
   }
 
   try {
-  tbody.innerHTML = filtered.slice(0, 500).map(r => {
+  tbody.innerHTML = _uvmPageRows.map(r => {
     const p = r.prop;
     const owner = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || '—';
     const mailLastProv = r.status === 'failed' ? _detectGeocodeProvider(r.prop && r.prop.mail_error_reason) : null;
@@ -54134,12 +54392,18 @@ function renderUnverifiedMailing() {
         <button class="btn btn-ghost text-xs" onclick="verifySingleMailing('${p.id}','google')" title="Retry with your edits via Google (paid)">🟢 Google</button>
       </td>
     </tr>`;
-  }).join('') + (filtered.length > 500 ? `<tr><td colspan="9" class="text-center text-[var(--text-dim)] py-3 text-xs">Showing first 500 of ${filtered.length.toLocaleString()}.</td></tr>` : '');
+  }).join('') + (_uvmTotalPages > 1 ? `<tr><td colspan="9" style="padding:10px 12px;text-align:center">
+      <button class="btn btn-ghost text-xs" ${window._uvmPage===0?'disabled':''} onclick="_uvmGoPage(${window._uvmPage-1})">← Prev</button>
+      <span style="margin:0 12px;font-size:12px;color:var(--text-dim)">Page ${window._uvmPage+1} of ${_uvmTotalPages} · ${filtered.length.toLocaleString()} rows</span>
+      <button class="btn btn-ghost text-xs" ${window._uvmPage>=_uvmTotalPages-1?'disabled':''} onclick="_uvmGoPage(${window._uvmPage+1})">Next →</button>
+    </td></tr>` : '');
   } catch (e) {
     console.error('[uvm] row rendering threw:', e);
     tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6" style="color:#ef4444">Error rendering rows: ' + (e.message || 'unknown') + '. Check browser console.</td></tr>';
   }
 }
+
+function _uvmGoPage(p){ window._uvmPage = p; if (typeof renderUnverifiedMailing === 'function') renderUnverifiedMailing(); }
 
 // Track edits to mailing addresses so retry uses the fixed values AND persists to DB on success
 const _uvmEdits = {};

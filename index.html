@@ -5264,6 +5264,11 @@
           </div>
           <div class="text-sm text-[var(--text-dim)]">Max Offer within $15k or 25% of Asking.</div>
         </div>
+        <span class="uw-tbchip" id="uw-hot-strategy-chips" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px;display:inline-flex" title="Strategy fit — Hold (rental), Flip, or Assign (wholesale). Click to filter Hot deals by their best fit.">
+          <button type="button" id="uw-hot-strat-hold" onclick="_uwHotSetStrategy('hold')" style="padding:0 14px;height:36px;border:none;cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">🏠 Hold</button>
+          <button type="button" id="uw-hot-strat-flip" onclick="_uwHotSetStrategy('flip')" style="padding:0 14px;height:36px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">🔨 Flip</button>
+          <button type="button" id="uw-hot-strat-assign" onclick="_uwHotSetStrategy('assign')" style="padding:0 14px;height:36px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">🤝 Assign</button>
+        </span>
         <div class="flex items-center gap-2 flex-wrap">
           <select id="uw-hot-source-filter" onchange="renderUnderwriteList()" style="width:130px" title="Filter by where the deal came from">
             <option value="">All sources</option>
@@ -5309,6 +5314,72 @@
       </div>
     </div>
   </div><!-- /uwview-hot -->
+  <script>
+  // Hot strategy chips (Hold / Flip / Assign). Toggle highlights + sets filter
+  // state; the per-deal classification (_uwDealStrategy) gets wired once the
+  // Keep/Flip/Assign rules are finalized.
+  window._uwHotStrategy = window._uwHotStrategy || '';
+  // ---- Editable strategy thresholds (chips only) ----
+  const _uwStratDefaults = { holdMo:200, holdYear:1950, holdCrime:'C', flipProfit:25000, assignCap:15, assignFlip:20000, brrrrPct:5 };
+  const _uwCrimeRank = { A:1, B:2, C:3, D:4, F:5 };
+  function _uwGetStratSettings(){
+    let s = {};
+    try { s = JSON.parse(localStorage.getItem('labb_strat_settings') || '{}') || {}; } catch(e){ s = {}; }
+    return Object.assign({}, _uwStratDefaults, s);
+  }
+  window._uwSaveStratSettings = function(s){
+    try { localStorage.setItem('labb_strat_settings', JSON.stringify(s)); } catch(e){}
+  };
+  function _uwHotSetStrategy(v){
+    window._uwHotStrategy = (window._uwHotStrategy === v) ? '' : v;
+    ['hold','flip','assign'].forEach(function(k){
+      var b=document.getElementById('uw-hot-strat-'+k); if(!b) return;
+      var on = window._uwHotStrategy === k;
+      b.style.background = on ? 'var(--brand)' : 'transparent';
+      b.style.color = on ? '#fff' : 'var(--text-dim)';
+    });
+    if(typeof renderUnderwriteList === 'function') renderUnderwriteList();
+  }
+  // Classify a deal into the strategy waterfall: Hold → Flip → Assign.
+  // Returns 'hold' | 'flip' | 'assign' | 'needs' | null.
+  //   needs = has a seller price but no rehab budget yet.
+  //   null  = no seller price / doesn't qualify for any tier.
+  // NOTE: two rules are approximate until their data exists —
+  //   • Hold "cash-left-in ≤ $5k" on BRRRR isn't computed yet (not gated).
+  //   • Flip "$10k/month pace" isn't gated yet (no per-row project months); uses the $25k floor.
+  function _uwDealStrategy(u){
+    if(!u) return null;
+    const d = u.data || {};
+    const num = v => { const n = parseFloat(String(v==null?'':v).replace(/[$,]/g,'')); return isFinite(n)?n:0; };
+    const price = num(d['uw-accepted'] || u.accepted) || num(d['uw-asking'] || u.asking);
+    if(!price) return null;                 // gate: must have a seller price
+    // Budget rule (these chips ONLY): a manual budget can rule a deal out. With NO
+    // manual budget, treat rehab as $0 (best case) — the deal is still evaluated and
+    // shown, never removed for lacking a budget. Estimates never count here.
+    const manual   = num(d['uw-rehab-override']);        // manual budget ($0 if none)
+    const effRehab = num(u.renovation_budget);           // rehab the stored profit was computed with
+    const addBack  = manual > 0 ? 0 : effRehab;          // undo the estimate when there's no manual budget
+    const arv   = num(typeof _uwComputeArvFromData==='function' ? _uwComputeArvFromData(d) : 0) || num(u.arv);
+    const cap   = num(u.cash_rental_cap_pct);
+    const flip  = num(u.flip_financed_profit) + addBack; // flip profit at the treated rehab
+    const year  = parseInt(String(d['uw-built']||'').replace(/\D/g,''), 10) || 0;
+    const crime = String(d['uw-crime']||'').trim().toUpperCase();
+    // Editable thresholds (chips only)
+    const S = (typeof _uwGetStratSettings==='function') ? _uwGetStratSettings() : _uwStratDefaults;
+    const maxRank = _uwCrimeRank[String(S.holdCrime||'C').toUpperCase()] || 3;
+    const crimeOk = !crime || (_uwCrimeRank[crime] || 99) <= maxRank;   // unknown ⇒ don't exclude
+    // HOLD — turn-key if rehab < brrrrPct% of ARV (turn-key cashflow), else BRRRR (refi cashflow).
+    // No manual budget ⇒ rehab treated as $0 ⇒ turn-key.
+    const isBrrrr = arv > 0 && manual >= (num(S.brrrrPct)/100) * arv;
+    const holdMo  = isBrrrr ? (num(u.refi_rental_annualized) / 12) : num(d._tkRentalMo);
+    if(crimeOk && year >= num(S.holdYear) && holdMo >= num(S.holdMo)) return 'hold';
+    // FLIP — profit ≥ threshold
+    if(flip >= num(S.flipProfit)) return 'flip';
+    // ASSIGN — cash cap OR flip profit thresholds
+    if(cap >= num(S.assignCap) || flip >= num(S.assignFlip)) return 'assign';
+    return null;
+  }
+  </script>
 
   <!-- ============ Underwriting: Offered subview ============ -->
   <div id="uwview-offered" class="uwview" style="display:none">
@@ -40514,6 +40585,7 @@ function renderUnderwriteList() {
       if (!hDateOk(u)) return false;
       if (!hSrcOk(u)) return false;
       if (hSearch && !_uwSearchMatch(u, hSearch)) return false;
+      if (window._uwHotStrategy && typeof _uwDealStrategy === 'function' && _uwDealStrategy(u) !== window._uwHotStrategy) return false;
       return true;
     }), 'hot');
     if (!hFiltered.length) {
@@ -58817,7 +58889,7 @@ window._uwOpenHotSettings = function(){
   ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:flex-start;justify-content:center;padding:60px 20px';
   ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
   var box = document.createElement('div');
-  box.style.cssText = 'max-width:490px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;box-shadow:0 14px 50px rgba(0,0,0,0.55)';
+  box.style.cssText = 'max-width:490px;width:100%;max-height:calc(100vh - 120px);overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;box-shadow:0 14px 50px rgba(0,0,0,0.55)';
   var _rd = 'width:17px;height:17px;flex:0 0 auto;margin:2px 0 0;cursor:pointer';
   var _ck = 'width:16px;height:16px;flex:0 0 auto;margin:0;cursor:pointer';
   box.innerHTML =
@@ -58837,7 +58909,8 @@ window._uwOpenHotSettings = function(){
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-wp" ' + (S.withinPctOn?'checked':'') + ' style="' + _ck + '"><span>Price is within</span><input type="number" id="hs-wpval" value="' + (S.withinPct||25) + '" min="1" max="200" step="1" style="width:56px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>% of max offer</span></label>' +
     '</div>' +
     '<label style="display:flex;gap:10px;align-items:center;padding:12px 0 6px;cursor:pointer;border-top:1px solid var(--border)"><input type="radio" name="hs-mode" value="tagged" ' + (S.mode==='tagged'?'checked':'') + ' style="' + _rd + ';margin-top:0"><span style="flex:1"><div style="font-weight:600;font-size:13.5px">Tagged Properties</div><div style="font-size:12px;color:var(--text-dim);line-height:1.45;margin-top:2px">Only properties that have at least one custom 🏷️ tag.</div></span></label>' +
-    '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button id="hs-save" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700;font-size:13px">Apply</button></div>';
+    _uwFunnelSettingsHTML() +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:18px"><button id="hs-funnel-reset" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:9px 14px;cursor:pointer;font-size:12px">↺ Reset funnel</button><button id="hs-save" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700;font-size:13px">Apply</button></div>';
   ov.appendChild(box); document.body.appendChild(ov);
   var close = function(){ ov.remove(); };
   box.querySelector('#hs-x').onclick = close;
@@ -58859,10 +58932,63 @@ window._uwOpenHotSettings = function(){
     S.withinPctOn    = box.querySelector('#hs-wp').checked;
     S.withinPct      = parseFloat(box.querySelector('#hs-wpval').value) || 25;
     window._uwSaveHotSettings();
+    // Funnel thresholds (Hold / Flip / Assign chips)
+    if (typeof _uwCollectFunnelSettings === 'function') _uwCollectFunnelSettings(box);
     close();
     if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
   };
+  var fr = box.querySelector('#hs-funnel-reset');
+  if (fr) fr.onclick = function(){
+    try { localStorage.removeItem('labb_strat_settings'); } catch(_){}
+    var D = _uwStratDefaults, g = function(id){ return box.querySelector('#'+id); };
+    g('fs-holdMo').value=D.holdMo; g('fs-holdYear').value=D.holdYear; g('fs-holdCrime').value=D.holdCrime;
+    g('fs-flipProfit').value=D.flipProfit; g('fs-assignCap').value=D.assignCap;
+    g('fs-assignFlip').value=D.assignFlip; g('fs-brrrrPct').value=D.brrrrPct;
+  };
 };
+// ---- Funnel (Hold/Flip/Assign) threshold fields inside the Hot settings modal ----
+function _uwFunnelSettingsHTML(){
+  var s = (typeof _uwGetStratSettings==='function') ? _uwGetStratSettings() : _uwStratDefaults;
+  var lbl = 'font-size:12px;color:var(--text-dim)';
+  var inp = 'width:92px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0';
+  var row = 'display:flex;gap:9px;align-items:center;padding:5px 0;font-size:13px;flex-wrap:wrap';
+  var rowOff = row + ';opacity:0.4';
+  var soon = '<span style="font-size:10px;color:var(--text-dim);border:1px solid var(--border);border-radius:999px;padding:1px 7px;white-space:nowrap">soon</span>';
+  var crimeOpts = ['A','B','C','D','F'].map(function(g){
+    return '<option value="'+g+'"'+(s.holdCrime===g?' selected':'')+'>'+g+(g==='F'?'+ (any)':'+')+'</option>';
+  }).join('');
+  return '<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px">' +
+    '<div style="font-weight:700;font-size:14px;margin-bottom:2px">🧭 Funnel thresholds</div>' +
+    '<div style="font-size:12px;color:var(--text-dim);line-height:1.45;margin-bottom:8px">Tune the Hold / Flip / Assign chips. Affects those chips only — no other math.</div>' +
+    '<div style="font-weight:600;font-size:12px;color:#86efac;margin:6px 0 2px">🏠 HOLD</div>' +
+    '<label style="'+row+'"><span style="'+lbl+';flex:1">Min cashflow / mo (after reserves) $</span><input type="number" id="fs-holdMo" value="'+s.holdMo+'" style="'+inp+'"></label>' +
+    '<label style="'+row+'"><span style="'+lbl+';flex:1">Built no older than (year)</span><input type="number" id="fs-holdYear" value="'+s.holdYear+'" style="'+inp+'"></label>' +
+    '<label style="'+row+'"><span style="'+lbl+';flex:1">Worst area grade allowed</span><select id="fs-holdCrime" style="'+inp+';text-align:left">'+crimeOpts+'</select></label>' +
+    '<label style="'+rowOff+'" title="Not active yet — needs a computed cash-left-in-after-refi number."><span style="'+lbl+';flex:1;display:flex;align-items:center;gap:6px">Max cash left in $ '+soon+'</span><input type="number" id="fs-holdMaxLeftIn" value="5000" disabled style="'+inp+'"></label>' +
+    '<div style="font-weight:600;font-size:12px;color:#fca5a5;margin:10px 0 2px">🔨 FLIP</div>' +
+    '<label style="'+row+'"><span style="'+lbl+';flex:1">Min flip profit $</span><input type="number" id="fs-flipProfit" value="'+s.flipProfit+'" style="'+inp+'"></label>' +
+    '<label style="'+rowOff+'" title="Not active yet — needs per-deal project months."><span style="'+lbl+';flex:1;display:flex;align-items:center;gap:6px">Min profit / month $ '+soon+'</span><input type="number" id="fs-flipPerMonth" value="10000" disabled style="'+inp+'"></label>' +
+    '<div style="font-weight:600;font-size:12px;color:#93c5fd;margin:10px 0 2px">🤝 ASSIGN</div>' +
+    '<label style="'+row+'"><span style="'+lbl+';flex:1">Min cash-on-cash cap %</span><input type="number" id="fs-assignCap" value="'+s.assignCap+'" style="'+inp+'"></label>' +
+    '<label style="'+row+'"><span style="'+lbl+';flex:1">…OR min flip profit $</span><input type="number" id="fs-assignFlip" value="'+s.assignFlip+'" style="'+inp+'"></label>' +
+    '<div style="font-weight:600;font-size:12px;color:var(--text-dim);margin:10px 0 2px">⚖️ TURN-KEY vs BRRRR</div>' +
+    '<label style="'+row+'"><span style="'+lbl+';flex:1">BRRRR if rehab ≥ this % of ARV</span><input type="number" id="fs-brrrrPct" value="'+s.brrrrPct+'" style="'+inp+'"></label>' +
+    '</div>';
+}
+function _uwCollectFunnelSettings(box){
+  var g = function(id){ var el=box.querySelector('#'+id); return el?el.value:''; };
+  var numOr = function(v,dflt){ var n=parseFloat(String(v).replace(/[$,%]/g,'')); return isFinite(n)?n:dflt; };
+  var s = {
+    holdMo:     numOr(g('fs-holdMo'),     _uwStratDefaults.holdMo),
+    holdYear:   numOr(g('fs-holdYear'),   _uwStratDefaults.holdYear),
+    holdCrime:  (g('fs-holdCrime') || _uwStratDefaults.holdCrime).toUpperCase(),
+    flipProfit: numOr(g('fs-flipProfit'), _uwStratDefaults.flipProfit),
+    assignCap:  numOr(g('fs-assignCap'),  _uwStratDefaults.assignCap),
+    assignFlip: numOr(g('fs-assignFlip'), _uwStratDefaults.assignFlip),
+    brrrrPct:   numOr(g('fs-brrrrPct'),   _uwStratDefaults.brrrrPct)
+  };
+  if (typeof _uwSaveStratSettings === 'function') _uwSaveStratSettings(s);
+}
 // Build the standard controls cluster (chips + Buy Box + edit) for a section.
 window._uwSecControlsHTML = function(section){
   var chipBtn = function(role, label){

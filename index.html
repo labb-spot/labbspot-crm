@@ -11199,6 +11199,51 @@ window._uwShowDupModal = function(dupId) {
   box.querySelector('#uw-dup-new').onclick  = function() { ov.remove(); window._uwForceSaveNew = true; if (typeof uwSave === 'function') uwSave(true); };
 };
 
+// ---- Conflict "take over" recovery ---------------------------------------
+// When a save is BLOCKED because the deal changed elsewhere (another device,
+// tab, teammate, or an inbound form/trigger), this reloads the freshest saved
+// copy from Supabase and drops the user back into it so they can keep working —
+// replacing the old manual full-refresh. It DISCARDS the on-screen unsaved edits
+// on purpose: that is the only safe outcome, because pushing a stale copy over
+// someone's newer save is exactly the overwrite we're protecting against.
+window._uwTakeoverReload = function(id){
+  id = id || _uwCurrentId;
+  if (!id) return;
+  // Cancel any pending/queued autosave so it can't re-fire the stale form and
+  // immediately conflict again.
+  try { if (typeof _uwAutosaveTimer !== 'undefined' && _uwAutosaveTimer) { clearTimeout(_uwAutosaveTimer); _uwAutosaveTimer = null; } } catch (_) {}
+  try { _uwAutosaveQueued = false; } catch (_) {}
+  // Drop the cached row so uwLoadById re-fetches the LATEST from the server
+  // (uwLoadById only hits the network when the id isn't already in cache).
+  try { if (cache && cache.underwrites) delete cache.underwrites[id]; } catch (_) {}
+  if (typeof uwLoadById === 'function') uwLoadById(id);
+  if (typeof toast === 'function') toast('Loaded the latest version — you can keep editing.', 'ok');
+};
+
+// In-app conflict popup with the one-click "take over" recovery.
+window._uwShowConflictModal = function(id, whoFmt, whenFmt){
+  // Never stack — if one is already up, just leave it (prevents autosave from
+  // re-popping the modal every couple seconds while the deal stays blocked).
+  if (document.getElementById('uw-conflict-modal')) return;
+  const ov = document.createElement('div');
+  ov.id = 'uw-conflict-modal';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(8,11,20,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:var(--panel,#141a28);border:1px solid rgba(245,158,11,0.6);border-radius:16px;padding:26px 28px;max-width:470px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,0.55);text-align:center';
+  box.innerHTML =
+    '<div style="font-size:34px;margin-bottom:8px">⚠️</div>' +
+    '<div style="font-size:18px;font-weight:800;color:var(--text,#fff);margin-bottom:8px">This deal changed somewhere else</div>' +
+    '<div style="font-size:13px;color:var(--text-dim);margin:6px 0 4px;line-height:1.5">It was updated' + (whoFmt || '') + (whenFmt ? ' at ' + whenFmt : '') + '. Your save was blocked so that newer copy isn\'t overwritten.</div>' +
+    '<div style="font-size:12.5px;color:var(--text-dim);margin:12px 0 20px;line-height:1.5">Load the latest version and keep working from there. This replaces what\'s on your screen with the newest saved copy, so re-enter any unsaved changes.</div>' +
+    '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' +
+      '<button id="uw-conflict-takeover" style="background:#3b82f6;color:#fff;border:none;padding:11px 20px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">🔄 Load latest &amp; take over</button>' +
+      '<button id="uw-conflict-cancel" style="background:transparent;color:#cbd5e1;border:1px solid rgba(255,255,255,0.25);padding:11px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>' +
+    '</div>';
+  ov.appendChild(box); document.body.appendChild(ov);
+  box.querySelector('#uw-conflict-takeover').onclick = function(){ ov.remove(); window._uwTakeoverReload(id); };
+  box.querySelector('#uw-conflict-cancel').onclick   = function(){ ov.remove(); };
+};
+
 // One-shot loader for the 2530 S Roosevelt Dr demo deal — pre-fills the
 // calculator with the values from the user's spreadsheet row, then auto-saves
 // the deal so it shows up in Analyzing as a real underwrite.
@@ -19910,11 +19955,17 @@ async function uwSave(manual) {
               catch (_) { return 'a moment ago'; }
             })();
             const whoFmt = live.updated_by ? (' by ' + live.updated_by) : '';
-            const msg = '⚠️ This deal was changed in another window or device' + whoFmt + ' at ' + editTimeFmt +
-              '. Save was BLOCKED to protect that copy. Reload the deal to see ' +
-              'the latest version, then re-apply your changes.';
-            if (manual) alert(msg);
-            else if (typeof toast === 'function') toast(msg, 'warn');
+            // Show the in-app conflict popup with the one-click "take over"
+            // recovery. Falls back to the old alert/toast if it's unavailable.
+            if (typeof window._uwShowConflictModal === 'function') {
+              window._uwShowConflictModal(_uwCurrentId, whoFmt, editTimeFmt);
+            } else {
+              const msg = '⚠️ This deal was changed in another window or device' + whoFmt + ' at ' + editTimeFmt +
+                '. Save was BLOCKED to protect that copy. Reload the deal to see ' +
+                'the latest version, then re-apply your changes.';
+              if (manual) alert(msg);
+              else if (typeof toast === 'function') toast(msg, 'warn');
+            }
             return;
           }
         }

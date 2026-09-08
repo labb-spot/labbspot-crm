@@ -59716,8 +59716,13 @@ function _planStateBlob(){
 }
 function _planApplyBlob(blob){
   if (!blob || typeof blob !== 'object') return;
-  try { if (blob.assignments) localStorage.setItem(PLAN_KEY, JSON.stringify(blob.assignments)); } catch(_){}
-  try { if (blob.goals) localStorage.setItem(PLAN_GOALS_KEY, JSON.stringify(blob.goals)); } catch(_){}
+  // Only apply cloud sections that actually have content. An EMPTY cloud copy
+  // (e.g. another device/employee opened Plan with a blank board and synced it)
+  // must NEVER overwrite a populated local board — that was wiping everyone's
+  // assignments a split second after the Plan tab opened.
+  const _hasKeys = (o) => o && typeof o === 'object' && Object.keys(o).length > 0;
+  try { if (_hasKeys(blob.assignments)) localStorage.setItem(PLAN_KEY, JSON.stringify(blob.assignments)); } catch(_){}
+  try { if (_hasKeys(blob.goals)) localStorage.setItem(PLAN_GOALS_KEY, JSON.stringify(blob.goals)); } catch(_){}
   try { if (blob.visible) localStorage.setItem(PLAN_VIS_KEY, JSON.stringify(blob.visible)); } catch(_){}
 }
 // Debounced push of the whole Plan blob (fire-and-forget; localStorage stays the working copy).

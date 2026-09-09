@@ -198,6 +198,20 @@
     color: var(--text-dim); font-size: 12px; font-weight: 600; pointer-events: none; line-height: 1;
   }
   .uw-money input { padding-left: 18px !important; }
+  /* Percent-suffix + number-prefix markers — mirror the .uw-money $ prefix so
+     every assumption field shows its unit ($ / % / #) inside the box. */
+  .uw-pct { position: relative; display: block; }
+  .uw-pct::after {
+    content: "%"; position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    color: var(--text-dim); font-size: 12px; font-weight: 600; pointer-events: none; line-height: 1;
+  }
+  .uw-pct input { padding-right: 20px !important; }
+  .uw-num { position: relative; display: block; }
+  .uw-num::before {
+    content: "#"; position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+    color: var(--text-dim); font-size: 12px; font-weight: 600; pointer-events: none; line-height: 1;
+  }
+  .uw-num input { padding-left: 18px !important; }
   /* Rental-comp Rent + /sqft split input — visually a single field with two
      cells. The .uw-money wrapper goes flex; the input loses its right side
      border + radius; the locked /sqft cell on the right inherits the same
@@ -4580,9 +4594,18 @@
           </div>
         </div>
         <!-- Estimated Project Duration (under the Grand Total section) -->
-        <div style="padding:9px 14px;margin-top:10px;background:rgba(6,182,212,0.10);border:1px solid #06b6d4;border-radius:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">
-          <div class="text-xs" style="color:#67e8f9">📅 Estimated Project Duration</div>
-          <div id="s-display" style="font-family:monospace;font-weight:600;font-size:16px;color:#67e8f9">0 days · 0 weeks · 0 months</div>
+        <div style="padding:9px 14px;margin-top:10px;background:rgba(6,182,212,0.10);border:1px solid #06b6d4;border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+          <div class="text-xs" style="color:#67e8f9;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span>📅 Estimated Project Duration</span>
+            <span id="s-display" style="font-family:monospace;font-weight:600;font-size:16px;color:#67e8f9">0 days · 0 weeks · 0 months</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap" title="Optional: type total months here to override the project duration used by Flip and Rental holding costs. Wholetail stays fixed at 3 months. Leave blank to use the auto duration.">
+            <span style="color:#fca5a5;font-weight:600;font-size:12px;white-space:nowrap">🔁 Override</span>
+            <span style="display:inline-flex;align-items:center;background:rgba(239,68,68,0.08);border:1.5px solid #fca5a5;border-radius:8px;padding:6px 12px;gap:4px">
+              <input type="text" inputmode="decimal" id="uw-proj-months-override" placeholder="0" oninput="(function(el){var v=el.value.replace(/[^\d.]/g,'');var p=v.split('.');v=p[0]+(p.length>1?'.'+p.slice(1).join('').slice(0,1):'');el.value=v;})(this);uwRecalc()" style="font-family:monospace;font-weight:700;font-size:20px;color:#fca5a5;background:transparent;border:none;outline:none;padding:0;width:64px;text-align:right">
+              <span style="font-family:monospace;font-weight:700;font-size:14px;color:#fca5a5">mo</span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -4628,74 +4651,87 @@
     <div id="uw-input-bank" style="display:none">
       <!-- Each <div data-uw-slot="X"> is a portable wrapper that gets moved into a slot -->
       <div data-uw-slot="max-ltv"><label class="text-xs">Max LTV (%)<input type="number" id="uw-max-ltv" value="70" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rehab-mo"><label class="text-xs">Rehab months<input type="number" id="uw-rehab-mo" value="1" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="listing-mo"><label class="text-xs">Listing months<input type="number" id="uw-listing-mo" value="2.5" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="buy-close-pct"><label class="text-xs">Buyer Closing % of ARV<input type="number" id="uw-buy-close-pct" value="2" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="purch-sell-close-pct"><label class="text-xs" title="Seller's side of the closing on the PURCHASE — paid by you as the buyer (typical when you offer to cover all closing costs). Set to 0 if the seller pays their own side.">Seller Closing % (at purchase)<input type="number" id="uw-purch-sell-close-pct" value="1" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="sell-close-pct"><label class="text-xs">Seller Closing % of ARV<input type="number" id="uw-sell-close-pct" value="2" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="orig-pct"><label class="text-xs">Origination % of ARV<input type="number" id="uw-orig-pct" value="2" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="int-pct"><label class="text-xs">Interest %/yr (of ARV)<input type="number" id="uw-int-pct" value="12" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="sell-agent-pct"><label class="text-xs">Seller Agent %<input type="number" id="uw-sell-agent-pct" value="3" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="buy-agent-pct"><label class="text-xs">Buyer Agent %<input type="number" id="uw-buy-agent-pct" value="3" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="loan-rate"><label class="text-xs">Financing Rate %/yr<input type="number" id="uw-loan-rate" value="6.5" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="loan-yrs"><label class="text-xs">Loan Term (yrs)<input type="number" id="uw-loan-yrs" value="30" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="rehab-mo"><label class="text-xs">Rehab months<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-rehab-mo" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="1"></span></label></div>
+      <div data-uw-slot="listing-mo"><label class="text-xs">Listing months<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-listing-mo" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="2.5"></span></label></div>
+      <div data-uw-slot="buy-close-pct"><label class="text-xs">Buyer Closing % of ARV<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-buy-close-pct" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="2"></span></label></div>
+      <div data-uw-slot="purch-sell-close-pct"><label class="text-xs" title="Seller's side of the closing on the PURCHASE — paid by you as the buyer (typical when you offer to cover all closing costs). Set to 0 if the seller pays their own side.">Seller Closing % (at purchase)<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-purch-sell-close-pct" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="1"></span></label></div>
+      <div data-uw-slot="sell-close-pct"><label class="text-xs">Seller Closing % of ARV<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-sell-close-pct" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="2"></span></label></div>
+      <div data-uw-slot="orig-pct"><label class="text-xs">Origination % of ARV<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-orig-pct" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="2"></span></label></div>
+      <div data-uw-slot="int-pct"><label class="text-xs">Interest %/yr (of ARV)<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-int-pct" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="12"></span></label></div>
+      <div data-uw-slot="sell-agent-pct"><label class="text-xs">Seller Agent %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-sell-agent-pct" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="3"></span></label></div>
+      <div data-uw-slot="buy-agent-pct"><label class="text-xs">Buyer Agent %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-buy-agent-pct" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="3"></span></label></div>
+      <div data-uw-slot="loan-rate"><label class="text-xs" title="Annual interest rate on the DSCR loan.">DSCR Annual Financing Interest %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-loan-rate" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="6.5"></span></label></div>
+      <div data-uw-slot="loan-yrs"><label class="text-xs" title="DSCR loan amortization term in years.">DSCR Loan Term Length<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-loan-yrs" oninput="uwRecalc()" style="width:100%" placeholder="30"></span></label></div>
       <!-- ====== RENTAL editable assumptions (used by both Cash and Financed) ====== -->
-      <div data-uw-slot="rt-down-pct"><label class="text-xs" title="Down payment % for the financed rental scenario. 0 = 100% financing (no down).">Down Payment %<input type="number" id="uw-rt-down-pct" value="0" step="1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="rt-down-pct"><label class="text-xs" title="Down payment % for the financed rental scenario. 0 = 100% financing (no down).">Down Payment %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-down-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="0"></span></label></div>
       <!-- Pre-rent timeline — applies to ALL 3 rental modes. During these
            months you carry the property without any rental income (tax +
            insurance + mortgage P&I if financed all keep accruing). -->
-      <div data-uw-slot="rt-reno-mo"><label class="text-xs" title="Months spent renovating before the property is ready to list for rent. Set to 0 if no rehab needed.">Renovation Time (mo)<input type="number" id="uw-rt-reno-mo" value="1" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-rent-mo"><label class="text-xs" title="Months between rehab completion and first tenant moving in. Defaults to match flip Listed Time so timelines stay parallel.">Time to Rent (mo)<input type="number" id="uw-rt-rent-mo" value="2.5" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="rt-reno-mo"><label class="text-xs" title="Months spent renovating before the property is ready to list for rent. Set to 0 if no rehab needed.">Renovation Time (mo)<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-rt-reno-mo" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="1"></span></label></div>
+      <div data-uw-slot="rt-rent-mo"><label class="text-xs" title="Months between rehab completion and first tenant moving in. Defaults to match flip Listed Time so timelines stay parallel.">Time to Rent (mo)<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-rt-rent-mo" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="2.5"></span></label></div>
       <!-- Refinance closing cost — only used in Refi mode -->
-      <div data-uw-slot="rt-rf-close-pct"><label class="text-xs" title="DSCR closing cost as % of loan (excludes origination + appraisal/UW). Default 1% covers title, recording, credit, flood, misc third-party fees.">DSCR Closing %<input type="number" id="uw-rt-rf-close-pct" value="1" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-dscr-orig-pct"><label class="text-xs" title="DSCR loan origination fee as % of loan. Typically 2% on Non-QM investor loans.">DSCR Origination %<input type="number" id="uw-rt-dscr-orig-pct" value="2" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-uw-appraisal-fee"><label class="text-xs" title="Flat dollar fee covering underwriting + appraisal + small third-party fees. Doesn't scale with loan size.">Underwriting &amp; Appraisal Fee $<input type="number" id="uw-rt-uw-appraisal-fee" value="2000" step="100" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-vac-pct"><label class="text-xs" title="Vacancy reserve as % of monthly rent.">Vacancy %<input type="number" id="uw-rt-vac-pct" value="10" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-capex-pct"><label class="text-xs" title="Long-term capex/repair reserve as % of monthly rent.">Capex %<input type="number" id="uw-rt-capex-pct" value="5" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-maint-pct"><label class="text-xs" title="Day-to-day maintenance reserve as % of monthly rent (small repairs, turnover touch-ups, landscaping). Separate from CapEx, which is for big-ticket replacements.">Maintenance %<input type="number" id="uw-rt-maint-pct" value="5" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-pm-pct"><label class="text-xs" title="Property management fee as % of monthly rent. Set to 0 if self-managed.">Management Fee %<input type="number" id="uw-rt-pm-pct" value="10" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="rt-rf-close-pct"><label class="text-xs" title="DSCR closing cost as % of loan (excludes origination + appraisal/UW). Default 1% covers title, recording, credit, flood, misc third-party fees.">DSCR Closing %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-rf-close-pct" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="1"></span></label></div>
+      <div data-uw-slot="rt-dscr-orig-pct"><label class="text-xs" title="DSCR loan origination fee as % of loan. Typically 2% on Non-QM investor loans.">DSCR Origination Financing %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-dscr-orig-pct" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="2"></span></label></div>
+      <div data-uw-slot="rt-uw-appraisal-fee"><label class="text-xs" title="Flat dollar fee covering underwriting + appraisal + small third-party fees. Doesn't scale with loan size.">DSCR Underwriting &amp; Appraisal Fee<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-rt-uw-appraisal-fee" step="100" oninput="uwRecalc()" style="width:100%" placeholder="2000"></span></label></div>
+      <div data-uw-slot="rt-dscr-ltv-cap"><label class="text-xs" title="Max DSCR loan as % of ARV. Lender ceiling — the loan can't exceed this share of ARV. Default 70%.">DSCR Loan Cap %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-dscr-ltv-cap" step="1" oninput="uwRecalc()" style="width:100%" placeholder="70"></span></label></div>
+      <div data-uw-slot="rt-vac-pct"><label class="text-xs" title="Vacancy reserve as % of monthly rent.">Vacancy %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-vac-pct" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="10"></span></label></div>
+      <div data-uw-slot="rt-capex-pct"><label class="text-xs" title="Long-term capex/repair reserve as % of monthly rent.">Capital Expenses %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-capex-pct" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="5"></span></label></div>
+      <div data-uw-slot="rt-maint-pct"><label class="text-xs" title="Day-to-day maintenance reserve as % of monthly rent (small repairs, turnover touch-ups, landscaping). Separate from CapEx, which is for big-ticket replacements.">Maintenance %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-maint-pct" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="5"></span></label></div>
+      <div data-uw-slot="rt-pm-pct" style="grid-column:1"><label class="text-xs" title="Property management fee as % of monthly rent. Set to 0 if self-managed.">Management Fee %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-pm-pct" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="10"></span></label></div>
       <!-- ====== REFI rental: initial HM/PM hold + cash-out refi terms ======
            This mode assumes you bought + rehabbed using a hard money or
            private money loan, paid HM costs during the stabilization period,
            then refinanced into a long-term mortgage based on ARV. -->
-      <div data-uw-slot="rt-rf-hm-ltv"><label class="text-xs" title="Initial financing LTV. 100% = lender funds buy + rehab in full; you put 0% down.">Initial Financing LTV %<input type="number" id="uw-rt-rf-hm-ltv" value="100" step="1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-rf-hm-rate"><label class="text-xs" title="Initial financing annual interest rate (interest-only during the hold).">Initial Financing Rate %/yr<input type="number" id="uw-rt-rf-hm-rate" value="12" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-rf-hm-orig"><label class="text-xs" title="Initial financing origination fee in points (% of loan, paid up front).">Initial Financing Origination %<input type="number" id="uw-rt-rf-hm-orig" value="2" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-rf-stab-mo"><label class="text-xs" title="Months you carry the initial financing: rehab + lease-up time before the property qualifies to refinance.">Stabilization (mo)<input type="number" id="uw-rt-rf-stab-mo" value="4" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-br-ltv"><label class="text-xs" title="Cash-out refi LTV. Loan = ARV × this %. Hard-capped at 70% (lender ceiling).">Refi LTV % (cap 70%)<input type="number" id="uw-rt-br-ltv" value="70" step="1" max="70" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-br-rate"><label class="text-xs">Refi Rate %/yr<input type="number" id="uw-rt-br-rate" value="6.5" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="rt-br-yrs"><label class="text-xs">Refi Term (yrs)<input type="number" id="uw-rt-br-yrs" value="30" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="rt-rf-hm-ltv"><label class="text-xs" title="Bridge loan cap as % of ARV. The initial (bridge) loan can't exceed this share of ARV.">Bridge Loan Cap %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-rf-hm-ltv" step="1" oninput="uwRecalc()" style="width:100%" placeholder="70"></span></label></div>
+      <div data-uw-slot="rt-rf-hm-rate"><label class="text-xs" title="Initial financing annual interest rate (interest-only during the hold).">Initial Financing Annual Interest %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-rf-hm-rate" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="12"></span></label></div>
+      <div data-uw-slot="rt-rf-hm-orig"><label class="text-xs" title="Initial financing origination fee in points (% of loan, paid up front).">Initial Financing Origination %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-rf-hm-orig" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="2"></span></label></div>
+      <div data-uw-slot="rt-rf-purch-fin-pct"><label class="text-xs" title="% of the purchase price the initial (bridge) loan covers. 100% = no down payment.">Initial Financing Purchase %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-rf-purch-fin-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="100"></span></label></div>
+      <div data-uw-slot="rt-rf-reno-fin-pct"><label class="text-xs" title="% of the renovation cost the initial (bridge) loan covers. 100% = reno fully financed.">Initial Financing Renovation %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-rf-reno-fin-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="100"></span></label></div>
+      <div data-uw-slot="rt-rf-stab-mo"><label class="text-xs" title="Months you carry the initial financing: rehab + lease-up time before the property qualifies to refinance.">Stabilization (mo)<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-rt-rf-stab-mo" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="4"></span></label></div>
+      <div data-uw-slot="rt-br-ltv" style="grid-column:1"><label class="text-xs" title="Cash-out refi LTV. Loan = ARV × this %. Hard-capped at 70% (lender ceiling).">Refi LTV % (cap 70%)<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-br-ltv" step="1" max="70" oninput="uwRecalc()" style="width:100%" placeholder="70"></span></label></div>
+      <div data-uw-slot="rt-br-rate"><label class="text-xs">Refi Rate %/yr<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-br-rate" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="6.5"></span></label></div>
+      <div data-uw-slot="rt-br-yrs"><label class="text-xs">Refi Term (yrs)<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-rt-br-yrs" oninput="uwRecalc()" style="width:100%" placeholder="30"></span></label></div>
       <div data-uw-slot="tenant-elec"><label class="text-xs" title="Auto: SqFt × $0.16/mo when blank">Electricity &amp; Gas /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-tenant-elec" oninput="uwRecalc()" placeholder="auto: sqft × 0.16" style="width:100%"></span></label></div>
       <div data-uw-slot="tenant-water"><label class="text-xs" title="Auto: SqFt × $0.04/mo when blank">Water &amp; Sewer /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-tenant-water" oninput="uwRecalc()" placeholder="auto: sqft × 0.04" style="width:100%"></span></label></div>
       <div data-uw-slot="tenant-trash"><label class="text-xs" title="Auto: $30/mo when blank">Trash &amp; Recycling /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-tenant-trash" oninput="uwRecalc()" placeholder="auto: 30" style="width:100%"></span></label></div>
       <div data-uw-slot="tenant-net"><label class="text-xs" title="Auto: $120/mo when blank">Internet &amp; Cable /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-tenant-net" oninput="uwRecalc()" placeholder="auto: 120" style="width:100%"></span></label></div>
       <div data-uw-slot="tenant-pest"><label class="text-xs" title="Auto: $50/mo when blank">Pest Control /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-tenant-pest" oninput="uwRecalc()" placeholder="auto: 50" style="width:100%"></span></label></div>
       <div data-uw-slot="tenant-ins"><label class="text-xs" title="Auto: $15/mo when blank">Renter's Insurance /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-tenant-ins" oninput="uwRecalc()" placeholder="auto: 15" style="width:100%"></span></label></div>
+      <div data-uw-slot="rt-tax"><label class="text-xs" title="Landlord property tax. Auto-defaults to 1% of ARV per year ÷ 12. Type a value to override.">Property Tax /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-rt-tax" oninput="uwRecalc()" placeholder="auto" style="width:100%"></span></label></div>
+      <div data-uw-slot="rt-ins"><label class="text-xs" title="Landlord insurance. Auto-defaults to 1% of ARV per year ÷ 12. Type a value to override.">Insurance /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-rt-ins" oninput="uwRecalc()" placeholder="auto" style="width:100%"></span></label></div>
       <!-- ====== WHOLETAIL editable assumptions ======
            Each field has a default `value=` so the math works even when no
            deal is loaded; per-deal overrides are persisted via UW_FIELDS. -->
-      <div data-uw-slot="wt-sale-pct"><label class="text-xs">Resale % of ARV<input type="number" id="uw-wt-sale-pct" value="75" step="1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="wt-cap-pct"><label class="text-xs">Capital Invested (% of ARV)<input type="number" id="uw-wt-cap-pct" value="10" step="1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="wt-reno-mo"><label class="text-xs">Renovation Time (mo)<input type="number" id="uw-wt-reno-mo" value="1" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="wt-listed-mo"><label class="text-xs">Listed Time (mo)<input type="number" id="uw-wt-listed-mo" value="2" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="wt-sale-pct"><label class="text-xs">Resale % of ARV<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-sale-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="75"></span></label></div>
+      <div data-uw-slot="wt-cap-pct"><label class="text-xs">Capital Invested (% of ARV)<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-cap-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="10"></span></label></div>
+      <div data-uw-slot="wt-reno-mo"><label class="text-xs">Renovation Time (mo)<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-wt-reno-mo" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="1"></span></label></div>
+      <div data-uw-slot="wt-listed-mo"><label class="text-xs">Listing Time (mo)<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-wt-listed-mo" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="2"></span></label></div>
+      <div data-uw-slot="wt-arv-cap-pct"><label class="text-xs" title="Loan cap as % of ARV. The loan can't exceed this share of ARV (lender ceiling). Default 70%.">Loan Cap %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-arv-cap-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="70"></span></label></div>
+      <div data-uw-slot="wt-purch-fin-pct"><label class="text-xs" title="% of the purchase price the loan covers. 100% = no down payment. Lower it to put money down.">Purchase Price Financing %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-purch-fin-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="100"></span></label></div>
+      <div data-uw-slot="wt-reno-fin-pct"><label class="text-xs" title="% of the renovation cost the loan covers. 100% = reno fully financed. Interest and points are charged on the financed amount.">Renovation Cost Financing %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-reno-fin-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="100"></span></label></div>
+      <div data-uw-slot="wt-hm-orig"><label class="text-xs" title="Loan origination charged as points on the financed amount.">Origination Points %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-hm-orig" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="2"></span></label></div>
+      <div data-uw-slot="wt-hm-rate"><label class="text-xs" title="Annual interest rate on the financed amount.">Annual Financing Interest %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-hm-rate" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="12"></span></label></div>
       <div data-uw-slot="wt-elec"><label class="text-xs" title="Auto-defaults to 1% of ARV ÷ 12. Type a value to override.">Electric, Gas /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-wt-elec" placeholder="auto" oninput="uwRecalc()" style="width:100%"></span></label></div>
       <div data-uw-slot="wt-water"><label class="text-xs" title="Auto-defaults to 1% of ARV ÷ 12. Type a value to override.">Water, Sewer, Trash /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-wt-water" placeholder="auto" oninput="uwRecalc()" style="width:100%"></span></label></div>
-      <div data-uw-slot="wt-ins"><label class="text-xs">Vacant Insurance /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-wt-ins" value="150" oninput="uwRecalc()" style="width:100%"></span></label></div>
+      <div data-uw-slot="wt-ins"><label class="text-xs">Vacant Insurance /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-wt-ins" oninput="uwRecalc()" style="width:100%" placeholder="150"></span></label></div>
       <div data-uw-slot="wt-tax"><label class="text-xs" title="Auto-defaults to 1% of purchase price (Accepted if filled in, else Asking) ÷ 12. Type a value to override.">Property Tax /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-wt-tax" placeholder="auto" oninput="uwRecalc()" style="width:100%"></span></label></div>
       <!-- ====== FULL FLIP editable assumptions ======
            Mirrors the Wholetail pattern: 100% ARV resale, actual rehab budget
            from the rehab calculator, same 1% ARV/yr utility autos and 1%
            purchase-price/yr tax auto. Each field overridable. -->
-      <div data-uw-slot="fl-reno-mo"><label class="text-xs">Renovation Time (mo)<input type="number" id="uw-fl-reno-mo" value="2" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="fl-listed-mo"><label class="text-xs">Listed Time (mo)<input type="number" id="uw-fl-listed-mo" value="2.5" step="0.5" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="fl-reno-mo"><label class="text-xs">Renovation Time (mo)<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-fl-reno-mo" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="2"></span></label></div>
+      <div data-uw-slot="fl-listed-mo"><label class="text-xs">Listed Time (mo)<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-fl-listed-mo" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="2.5"></span></label></div>
       <div data-uw-slot="fl-elec"><label class="text-xs" title="Auto-defaults to 1% of ARV ÷ 12. Type a value to override.">Electric, Gas /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-fl-elec" placeholder="auto" oninput="uwRecalc()" style="width:100%"></span></label></div>
       <div data-uw-slot="fl-water"><label class="text-xs" title="Auto-defaults to 1% of ARV ÷ 12. Type a value to override.">Water, Sewer, Trash /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-fl-water" placeholder="auto" oninput="uwRecalc()" style="width:100%"></span></label></div>
-      <div data-uw-slot="fl-ins"><label class="text-xs">Builder's Risk Insurance /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-fl-ins" value="150" oninput="uwRecalc()" style="width:100%"></span></label></div>
+      <div data-uw-slot="fl-ins"><label class="text-xs">Builder's Risk Insurance /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-fl-ins" oninput="uwRecalc()" style="width:100%" placeholder="150"></span></label></div>
       <div data-uw-slot="fl-tax"><label class="text-xs" title="Auto-defaults to 1% of purchase price (Accepted if filled in, else Asking) ÷ 12. Type a value to override.">Property Tax /mo<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-fl-tax" placeholder="auto" oninput="uwRecalc()" style="width:100%"></span></label></div>
       <!-- Flip FINANCED-mode hard money loan inputs (only shown when Financed toggle active) -->
-      <div data-uw-slot="fl-hm-ltv"><label class="text-xs" title="Loan-to-cost. 90% = lender funds 90% of (buy + rehab); you put 10% down.">Financing LTV %<input type="number" id="uw-fl-hm-ltv" value="90" step="1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="fl-hm-rate"><label class="text-xs">Financing Interest %/yr<input type="number" id="uw-fl-hm-rate" value="12" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
-      <div data-uw-slot="fl-hm-orig"><label class="text-xs">Financing Origination %<input type="number" id="uw-fl-hm-orig" value="2" step="0.1" oninput="uwRecalc()" style="width:100%;margin-top:4px"></label></div>
+      <div data-uw-slot="fl-hm-ltv"><label class="text-xs" title="Loan-to-cost. 90% = lender funds 90% of (buy + rehab); you put 10% down.">Financing LTV %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-fl-hm-ltv" step="1" oninput="uwRecalc()" style="width:100%" placeholder="90"></span></label></div>
+      <div data-uw-slot="fl-hm-rate"><label class="text-xs" title="Annual interest rate on the financed amount.">Annual Financing Interest %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-fl-hm-rate" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="12"></span></label></div>
+      <div data-uw-slot="fl-hm-orig"><label class="text-xs" title="Loan origination charged as points on the financed amount.">Origination Financing Points %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-fl-hm-orig" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="2"></span></label></div>
+      <div data-uw-slot="fl-arv-cap-pct"><label class="text-xs" title="Loan cap as % of ARV. The loan can't exceed this share of ARV (lender ceiling). Default 70%.">Loan Cap %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-fl-arv-cap-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="70"></span></label></div>
+      <div data-uw-slot="fl-purch-fin-pct"><label class="text-xs" title="% of the purchase price the loan covers. 100% = no down payment. Lower it to put money down.">Purchase Price Financing %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-fl-purch-fin-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="100"></span></label></div>
+      <div data-uw-slot="fl-reno-fin-pct"><label class="text-xs" title="% of the renovation cost the loan covers. 100% = reno fully financed. Interest and points are charged on the financed amount.">Renovation Price Financing %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-fl-reno-fin-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="100"></span></label></div>
       <!-- Hidden output spans kept so legacy code that writes to them via _uwSet doesn't crash. -->
       <span id="uw-buy-close"></span><span id="uw-sell-close"></span>
       <span id="uw-orig"></span><span id="uw-int"></span>
@@ -11011,30 +11047,30 @@ function uwNewDeal() {
     el.value = el.defaultValue || '';
   });
   const defaults = {
-    'uw-max-ltv': '70', 'uw-buy-close-pct': '2', 'uw-purch-sell-close-pct': '1', 'uw-sell-close-pct': '2',
-    'uw-orig-pct': '2', 'uw-int-pct': '12',
-    'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '3',
-    'uw-buy-agent-pct': '3', 'uw-loan-rate': '6.5',
-    'uw-loan-yrs': '30', 'uw-units': '1', 'uw-units-rental': '1',
+    'uw-max-ltv': '70', 'uw-buy-close-pct': '', 'uw-purch-sell-close-pct': '', 'uw-sell-close-pct': '',
+    'uw-orig-pct': '', 'uw-int-pct': '',
+    'uw-rehab-mo': '', 'uw-listing-mo': '', 'uw-sell-agent-pct': '',
+    'uw-buy-agent-pct': '', 'uw-loan-rate': '',
+    'uw-loan-yrs': '', 'uw-units': '1', 'uw-units-rental': '1',
     // Wholetail defaults — match the documented assumptions in uwComputeExits
-    'uw-wt-sale-pct': '75', 'uw-wt-cap-pct': '10',
-    'uw-wt-reno-mo': '1', 'uw-wt-listed-mo': '2',
+    'uw-wt-sale-pct': '', 'uw-wt-cap-pct': '',
+    'uw-wt-reno-mo': '', 'uw-wt-listed-mo': '',
     'uw-wt-elec': '', 'uw-wt-water': '',
-    'uw-wt-ins': '150', 'uw-wt-tax': '',
+    'uw-wt-ins': '', 'uw-wt-tax': '',
     // Full Flip defaults — utilities + tax auto-fill the same way as wholetail
-    'uw-fl-reno-mo': '2', 'uw-fl-listed-mo': '2.5',
+    'uw-fl-reno-mo': '', 'uw-fl-listed-mo': '',
     'uw-fl-elec': '', 'uw-fl-water': '',
-    'uw-fl-ins': '150', 'uw-fl-tax': '',
+    'uw-fl-ins': '', 'uw-fl-tax': '',
     // Hard money loan defaults (only used when Flip is in Financed mode)
-    'uw-fl-hm-ltv': '90', 'uw-fl-hm-rate': '12', 'uw-fl-hm-orig': '2',
+    'uw-fl-hm-ltv': '', 'uw-fl-hm-rate': '', 'uw-fl-hm-orig': '',
     // Rental operating + financing defaults
-    'uw-rt-down-pct': '0', 'uw-rt-vac-pct': '10', 'uw-rt-maint-pct': '5', 'uw-rt-capex-pct': '5', 'uw-rt-pm-pct': '10', 'uw-rt-appr-pct': '3',
+    'uw-rt-down-pct': '', 'uw-rt-vac-pct': '', 'uw-rt-maint-pct': '', 'uw-rt-capex-pct': '', 'uw-rt-pm-pct': '', 'uw-rt-appr-pct': '3',
     // Refi rental defaults — initial financing hold + cash-out refi terms
-    'uw-rt-rf-hm-ltv': '100', 'uw-rt-rf-hm-rate': '12', 'uw-rt-rf-hm-orig': '2',
-    'uw-rt-br-ltv': '70', 'uw-rt-br-rate': '6.5', 'uw-rt-br-yrs': '30',
-    'uw-rt-rf-close-pct': '2',
+    'uw-rt-rf-hm-ltv': '', 'uw-rt-rf-hm-rate': '', 'uw-rt-rf-hm-orig': '',
+    'uw-rt-br-ltv': '', 'uw-rt-br-rate': '', 'uw-rt-br-yrs': '',
+    'uw-rt-rf-close-pct': '',
     // Pre-rent timeline (applies to all rental modes)
-    'uw-rt-reno-mo': '1', 'uw-rt-rent-mo': '2.5',
+    'uw-rt-reno-mo': '', 'uw-rt-rent-mo': '',
   };
   Object.entries(defaults).forEach(([k, v]) => { const el = document.getElementById(k); if (el) el.value = v; });
   _uwCurrentId = null;
@@ -12013,30 +12049,30 @@ function uwReset() {
   });
   // Restore defaults
   const defaults = {
-    'uw-max-ltv': '70', 'uw-buy-close-pct': '2', 'uw-purch-sell-close-pct': '1', 'uw-sell-close-pct': '2',
-    'uw-orig-pct': '2', 'uw-int-pct': '12',
-    'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '3',
-    'uw-buy-agent-pct': '3', 'uw-loan-rate': '6.5',
-    'uw-loan-yrs': '30', 'uw-units': '1', 'uw-units-rental': '1',
+    'uw-max-ltv': '70', 'uw-buy-close-pct': '', 'uw-purch-sell-close-pct': '', 'uw-sell-close-pct': '',
+    'uw-orig-pct': '', 'uw-int-pct': '',
+    'uw-rehab-mo': '', 'uw-listing-mo': '', 'uw-sell-agent-pct': '',
+    'uw-buy-agent-pct': '', 'uw-loan-rate': '',
+    'uw-loan-yrs': '', 'uw-units': '1', 'uw-units-rental': '1',
     // Wholetail defaults — match the documented assumptions in uwComputeExits
-    'uw-wt-sale-pct': '75', 'uw-wt-cap-pct': '10',
-    'uw-wt-reno-mo': '1', 'uw-wt-listed-mo': '2',
+    'uw-wt-sale-pct': '', 'uw-wt-cap-pct': '',
+    'uw-wt-reno-mo': '', 'uw-wt-listed-mo': '',
     'uw-wt-elec': '', 'uw-wt-water': '',
-    'uw-wt-ins': '150', 'uw-wt-tax': '',
+    'uw-wt-ins': '', 'uw-wt-tax': '',
     // Full Flip defaults — utilities + tax auto-fill the same way as wholetail
-    'uw-fl-reno-mo': '2', 'uw-fl-listed-mo': '2.5',
+    'uw-fl-reno-mo': '', 'uw-fl-listed-mo': '',
     'uw-fl-elec': '', 'uw-fl-water': '',
-    'uw-fl-ins': '150', 'uw-fl-tax': '',
+    'uw-fl-ins': '', 'uw-fl-tax': '',
     // Hard money loan defaults (only used when Flip is in Financed mode)
-    'uw-fl-hm-ltv': '90', 'uw-fl-hm-rate': '12', 'uw-fl-hm-orig': '2',
+    'uw-fl-hm-ltv': '', 'uw-fl-hm-rate': '', 'uw-fl-hm-orig': '',
     // Rental operating + financing defaults
-    'uw-rt-down-pct': '0', 'uw-rt-vac-pct': '10', 'uw-rt-maint-pct': '5', 'uw-rt-capex-pct': '5', 'uw-rt-pm-pct': '10', 'uw-rt-appr-pct': '3',
+    'uw-rt-down-pct': '', 'uw-rt-vac-pct': '', 'uw-rt-maint-pct': '', 'uw-rt-capex-pct': '', 'uw-rt-pm-pct': '', 'uw-rt-appr-pct': '3',
     // Refi rental defaults — initial financing hold + cash-out refi terms
-    'uw-rt-rf-hm-ltv': '100', 'uw-rt-rf-hm-rate': '12', 'uw-rt-rf-hm-orig': '2',
-    'uw-rt-br-ltv': '70', 'uw-rt-br-rate': '6.5', 'uw-rt-br-yrs': '30',
-    'uw-rt-rf-close-pct': '2',
+    'uw-rt-rf-hm-ltv': '', 'uw-rt-rf-hm-rate': '', 'uw-rt-rf-hm-orig': '',
+    'uw-rt-br-ltv': '', 'uw-rt-br-rate': '', 'uw-rt-br-yrs': '',
+    'uw-rt-rf-close-pct': '',
     // Pre-rent timeline (applies to all rental modes)
-    'uw-rt-reno-mo': '1', 'uw-rt-rent-mo': '2.5',
+    'uw-rt-reno-mo': '', 'uw-rt-rent-mo': '',
   };
   Object.entries(defaults).forEach(([k, v]) => { const el = document.getElementById(k); if (el) el.value = v; });
   // Reset autosave state — this is a brand-new blank deal
@@ -12407,15 +12443,18 @@ function uwRecalc() {
 
   const maxLtvPct = _uwGetN('uw-max-ltv') || 70;
   const maxLoan = arv * (maxLtvPct / 100);
-  const buyClosePct = _uwGetN('uw-buy-close-pct');
-  const sellClosePct = _uwGetN('uw-sell-close-pct');
-  const origPct = _uwGetN('uw-orig-pct');
-  const intPct = _uwGetN('uw-int-pct');
-  const rehabMo = _uwGetN('uw-rehab-mo');
-  const listingMo = _uwGetN('uw-listing-mo');
+  const buyClosePct = _uwGetN('uw-buy-close-pct') || 2;
+  const sellClosePct = _uwGetN('uw-sell-close-pct') || 2;
+  const origPct = _uwGetN('uw-orig-pct') || 2;
+  const intPct = _uwGetN('uw-int-pct') || 12;
+  const rehabMo = _uwGetN('uw-rehab-mo') || 1;
+  const listingMo = _uwGetN('uw-listing-mo') || 2.5;
   const totalMo = rehabMo + listingMo;
-  const sellAgentPct = _uwGetN('uw-sell-agent-pct');
-  const buyAgentPct = _uwGetN('uw-buy-agent-pct');
+  // Agent commissions default to 3% each (matches the placeholder). Blank = 3;
+  // a typed 0 is respected so you can model a no-agent sale.
+  const _agN = (id) => { const el = document.getElementById(id); if (!el || String(el.value).trim() === '') return 3; const n = parseFloat(String(el.value).replace(/,/g,'')); return isFinite(n) ? n : 3; };
+  const sellAgentPct = _agN('uw-sell-agent-pct');
+  const buyAgentPct = _agN('uw-buy-agent-pct');
   // Effective rent: rental-comp Override > Rent /mo input > avg of rental comps.
   // This way the user can drive rent from any of the three places.
   // PER-UNIT — multiplied by Units below to get the total monthly rent.
@@ -12448,7 +12487,7 @@ function uwRecalc() {
   const buyClose = arv * (buyClosePct / 100);
   // Seller's side of the closing AT PURCHASE — buyer covers as concession.
   // Always added to buyClose for the math since we always cover both sides.
-  const purchSellClosePct = _uwGetN('uw-purch-sell-close-pct');
+  const purchSellClosePct = _uwGetN('uw-purch-sell-close-pct') || 1;
   const purchSellClose    = arv * (purchSellClosePct / 100);
   const purchClosingTotal = buyClose + purchSellClose;
   const sellClose = arv * (sellClosePct / 100);
@@ -13460,29 +13499,30 @@ function uwComputeExits(ctx) {
   // Buy-side closing + holding are NOT financed — they're out-of-pocket cash.
   // The 15% of purchase is your down payment. All out-of-pocket = 15% purchase +
   // closing + holding. Still capped at 70% of ARV — loan = min(that, 70% ARV).
-  const HM_PURCH_FIN_PCT = 85;                        // % of purchase the HML funds
-  const wtFinDownFromPurch = buyPrice * (1 - HM_PURCH_FIN_PCT / 100); // 15% of purchase
-  const wtFinLtvPct  = 100; // retained ONLY for the max-buy ceiling solver (overall value unchanged)
-  const wtFinRatePct = _wtVal('uw-fl-hm-rate', 12);
-  const wtFinOrigPct = _wtVal('uw-fl-hm-orig',  2);
-  const WT_FIN_ARV_CAP_PCT = 70;
+  const HM_PURCH_FIN_PCT = 100;                       // % of purchase the HML funds (flip/refi)
+  const wtFinLtvPct  = 100; // retained ONLY for the max-buy ceiling solver (_solveFin arg)
+  // Wholetail financing — user-editable per-deal overrides (Adjust this exit's
+  // assumptions). Loan = financed purchase + financed reno, capped at 70% ARV.
+  // Interest AND origination are both charged on the financed (loan) amount.
+  const wtPurchFinPct = _wtVal('uw-wt-purch-fin-pct', 100); // % of purchase financed
+  const wtRenoFinPct  = _wtVal('uw-wt-reno-fin-pct', 100);  // % of reno financed
+  const wtFinRatePct = _wtVal('uw-wt-hm-rate', 12);
+  const wtFinOrigPct = _wtVal('uw-wt-hm-orig',  2);
+  const WT_FIN_ARV_CAP_PCT = _wtVal('uw-wt-arv-cap-pct', 70); // editable HM/PM lender ceiling
   const wtFinBaseCost  = buyPrice + wholetailRehab + wholetailHolding + wtPurchClosingTotal;
-  // Full renovation budget (100%) — wholetail only DRAWS 60% of it, but the loan
-  // is COMMITTED/originated against the full amount, just like a flip loan.
-  const _wtFullRehab   = WT_REHAB_PCT_OF_FLIP > 0 ? (wholetailRehab / WT_REHAB_PCT_OF_FLIP) : wholetailRehab;
-  const wtFinLoanByLtv = Math.max(0, buyPrice * (HM_PURCH_FIN_PCT / 100) + wholetailRehab); // DRAWN: 85% purchase + 60% reno
+  const wtFinLoanByFin = Math.max(0, buyPrice * (wtPurchFinPct / 100) + wholetailRehab * (wtRenoFinPct / 100));
   const wtFinLoanByArv = arv * (WT_FIN_ARV_CAP_PCT / 100);
-  const wtFinLoan      = Math.min(wtFinLoanByLtv, wtFinLoanByArv);                            // interest accrues on the DRAWN loan
-  // COMMITTED loan = 85% purchase + 100% reno (same basis a flip would finance) —
-  // origination points are charged on this, capped at the 70% ARV ceiling.
-  const wtFinOrigLoan  = Math.min(Math.max(0, buyPrice * (HM_PURCH_FIN_PCT / 100) + _wtFullRehab), wtFinLoanByArv);
-  const wtFinCapBinds  = wtFinLoanByArv < wtFinLoanByLtv;
+  const wtFinLoan      = Math.min(wtFinLoanByFin, wtFinLoanByArv);
+  const wtFinCapBinds  = wtFinLoanByArv < wtFinLoanByFin;
+  // Un-financed purchase portion — shown as the "Down payment" row.
+  const wtFinDownFromPurch = buyPrice * (1 - wtPurchFinPct / 100);
+  // Everything the loan doesn't cover is cash to close (un-financed purchase %,
+  // un-financed reno %, holding, purchase closing, plus any 70%-ARV-cap shortfall).
   const wtFinDown      = Math.max(0, wtFinBaseCost - wtFinLoan);
-  const wtFinOrig      = wtFinOrigLoan * (wtFinOrigPct / 100);   // origination on the FULL committed loan (like flip)
-  const wtFinMonthlyInt = wtFinLoan * (wtFinRatePct / 100) / 12; // interest on the DRAWN (60% reno) loan only
+  const wtFinOrig      = wtFinLoan * (wtFinOrigPct / 100);       // origination on the financed amount
+  const wtFinMonthlyInt = wtFinLoan * (wtFinRatePct / 100) / 12; // interest on the financed amount
   const wtFinTotalInt   = wtFinMonthlyInt * wholetailMonths;
   // Cost of draws: HML releases rehab in $10k tranches at $200 each, round UP.
-  // Wholetail only draws the 60% it actually uses.
   const wtDrawCount     = wholetailRehab > 0 ? Math.ceil(wholetailRehab / 10000) : 0;
   const wtDrawCost      = wtDrawCount * 200;
   const wtFinProfit     = wholetailCashProfit - wtFinOrig - wtFinTotalInt - wtDrawCost;
@@ -13529,7 +13569,11 @@ function uwComputeExits(ctx) {
   // either way, and tax/insurance keep accruing until the first tenant.
   const rtRenoMo   = _wtVal('uw-rt-reno-mo', 1);
   const rtRentMo   = _wtVal('uw-rt-rent-mo', 1);
-  const rtPreRentMo = rtRenoMo + rtRentMo;
+  // Project-duration override (shared with Flip). When set (>0), it replaces the
+  // auto reno+listing/rent timeline for both Flip and Rental. Wholetail is exempt
+  // (fixed 3-month standard). Blank = use the auto-calculated duration.
+  const _projMoOverride = _wtVal('uw-proj-months-override', 0);
+  const rtPreRentMo = _projMoOverride > 0 ? _projMoOverride : (rtRenoMo + rtRentMo);
   // Annual property appreciation rate for the equity-gain breakdown.
   const rtApprPct  = _wtVal('uw-rt-appr-pct', 3);
   // Day-1 forced equity from the rehab — what you bought (+rehab) vs. what
@@ -13566,11 +13610,12 @@ function uwComputeExits(ctx) {
   const rtMaint    = rent * (rtMaintPct / 100);
   const rtCapex    = rent * (rtCapexPct / 100);
   const rtPm       = rent * (rtPmPct    / 100);
-  const rtIns      = (arv * 0.01) / 12; // 1% ARV/yr — landlord insurance
-  // Tax basis: Cash rental uses purchase price (NOT refinanced); Financed
-  // rental uses ARV (refinanced after rehab). Per the user's rule.
-  const rtTaxCash = (arv * 0.01) / 12; // 1% ARV/yr (same as financed/refi)
-  const rtTaxFin  = (arv * 0.01) / 12; // 1% ARV/yr
+  // Landlord insurance + property tax — editable overrides in the rental panel.
+  // Blank = auto 1% of ARV per year ÷ 12 (unchanged default); type to override.
+  const rtIns      = _wtAutoFromBasis('uw-rt-ins', arv).value; // 1% ARV/yr — landlord insurance
+  const _rtTaxVal  = _wtAutoFromBasis('uw-rt-tax', arv).value; // 1% ARV/yr — property tax
+  const rtTaxCash = _rtTaxVal;
+  const rtTaxFin  = _rtTaxVal;
 
   // ====== 3. CASH RENTAL ======
   // Buy with cash + RENTAL-grade rehab; no mortgage. Operating costs itemized.
@@ -13615,7 +13660,7 @@ function uwComputeExits(ctx) {
   // got a long-term DSCR cash-out refi after stabilization. The loan size is
   // sized to recover all the cash you put up + origination, capped at the
   // lender's max LTV (70% of ARV, same cap as the Refi tab).
-  const FIN_LTV_CAP_PCT = 70;
+  const FIN_LTV_CAP_PCT = _wtVal('uw-rt-dscr-ltv-cap', 70); // editable DSCR loan cap (Financed + Turn Key)
   const finDownPct = _wtVal('uw-rt-down-pct', 0);
   const finRatePct = _wtVal('uw-loan-rate',   6.5);
   const finYrs     = _wtVal('uw-loan-yrs',    30);
@@ -13732,9 +13777,11 @@ function uwComputeExits(ctx) {
   // refi at ARV — pays off HM loan and returns leftover proceeds to you.
   // Capital LEFT IN = (cash you put up in phase 1) - (cash returned by refi).
   // ----- Phase 1: HM/PM hold -----
-  const rfHmLtvPct  = _wtVal('uw-rt-rf-hm-ltv', 100);
+  const rfHmLtvPct  = _wtVal('uw-rt-rf-hm-ltv', 70);
   const rfHmRatePct = _wtVal('uw-rt-rf-hm-rate', 12);
   const rfHmOrigPct = _wtVal('uw-rt-rf-hm-orig',  2);
+  const rfPurchFinPct = _wtVal('uw-rt-rf-purch-fin-pct', 100); // % of purchase the bridge finances
+  const rfRenoFinPct  = _wtVal('uw-rt-rf-reno-fin-pct', 100);  // % of reno the bridge finances
   // Stabilization months = renovation + rent-up. The legacy rt-rf-stab-mo
   // input is overridden by the unified reno+rent inputs above; if neither
   // is set, fall back to the old default of 4.
@@ -13760,8 +13807,10 @@ function uwComputeExits(ctx) {
   // is the down payment; all out-of-pocket = 15% purchase + closing + holding,
   // which flows into cash put up (rfInitialOut). (Exit DSCR refi is unaffected.)
   const rfBaseCost     = buyPrice + rRehab + rtPurchClosingTotal + rfPreRentHolding;
-  const rfHmDownFromPurch = buyPrice * (1 - HM_PURCH_FIN_PCT / 100); // 15% of purchase
-  const rfHmLoan       = Math.max(0, buyPrice * (HM_PURCH_FIN_PCT / 100) + rRehab); // 85% purchase + 100% rehab
+  const rfHmDownFromPurch = buyPrice * (1 - rfPurchFinPct / 100); // un-financed purchase portion
+  // Bridge loan = financed purchase + financed reno, capped at the Initial Financing LTV % of ARV.
+  const _rfHmLoanByFin = Math.max(0, buyPrice * (rfPurchFinPct / 100) + rRehab * (rfRenoFinPct / 100));
+  const rfHmLoan       = Math.min(_rfHmLoanByFin, arv * (rfHmLtvPct / 100));
   const rfHmDown       = Math.max(0, rfBaseCost - rfHmLoan);          // 15% purchase + closing + holding
   const rfHmOrig       = rfHmLoan * (rfHmOrigPct / 100);
   const rfHmMonthlyInt = rfHmLoan * (rfHmRatePct / 100) / 12;
@@ -13948,7 +13997,9 @@ function uwComputeExits(ctx) {
   // Same reno/listed split as Wholetail — flipMonths is just the sum
   const flRenoMo   = _flVal('uw-fl-reno-mo',   2);
   const flListedMo = _flVal('uw-fl-listed-mo', 2.5);
-  const flipMonths = flRenoMo + flListedMo;
+  // Project-duration override (_projMoOverride defined earlier in this fn, shared
+  // with Rental). When set, it replaces the auto reno+listed sum for the Flip hold.
+  const flipMonths = _projMoOverride > 0 ? _projMoOverride : (flRenoMo + flListedMo);
   // Break the rehab "reno-mo" value into its repossession + reno-only
   // components so the Holding section title can show "X repo + Y reno + Z
   // listed" instead of lumping repo into reno. Reads s-rep from the rehab
@@ -13956,9 +14007,11 @@ function uwComputeExits(ctx) {
   const _flSRep   = document.getElementById('s-rep');
   const _flRepoMo = _flSRep ? ((parseFloat((_flSRep.textContent || '').replace(/[^\d.\-]/g, '')) || 0) / 30) : 0;
   const _flRenoOnlyMo = Math.max(0, flRenoMo - _flRepoMo);
-  const flipHoldBreakdown = (_flRepoMo > 0
-      ? (_flRepoMo.toFixed(1) + ' repo + ' + _flRenoOnlyMo.toFixed(1) + ' reno + ' + flListedMo + ' listed')
-      : (flRenoMo + ' reno + ' + flListedMo + ' listed'));
+  const flipHoldBreakdown = (_projMoOverride > 0
+      ? (flipMonths + ' mo (override)')
+      : (_flRepoMo > 0
+        ? (_flRepoMo.toFixed(1) + ' repo + ' + _flRenoOnlyMo.toFixed(1) + ' reno + ' + flListedMo + ' listed')
+        : (flRenoMo + ' reno + ' + flListedMo + ' listed')));
   const _flElec = _wtAutoFromBasis('uw-fl-elec',  wtUtilBasis);  const flElec  = _flElec.value;
   const _flWS   = _wtAutoFromBasis('uw-fl-water', wtUtilBasis);  const flWater = _flWS.value;
   const flIns   = _flVal('uw-fl-ins', 150); // builder's risk insurance
@@ -14001,16 +14054,18 @@ function uwComputeExits(ctx) {
   // proceeds) and the financing itself (origination + interest):
   //   Loan basis = Buy + Rehab + Buyer Closing + Total Holding
   // When the 70% ARV cap binds, the down payment grows to fill the gap.
-  const flHmLtvPct  = 100; // retained ONLY for the max-buy ceiling solver (overall value unchanged)
+  const flHmLtvPct  = 100; // retained ONLY for the max-buy ceiling solver (_solveFin arg)
+  // Flip financing — user-editable per-deal overrides (Adjust this exit's
+  // assumptions). Loan = financed purchase + financed reno, capped at 70% ARV.
+  // Interest AND origination are both charged on the financed (loan) amount.
+  const flPurchFinPct = _flVal('uw-fl-purch-fin-pct', 100); // % of purchase financed
+  const flRenoFinPct  = _flVal('uw-fl-reno-fin-pct', 100);  // % of reno financed
   const flHmRatePct = _flVal('uw-fl-hm-rate', 12);
   const flHmOrigPct = _flVal('uw-fl-hm-orig',  2);
-  const FL_HM_ARV_CAP_PCT = 70; // standard HM/PM lender ceiling
-  // HML funds 85% of PURCHASE + 100% of REHAB only. Buy-side closing + holding
-  // are NOT financed — they're out-of-pocket cash. The 15% of purchase is the
-  // down payment. All out-of-pocket = 15% purchase + closing + holding. ARV-capped.
-  const flHmDownFromPurch = buyPrice * (1 - HM_PURCH_FIN_PCT / 100); // 15% of purchase
+  const FL_HM_ARV_CAP_PCT = _flVal('uw-fl-arv-cap-pct', 70); // editable HM/PM lender ceiling
+  const flHmDownFromPurch = buyPrice * (1 - flPurchFinPct / 100); // un-financed purchase portion
   const flBaseCost  = buyPrice + flipRehabAmt + flPurchClosingTotal + flipHolding;
-  const flHmLoanByLtv = Math.max(0, buyPrice * (HM_PURCH_FIN_PCT / 100) + flipRehabAmt); // 85% purchase + 100% rehab
+  const flHmLoanByLtv = Math.max(0, buyPrice * (flPurchFinPct / 100) + flipRehabAmt * (flRenoFinPct / 100));
   const flHmLoanByArv = arv * (FL_HM_ARV_CAP_PCT / 100);
   const flHmLoan      = Math.min(flHmLoanByLtv, flHmLoanByArv);
   const flHmCapBinds  = flHmLoanByArv < flHmLoanByLtv;  // true when 70% ARV is the limit
@@ -14312,18 +14367,18 @@ function uwComputeExits(ctx) {
           ['Total Project Cost', fmt(wholetailSale - wtFinProfit), 'cost'],
           ['Net profit', fmt(wtFinProfit), 'profit'],
         ]},
-        { title: '🏦 Financing <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· 85% purchase + 100% rehab · ' + wtFinRatePct + '%/yr · ' + wtFinOrigPct + 'pt · ' + WT_FIN_ARV_CAP_PCT + '% ARV cap</span>', rows: [
+        { title: '🏦 Financing <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· ' + wtPurchFinPct + '% purchase + ' + wtRenoFinPct + '% reno · ' + wtFinRatePct + '%/yr · ' + wtFinOrigPct + 'pt · ' + WT_FIN_ARV_CAP_PCT + '% ARV cap</span>', rows: [
           ['Buy price', fmt(buyPrice)],
-          ['Full renovation budget (100%)', fmt(_wtFullRehab)],
-          ['Renovation used (60%)', fmt(wholetailRehab)],
-          ['Committed loan (85% purchase + 100% reno)', fmt(wtFinOrigLoan)],
+          ['Renovation budget', fmt(wholetailRehab)],
+          ['Loan (' + wtPurchFinPct + '% purchase + ' + wtRenoFinPct + '% reno)', fmt(wtFinLoanByFin)],
           ['Loan cap (' + WT_FIN_ARV_CAP_PCT + '% × ARV)', fmt(wtFinLoanByArv)],
-          ['Drawn loan (85% purchase + 60% reno)' + (wtFinCapBinds ? ' ⚠ cap binds' : ''), fmt(wtFinLoan)],
+          ['Loan used' + (wtFinCapBinds ? ' ⚠ cap binds' : ''), fmt(wtFinLoan)],
           ['💵 Out of Pocket Financing', '', 'head'],
-          ['Down payment (15% of purchase)', fmt(wtFinDownFromPurch)],
+          ['Down payment (' + (100 - wtPurchFinPct) + '% of purchase)', fmt(wtFinDownFromPurch)],
+          ...(wtRenoFinPct < 100 ? [['Reno not financed (' + (100 - wtRenoFinPct) + '% of reno)', fmt(wholetailRehab * (1 - wtRenoFinPct / 100))]] : []),
           ['Purchase Closing Costs', fmt(wtPurchClosingTotal)],
-          ['Origination (' + wtFinOrigPct + ' pts on committed)', fmt(wtFinOrig)],
-          ...(wtFinCapBinds ? [['Cap shortfall (over 70% ARV)', fmt(Math.max(0, wtFinDown - wtFinDownFromPurch - wtPurchClosingTotal - wholetailHolding))]] : []),
+          ['Origination (' + wtFinOrigPct + ' pts)', fmt(wtFinOrig)],
+          ...(wtFinCapBinds ? [['Cap shortfall (over 70% ARV)', fmt(Math.max(0, wtFinLoanByFin - wtFinLoan))]] : []),
           ['Immediate Capital Required', fmt(wtFinDown - wholetailHolding + wtFinOrig), 'orange'],
           ['Holding (' + wholetailMonths + ' mo × ' + fmt(wholetailMonths > 0 ? wholetailHolding / wholetailMonths : 0) + '/mo)', fmt(wholetailHolding)],
           ['Total Interest (' + wholetailMonths + ' mo × ' + fmt(wtFinMonthlyInt) + '/mo)', fmt(wtFinTotalInt)],
@@ -14424,18 +14479,18 @@ function uwComputeExits(ctx) {
           ['Total Project Cost', fmt(flipSale - flipFinProfit), 'cost'],
           ['Net profit', fmt(flipFinProfit), 'profit'],
         ]},
-        { title: '🏦 Financing <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· 85% purchase + 100% rehab · ' + flHmRatePct + '%/yr · ' + flHmOrigPct + 'pt · ' + FL_HM_ARV_CAP_PCT + '% ARV cap</span>', rows: [
+        { title: '🏦 Financing <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· ' + flPurchFinPct + '% purchase + ' + flRenoFinPct + '% rehab · ' + flHmRatePct + '%/yr · ' + flHmOrigPct + 'pt · ' + FL_HM_ARV_CAP_PCT + '% ARV cap</span>', rows: [
           ['Buy price', fmt(buyPrice)],
           ['Rehab budget', fmt(flipRehabAmt)],
-          ['Loan basis', fmt(buyPrice + flipRehabAmt)],
-          ['Financeable (85% purchase + 100% rehab)', fmt(flHmLoanByLtv)],
+          ['Financeable (' + flPurchFinPct + '% purchase + ' + flRenoFinPct + '% rehab)', fmt(flHmLoanByLtv)],
           ['Loan cap (' + FL_HM_ARV_CAP_PCT + '% × ARV)', fmt(flHmLoanByArv)],
           ['Loan — ' + (arv > 0 ? (flHmLoan / arv * 100).toFixed(1) : '0') + '% of ARV' + (flHmCapBinds ? ' ⚠ cap binds' : ' ✓ full'), fmt(flHmLoan), ((arv > 0 ? (flHmLoan / arv) : 0) <= 0.65) ? 'greenhl' : 'redhl'],
           ['💵 Out of Pocket Financing', '', 'head'],
-          ['Down payment (15% of purchase)', fmt(flHmDownFromPurch)],
+          ['Down payment (' + (100 - flPurchFinPct) + '% of purchase)', fmt(flHmDownFromPurch)],
+          ...(flRenoFinPct < 100 ? [['Reno not financed (' + (100 - flRenoFinPct) + '% of reno)', fmt(flipRehabAmt * (1 - flRenoFinPct / 100))]] : []),
           ['Purchase Closing Costs', fmt(flPurchClosingTotal)],
           ['Origination (' + flHmOrigPct + ' pts)', fmt(flHmOrig)],
-          ...(flHmCapBinds ? [['Cap shortfall (over 70% ARV)', fmt(Math.max(0, flHmDown - flHmDownFromPurch - flPurchClosingTotal - flipHolding))]] : []),
+          ...(flHmCapBinds ? [['Cap shortfall (over 70% ARV)', fmt(Math.max(0, flHmLoanByLtv - flHmLoan))]] : []),
           ['Immediate Capital Required', fmt(flHmDown - flipHolding + flHmOrig), 'orange'],
           ['Holding (' + flipMonths + ' mo × ' + fmt(flipMonths > 0 ? flipHolding / flipMonths : 0) + '/mo)', fmt(flipHolding)],
           ['Total Interest (' + flipMonths + ' mo × ' + fmt(flHmMonthlyInt) + '/mo)', fmt(flHmTotalInt)],
@@ -14586,12 +14641,15 @@ function uwComputeExits(ctx) {
         ];
       })(),
       details: rentalMode === 'refi' ? [
-        { title: '🏦 Financed Purchase + Rehab <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· 85% purchase + 100% rehab · ' + rfHmRatePct + '%/yr · ' + rfHmOrigPct + '% · ' + rfStabMo + ' mo</span>', rows: [
+        { title: '🏦 Financed Purchase + Rehab <span style="font-size:10.5px;font-weight:500;color:var(--text-dim);white-space:nowrap">· ' + rfPurchFinPct + '% purchase + ' + rfRenoFinPct + '% rehab · ' + rfHmRatePct + '%/yr · ' + rfHmOrigPct + '% · ' + rfStabMo + ' mo</span>', rows: [
           ['Buy price', fmt(buyPrice)],
           ['Rehab budget', fmt(rRehab)],
-          ['Loan Size (85% purchase + 100% rehab)', fmt(rfHmLoan)],
+          ['Financeable (' + rfPurchFinPct + '% purchase + ' + rfRenoFinPct + '% rehab)', fmt(_rfHmLoanByFin)],
+          ['Bridge loan cap (' + rfHmLtvPct + '% of ARV)', fmt(arv * (rfHmLtvPct / 100))],
+          ['Loan Size' + (_rfHmLoanByFin > arv * (rfHmLtvPct / 100) ? ' ⚠ cap binds' : ''), fmt(rfHmLoan)],
           ['💵 Out of Pocket Financing', '', 'head'],
-          ['Down payment (15% of purchase)', fmt(rfHmDownFromPurch)],
+          ['Down payment (' + (100 - rfPurchFinPct) + '% of purchase)', fmt(rfHmDownFromPurch)],
+          ...(rfRenoFinPct < 100 ? [['Reno not financed (' + (100 - rfRenoFinPct) + '% of reno)', fmt(rRehab * (1 - rfRenoFinPct / 100))]] : []),
           ['Purchase Closing Costs', fmt(rtPurchClosingTotal)],
           ['Bridge origination (' + rfHmOrigPct + '%)', fmt(rfHmOrig)],
           ['Immediate Capital Required', fmt(rfHmDownFromPurch + rtPurchClosingTotal + rfHmOrig), 'orange'],
@@ -15213,31 +15271,34 @@ function uwComputeExits(ctx) {
   // Per-exit list of editable input slot names (matches data-uw-slot attrs in
   // #uw-input-bank). When a card is opened, these inputs get DOM-moved into
   // the detail panel — same nodes, same listeners, no re-parenting hacks.
-  const _flipBaseSlots   = ['fl-reno-mo', 'fl-listed-mo', 'fl-elec', 'fl-water', 'fl-ins', 'fl-tax', 'sell-close-pct', 'sell-agent-pct', 'buy-agent-pct'];
+  const _flipBaseSlots   = ['sell-agent-pct', 'buy-agent-pct'];
   // LTV is no longer user-editable — it's pinned to 100% of basis (the 70%
   // ARV cap is the only thing that can shrink the loan). Only rate + orig
   // are user-tweakable now.
-  const _flipFinSlots    = ['fl-hm-rate', 'fl-hm-orig'];
+  const _flipFinSlots    = ['fl-arv-cap-pct', 'fl-purch-fin-pct', 'fl-reno-fin-pct', 'fl-hm-orig', 'fl-hm-rate'];
   // Rental — pre-rent timeline applies to ALL modes; ops + tenant-paid
   // expenses also shared. Each mode adds its financing inputs on top.
-  const _rentalTimeSlots = ['rt-reno-mo', 'rt-rent-mo'];
-  const _rentalOpsSlots  = ['rt-vac-pct', 'rt-maint-pct', 'rt-capex-pct', 'rt-pm-pct'];
-  const _rentalTenantSlots = ['tenant-elec', 'tenant-water', 'tenant-trash', 'tenant-net', 'tenant-pest', 'tenant-ins'];
+  const _rentalTimeSlots = [];  // reno/time-to-rent now driven by the Project Duration override (or auto)
+  const _rentalOpsSlots  = ['rt-pm-pct', 'rt-vac-pct', 'rt-maint-pct', 'rt-capex-pct'];
+  const _rentalTenantSlots = ['rt-tax', 'rt-ins'];
   const _rentalCashSlots = _rentalTimeSlots.concat(_rentalOpsSlots).concat(_rentalTenantSlots);
+  // Turn Key = DSCR-financed, rent-ready. Row 1 = operating (ops + tax/ins),
+  // row 2 = the DSCR loan terms.
+  const _rentalTurnkeySlots = ['rt-dscr-ltv-cap', 'rt-dscr-orig-pct', 'rt-uw-appraisal-fee', 'loan-rate', 'loan-yrs'].concat(_rentalOpsSlots).concat(_rentalTenantSlots);
   const _rentalFinSlots  = ['rt-down-pct', 'loan-rate', 'loan-yrs', 'rt-rf-close-pct', 'rt-dscr-orig-pct', 'rt-uw-appraisal-fee'].concat(_rentalTimeSlots).concat(_rentalOpsSlots).concat(_rentalTenantSlots);
   // Refi mode: initial financing terms + cash-out refi terms + refi closing + shared time/ops/tenant
-  const _rentalRfSlots   = ['rt-rf-hm-ltv', 'rt-rf-hm-rate', 'rt-rf-hm-orig', 'rt-br-ltv', 'rt-br-rate', 'rt-br-yrs', 'rt-rf-close-pct', 'rt-dscr-orig-pct', 'rt-uw-appraisal-fee'].concat(_rentalTimeSlots).concat(_rentalOpsSlots).concat(_rentalTenantSlots);
+  const _rentalRfSlots   = ['rt-rf-hm-ltv', 'rt-rf-purch-fin-pct', 'rt-rf-reno-fin-pct', 'rt-rf-hm-orig', 'rt-rf-hm-rate', 'rt-br-ltv', 'rt-br-rate', 'rt-br-yrs', 'rt-dscr-orig-pct', 'rt-uw-appraisal-fee'].concat(_rentalOpsSlots).concat(_rentalTenantSlots);
   // Wholetail base inputs + financing inputs (shared with Flip — same loan
   // terms, same DOM nodes; only one card is expanded at a time so there's
   // no contention).
-  const _wtBaseSlots = ['wt-sale-pct', 'wt-cap-pct', 'wt-reno-mo', 'wt-listed-mo', 'wt-elec', 'wt-water', 'wt-ins', 'wt-tax'];
-  const _wtFinSlots  = ['fl-hm-ltv', 'fl-hm-rate', 'fl-hm-orig'];
+  const _wtBaseSlots = ['wt-sale-pct'];
+  const _wtFinSlots  = ['wt-arv-cap-pct', 'wt-purch-fin-pct', 'wt-reno-fin-pct', 'wt-hm-orig', 'wt-hm-rate'];
   const exitInputs = {
     wholesale:  [], // wholesale math is hardcoded (70% MAO) — no editable inputs
     wholetail:  wholetailMode === 'financed' ? _wtBaseSlots.concat(_wtFinSlots) : _wtBaseSlots,
     // Flip + Rental show extra inputs in financed mode (HM loan / mortgage terms)
     flip:       flipMode   === 'financed' ? _flipBaseSlots.concat(_flipFinSlots) : _flipBaseSlots,
-    rental:     rentalMode === 'refi' ? _rentalRfSlots : (rentalMode === 'financed' ? _rentalFinSlots : _rentalCashSlots),
+    rental:     rentalMode === 'refi' ? _rentalRfSlots : ((rentalMode === 'financed' || rentalMode === 'turnkey') ? _rentalTurnkeySlots : _rentalCashSlots),
   };
 
   // Capture focus + caret BEFORE the bank/mount round trip blows it away.
@@ -15366,7 +15427,7 @@ function uwComputeExits(ctx) {
             <div style="font-weight:600;font-size:13px;color:var(--text)">Adjust this exit's assumptions</div>
             <div style="font-size:11px;color:var(--text-dim)">(click ⚙️ to ${_adjOpen ? 'hide' : 'show'})</div>
           </div>
-          <div id="uw-detail-inputs" style="display:${_adjOpen ? 'grid' : 'none'};grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end"></div>
+          <div id="uw-detail-inputs" style="display:${_adjOpen ? 'grid' : 'none'};grid-template-columns:repeat(auto-fit,minmax(${active.key === 'flip' ? '116px,164px' : '140px,190px'}));gap:${active.key === 'flip' ? '8' : '10'}px;align-items:end;justify-content:start"></div>
         </div>`;
       detailEl.innerHTML = `
         <div style="padding:18px;background:rgba(59,130,246,0.06);border:2px solid #3b82f6;border-radius:12px;margin-top:12px">
@@ -15429,10 +15490,10 @@ function uwComputeExits(ctx) {
       const reason = (() => {
         if (best.key === 'wholesale') return `Quickest path to cash with zero capital tied up. Lock the contract and assign in ${best.time}.`;
         if (best.key === 'wholetail') return _bestModeIsFinanced
-          ? `Light cosmetic + clean-out financed at 85% purchase + 100% reno (capped at 70% ARV) @ ${wtFinRatePct}%/yr. Capital you put up: $${Math.round(wtFinCapital).toLocaleString()}. Sell at ${wtSalePct}% ARV in ${wholetailMonths} months.`
+          ? `Light cosmetic + clean-out financed at 100% purchase + 100% reno (capped at 70% ARV) @ ${wtFinRatePct}%/yr. Capital you put up: $${Math.round(wtFinCapital).toLocaleString()}. Sell at ${wtSalePct}% ARV in ${wholetailMonths} months.`
           : `Light cosmetic + clean-out (${wtCapPct}% ARV invested), ${wholetailMonths} months on market, sell at ${wtSalePct}% ARV — fast cash exit with minimal rehab risk.`;
         if (best.key === 'flip') return _bestModeIsFinanced
-          ? `Highest one-time profit financed at 85% purchase + 100% rehab (capped at 70% ARV) @ ${flHmRatePct}%/yr. Capital you put up: $${Math.round(flipFinCapital).toLocaleString()}.`
+          ? `Highest one-time profit financed at 100% purchase + 100% rehab (capped at 70% ARV) @ ${flHmRatePct}%/yr. Capital you put up: $${Math.round(flipFinCapital).toLocaleString()}.`
           : `Highest one-time profit (cash purchase — no financing cost). Plan ${best.time} of work.`;
         if (best.key === 'rental') {
           if (bestRentalMode === 'cash') {
@@ -15573,9 +15634,8 @@ function uwComputeExits(ctx) {
       // the COMMITTED loan (85% buy + 100% reno); both capped at 70% ARV. Closing +
       // holding are cash-to-close. Plus the $200/$10k draw fee (on the 60% drawn).
       const _cap   = arv * (WT_FIN_ARV_CAP_PCT / 100);
-      const _drawnLoan = Math.min(Math.max(0, _wtFinIter * (HM_PURCH_FIN_PCT / 100) + wholetailRehab), _cap);
-      const _commLoan  = Math.min(Math.max(0, _wtFinIter * (HM_PURCH_FIN_PCT / 100) + _wtFullR), _cap);
-      const _fin   = _commLoan * (wtFinOrigPct / 100) + _drawnLoan * (wtFinRatePct / 100) / 12 * wholetailMonths + _wtDraw;
+      const _finLoan = Math.min(Math.max(0, _wtFinIter * (wtPurchFinPct / 100) + wholetailRehab * (wtRenoFinPct / 100)), _cap);
+      const _fin   = _finLoan * (wtFinOrigPct / 100) + _finLoan * (wtFinRatePct / 100) / 12 * wholetailMonths + _wtDraw;
       const _next  = wholetailSale - wholetailRehab - wholetailHolding - _pc - wtSaleClosingTotal - wtAgentTotal - _fin - _wtIdeal;
       if (Math.abs(_next - _wtFinIter) < 1) { _wtFinIter = _next; break; }
       _wtFinIter = _next;
@@ -17224,14 +17284,14 @@ async function uwGenerateWholesalePacket(opts) {
   if (scopeMode) {
     const _fs = window._uwFlipCostSummary || null;
     const _arv      = arv > 0 ? arv : 0;
-    const _totalMo  = getN('uw-rehab-mo') + getN('uw-listing-mo');
+    const _totalMo  = (getN('uw-rehab-mo') || 1) + (getN('uw-listing-mo') || 2.5);
     const _rehabN   = (_fs && _fs.rehab > 0) ? _fs.rehab : ((typeof window._uwGetRehabFinal === 'function' ? (window._uwGetRehabFinal() || 0) : 0) || (window._3p_rehabBudget || 0));
     const _purchase = (_fs && _fs.purchase > 0) ? _fs.purchase : (getN('uw-accepted') || getN('uw-offer') || (typeof window._uwCashBuyerMAO === 'number' && window._uwCashBuyerMAO > 0 ? window._uwCashBuyerMAO : 0));
-    const _buyClose  = _fs ? _fs.purchaseClosing : (_arv * (getN('uw-buy-close-pct') / 100) + _arv * (getN('uw-purch-sell-close-pct') / 100));
-    const _sellClose = _fs ? _fs.resaleClosing : (_arv * (getN('uw-sell-close-pct') / 100));
+    const _buyClose  = _fs ? _fs.purchaseClosing : (_arv * ((getN('uw-buy-close-pct') || 2) / 100) + _arv * ((getN('uw-purch-sell-close-pct') || 1) / 100));
+    const _sellClose = _fs ? _fs.resaleClosing : (_arv * ((getN('uw-sell-close-pct') || 2) / 100));
     const _holding   = _fs ? _fs.holding : (_arv * ((3.5 / 100) / 12) * _totalMo);
-    const _sellAgent = _fs ? _fs.sellAgent : (_arv * (getN('uw-sell-agent-pct') / 100));
-    const _buyAgent  = _fs ? _fs.buyAgent : (_arv * (getN('uw-buy-agent-pct') / 100));
+    const _sellAgent = _fs ? _fs.sellAgent : (_arv * ((getN('uw-sell-agent-pct') || 3) / 100));
+    const _buyAgent  = _fs ? _fs.buyAgent : (_arv * ((getN('uw-buy-agent-pct') || 3) / 100));
     // Budget line = Purchase + Rehab + (buying) Closing + Holding.
     // Selling closing and agent commissions are intentionally excluded here.
     const _prcHolding = _purchase + _rehabN + _buyClose + _holding;
@@ -17798,12 +17858,16 @@ const UW_FIELDS = [
   'uw-rcp3-addr','uw-rcp3-rent','uw-rcp3-dist','uw-rcp3-bed','uw-rcp3-bath','uw-rcp3-sqft','uw-rcp3-year','uw-rcp3-lot','uw-rcp3-lot-sqft','uw-rcp3-parking','uw-rcp3-material',
   'uw-loan-rate','uw-loan-yrs',
   'uw-tenant-elec','uw-tenant-water','uw-tenant-trash','uw-tenant-net','uw-tenant-pest','uw-tenant-ins',
+  'uw-rt-tax','uw-rt-ins',
   'uw-wt-sale-pct','uw-wt-cap-pct','uw-wt-reno-mo','uw-wt-listed-mo','uw-wt-elec','uw-wt-water','uw-wt-ins','uw-wt-tax',
+  'uw-wt-purch-fin-pct','uw-wt-reno-fin-pct','uw-wt-hm-orig','uw-wt-hm-rate','uw-wt-arv-cap-pct',
+  'uw-proj-months-override',
   'uw-fl-reno-mo','uw-fl-listed-mo','uw-fl-elec','uw-fl-water','uw-fl-ins','uw-fl-tax',
-  'uw-fl-hm-ltv','uw-fl-hm-rate','uw-fl-hm-orig',
+  'uw-fl-hm-ltv','uw-fl-hm-rate','uw-fl-hm-orig','uw-fl-purch-fin-pct','uw-fl-reno-fin-pct','uw-fl-arv-cap-pct',
   'uw-rt-down-pct','uw-rt-vac-pct','uw-rt-maint-pct','uw-rt-capex-pct','uw-rt-pm-pct','uw-rt-appr-pct',
   'uw-rt-br-ltv','uw-rt-br-rate','uw-rt-br-yrs',
-  'uw-rt-rf-hm-ltv','uw-rt-rf-hm-rate','uw-rt-rf-hm-orig','uw-rt-rf-stab-mo','uw-rt-rf-close-pct',
+  'uw-rt-rf-hm-ltv','uw-rt-rf-hm-rate','uw-rt-rf-hm-orig','uw-rt-rf-stab-mo','uw-rt-rf-close-pct','uw-rt-rf-purch-fin-pct','uw-rt-rf-reno-fin-pct',
+  'uw-rt-dscr-orig-pct','uw-rt-uw-appraisal-fee','uw-rt-dscr-ltv-cap',
   'uw-rt-reno-mo','uw-rt-rent-mo',
   'uw-prop-type','uw-units','uw-pics','uw-main-pic','uw-offer-status','uw-deal-notes',
   'uw-ifp-slider', // Ideal Flip Profit slider position (0–120)
@@ -19356,19 +19420,19 @@ function _uwCollect() {
 // closing %, rates, etc. A field the user set to a real number (including "0")
 // is preserved; only truly-blank fields get the default.
 const _UW_ASSUMPTION_DEFAULTS = {
-  'uw-max-ltv': '70', 'uw-buy-close-pct': '2', 'uw-purch-sell-close-pct': '1', 'uw-sell-close-pct': '2',
-  'uw-orig-pct': '2', 'uw-int-pct': '12',
-  'uw-rehab-mo': '1', 'uw-listing-mo': '2.5', 'uw-sell-agent-pct': '3',
-  'uw-buy-agent-pct': '3', 'uw-loan-rate': '6.5',
-  'uw-loan-yrs': '30', 'uw-units': '1', 'uw-units-rental': '1',
-  'uw-wt-sale-pct': '75', 'uw-wt-cap-pct': '10',
-  'uw-wt-reno-mo': '1', 'uw-wt-listed-mo': '2', 'uw-wt-ins': '150',
-  'uw-fl-reno-mo': '2', 'uw-fl-listed-mo': '2.5', 'uw-fl-ins': '200',
-  'uw-fl-hm-ltv': '90', 'uw-fl-hm-rate': '12', 'uw-fl-hm-orig': '2',
-  'uw-rt-vac-pct': '10', 'uw-rt-maint-pct': '5', 'uw-rt-capex-pct': '5', 'uw-rt-pm-pct': '10', 'uw-rt-appr-pct': '3',
-  'uw-rt-rf-hm-ltv': '100', 'uw-rt-rf-hm-rate': '12', 'uw-rt-rf-hm-orig': '2',
-  'uw-rt-br-ltv': '70', 'uw-rt-br-rate': '6.5', 'uw-rt-br-yrs': '30',
-  'uw-rt-rf-close-pct': '2', 'uw-rt-reno-mo': '1', 'uw-rt-rent-mo': '2.5',
+  'uw-max-ltv': '70', 'uw-buy-close-pct': '', 'uw-purch-sell-close-pct': '', 'uw-sell-close-pct': '',
+  'uw-orig-pct': '', 'uw-int-pct': '',
+  'uw-rehab-mo': '', 'uw-listing-mo': '', 'uw-sell-agent-pct': '',
+  'uw-buy-agent-pct': '', 'uw-loan-rate': '',
+  'uw-loan-yrs': '', 'uw-units': '1', 'uw-units-rental': '1',
+  'uw-wt-sale-pct': '', 'uw-wt-cap-pct': '',
+  'uw-wt-reno-mo': '', 'uw-wt-listed-mo': '', 'uw-wt-ins': '',
+  'uw-fl-reno-mo': '', 'uw-fl-listed-mo': '', 'uw-fl-ins': '',
+  'uw-fl-hm-ltv': '', 'uw-fl-hm-rate': '', 'uw-fl-hm-orig': '',
+  'uw-rt-vac-pct': '', 'uw-rt-maint-pct': '', 'uw-rt-capex-pct': '', 'uw-rt-pm-pct': '', 'uw-rt-appr-pct': '3',
+  'uw-rt-rf-hm-ltv': '', 'uw-rt-rf-hm-rate': '', 'uw-rt-rf-hm-orig': '',
+  'uw-rt-br-ltv': '', 'uw-rt-br-rate': '', 'uw-rt-br-yrs': '',
+  'uw-rt-rf-close-pct': '', 'uw-rt-reno-mo': '', 'uw-rt-rent-mo': '',
 };
 
 function _uwApply(data) {
@@ -19475,6 +19539,27 @@ function _uwApply(data) {
     const el = document.getElementById(id);
     if (el && String(el.value).trim() === '') el.value = def;
   });
+  // Any assumption field whose loaded value equals its own placeholder (the
+  // system default) is blanked so the default shows GREYED-OUT rather than
+  // looking like the user typed it. The math falls back to the default anyway.
+  // Scoped to data-uw-slot inputs with a numeric default; leaves real overrides
+  // and "auto" money fields untouched.
+  try {
+    // One-off migration: the Bridge Loan Cap default changed from 100% → 70%.
+    // Old deals saved 100; blank it so they adopt the new 70% default.
+    const _brCap = document.getElementById('uw-rt-rf-hm-ltv');
+    if (_brCap && String(_brCap.value).trim() === '100') { _brCap.value = ''; if (data && data['uw-rt-rf-hm-ltv'] != null) delete data['uw-rt-rf-hm-ltv']; }
+    document.querySelectorAll('[data-uw-slot] input[placeholder]').forEach(function(el){
+      const ph = String(el.placeholder || '').trim();
+      if (ph && /^-?\d*\.?\d+$/.test(ph) && String(el.value).trim() === ph) {
+        el.value = '';
+        // Also drop it from the loaded data blob (same object as the cache row),
+        // so the mass-clear wipe guard sees no difference on the next autosave
+        // (no "N fields would be cleared" toast) and the reset persists cleanly.
+        if (el.id && data && Object.prototype.hasOwnProperty.call(data, el.id)) delete data[el.id];
+      }
+    });
+  } catch (_) {}
   // Show thousands separators on the money inputs after loading a deal.
   ['uw-asking','uw-offer','uw-accepted','uw-arv-override'].forEach(function(id){
     var el = document.getElementById(id);

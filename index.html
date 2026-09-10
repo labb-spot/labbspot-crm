@@ -435,7 +435,7 @@
   input[id^="uw-"][id$="-date-to"] { display: none !important; }
   /* Uniform, roomier search bar across every Underwriting subtab: ~double width
      and a bit of left padding so the first character isn't jammed to the edge. */
-  input[id^="uw-"][id$="-search"] {
+  input[id^="uw-"][id$="-search"], #reno-search, #hold-search {
     width: 330px !important;
     min-width: 210px !important;
     height: 36px !important;
@@ -3264,6 +3264,7 @@
            lays out side by side (no overlap) instead of stacking on the same spot. -->
       <div style="position:absolute;bottom:14px;right:14px;z-index:3;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
         <button class="btn text-sm" id="uw-add-to-reno-btn" onclick="uwAddToRenovation()" style="display:none;white-space:nowrap;background:#f97316;color:white;border:1px solid #f97316;font-weight:600" title="Send this property to the 🔨 Renovation tab. Only available when the Offer Status is Closed.">🔨 Add</button>
+        <button class="btn text-sm" id="uw-move-to-reno-btn" onclick="uwMoveCurrentToRenovation()" style="display:none;white-space:nowrap;background:#10b981;color:white;border:1px solid #10b981;font-weight:600" title="Move this property back to the 🔨 Renovation tab.">🔨 Move to Renovation</button>
         <button class="btn btn-ghost text-sm" id="uw-remove-routing-btn" style="display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromRouting()" title="Remove this deal from Renovation/Holdings (the deal stays in the 🏁 Finalized tab).">✕ Remove</button>
         <button class="btn btn-ghost text-sm" id="uw-remove-dispo-btn" style="display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromDispositions()" title="Remove this deal from Dispositions (clears the contract stage and returns you to the Dispositions section).">✕ Remove from Dispositions</button>
       </div>
@@ -3322,9 +3323,11 @@
             <button onclick="toggleDealContacts(event)" title="See this property's contact info (the seller/partner who submitted it)." style="position:absolute;top:calc(100% + 6px);right:0;border:1.5px solid #a5b4fc;background:transparent;border-radius:9px;font-size:26px;line-height:1;padding:6px 12px;cursor:pointer">📒</button>
             <!-- Submission-history box — same size as the notebook, sits to its left. -->
             <button onclick="toggleDealHistory(event)" title="Submission history for this property — owner / agent / wholesaler prices and dates. Manual price edits are not shown here." style="position:absolute;top:calc(100% + 6px);right:66px;border:1.5px solid #a5b4fc;background:transparent;border-radius:9px;font-size:26px;line-height:1;padding:6px 12px;cursor:pointer">📜</button>
+            <!-- Accounts box — sits to the left of Submission History. Always available. -->
+            <button id="uw-accounts-btn" onclick="_uwOpenAccountsModal()" title="Account Info — utility & tax accounts, direct personal connections, bridge & long-term financing providers for this property." style="position:absolute;top:calc(100% + 6px);right:132px;border:1.5px solid #a5b4fc;background:transparent;border-radius:9px;font-size:26px;line-height:1;padding:6px 12px;cursor:pointer">🧾</button>
             <!-- Lead type chips — float to the LEFT of the two boxes (out of flow, no gap). -->
-            <button type="button" id="uw-tags-btn" onclick="uwToggleTagged(event)" title="Tag this property (on/off). Filter tagged properties in the Hot ⚙️ settings." style="position:absolute;top:calc(100% + 12px);right:372px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-weight:600;font-size:13px;padding:6px 12px;cursor:pointer;white-space:nowrap">🏷️</button>
-            <span style="position:absolute;top:calc(100% + 12px);right:148px;display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px;white-space:nowrap" title="Tag this lead's source (Owner / Partner / Agent), then filter your lists by these using the matching chips at the top of each list.">
+            <button type="button" id="uw-tags-btn" onclick="uwToggleTagged(event)" title="Tag this property (on/off). Filter tagged properties in the Hot ⚙️ settings." style="position:absolute;top:calc(100% + 12px);right:438px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text-dim);font-weight:600;font-size:13px;padding:6px 12px;cursor:pointer;white-space:nowrap">🏷️</button>
+            <span style="position:absolute;top:calc(100% + 12px);right:214px;display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px;white-space:nowrap" title="Tag this lead's source (Owner / Partner / Agent), then filter your lists by these using the matching chips at the top of each list.">
               <button type="button" id="uw-lead-owner" onclick="uwSetLeadType('owner')" style="padding:6px 14px;border:none;cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Owner</button>
               <button type="button" id="uw-lead-partner" onclick="uwSetLeadType('partner')" style="padding:6px 14px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Partner</button>
               <button type="button" id="uw-lead-agent" onclick="uwSetLeadType('agent')" style="padding:6px 14px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">Agent</button>
@@ -6154,19 +6157,20 @@
   <div id="reno-table-wrap">
   <div class="panel p-5">
     <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
-      <div>
-        <div class="font-semibold text-lg">🔨 Renovation</div>
-        <div class="text-sm text-[var(--text-dim)]">Closed deals you're actively rehabbing. Add or remove properties from the Closed subview in Underwriting.</div>
+      <div class="flex items-center gap-3" style="flex-wrap:nowrap;min-width:0">
+        <div class="font-semibold text-lg" style="white-space:nowrap">🔨 Renovation</div>
+        <input id="reno-search" placeholder="Search by Street Address, City, or Contact Name" oninput="_hrOnSearch('renovation')">
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <input id="reno-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderRenovationList()" style="width:200px;min-width:160px">
+        <button id="reno-cal-btn" class="btn btn-ghost text-sm" onclick="_hrToggleCalendar('renovation')" title="Toggle calendar view">📅 Calendar</button>
         <button class="btn btn-ghost text-sm" onclick="renderRenovationList()" title="Refresh from cache">🔁 Refresh</button>
       </div>
     </div>
     <div id="reno-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
       No properties in Renovation yet. Open the <b>Underwriting → 🏁 Finalized</b> tab and click <b>🔨 Reno</b> on a deal to add it here.
     </div>
-    <div class="overflow-auto" style="max-height:600px">
+    <div id="reno-calendar" style="display:none"></div>
+    <div id="reno-table-scroll" class="overflow-auto" style="max-height:600px">
       <table style="width:100%;font-size:13px">
         <thead>
           <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
@@ -7137,19 +7141,20 @@
   <div id="hold-table-wrap">
   <div class="panel p-5">
     <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
-      <div>
-        <div class="font-semibold text-lg">🏘️ Holdings</div>
-        <div class="text-sm text-[var(--text-dim)]">Closed deals you currently own. Add or remove properties from the Closed subview in Underwriting.</div>
+      <div class="flex items-center gap-3" style="flex-wrap:nowrap;min-width:0">
+        <div class="font-semibold text-lg" style="white-space:nowrap">🏘️ Holdings</div>
+        <input id="hold-search" placeholder="Search by Street Address, City, or Contact Name" oninput="_hrOnSearch('holdings')">
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <input id="hold-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderHoldingsList()" style="width:200px;min-width:160px">
+        <button id="hold-cal-btn" class="btn btn-ghost text-sm" onclick="_hrToggleCalendar('holdings')" title="Toggle calendar view">📅 Calendar</button>
         <button class="btn btn-ghost text-sm" onclick="renderHoldingsList()" title="Refresh from cache">🔁 Refresh</button>
       </div>
     </div>
     <div id="hold-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
       No properties in Holdings yet. Open the <b>Underwriting → 🏁 Finalized</b> tab and click <b>🏘️ Hold</b> on a deal to add it here.
     </div>
-    <div class="overflow-auto" style="max-height:600px">
+    <div id="hold-calendar" style="display:none"></div>
+    <div id="hold-table-scroll" class="overflow-auto" style="max-height:600px">
       <table style="width:100%;font-size:13px">
         <thead>
           <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
@@ -19209,6 +19214,8 @@ function _uwCollect() {
           k === '_invoiceOriginal' || k === '_invoiceActive' || k === '_invoiceTab' || k === '_invoiceInclContractor' || k === '_invoicePaidDeposits' || k === '_externalInvoices' || k === '_constructionAgreements' ||
           // Form-submission log + auto-asking tracker (owner/partner submit forms).
           k === '_formSubmissions' || k === '_autoAsking' || k === '_fromForm' ||
+          // Utility / insurance / service account info (edited via the 🧾 Accounts modal).
+          k === '_propAccounts' ||
           // Property tag on/off flag (set via the 🏷️ tag button on the deal header).
           k === '_tagged' || k === '_tkRentalMo' ||
           // Geocode coordinates — written by _dispoGeocodeSubject directly
@@ -28015,6 +28022,15 @@ window._uwUpdateRenoPhaseSelector = _uwUpdateRenoPhaseSelector;
 // whether the loaded deal is currently routed to Renovation or Holdings.
 // Called from uwLoadById and after _holdingStatus changes.
 function _uwUpdateRemoveRoutingButton() {
+  // 🧾 Accounts button now lives in the deal header next to Submission History
+  // and is always available, so it is no longer toggled here.
+  // 🔨 Move to Renovation: only show when this deal is in Holdings.
+  try {
+    const _u = _uwCurrentId ? ((cache.underwrites || {})[_uwCurrentId]) : null;
+    const _h = _u && _u.data && _u.data._holdingStatus;
+    const _mvR = document.getElementById('uw-move-to-reno-btn');
+    if (_mvR) _mvR.style.display = (_h === 'holding') ? '' : 'none';
+  } catch (_) {}
   const btn = document.getElementById('uw-remove-routing-btn');
   if (!btn) return;
   // Dispo mode owns the Remove button — force the routing one hidden so
@@ -28035,6 +28051,12 @@ function _uwUpdateRemoveRoutingButton() {
   }
 }
 window._uwUpdateRemoveRoutingButton = _uwUpdateRemoveRoutingButton;
+// Move the currently-open Holdings deal back to Renovation.
+window.uwMoveCurrentToRenovation = function(){
+  if (typeof _uwCurrentId !== 'undefined' && _uwCurrentId && typeof uwSetHoldingStatus === 'function') {
+    uwSetHoldingStatus(_uwCurrentId, 'renovation');
+  }
+};
 
 // Click handler for Underwriting subview rows (Closed, Analyzing, etc.).
 // Stays inside Underwriting and switches to the calculator subtab.
@@ -28450,6 +28472,7 @@ function _hrRenderRow(u, view) {
     <td style="padding:8px 10px;min-width:160px;text-align:center">${timelineCell}</td>
     <td style="padding:8px 10px;min-width:160px;text-align:center">${budgetCell}</td>
     <td style="padding:8px 10px;text-align:right;white-space:nowrap" onclick="event.stopPropagation()">
+      <button class="btn text-xs" title="Account info — utilities, insurance, bridge loan" onclick="_uwOpenAccountsModal('${u.id}')" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);margin-right:6px">🧾</button>
       ${(u.data && u.data._holdingStatus === 'renovation') ? `<button class="btn text-xs" style="background:#10b981;color:white;border:1px solid #10b981" onclick="uwSetHoldingStatus('${u.id}', 'holding')" title="Promote this property to the Holdings tab">🏘️ Move to Holdings</button>` : ''}
     </td>
   </tr>`;
@@ -60102,6 +60125,315 @@ function _mapAreaOpenModal(area, isNew){
   };
 }
 window._mapAreaOpenModal=_mapAreaOpenModal; window._mapAreasPullAndRender=_mapAreasPullAndRender; window._mapRenderAreas=_mapRenderAreas;
+
+// ===== Per-property utility / insurance / service account info =====
+window._UW_ACCOUNT_GROUPS = [
+  { title:'⚡ Utility & Tax Accounts', color:'#60a5fa', items:[
+    ['electric','⚡ Electric'],['gas','🔥 Gas'],['water','💧 Water'],['sewer','🚽 Sewer'],
+    ['trash','🗑️ Trash'],['taxes','🏛️ Taxes']
+  ]},
+  { title:'🤝 Direct Personal Connections', color:'#34d399', items:[
+    ['pm','🧑‍💼 Property Manager'],['handyman','🔧 Handyman'],['yard','🌱 Yard Maintenance'],['snow','❄️ Snow Removal'],['insurance','🛡️ Insurance']
+  ]}
+];
+async function _uwOpenAccountsModal(id){
+  var _cid = id || ((typeof _uwCurrentId !== 'undefined') ? _uwCurrentId : (window._uwCurrentId || null));
+  if (!_cid){ if(typeof toast==='function') toast('Open a deal first to edit its account info.','warn'); return; }
+  var u = (typeof cache!=='undefined' && cache.underwrites) ? cache.underwrites[_cid] : null;
+  if(!u) return; u.data = u.data || {};
+  try { if (typeof loadLenders==='function') await loadLenders(); } catch(_){}
+  var acc = (u.data._propAccounts && typeof u.data._propAccounts==='object') ? u.data._propAccounts : {};
+  var old=document.getElementById('uw-accounts-modal'); if(old) old.remove();
+  var ov=document.createElement('div'); ov.id='uw-accounts-modal';
+  ov.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(8,11,20,0.6);display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow:auto';
+  var box=document.createElement('div');
+  box.style.cssText='background:var(--panel,#141a28);border:1px solid var(--border);border-radius:14px;padding:22px 24px;max-width:1040px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.55)';
+  var rowFor=function(s){
+    var k=s[0]; var v=acc[k]||{};
+    var inp=function(f,ph){ return '<input data-acc="'+k+'.'+f+'" value="'+_maEsc(v[f]||'')+'" placeholder="'+ph+'" style="width:100%;font-size:12.5px;padding:5px 7px">'; };
+    return '<tr>'
+      +'<td style="padding:4px 8px 4px 0;white-space:nowrap;font-size:12.5px;color:var(--text)">'+s[1]+'</td>'
+      +'<td style="padding:3px">'+inp('provider','Provider / Company')+'</td>'
+      +'<td style="padding:3px">'+inp('acct','Account #')+'</td>'
+      +'<td style="padding:3px">'+inp('phone','Phone')+'</td>'
+      +'<td style="padding:3px">'+inp('website','Website')+'</td>'
+      +'<td style="padding:3px">'+inp('notes','Login / notes')+'</td>'
+      +'</tr>';
+  };
+  var rows = window._UW_ACCOUNT_GROUPS.map(function(g){
+    var head='<tr><td colspan="6" style="padding:14px 0 5px;font-weight:800;font-size:12px;color:'+(g.color||'var(--text)')+';text-transform:uppercase;letter-spacing:0.4px;border-bottom:2px solid '+(g.color||'var(--border)')+'">'+g.title+'</td></tr>';
+    return head + g.items.map(rowFor).join('');
+  }).join('');
+  // ---- Bridge Loan section (its own field-grid, separate from the two groups) ----
+  var br = (acc._bridge && typeof acc._bridge==='object') ? acc._bridge : {};
+  var _bfield=function(label,f,ph,type,flex){
+    return '<div style="flex:'+(flex||'1 1 150px')+';min-width:100px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">'+label+'</label>'
+      +'<input data-acc="_bridge.'+f+'" '+(type?'type="'+type+'" ':'')+'value="'+_maEsc(br[f]||'')+'" placeholder="'+(ph||'')+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"></div>';
+  };
+  var _brow=function(fields){ return '<div style="display:flex;gap:10px 12px;flex-wrap:wrap;margin-bottom:10px">'+fields.join('')+'</div>'; };
+  // Saved-lenders dropdown (from the Connections → Lenders tab). Selecting one
+  // fills Lender Company Name / Phone / Email only.
+  var _lenderOpts='<option value="">▾</option>';
+  try {
+    var _ls=(typeof cache!=='undefined' && cache.lenders) ? Object.values(cache.lenders) : [];
+    _ls.sort(function(a,b){ return String((a&&a.name)||'').localeCompare(String((b&&b.name)||'')); });
+    _lenderOpts+=_ls.filter(function(l){return l&&l.name;}).map(function(l){ return '<option value="'+l.id+'">'+_maEsc(l.name)+'</option>'; }).join('');
+  } catch(_){}
+  var _blenderField=function(){
+    return '<div style="flex:2.2 1 240px;min-width:180px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Lender Company Name</label>'
+      +'<div style="display:flex;gap:0">'
+      +'<input data-acc="_bridge.companyName" value="'+_maEsc(br.companyName||'')+'" placeholder="" style="flex:1;min-width:0;font-size:12.5px;padding:5px 7px;box-sizing:border-box;border-top-right-radius:0;border-bottom-right-radius:0">'
+      +'<select onchange="_uwFillLenderFromSaved(this.value);this.selectedIndex=0" title="Pull from your saved lenders" style="flex:0 0 auto;width:30px;font-size:12.5px;padding:5px 2px;box-sizing:border-box;cursor:pointer;border-top-left-radius:0;border-bottom-left-radius:0;border-left:none">'+_lenderOpts+'</select>'
+      +'</div></div>';
+  };
+  var _bselect=function(label,f,opts){
+    var o='<option value="">—</option>'+opts.map(function(v){ var val=Array.isArray(v)?v[0]:v; var lab=Array.isArray(v)?v[1]:v; return '<option value="'+_maEsc(val)+'"'+((br[f]||'')===val?' selected':'')+'>'+_maEsc(lab)+'</option>'; }).join('');
+    return '<div style="flex:1 1 150px;min-width:120px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">'+label+'</label>'
+      +'<select data-acc="_bridge.'+f+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'+o+'</select></div>';
+  };
+  var _bdrawField=function(){
+    return '<div style="flex:1 1 150px;min-width:120px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Draw Cost / Taken</label>'
+      +'<div style="display:flex;gap:0">'
+      +'<input data-acc="_bridge.drawCost" value="'+_maEsc(br.drawCost||'')+'" placeholder="$" style="flex:1;min-width:0;font-size:12.5px;padding:5px 7px;box-sizing:border-box;border-top-right-radius:0;border-bottom-right-radius:0">'
+      +'<input data-acc="_bridge.drawsTaken" type="number" value="'+_maEsc(br.drawsTaken||'')+'" placeholder="#" title="Draws taken" style="flex:0 0 auto;width:52px;font-size:12.5px;padding:5px 4px;box-sizing:border-box;text-align:center;border-top-left-radius:0;border-bottom-left-radius:0;border-left:none">'
+      +'</div></div>';
+  };
+  var _bridgeHtml='<div style="margin-top:16px"><div style="font-weight:800;font-size:12px;color:#fbbf24;text-transform:uppercase;letter-spacing:0.4px;border-bottom:2px solid #fbbf24;padding-bottom:5px;margin-bottom:10px">🏦 Bridge Loan Provider</div>'
+    +_brow([_bfield('Title Company Name','titleCompany',''),_blenderField(),_bfield('Lender Contact Name','contactName',''),_bfield('Lender Phone','phone','','tel','0 1 110px'),_bfield('Lender Email','email','','email')])
+    +_brow([_bfield('Start Date','startDate','','date'),_bfield('Payoff Date','payoffDate','','date'),_bfield('Payment Date','paymentDate','e.g. 1st'),_bselect('Payment Type','paymentType',['Auto-Pay','Manual Pay']),_bfield('Loan Size','loanSize','$'),_bfield('After Repair Value','afterRepairValue','$')])
+    +_brow([_bfield('Origination Points','points','e.g. 2'),_bfield('Additional Fees','addlFees','$'),_bfield('Interest Rate','annualRate','e.g. 12'),_bfield('Monthly Payment','monthlyPayment','$'),_bdrawField(),_bselect('Draw Type','drawType',[['title_company','Title Company'],['in_house','In House']])])
+    +'</div>';
+  // ---- Long Term Financing (DSCR) section ----
+  var lt = (acc._longterm && typeof acc._longterm==='object') ? acc._longterm : {};
+  var _lfield=function(label,f,ph,type,flex){ return '<div style="flex:'+(flex||'1 1 150px')+';min-width:100px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">'+label+'</label><input data-acc="_longterm.'+f+'" '+(type?'type="'+type+'" ':'')+'value="'+_maEsc(lt[f]||'')+'" placeholder="'+(ph||'')+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"></div>'; };
+  var _lselect=function(label,f,opts){ var o='<option value="">—</option>'+opts.map(function(v){ var val=Array.isArray(v)?v[0]:v; var lab=Array.isArray(v)?v[1]:v; return '<option value="'+_maEsc(val)+'"'+((lt[f]||'')===val?' selected':'')+'>'+_maEsc(lab)+'</option>'; }).join(''); return '<div style="flex:1 1 150px;min-width:120px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">'+label+'</label><select data-acc="_longterm.'+f+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'+o+'</select></div>'; };
+  var _llenderField=function(){ return '<div style="flex:2.2 1 240px;min-width:180px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Lender Company Name</label><div style="display:flex;gap:0"><input data-acc="_longterm.companyName" value="'+_maEsc(lt.companyName||'')+'" style="flex:1;min-width:0;font-size:12.5px;padding:5px 7px;box-sizing:border-box;border-top-right-radius:0;border-bottom-right-radius:0"><select onchange="_uwFillLongtermFromSaved(this.value);this.selectedIndex=0" title="Pull from your saved lenders" style="flex:0 0 auto;width:30px;font-size:12.5px;padding:5px 2px;box-sizing:border-box;cursor:pointer;border-top-left-radius:0;border-bottom-left-radius:0;border-left:none">'+_lenderOpts+'</select></div></div>'; };
+  var _longtermHtml='<div style="margin-top:16px"><div style="font-weight:800;font-size:12px;color:#a78bfa;text-transform:uppercase;letter-spacing:0.4px;border-bottom:2px solid #a78bfa;padding-bottom:5px;margin-bottom:10px">🏢 Long Term Financing Provider</div>'
+    +_brow([_lfield('Title Company Name','titleCompany',''),_llenderField(),_lfield('Lender Contact Name','contactName',''),_lfield('Lender Phone','phone','','tel','0 1 110px'),_lfield('Lender Email','email','','email')])
+    +_brow([_lfield('Start Date','startDate','','date'),_lfield('Payoff Date','payoffDate','','date'),_lfield('Payment Date','paymentDate','e.g. 1st'),_lselect('Payment Type','paymentType',['Auto-Pay','Manual Pay']),_lfield('Loan Size','loanSize','$'),_lfield('After Repair Value','afterRepairValue','$')])
+    +_brow([_lfield('Origination Points','points','e.g. 1'),_lfield('Additional Fees','addlFees','$'),_lfield('Interest Rate','annualRate','e.g. 6.5'),_lfield('Monthly Payment','monthlyPayment','$')])
+    +'</div>';
+  box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="font-weight:800;font-size:16px">🧾 Account Info</div><button id="acc-x" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button></div>'
+   +'<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Utility, insurance &amp; service accounts for '+_maEsc(u.address||'this property')+'. Saved with the deal.</div>'
+   +'<div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr style="color:var(--text-dim);font-size:10.5px;text-transform:uppercase"><th style="text-align:left"></th><th style="text-align:left;padding:0 3px">Provider</th><th style="text-align:left;padding:0 3px">Account #</th><th style="text-align:left;padding:0 3px">Phone</th><th style="text-align:left;padding:0 3px">Website</th><th style="text-align:left;padding:0 3px">Login / Notes</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+   +_bridgeHtml
+   +_longtermHtml
+   +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><button id="acc-cancel" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:9px 16px;cursor:pointer">Cancel</button><button id="acc-save" style="background:var(--brand,#6366f1);color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700">Save</button></div>';
+  ov.appendChild(box); document.body.appendChild(ov);
+  var close=function(){ ov.remove(); };
+  ov.onclick=function(e){ if(e.target===ov) close(); };
+  box.querySelector('#acc-x').onclick=close;
+  box.querySelector('#acc-cancel').onclick=close;
+  box.querySelector('#acc-save').onclick=function(){
+    var obj={};
+    box.querySelectorAll('[data-acc]').forEach(function(el){
+      var parts=el.getAttribute('data-acc').split('.'); var k=parts[0], f=parts[1];
+      var val=(el.value||'').trim(); if(!val) return;
+      if(!obj[k]) obj[k]={}; obj[k][f]=val;
+    });
+    u.data._propAccounts = obj;
+    if (typeof _uwQueueAutosave==='function') _uwQueueAutosave(true);
+    else if (typeof uwSave==='function') uwSave(true);
+    if (typeof toast==='function') toast('Account info saved.','ok');
+    close();
+  };
+}
+window._uwOpenAccountsModal=_uwOpenAccountsModal;
+// Fill Lender Company Name / Phone / Email from a saved lender (Connections tab).
+window._uwFillLenderFromSaved=function(id){
+  if(!id) return;
+  var l = (typeof cache!=='undefined' && cache.lenders) ? cache.lenders[id] : null;
+  if(!l) return;
+  var m=document.getElementById('uw-accounts-modal'); if(!m) return;
+  var set=function(f,v){ var el=m.querySelector('[data-acc="_bridge.'+f+'"]'); if(el) el.value=(v==null?'':String(v)); };
+  set('companyName', l.name);
+  set('contactName', l.rep_name);
+  set('phone', l.phone);
+  set('email', l.email);
+  // Bridge terms from the lender's saved bridge profile.
+  if (l.bridge_orig_pct != null && l.bridge_orig_pct !== '') set('points', l.bridge_orig_pct);
+  if (l.bridge_rate_pct != null && l.bridge_rate_pct !== '') set('annualRate', l.bridge_rate_pct);
+  var _fees = (Number(l.bridge_proc_fee)||0) + (Number(l.bridge_junk_fee)||0);
+  if (_fees > 0) set('addlFees', _fees);
+  // Draw fee comes from the lender's inspection fee — fill even when it's 0.
+  if (l.bridge_insp_fee != null && l.bridge_insp_fee !== '') set('drawCost', l.bridge_insp_fee);
+  if (l.bridge_draw_type != null && String(l.bridge_draw_type).trim()) set('drawType', l.bridge_draw_type);
+};
+// Fill the Long Term Financing section from a saved lender's DSCR profile.
+window._uwFillLongtermFromSaved=function(id){
+  if(!id) return;
+  var l = (typeof cache!=='undefined' && cache.lenders) ? cache.lenders[id] : null;
+  if(!l) return;
+  var m=document.getElementById('uw-accounts-modal'); if(!m) return;
+  var set=function(f,v){ var el=m.querySelector('[data-acc="_longterm.'+f+'"]'); if(el) el.value=(v==null?'':String(v)); };
+  set('companyName', l.name);
+  set('contactName', l.rep_name);
+  set('phone', l.phone);
+  set('email', l.email);
+  if (l.dscr_orig_pct != null && l.dscr_orig_pct !== '') set('points', l.dscr_orig_pct);
+  if (l.dscr_rate_pct != null && l.dscr_rate_pct !== '') set('annualRate', l.dscr_rate_pct);
+  var _lf = (Number(l.dscr_proc_fee)||0) + (Number(l.dscr_junk_fee)||0);
+  if (_lf > 0) set('addlFees', _lf);
+};
+</script>
+<script>
+// ===== Renovation / Holdings inline calendar view =====
+(function(){
+  var _CFG = {
+    renovation: { cal:'reno-calendar', scroll:'reno-table-scroll', empty:'reno-empty', btn:'reno-cal-btn', search:'reno-search', hs:'renovation' },
+    holdings:   { cal:'hold-calendar', scroll:'hold-table-scroll', empty:'hold-empty', btn:'hold-cal-btn', search:'hold-search', hs:'holding' }
+  };
+  window._hrCalState = window._hrCalState || { renovation:{on:false,month:null}, holdings:{on:false,month:null} };
+  function _esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function _parseDate(s){ if(!s) return null; s=String(s).trim(); var m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return new Date(+m[1],+m[2]-1,+m[3]); var d=new Date(s); return isNaN(d.getTime())?null:d; }
+  function _dayOfMonth(s){ if(!s) return 0; var n=parseInt(String(s).replace(/\D/g,''),10); return (n>=1&&n<=31)?n:0; }
+  function _fmtMonth(dt){ return dt.toLocaleString('en-US',{month:'long',year:'numeric'}); }
+  function _hrCalDeals(view){
+    var cfg=_CFG[view]; var out=[];
+    if(typeof cache==='undefined' || !cache.underwrites) return out;
+    var q=''; var se=document.getElementById(cfg.search); if(se) q=String(se.value||'').toLowerCase().trim();
+    Object.keys(cache.underwrites).forEach(function(k){ var u=cache.underwrites[k];
+      if(!u||!u.data||u.data._holdingStatus!==cfg.hs) return;
+      if(q){ var hay=((u.address||'')+' '+(u.city||'')+' '+(u.state||'')+' '+(u.zip||'')).toLowerCase(); if(hay.indexOf(q)===-1) return; }
+      out.push(u);
+    });
+    return out;
+  }
+  function _hrCalFixedEvents(view){
+    var evs=[];
+    _hrCalDeals(view).forEach(function(u){
+      var addr=u.address||'Deal';
+      var acc=(u.data._propAccounts&&typeof u.data._propAccounts==='object')?u.data._propAccounts:{};
+      var push=function(d,color,icon,label){ var dt=_parseDate(d); if(dt) evs.push({date:dt,color:color,icon:icon,label:label+' - '+addr}); };
+      push(u.data['uw-closed-on']||u.updated_at,'#f97316','🏁','Closed');
+      try {
+        var start=u.data['uw-closed-on']||u.data['uw-reno-start']||(u.created_at?String(u.created_at).slice(0,10):'');
+        var days=(typeof _uwTimelineGetAutoDays==='function')?_uwTimelineGetAutoDays(u.data):0;
+        var sd=_parseDate(start);
+        if(sd&&days>0){
+          days=Math.round(days);
+          var listedMo=parseFloat(String(u.data['uw-fl-listed-mo']||'').replace(/,/g,''))||2.5;
+          var listedDays=Math.round(listedMo*30);
+          var renoDays=Math.max(0, days-listedDays);
+          var comp=new Date(sd.getTime()); comp.setDate(comp.getDate()+renoDays);
+          evs.push({date:comp,color:'#eab308',icon:'🔨',label:'Projected Completion - '+addr});
+          var exit=new Date(sd.getTime()); exit.setDate(exit.getDate()+days);
+          evs.push({date:exit,color:'#f472b6',icon:'🚪',label:'Projected Exit - '+addr});
+        }
+      } catch(e){}
+      var b=acc._bridge||{}, l=acc._longterm||{};
+      push(b.startDate,'#3b82f6','🏦','Bridge start');
+      push(b.payoffDate,'#ef4444','🏦','Bridge payoff');
+      push(l.startDate,'#a78bfa','🏢','Long-term start');
+      push(l.payoffDate,'#ef4444','🏢','Long-term payoff');
+    });
+    return evs;
+  }
+  // Contractor invoices (Invoices section). Needs the shared invoice cache;
+  // returns [] until it's loaded (a background load triggers a re-render).
+  var _hrInvLoadTried=false;
+  function _hrCalInvoices(view){
+    var out=[];
+    var data=window._renoInvoicesData;
+    if(!data){
+      if(!_hrInvLoadTried && typeof sb!=='undefined' && sb){
+        _hrInvLoadTried=true;
+        Promise.all([sb.from('invoice_requests').select('*'), sb.from('invoice_responses').select('*')]).then(function(r){
+          var reqMap={}; ((r[0]&&r[0].data)||[]).forEach(function(x){ if(x&&x.id) reqMap[x.id]=x; });
+          window._renoInvoicesData={reqMap:reqMap, responses:((r[1]&&r[1].data)||[])};
+          var st=window._hrCalState&&window._hrCalState[view];
+          if(st&&st.on) _hrRenderCalendar(view);
+        }).catch(function(){});
+      }
+      return out;
+    }
+    var ids={}; _hrCalDeals(view).forEach(function(u){ if(u&&u.id) ids[u.id]=(u.address||'Deal'); });
+    (data.responses||[]).forEach(function(resp){
+      if(!resp) return;
+      var req=(data.reqMap||{})[resp.invoice_request_id]||{};
+      var uwid=req.underwrite_id||'';
+      if(!ids[uwid]) return;
+      var dt=_parseDate(resp.submitted_at); if(!dt) return;
+      // Type comes from the invoice STATUS ("Request for Deposit / Line Item(s) / Completion").
+      var type=String(resp.contractor_start||'').replace(/^\s*request\s+for\s*/i,'').trim() || 'Invoice';
+      var amt=(resp.total!=null)?(' $'+Math.round(parseFloat(resp.total)||0).toLocaleString()):'';
+      var lbl=type+amt+' - '+ids[uwid];
+      out.push({date:dt,color:'#22d3ee',icon:'📄',label:lbl});
+    });
+    return out;
+  }
+  function _hrCalPayments(view){
+    var out=[];
+    _hrCalDeals(view).forEach(function(u){
+      var addr=u.address||'Deal';
+      var acc=(u.data._propAccounts&&typeof u.data._propAccounts==='object')?u.data._propAccounts:{};
+      var b=acc._bridge||{}, l=acc._longterm||{};
+      var bd=_dayOfMonth(b.paymentDate); if(bd) out.push({day:bd,color:'#10b981',icon:'💵',label:'Bridge payment - '+addr});
+      var ld=_dayOfMonth(l.paymentDate); if(ld) out.push({day:ld,color:'#10b981',icon:'💵',label:'LT payment - '+addr});
+    });
+    return out;
+  }
+  window._hrCalNav=function(view,delta){ var st=window._hrCalState[view]; if(!st.month) st.month=new Date(); st.month=new Date(st.month.getFullYear(),st.month.getMonth()+delta,1); _hrRenderCalendar(view); };
+  window._hrCalJump=function(view,val){ if(!val) return; var m=String(val).match(/^(\d{4})-(\d{2})-(\d{2})/); if(!m) return; var st=window._hrCalState[view]; st.month=new Date(+m[1],+m[2]-1,1); _hrRenderCalendar(view); };
+  function _hrRenderCalendar(view){
+    var cfg=_CFG[view]; var host=document.getElementById(cfg.cal); if(!host) return;
+    var st=window._hrCalState[view]; if(!st.month) st.month=new Date();
+    var y=st.month.getFullYear(), mo=st.month.getMonth();
+    var startDow=new Date(y,mo,1).getDay();
+    var daysInMonth=new Date(y,mo+1,0).getDate();
+    var today=new Date(); var isTodayMonth=(today.getFullYear()===y&&today.getMonth()===mo);
+    var byDay={};
+    _hrCalFixedEvents(view).forEach(function(e){ if(e.date.getFullYear()===y&&e.date.getMonth()===mo){ var d=e.date.getDate(); (byDay[d]=byDay[d]||[]).push(e); } });
+    _hrCalInvoices(view).forEach(function(e){ if(e.date.getFullYear()===y&&e.date.getMonth()===mo){ var d=e.date.getDate(); (byDay[d]=byDay[d]||[]).push(e); } });
+    _hrCalPayments(view).forEach(function(p){ (byDay[p.day]=byDay[p.day]||[]).push(p); });
+    var dow=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var mval=y+'-'+String(mo+1).padStart(2,'0')+'-01';
+    var h='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">'
+      +'<input type="date" value="'+mval+'" onchange="_hrCalJump(\''+view+'\',this.value)" title="Jump to a date" style="width:172px;height:34px">'
+      +'<div style="font-weight:700;font-size:15px">'+_esc(_fmtMonth(st.month))+'</div>'
+      +'<div style="display:flex;gap:6px">'
+      +'<button class="btn btn-ghost text-sm" onclick="_hrCalNav(\''+view+'\',-1)">◀ Prev</button>'
+      +'<button class="btn btn-ghost text-sm" onclick="_hrCalNav(\''+view+'\',1)">Next ▶</button></div></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">';
+    dow.forEach(function(d){ h+='<div style="text-align:center;font-size:11px;color:var(--text-dim);text-transform:uppercase;padding:2px">'+d+'</div>'; });
+    for(var i=0;i<startDow;i++){ h+='<div></div>'; }
+    for(var day=1;day<=daysInMonth;day++){
+      var evs=byDay[day]||[];
+      var isToday=isTodayMonth&&today.getDate()===day;
+      var evHtml=evs.map(function(e){ return '<div title="'+_esc(e.label)+'" style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:'+e.color+'22;color:'+e.color+';border-left:2px solid '+e.color+';border-radius:3px;padding:1px 3px;margin-top:2px">'+e.icon+' '+_esc(e.label)+'</div>'; }).join('');
+      h+='<div style="min-height:76px;border:1px solid var(--border);border-radius:6px;padding:3px;background:'+(isToday?'rgba(99,102,241,0.10)':'var(--panel-2)')+';overflow:hidden">'
+        +'<div style="font-size:11px;font-weight:600;color:'+(isToday?'#a5b4fc':'var(--text-dim)')+'">'+day+'</div>'+evHtml+'</div>';
+    }
+    h+='</div>';
+    h+='<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--text-dim)"><span>🏁 Closed</span><span>🔨 Projected Completion</span><span>🚪 Projected Exit</span><span>🏦 Bridge</span><span>🏢 Long-term</span><span>💵 Payment</span><span>📄 Invoice</span></div>';
+    host.innerHTML=h;
+  }
+  window._hrRenderCalendar=_hrRenderCalendar;
+  window._hrToggleCalendar=function(view){
+    var cfg=_CFG[view]; var st=window._hrCalState[view]; st.on=!st.on; if(!st.month) st.month=new Date();
+    var scroll=document.getElementById(cfg.scroll), cal=document.getElementById(cfg.cal), empty=document.getElementById(cfg.empty), btn=document.getElementById(cfg.btn);
+    if(st.on){
+      if(scroll) scroll.style.display='none';
+      if(empty) empty.style.display='none';
+      if(cal) cal.style.display='';
+      if(btn){ btn.textContent='📋 Table'; btn.title='Back to table view'; }
+      _hrRenderCalendar(view);
+    } else {
+      if(cal) cal.style.display='none';
+      if(scroll) scroll.style.display='';
+      if(btn){ btn.textContent='📅 Calendar'; btn.title='Toggle calendar view'; }
+      if(view==='renovation'&&typeof renderRenovationList==='function') renderRenovationList();
+      else if(view==='holdings'&&typeof renderHoldingsList==='function') renderHoldingsList();
+    }
+  };
+  // Search box: when the calendar is open, filter the calendar instead of the table.
+  window._hrOnSearch=function(view){
+    var st=window._hrCalState&&window._hrCalState[view];
+    if(st&&st.on){ _hrRenderCalendar(view); return; }
+    if(view==='renovation'&&typeof renderRenovationList==='function') renderRenovationList();
+    else if(view==='holdings'&&typeof renderHoldingsList==='function') renderHoldingsList();
+  };
+})();
 </script>
 </body>
 </html>

@@ -31618,6 +31618,15 @@ window._dispoToggleBuyerMap = function () {
         window._dispoMapObj.on(L.Draw.Event.EDITED, function () { window._dispoRenderBuyerMap(); });
         window._dispoMapObj.on(L.Draw.Event.DELETED, function () { window._dispoBoundaryLayer = null; window._dispoUseBoundary = false; window._dispoRenderBuyerMap(); });
       }
+      // Read-only custom-area overlays (drawn on the big Maps tab) + a toggle.
+      try {
+        var AreasCtlD = L.Control.extend({ options: { position: 'topleft' }, onAdd: function () {
+          var d = L.DomUtil.create('div', 'leaflet-bar');
+          d.innerHTML = '<button id="dispo-areas-toggle" onclick="_mapToggleAreas()" title="Hide custom areas" style="width:34px;height:34px;border:none;background:rgba(59,130,246,0.22);color:#1d4ed8;font-size:15px;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center">🗺️</button>';
+          L.DomEvent.disableClickPropagation(d); return d;
+        } });
+        window._dispoMapObj.addControl(new AreasCtlD());
+      } catch (e) {}
     }
     // A map created inside a hidden container needs a size recalc once shown.
     setTimeout(function () {
@@ -31630,6 +31639,7 @@ window._dispoToggleBuyerMap = function () {
       }
       _dispoMapUpdateLockBtn();
       window._dispoRenderBuyerMap();
+      if (typeof _mapAreasEnsureDispo === 'function') _mapAreasEnsureDispo();
     }, 60);
   });
 };
@@ -32049,8 +32059,35 @@ window._mapSectionOpen = function () {
           });
           window._mapSectionObj.addControl(new LockCtl());
         } catch (e) {}
+        // ---- Custom buy-area outlines: draw + saved polygons ----
+        try {
+          window._mapAreasLayer = new L.FeatureGroup().addTo(window._mapSectionObj);
+          if (L.Control && L.Control.Draw) {
+            var _areaDraw = new L.Control.Draw({
+              position: 'topleft',
+              draw: { polygon: { allowIntersection: false, shapeOptions: { color: '#3b82f6', weight: 2 } }, rectangle: { shapeOptions: { color: '#3b82f6', weight: 2 } }, polyline: false, circle: false, marker: false, circlemarker: false },
+              edit: false
+            });
+            window._mapSectionObj.addControl(_areaDraw);
+            window._mapSectionObj.on(L.Draw.Event.CREATED, function (e) {
+              try {
+                var pts = e.layer.getLatLngs();
+                var ring = Array.isArray(pts[0]) ? pts[0] : pts;
+                var coords = ring.map(function (p) { return [p.lat, p.lng]; });
+                if (typeof _mapAreaOpenModal === 'function') _mapAreaOpenModal({ id: (typeof uid === 'function' ? uid() : String(Date.now())), name: '', cls: '', strat: '', flood: '', coords: coords }, true);
+              } catch (err) { console.warn('[map area] create', err); }
+            });
+          }
+          // Toggle button to show/hide the custom areas.
+          var AreasCtl = L.Control.extend({ options: { position: 'topleft' }, onAdd: function () {
+            var d = L.DomUtil.create('div', 'leaflet-bar');
+            d.innerHTML = '<button id="map-areas-toggle" onclick="_mapToggleAreas()" title="Hide custom areas" style="width:34px;height:34px;border:none;background:rgba(59,130,246,0.22);color:#1d4ed8;font-size:15px;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center">🗺️</button>';
+            L.DomEvent.disableClickPropagation(d); return d;
+          } });
+          window._mapSectionObj.addControl(new AreasCtl());
+        } catch (e) {}
       }
-      setTimeout(function () { if (window._mapSectionObj) window._mapSectionObj.invalidateSize(); window._mapSectionRender(firstBuild); }, 60);
+      setTimeout(function () { if (window._mapSectionObj) window._mapSectionObj.invalidateSize(); window._mapSectionRender(firstBuild); if (typeof _mapAreasPullAndRender === 'function') _mapAreasPullAndRender(); }, 60);
     });
   });
 };
@@ -59940,6 +59977,131 @@ window.renderPlanSection = renderPlanSection;
 function openPlan(){ if (typeof goSection === 'function') goSection('plan'); }
 function closePlan(){ /* Plan is a section now — leaving the tab hides it. */ }
 window.openPlan = openPlan; window.closePlan = closePlan;
+</script>
+<script>
+// ===== Map buy-area outlines — draw a shape, name it, tag class / strategy /
+// flood zone, and see it shaded on the map. Visual only (not wired to deals).
+// Shared across devices via app_config.column_mappings.map_areas. =====
+window._mapAreas = window._mapAreas || [];
+const _MAP_STRAT = { flip:{label:'🔨 Flip', color:'#3b82f6'}, hold:{label:'🏠 Hold', color:'#10b981'}, avoid:{label:'🚫 Avoid', color:'#ef4444'} };
+function _maEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function _mapAreaColor(a){ if(a && a.type==='flood') return '#06b6d4'; var s=_MAP_STRAT[a && a.strat]; return s ? s.color : '#94a3b8'; }
+async function _mapAreasPullAndRender(){
+  try {
+    if (typeof sb !== 'undefined' && sb) {
+      const { data } = await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle();
+      const arr = data && data.column_mappings && data.column_mappings.map_areas;
+      if (Array.isArray(arr)) window._mapAreas = arr;
+    }
+  } catch(_){}
+  _mapRenderAreas();
+}
+function _mapAreasSync(){ if (typeof _uwCfgMerge==='function') _uwCfgMerge({ map_areas: window._mapAreas }); }
+// Generic renderer — draws every saved area onto ANY Leaflet map/layer.
+// editable=true wires click-to-edit (Maps tab); false = read-only (per-deal map).
+window._mapAreasVisible = (window._mapAreasVisible !== false);
+function _mapToggleAreas(){
+  window._mapAreasVisible = !window._mapAreasVisible;
+  try { _mapRenderAreas(); } catch(_){}
+  try { _mapRenderAreasDispo(); } catch(_){}
+  ['map-areas-toggle','dispo-areas-toggle'].forEach(function(id){
+    var b=document.getElementById(id); if(!b) return;
+    var on = window._mapAreasVisible;
+    b.style.background = on ? 'rgba(59,130,246,0.22)' : '#fff';
+    b.style.color = on ? '#1d4ed8' : '#6b7280';
+    b.title = on ? 'Hide custom areas' : 'Show custom areas';
+  });
+}
+window._mapToggleAreas = _mapToggleAreas;
+function _mapDrawAreasOn(mapObj, lg, editable){
+  if (!mapObj || !lg || typeof L === 'undefined') return;
+  lg.clearLayers();
+  if (window._mapAreasVisible === false) return;
+  (window._mapAreas||[]).forEach(function(a){
+    if (!a || !Array.isArray(a.coords) || a.coords.length < 3) return;
+    var col = _mapAreaColor(a);
+    var isFlood = a.type === 'flood';
+    var poly = L.polygon(a.coords, { color: col, weight: 2, fillColor: col, fillOpacity: isFlood ? 0.12 : 0.15, dashArray: isFlood ? '6,4' : null, interactive: true });
+    var bits = [];
+    if (a.name) bits.push('<b>'+_maEsc(a.name)+'</b>');
+    if (isFlood) { bits.push('🌊 Flood' + (a.flood ? ' Zone '+_maEsc(a.flood) : '')); }
+    else {
+      if (a.cls) bits.push('Class '+_maEsc(a.cls));
+      if (a.strat && _MAP_STRAT[a.strat]) bits.push(_MAP_STRAT[a.strat].label);
+    }
+    if (bits.length) poly.bindTooltip(bits.join(' · '), { sticky:true });
+    if (editable) poly.on('click', function(){ _mapAreaOpenModal(a, false); });
+    lg.addLayer(poly);
+  });
+}
+function _mapRenderAreas(){ _mapDrawAreasOn(window._mapSectionObj, window._mapAreasLayer, true); }
+// Read-only render on the per-deal Dispositions buyer map.
+function _mapRenderAreasDispo(){
+  if (!window._dispoMapObj) return;
+  if (!window._dispoAreasLayer) { try { window._dispoAreasLayer = new L.FeatureGroup().addTo(window._dispoMapObj); } catch(_){ return; } }
+  _mapDrawAreasOn(window._dispoMapObj, window._dispoAreasLayer, false);
+}
+// Pull the shared areas (if not already loaded) then render on the dispo map.
+async function _mapAreasEnsureDispo(){
+  if (!(window._mapAreas && window._mapAreas.length)) {
+    try {
+      if (typeof sb !== 'undefined' && sb) {
+        const { data } = await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle();
+        const arr = data && data.column_mappings && data.column_mappings.map_areas;
+        if (Array.isArray(arr)) window._mapAreas = arr;
+      }
+    } catch(_){}
+  }
+  _mapRenderAreasDispo();
+}
+window._mapRenderAreasDispo = _mapRenderAreasDispo; window._mapAreasEnsureDispo = _mapAreasEnsureDispo;
+function _mapAreaOpenModal(area, isNew){
+  var old=document.getElementById('map-area-modal'); if(old) old.remove();
+  var ov=document.createElement('div'); ov.id='map-area-modal';
+  ov.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(8,11,20,0.6);display:flex;align-items:center;justify-content:center;padding:20px';
+  var clsOpts=['','A','B','C','D','F'].map(function(c){return '<option value="'+c+'"'+((area.cls||'')===c?' selected':'')+'>'+(c===''?'—':c)+'</option>';}).join('');
+  var stratOpts=[['','—'],['flip','🔨 Flip'],['hold','🏠 Hold'],['avoid','🚫 Avoid']].map(function(o){return '<option value="'+o[0]+'"'+((area.strat||'')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('');
+  var floodOpts=['','X','A','AE','AH','AO','VE','D'].map(function(z){return '<option value="'+z+'"'+((area.flood||'')===z?' selected':'')+'>'+(z===''?'—':'Zone '+z)+'</option>';}).join('');
+  var box=document.createElement('div');
+  box.style.cssText='background:var(--panel,#141a28);border:1px solid var(--border);border-radius:14px;padding:22px 24px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.55)';
+  var isFl = (area.type === 'flood');
+  var typeOpts=[['neighborhood','🏘️ Neighborhood / Area'],['flood','🌊 Flood Zone']].map(function(o){return '<option value="'+o[0]+'"'+((area.type||'neighborhood')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('');
+  box.innerHTML='<div style="font-weight:800;font-size:16px;margin-bottom:14px">'+(isNew?'🗺️ New Overlay':'🗺️ Edit Overlay')+'</div>'
+   +'<label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">What is this?</label>'
+   +'<select id="ma-type" style="width:100%;margin-bottom:12px" onchange="var f=this.value===\'flood\';var nb=document.getElementById(\'ma-grp-nb\');var fl=document.getElementById(\'ma-grp-fl\');if(nb)nb.style.display=f?\'none\':\'\';if(fl)fl.style.display=f?\'\':\'none\';">'+typeOpts+'</select>'
+   +'<label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Name</label>'
+   +'<input id="ma-name" value="'+_maEsc(area.name||'')+'" placeholder="e.g. Fountain Square" style="width:100%;margin-bottom:12px">'
+   +'<div id="ma-grp-nb" style="display:'+(isFl?'none':'')+'"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">'
+   +'<div><label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Class</label><select id="ma-cls" style="width:100%">'+clsOpts+'</select></div>'
+   +'<div><label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Strategy</label><select id="ma-strat" style="width:100%">'+stratOpts+'</select></div>'
+   +'</div></div>'
+   +'<div id="ma-grp-fl" style="display:'+(isFl?'':'none')+'"><label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Flood zone</label>'
+   +'<select id="ma-flood" style="width:100%;margin-bottom:18px">'+floodOpts+'</select></div>'
+   +'<div style="display:flex;justify-content:space-between;gap:8px">'
+   +'<button id="ma-del" style="background:none;border:1px solid rgba(239,68,68,0.5);color:#f87171;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:12px'+(isNew?';visibility:hidden':'')+'">🗑 Delete</button>'
+   +'<div style="display:flex;gap:8px"><button id="ma-cancel" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:9px 16px;cursor:pointer">Cancel</button>'
+   +'<button id="ma-save" style="background:var(--brand,#6366f1);color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700">Save</button></div>'
+   +'</div>';
+  ov.appendChild(box); document.body.appendChild(ov);
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  box.querySelector('#ma-cancel').onclick=function(){ ov.remove(); };
+  box.querySelector('#ma-save').onclick=function(){
+    area.type=box.querySelector('#ma-type').value;
+    area.name=box.querySelector('#ma-name').value.trim();
+    area.cls=box.querySelector('#ma-cls').value;
+    area.strat=box.querySelector('#ma-strat').value;
+    area.flood=box.querySelector('#ma-flood').value;
+    area.updated_at=new Date().toISOString();
+    if(isNew){ area.created_at=area.updated_at; window._mapAreas.push(area); }
+    _mapAreasSync(); _mapRenderAreas(); ov.remove();
+  };
+  var del=box.querySelector('#ma-del'); if(del) del.onclick=function(){
+    if(!confirm('Delete this area?')) return;
+    window._mapAreas=(window._mapAreas||[]).filter(function(x){return x.id!==area.id;});
+    _mapAreasSync(); _mapRenderAreas(); ov.remove();
+  };
+}
+window._mapAreaOpenModal=_mapAreaOpenModal; window._mapAreasPullAndRender=_mapAreasPullAndRender; window._mapRenderAreas=_mapRenderAreas;
 </script>
 </body>
 </html>

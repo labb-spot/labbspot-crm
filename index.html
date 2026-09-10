@@ -60129,11 +60129,15 @@ window._mapAreaOpenModal=_mapAreaOpenModal; window._mapAreasPullAndRender=_mapAr
 // ===== Per-property utility / insurance / service account info =====
 window._UW_ACCOUNT_GROUPS = [
   { title:'⚡ Utility & Tax Accounts', color:'#60a5fa', items:[
-    ['electric','⚡ Electric'],['gas','🔥 Gas'],['water','💧 Water'],['sewer','🚽 Sewer'],
+    ['internet','🌐 Internet'],['electric','⚡ Electric'],['gas','🔥 Gas'],['water','💧 Water'],['sewer','🚽 Sewer'],
     ['trash','🗑️ Trash'],['taxes','🏛️ Taxes']
   ]},
+  { title:'🏚️ Property Details', color:'#f87171', single:true, items:[
+    ['doorcode','🔑 Door Code'],['paint','🎨 Paint Colors Information'],
+    ['countertops','🪨 Countertops Information'],['flooring','🪵 Flooring & Tile Information']
+  ]},
   { title:'🤝 Direct Personal Connections', color:'#34d399', items:[
-    ['pm','🧑‍💼 Property Manager'],['handyman','🔧 Handyman'],['yard','🌱 Yard Maintenance'],['snow','❄️ Snow Removal'],['insurance','🛡️ Insurance']
+    ['pm','🧑‍💼 Property Manager'],['cleaner','🧹 Cleaner'],['handyman','🔧 Handyman'],['pest','🐜 Pest Control'],['yard','🌱 Yard Maintenance'],['snow','❄️ Snow Removal'],['insurance','🛡️ Insurance']
   ]}
 ];
 async function _uwOpenAccountsModal(id){
@@ -60160,9 +60164,16 @@ async function _uwOpenAccountsModal(id){
       +'<td style="padding:3px">'+inp('notes','Login / notes')+'</td>'
       +'</tr>';
   };
+  var rowForSingle=function(s){
+    var k=s[0]; var v=acc[k]||{};
+    return '<tr>'
+      +'<td style="padding:4px 8px 4px 0;white-space:nowrap;font-size:12.5px;color:var(--text)">'+s[1]+'</td>'
+      +'<td colspan="5" style="padding:3px"><input data-acc="'+k+'.value" value="'+_maEsc(v.value||'')+'" placeholder="Enter '+_maEsc(s[1].replace(/^\S+\s*/,''))+'" style="width:100%;font-size:12.5px;padding:5px 7px"></td>'
+      +'</tr>';
+  };
   var rows = window._UW_ACCOUNT_GROUPS.map(function(g){
     var head='<tr><td colspan="6" style="padding:14px 0 5px;font-weight:800;font-size:12px;color:'+(g.color||'var(--text)')+';text-transform:uppercase;letter-spacing:0.4px;border-bottom:2px solid '+(g.color||'var(--border)')+'">'+g.title+'</td></tr>';
-    return head + g.items.map(rowFor).join('');
+    return head + g.items.map(g.single?rowForSingle:rowFor).join('');
   }).join('');
   // ---- Bridge Loan section (its own field-grid, separate from the two groups) ----
   var br = (acc._bridge && typeof acc._bridge==='object') ? acc._bridge : {};
@@ -60215,7 +60226,7 @@ async function _uwOpenAccountsModal(id){
     +'</div>';
   box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="font-weight:800;font-size:16px">🧾 Account Info</div><button id="acc-x" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button></div>'
    +'<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Utility, insurance &amp; service accounts for '+_maEsc(u.address||'this property')+'. Saved with the deal.</div>'
-   +'<div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr style="color:var(--text-dim);font-size:10.5px;text-transform:uppercase"><th style="text-align:left"></th><th style="text-align:left;padding:0 3px">Provider</th><th style="text-align:left;padding:0 3px">Account #</th><th style="text-align:left;padding:0 3px">Phone</th><th style="text-align:left;padding:0 3px">Website</th><th style="text-align:left;padding:0 3px">Login / Notes</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+   +'<div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><tbody>'+rows+'</tbody></table></div>'
    +_bridgeHtml
    +_longtermHtml
    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><button id="acc-cancel" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:9px 16px;cursor:pointer">Cancel</button><button id="acc-save" style="background:var(--brand,#6366f1);color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700">Save</button></div>';

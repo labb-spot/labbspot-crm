@@ -5082,7 +5082,7 @@
         <div class="text-xs" style="color:var(--text-dim);margin-bottom:10px">This list mirrors your <b>Original Invoice List</b> plus anything you add here. Edit amounts freely — your edits and added items are kept.</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
           <button class="btn btn-ghost text-sm" onclick="uwInvActiveAddRow()" title="Add a blank line item to the Active list (on top of the Original items).">+ Add item</button>
-          <button class="btn btn-ghost text-sm" id="uw-inv-reapply-btn" onclick="uwInvReapplyInvoices()" title="Re-pull the contractor-submitted invoices from the server and refresh the invoiced amounts, Paid totals, and the Mismatch section.">🔄 Reapply Invoices</button>
+          <button class="btn btn-ghost text-sm" id="uw-inv-reapply-btn" onclick="uwInvReapplyInvoices()" title="Re-pull the contractor-submitted invoices from the server and refresh the invoiced amounts, Paid totals, and the Mismatch section.">🔄 Refresh Invoices</button>
           <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;border:1.5px solid rgba(124,58,237,0.55);background:rgba(124,58,237,0.10);border-radius:8px;padding:7px 12px" title="Merge in the line items from contractor bids you marked Accepted. If you already have an item, it just gets tagged as a contractor's; items only they have are added and tagged."><input type="checkbox" id="uw-inv-incl-contractor" onchange="uwInvActiveToggleContractor(this.checked)" style="width:15px;height:15px;cursor:pointer;accent-color:#7c3aed"> 👷 Include Contractor Quotes</label>
         </div>
         <div id="uw-inv-active-list"></div>
@@ -28115,7 +28115,7 @@ async function uwInvReapplyInvoices(){
     if(typeof _uwBudgetUpdateBar==='function') _uwBudgetUpdateBar();
     if(typeof toast==='function') toast('Invoices reapplied — amounts, Paid, and mismatches refreshed.','ok');
   } catch(e){ console.warn('reapply invoices', e); if(typeof toast==='function') toast('Could not reapply invoices.','err'); }
-  if(btn){ btn.disabled=false; btn.textContent=_t||'🔄 Reapply Invoices'; }
+  if(btn){ btn.disabled=false; btn.textContent=_t||'🔄 Refresh Invoices'; }
 }
 window.uwInvReapplyInvoices = uwInvReapplyInvoices;
 

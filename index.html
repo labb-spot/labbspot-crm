@@ -8084,6 +8084,26 @@
       z-index: 2147483000 !important;
     }
     #section-sop.sop-editing .sop-box.sop-small-box { border-color: #818cf8 !important; }
+    /* Small-box body text box. Permanent part of every small box (with the
+       header pill); can be emptied but not removed. */
+    #section-sop .sop-sb-text {
+      font-size: calc(13px * var(--sop-scale, 1) * var(--sop-font-mult, 1));
+      color: var(--text);
+      line-height: 1.5;
+      margin-top: 6px;
+      min-height: 1.3em;
+      white-space: pre-wrap;
+      outline: none;
+    }
+    /* Faint placeholders so an emptied header / text box is still visible + grabbable. */
+    #section-sop.sop-editing .sop-sb-header:empty::before,
+    #section-sop.sop-editing .sop-box.sop-small-box .sop-sub:empty::before { content: 'Header'; opacity: 0.45; }
+    #section-sop.sop-editing .sop-sb-text:empty::before   { content: 'Text';   opacity: 0.45; }
+    #section-sop .sop-sb-header:empty,
+    #section-sop .sop-box.sop-small-box .sop-sub:empty { min-width: 44px; display: inline-block; }
+    /* A small box's parts can't be removed — hide the per-list-item × delete
+       for any list that lives inside a small box. */
+    #section-sop .sop-box.sop-small-box .sop-list li::after { display: none !important; }
     /* Pop-out button removed — kept hidden defensively in case any stale one
        survives in an old saved snapshot. */
     #section-sop .sop-popout-btn { display: none !important; }
@@ -22221,7 +22241,7 @@ function _sopAssignIdsAndRestore() {
       fd.title = 'Decrease text size in this box. Per-box lock must be open.';
       fd.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        _sopAdjustBoxFont(box, -0.1);
+        _sopAdjustBoxFont(box, -0.2);
       });
       box.appendChild(fd);
     }
@@ -22234,7 +22254,7 @@ function _sopAssignIdsAndRestore() {
       fu.title = 'Increase text size in this box. Per-box lock must be open.';
       fu.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        _sopAdjustBoxFont(box, +0.1);
+        _sopAdjustBoxFont(box, +0.2);
       });
       box.appendChild(fu);
     }
@@ -22282,6 +22302,9 @@ function _sopNormalizeSmallBoxes() {
     ['background', 'background-color', 'background-image', 'border', 'border-color',
      'box-shadow', 'backdrop-filter', '-webkit-backdrop-filter', 'filter', 'opacity']
       .forEach(p => { if (box.style.getPropertyValue(p)) { box.style.removeProperty(p); changed = true; } });
+    // Strip the 🎨 recolor buttons that older small boxes baked in — they sit on
+    // top of the header pill and block typing into it.
+    box.querySelectorAll('.sop-color-btn, .sop-color-btn-sub, .sop-color-btn-title').forEach(b => { b.remove(); changed = true; });
   });
   return changed;
 }
@@ -22430,6 +22453,13 @@ function sopToggleEdit() {
       if (el === box) return;
       el.contentEditable = _sopEditing ? 'true' : 'false';
     });
+    // Small box: only the HEADER pill + TEXT box are editable. Their wrapping
+    // group must NOT be editable, otherwise a select-all + delete could remove
+    // the two parts. (They can be emptied, never removed.)
+    if (box.classList.contains('sop-small-box')) {
+      box.querySelectorAll('.sop-group, .sop-sb-group').forEach(g => g.setAttribute('contenteditable', 'false'));
+      box.querySelectorAll('.sop-sb-header, .sop-sb-text, .sop-sub, .sop-list, .sop-list li').forEach(el => el.setAttribute('contenteditable', _sopEditing ? 'true' : 'false'));
+    }
     // Click-to-delete on list items in edit mode (the ::after × is visual; we
     // also wire a click that detects the right-edge zone)
     if (_sopEditing) {
@@ -22438,6 +22468,8 @@ function sopToggleEdit() {
         li.__sopWired = true;
         li.addEventListener('click', (ev) => {
           if (!_sopEditing) return;
+          // A small box's content can't be removed — no item deletion inside one.
+          if (li.closest('.sop-small-box')) return;
           // Only fire if click is near the right edge (where the × is rendered)
           const rect = li.getBoundingClientRect();
           if (ev.clientX > rect.right - 22) {
@@ -22569,6 +22601,16 @@ function _sopAdjustBoxFont(box, delta) {
   if (!box) return;
   // A+/A- gated by the box's own per-box lock — no Free Mode required.
   if (_sopIsLocked(box)) return;
+  // Strip inline font-size / font-family / line-height that pasted rich text
+  // baked in — those override the box's font control and make A+/A− look like
+  // it "barely" changes anything. After stripping, the multiplier governs.
+  box.querySelectorAll('[style]').forEach(el => {
+    if (el.classList && (el.classList.contains('sop-font-btn') || el.classList.contains('sop-del-box') ||
+        el.classList.contains('sop-color-btn') || el.classList.contains('sop-resize-handle'))) return;
+    el.style.removeProperty('font-size');
+    el.style.removeProperty('font-family');
+    el.style.removeProperty('line-height');
+  });
   const cur = parseFloat(box.style.getPropertyValue('--sop-font-mult')) || 1;
   let next = Math.round((cur + delta) * 100) / 100;
   if (next < _SOP_FONT_MULT_MIN) next = _SOP_FONT_MULT_MIN;
@@ -23538,6 +23580,9 @@ function _sopMakeColorBtn(targetEl) {
 //     to the left of + Inside. Stays out of the title text entirely.
 function _sopAttachColorBtn(targetEl) {
   if (!targetEl) return;
+  // Small boxes don't get the 🎨 recolor button — it overlaps the header pill
+  // and blocks typing into it.
+  if (targetEl.closest && targetEl.closest('.sop-small-box')) return;
   const isPill = targetEl.classList.contains('sop-sub');
   if (isPill) {
     // Skip if already attached
@@ -23848,10 +23893,12 @@ function sopAddSmallBox() {
   div.style.top  = p.y + 'px';
   div.style.width  = '220px';
   div.style.padding = '10px 12px';
+  // Every small box = one HEADER pill + one TEXT box. Both are permanent parts
+  // of the box and can't be removed (only their text edited).
   div.innerHTML =
-    '<div class="sop-group" style="margin:0">' +
-      '<span class="sop-sub bg-purple" contenteditable="true">LABEL</span>' +
-      '<ul class="sop-list"><li contenteditable="true">Item</li></ul>' +
+    '<div class="sop-group sop-sb-group" style="margin:0">' +
+      '<span class="sop-sub bg-purple sop-sb-header" contenteditable="true">Header</span>' +
+      '<div class="sop-sb-text" contenteditable="true">Text</div>' +
     '</div>';
   canvas.appendChild(div);
   _sopFinalizeAdd(div, newId);
@@ -25135,6 +25182,23 @@ function _sopMigrateTagFontSize() {
     document.addEventListener('mousedown', _sopDragStart);
     document.addEventListener('mousemove', _sopDragMove);
     document.addEventListener('mouseup', _sopDragEnd);
+    // PASTE AS PLAIN TEXT inside SOP boxes: pasted rich text carries its own
+    // inline font-size / colors, which ignore the box's A+/A− font control and
+    // make text look "stuck" at the source size. Insert plain text instead so
+    // it inherits the box font and A+/A− works.
+    document.addEventListener('paste', (ev) => {
+      const t = ev.target;
+      if (!t || !t.closest) return;
+      const editable = t.closest('#section-sop [contenteditable="true"]');
+      if (!editable) return;
+      ev.preventDefault();
+      let text = '';
+      try { text = (ev.clipboardData || window.clipboardData).getData('text/plain'); } catch (_) {}
+      if (text) {
+        try { document.execCommand('insertText', false, text); }
+        catch (_) { editable.textContent += text; }
+      }
+    });
     // Sub-section click-swap fallback listeners.
     document.addEventListener('mousemove', _sopSectMouseMove);
     document.addEventListener('mouseup', _sopSectMouseUp);

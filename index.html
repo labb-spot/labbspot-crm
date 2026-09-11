@@ -27130,6 +27130,23 @@ async function uwBidFillLineItems(){
   if (existing && Array.isArray(existing.line_items)) existing.line_items.forEach(l => {
     if (l && l.custom && l.id && !seen[l.id]){ seen[l.id]=1; const o={ id:l.id, room:l.room||'Other', description:l.description||'', selected:(l.selected!=null?!!l.selected:_isRehab(l.description)), rehab:_isRehab(l.description), custom:true }; if(l.est!=null) o.est=l.est; _uwBid.draft.push(o); }
   });
+  // GUARANTEE every active Rehab Calculator scope item becomes a SELECTED line —
+  // even if it isn't in the Standard List, or is worded differently there. Add
+  // any that aren't already present, grouped by their scope category.
+  const _haveDesc = new Set(_uwBid.draft.map(l => String(l.description||'').trim().toLowerCase()));
+  if (typeof window._rcGetScopeByGroup === 'function'){
+    (window._rcGetScopeByGroup()||[]).forEach(col => {
+      const room = (col && col.label) || 'Other';
+      ((col && col.items) || []).forEach(it => {
+        const desc = String(typeof it === 'string' ? it : ((it && (it.label || it.n)) || '')).trim();
+        const key = desc.toLowerCase();
+        if (desc && !_haveDesc.has(key)){
+          _haveDesc.add(key);
+          _uwBid.draft.push({ id:_uwBidGenId(), room:room, description:desc, selected:true, rehab:true });
+        }
+      });
+    });
+  }
   _uwBid.mode = 'deal';
   _uwRenderBidEditor();
   const _n = _uwBid.draft.filter(l => l.selected).length;

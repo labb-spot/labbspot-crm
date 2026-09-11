@@ -27111,49 +27111,47 @@ async function uwBidFillLineItems(){
   const dealId = _uwCurrentId;
   if (!dealId){ if(typeof toast==='function') toast('Open a deal first.','warn'); return; }
   await loadBidTemplate();
+  // Source of truth = the WHOLE rehab-calculator scope (every option this
+  // property offers), each with its checked state. Standard List is only used
+  // to add any extra items the calculator doesn't have.
+  const scopeItems = (typeof window._rcGetAllScopeItems === 'function') ? (window._rcGetAllScopeItems() || []) : [];
   const master = (_uwBid.template && _uwBid.template.length) ? _uwBid.template : _uwBidLinesFromCatalog();
-  if (!master.length){ if(typeof toast==='function') toast('Set up the standard list first — click 📋 Standard List.','warn'); return; }
+  if (!scopeItems.length && !master.length){ if(typeof toast==='function') toast('No scope options found — check items in the Rehab Calculator (or set up the Standard List) first.','warn'); return; }
   const existing = _uwBid.byDeal[dealId];
   const hasLines = existing && Array.isArray(existing.line_items) && existing.line_items.length;
   const _ed = document.getElementById('uw-bid-editor');
   const _edOpen = _ed && _ed.style.display !== 'none' && _uwBid.mode === 'deal';
-  if ((hasLines || _edOpen) && !confirm("Rebuild this property's bid sheet lines from your standard list and Rehab Calculator scope? This replaces the current lines (custom lines you added are kept).")) return;
-  const rehabSet = new Set();
-  if (typeof window._rcGetScopeByGroup === 'function'){
-    (window._rcGetScopeByGroup()||[]).forEach(col => (col.items||[]).forEach(it => { if(it) rehabSet.add(String(it).trim().toLowerCase()); }));
-  }
-  const _isRehab = (desc) => rehabSet.has(String(desc||'').trim().toLowerCase());
+  if ((hasLines || _edOpen) && !confirm("Rebuild this property's bid sheet from the full Rehab Calculator scope? Checked items come in selected, everything else goes under Additional Line Items. This replaces the current lines (custom lines you added are kept).")) return;
   { const _ov=document.getElementById('uw-bid-overview'); _uwBid.draftOverview = _ov ? _ov.value : ((existing && existing.overview_notes) || _uwBid.draftOverview || ''); }
-  const seen = {};
-  _uwBid.draft = master.map(l => { const id=l.id||_uwBidGenId(); seen[id]=1; const rehab=_isRehab(l.description); return { id:id, room:l.room||'Other', description:l.description||'', selected: rehab, rehab: rehab }; });
-  // Keep any custom lines from the saved sheet (with their stamped budget, if any).
-  if (existing && Array.isArray(existing.line_items)) existing.line_items.forEach(l => {
-    if (l && l.custom && l.id && !seen[l.id]){ seen[l.id]=1; const o={ id:l.id, room:l.room||'Other', description:l.description||'', selected:(l.selected!=null?!!l.selected:_isRehab(l.description)), rehab:_isRehab(l.description), custom:true }; if(l.est!=null) o.est=l.est; _uwBid.draft.push(o); }
+  const seen = {}; const _haveDesc = new Set();
+  _uwBid.draft = [];
+  // 1) The full scope — checked → selected (in its category), unchecked → left off.
+  scopeItems.forEach(sc => {
+    const desc = String((sc && sc.description) || '').trim(); if (!desc) return;
+    const key = desc.toLowerCase(); if (_haveDesc.has(key)) return; _haveDesc.add(key);
+    const id = _uwBidGenId(); seen[id] = 1;
+    _uwBid.draft.push({ id:id, room:(sc && sc.room) || 'Rehab Scope', description:desc, selected:!!(sc && sc.on), rehab:!!(sc && sc.on) });
   });
-  // GUARANTEE every active Rehab Calculator scope item becomes a SELECTED line —
-  // even if it isn't in the Standard List, or is worded differently there. Add
-  // any that aren't already present, grouped by their scope category.
-  const _haveDesc = new Set(_uwBid.draft.map(l => String(l.description||'').trim().toLowerCase()));
-  if (typeof window._rcGetScopeByGroup === 'function'){
-    (window._rcGetScopeByGroup()||[]).forEach(col => {
-      const room = (col && col.label) || 'Other';
-      ((col && col.items) || []).forEach(it => {
-        const desc = String(typeof it === 'string' ? it : ((it && (it.label || it.n)) || '')).trim();
-        const key = desc.toLowerCase();
-        if (desc && !_haveDesc.has(key)){
-          _haveDesc.add(key);
-          _uwBid.draft.push({ id:_uwBidGenId(), room:room, description:desc, selected:true, rehab:true });
-        }
-      });
-    });
-  }
-  // Everything NOT in the active scope is grouped as "Additional Line Items"
-  // (left unselected) — so the scope stays clean and the extras are available.
+  // 2) Standard List items the calculator doesn't have — available (unselected).
+  master.forEach(l => {
+    const desc = String((l && l.description) || '').trim(); if (!desc) return;
+    const key = desc.toLowerCase(); if (_haveDesc.has(key)) return; _haveDesc.add(key);
+    const id = (l && l.id) || _uwBidGenId(); seen[id] = 1;
+    _uwBid.draft.push({ id:id, room:(l && l.room) || 'Other', description:desc, selected:false, rehab:false });
+  });
+  // 3) Keep any custom lines from the saved sheet (with their stamped budget).
+  if (existing && Array.isArray(existing.line_items)) existing.line_items.forEach(l => {
+    if (l && l.custom && l.id && !seen[l.id]){
+      const key = String(l.description||'').trim().toLowerCase(); if (_haveDesc.has(key)) return; _haveDesc.add(key);
+      seen[l.id]=1; const o={ id:l.id, room:l.room||'Other', description:l.description||'', selected:(l.selected!=null?!!l.selected:false), rehab:false, custom:true }; if(l.est!=null) o.est=l.est; _uwBid.draft.push(o);
+    }
+  });
+  // 4) Anything unselected is grouped as "Additional Line Items".
   _uwBid.draft.forEach(l => { if (l && !l.selected) l.room = 'Additional Line Items'; });
   _uwBid.mode = 'deal';
   _uwRenderBidEditor();
   const _n = _uwBid.draft.filter(l => l.selected).length;
-  if (typeof toast==='function') toast('Filled ' + _n + ' line' + (_n===1?'':'s') + ' from your standard list & scope.','ok');
+  if (typeof toast==='function') toast('Filled your full scope — ' + _n + ' selected line' + (_n===1?'':'s') + '; the rest are under Additional Line Items.','ok');
 }
 window.uwBidFillLineItems = uwBidFillLineItems;
 
@@ -59074,6 +59072,47 @@ window._rcGetScopeByGroup = function(){
     });
     return out;
   } catch (e) { console.warn('[_rcGetScopeByGroup]', e); return []; }
+};
+
+// EVERY checked rehab item — including ones that aren't members of a predefined
+// basicGroups group (which _rcGetScopeByGroup silently drops). Returns
+// [{room, description}] with a friendly group label when one is known, else the
+// item's own category key. Used so Fill Line Items never misses a checked item.
+window._rcGetAllCheckedScope = function(){
+  try {
+    if (!items) return [];
+    const nameToGroup = {};
+    if (Array.isArray(basicGroups)) basicGroups.forEach(g => { if (g && Array.isArray(g.items)) g.items.forEach(n => { nameToGroup[n] = g.n; }); });
+    const out = [];
+    Object.keys(items).forEach(k => {
+      (items[k] || []).forEach(it => {
+        if (it && it.on && it.n) out.push({ room: nameToGroup[it.n] || k || 'Rehab Scope', description: String(it.n).trim() });
+      });
+    });
+    return out;
+  } catch (e) { console.warn('[_rcGetAllCheckedScope]', e); return []; }
+};
+
+// The ENTIRE current scope — every item the rehab calculator offers for this
+// property, whether checked or not, each with its on/off state and a group
+// label. Deduped by name (if any instance is checked, the item counts checked).
+window._rcGetAllScopeItems = function(){
+  try {
+    if (!items) return [];
+    const nameToGroup = {};
+    if (Array.isArray(basicGroups)) basicGroups.forEach(g => { if (g && Array.isArray(g.items)) g.items.forEach(n => { if (nameToGroup[n] == null) nameToGroup[n] = g.n; }); });
+    const seen = {}; const out = [];
+    Object.keys(items).forEach(k => {
+      (items[k] || []).forEach(it => {
+        if (!it || !it.n) return;
+        const nm = String(it.n).trim(); const key = nm.toLowerCase();
+        if (seen[key]) { if (it.on) seen[key].on = true; return; }
+        const rec = { room: nameToGroup[it.n] || k || 'Rehab Scope', description: nm, on: !!it.on };
+        seen[key] = rec; out.push(rec);
+      });
+    });
+    return out;
+  } catch (e) { console.warn('[_rcGetAllScopeItems]', e); return []; }
 };
 
 // ----- Download Active Scope -----

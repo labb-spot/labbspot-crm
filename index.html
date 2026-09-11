@@ -5080,6 +5080,7 @@
         <div class="text-xs" style="color:var(--text-dim);margin-bottom:10px">This list mirrors your <b>Original Invoice List</b> plus anything you add here. Edit amounts freely — your edits and added items are kept.</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
           <button class="btn btn-ghost text-sm" onclick="uwInvActiveAddRow()" title="Add a blank line item to the Active list (on top of the Original items).">+ Add item</button>
+          <button class="btn btn-ghost text-sm" id="uw-inv-reapply-btn" onclick="uwInvReapplyInvoices()" title="Re-pull the contractor-submitted invoices from the server and refresh the invoiced amounts, Paid totals, and the Mismatch section.">🔄 Reapply Invoices</button>
           <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;border:1.5px solid rgba(124,58,237,0.55);background:rgba(124,58,237,0.10);border-radius:8px;padding:7px 12px" title="Merge in the line items from contractor bids you marked Accepted. If you already have an item, it just gets tagged as a contractor's; items only they have are added and tagged."><input type="checkbox" id="uw-inv-incl-contractor" onchange="uwInvActiveToggleContractor(this.checked)" style="width:15px;height:15px;cursor:pointer;accent-color:#7c3aed"> 👷 Include Contractor Quotes</label>
         </div>
         <div id="uw-inv-active-list"></div>
@@ -19295,7 +19296,7 @@ function _uwCollect() {
           k === '_budgetActuals' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
           k === '_reno_phase_override' || k === '_compsMode' ||
           k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_customRehabPresets' || k === '_scopeQuotes' || k === '_taggedBuyers' || k === '_offerActive' || k === '_offerPacket' || k === '_bigTicket' ||
-          k === '_invoiceOriginal' || k === '_invoiceActive' || k === '_invoiceTab' || k === '_invoiceInclContractor' || k === '_invoicePaidDeposits' || k === '_externalInvoices' || k === '_constructionAgreements' ||
+          k === '_invoiceOriginal' || k === '_invoiceActive' || k === '_invoiceTab' || k === '_invoiceInclContractor' || k === '_invoicePaidDeposits' || k === '_invoiceAliases' || k === '_externalInvoices' || k === '_constructionAgreements' ||
           // Form-submission log + auto-asking tracker (owner/partner submit forms).
           k === '_formSubmissions' || k === '_autoAsking' || k === '_fromForm' ||
           // Utility / insurance / service account info (edited via the 🧾 Accounts modal).
@@ -26884,25 +26885,41 @@ function _uwRenderInvCompare(req, responses){
   const yn = (v)=>{ const s=String(v||'').trim().toLowerCase(); if(s==='yes')return '<span style="color:#16a34a;font-weight:700">Yes</span>'; if(s==='no')return '<span style="color:#ef4444;font-weight:700">No</span>'; return '<span style="color:var(--text-dim)">'+esc(v||'—')+'</span>'; };
   cmp.style.display='';
   if (!responses.length){ cmp.innerHTML='<div class="text-xs" style="color:var(--text-dim);padding:8px 0">No invoices submitted for this property yet.</div>'; return; }
+  const lineById={}; (Array.isArray(req.line_items)?req.line_items:[]).forEach(l=>{ if(l&&l.id) lineById[l.id]=l; });
   const rows = responses.map(resp => {
     let tot = resp.total;
     if (tot == null){ tot=0; const lq=resp.line_quotes||{}; Object.keys(lq).forEach(k=>{const q=lq[k]; if(q&&q.interested){const u=parseFloat(q.units)||0,la=parseFloat(q.labor)||0,m=parseFloat(q.material)||0,qy=u>0?u:1; tot+=parseFloat(q.total!=null?q.total:q.price)||(qy*(la+m));}}); }
     let dt='—'; try { if (resp.submitted_at) dt=new Date(resp.submitted_at).toLocaleDateString(); } catch(_){}
-    return '<tr style="border-bottom:1px solid var(--border)">'
-      + '<td style="padding:6px 8px">' + esc(resp.contractor_name||'—') + '</td>'
+    // Build the expandable line-item detail for this invoice.
+    const lq=resp.line_quotes||{};
+    const detItems = Object.keys(lq).map(k=>{ const q=lq[k]; if(!q||!q.interested) return null; const base=lineById[k]||{}; const d=q.custom?(q.description||'Custom item'):(base.description||q.description||k); const a=(q.total!=null&&q.total!=='')?q.total:(q.price!=null?q.price:((parseFloat(q.units)||1)*((parseFloat(q.labor)||0)+(parseFloat(q.material)||0)))); return { d:d, a:a, note:q.note||'' }; }).filter(Boolean);
+    const detHtml = detItems.length
+      ? detItems.map(x=>'<div style="display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px dashed var(--border)"><span>'+esc(x.d)+(x.note?' <span style="color:var(--text-dim);font-size:11px">— '+esc(x.note)+'</span>':'')+'</span><span style="font-weight:700;color:var(--brand);white-space:nowrap">'+money(x.a)+'</span></div>').join('')
+      : '<div style="color:var(--text-dim)">No itemized lines (e.g. a deposit request).</div>';
+    return '<tr class="inv-resp-row" style="border-bottom:1px solid var(--border);cursor:pointer" onclick="uwInvToggleDetail(\''+esc(resp.id)+'\',event)" title="Click to view the line items on this invoice">'
+      + '<td style="padding:6px 8px"><span id="invcaret-'+esc(resp.id)+'" style="color:var(--text-dim);margin-right:5px">▸</span>' + esc(resp.contractor_name||'—') + '</td>'
       + '<td style="padding:6px 8px;font-weight:600">' + esc(resp.contractor_company||resp.contractor_name||'—') + '</td>'
       + '<td style="padding:6px 8px;text-align:center">' + (resp.contractor_start?esc(resp.contractor_start):'—') + '</td>'
       + '<td style="padding:6px 8px;text-align:right;font-weight:700">' + money(tot) + '</td>'
       + '<td style="padding:6px 8px;text-align:center;font-size:11px;color:var(--text-dim)">' + esc(dt) + '</td>'
-      + '<td style="padding:6px 8px;text-align:center"><input type="checkbox" ' + (resp.paid?'checked ':'') + 'onchange="uwInvTogglePaid(\'' + esc(resp.id) + '\',this.checked)" style="width:16px;height:16px;accent-color:#14b8a6;cursor:pointer" title="Mark paid"></td>'
-      + '<td style="padding:6px 8px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ea580c;padding:2px 7px" onclick="uwInvPrint(\'' + esc(resp.id) + '\')" title="PDF">📄</button></td>'
-      + '<td style="padding:6px 8px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ef4444;padding:2px 7px" onclick="uwInvDeleteResponse(\'' + esc(resp.id) + '\')" title="Remove">✕</button></td>'
-      + '</tr>';
+      + '<td style="padding:6px 8px;text-align:center"><input type="checkbox" ' + (resp.paid?'checked ':'') + 'onchange="uwInvTogglePaid(\'' + esc(resp.id) + '\',this.checked)" onclick="event.stopPropagation()" style="width:16px;height:16px;accent-color:#14b8a6;cursor:pointer" title="Mark paid"></td>'
+      + '<td style="padding:6px 8px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ea580c;padding:2px 7px" onclick="event.stopPropagation();uwInvPrint(\'' + esc(resp.id) + '\')" title="PDF">📄</button></td>'
+      + '<td style="padding:6px 8px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ef4444;padding:2px 7px" onclick="event.stopPropagation();uwInvDeleteResponse(\'' + esc(resp.id) + '\')" title="Remove">✕</button></td>'
+      + '</tr>'
+      + '<tr id="invdetail-'+esc(resp.id)+'" style="display:none"><td colspan="8" style="padding:8px 16px;background:var(--panel-2)"><div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin-bottom:5px">Line items on this invoice</div>'+detHtml+'</td></tr>';
   }).join('');
   cmp.innerHTML = '<div style="overflow:auto"><table style="width:100%;font-size:12px"><thead><tr style="color:var(--text-dim);text-transform:uppercase;font-size:10px;border-bottom:1px solid var(--border)">'
     + '<th style="padding:6px 8px;text-align:left">Name</th><th style="padding:6px 8px;text-align:left">Company</th><th style="padding:6px 8px;text-align:center">Status</th><th style="padding:6px 8px;text-align:right">Total</th><th style="padding:6px 8px;text-align:center">Submitted</th><th style="padding:6px 8px;text-align:center">Paid</th><th style="padding:6px 8px;text-align:center">PDF</th><th style="padding:6px 8px;text-align:center"></th>'
     + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
+
+function uwInvToggleDetail(id, ev){
+  if (ev){ const t=ev.target; if (t && t.closest && t.closest('button, input')) return; }
+  const d=document.getElementById('invdetail-'+id);
+  const c=document.getElementById('invcaret-'+id);
+  if (d){ const open = d.style.display!=='none'; d.style.display = open ? 'none' : ''; if(c) c.textContent = open ? '▸' : '▾'; }
+}
+window.uwInvToggleDetail = uwInvToggleDetail;
 
 function uwInvPrint(id){
   const req = _uwInv.byDeal[_uwCurrentId];
@@ -27747,7 +27764,10 @@ function _invInvoicedByDesc(){
       Object.keys(lq).forEach(k=>{
         const q=lq[k]; if(!q||!q.interested) return;
         const base=lineById[k]||{};
-        const desc=q.custom?(q.description||''):(base.description||q.description||'');
+        // Fall back to the line id so invoiced lines whose id no longer matches
+        // (and were submitted before we saved descriptions) still SHOW — as the
+        // id — so they land in the Mismatch section and can be assigned.
+        const desc=q.custom?(q.description||k):(base.description||q.description||k);
         if(!desc) return;
         const amt=(q.total!=null&&q.total!=='')?(parseFloat(q.total)||0):((q.price!=null)?(parseFloat(q.price)||0):((parseFloat(q.units)||1)*((parseFloat(q.labor)||0)+(parseFloat(q.material)||0))));
         const key=String(desc).trim().toLowerCase();
@@ -27755,6 +27775,20 @@ function _invInvoicedByDesc(){
         map[key].amt += (amt||0);
         if(company && map[key].companies.indexOf(company)<0) map[key].companies.push(company);
       });
+    });
+    // Apply user ASSIGNMENTS: an invoice line the user mapped to an existing
+    // item (e.g. "Fascia repair" → "Fascia") is credited to that item instead
+    // of showing up as a mismatch.
+    const u=(typeof _invGetDeal==='function')?_invGetDeal():null;
+    const aliases=(u&&u.data&&u.data._invoiceAliases)||{};
+    Object.keys(aliases).forEach(fromKey=>{
+      const toDesc=aliases[fromKey]; if(!toDesc) return;
+      const fk=String(fromKey).trim().toLowerCase(); const tk=String(toDesc).trim().toLowerCase();
+      if(fk===tk || !map[fk]) return;
+      if(!map[tk]) map[tk]={amt:0, companies:[], desc:String(toDesc).trim(), room:map[fk].room||''};
+      map[tk].amt += map[fk].amt||0;
+      (map[fk].companies||[]).forEach(c=>{ if(map[tk].companies.indexOf(c)<0) map[tk].companies.push(c); });
+      delete map[fk];
     });
   } catch(_){}
   return map; // desc -> { amt, companies:[] }
@@ -27860,6 +27894,8 @@ async function _invEnsureBidsLoaded(){
 }
 function renderInvActive(){
   const el=document.getElementById('uw-inv-active-list'); if(!el)return;
+  // Clear any leftover assign modal so a stale one can't sit over the list.
+  const _staleAssign=document.getElementById('inv-assign-pop'); if(_staleAssign) _staleAssign.remove();
   let items=_invSyncActiveFromOriginal();
   const _u=_invGetDeal(); const _cbInc=document.getElementById('uw-inv-incl-contractor'); if(_cbInc) _cbInc.checked=!!(_u&&_u.data&&_u.data._invoiceInclContractor);
   // Invoiced-to-date per line, from submitted contractor invoices (load in bg if needed).
@@ -27873,7 +27909,7 @@ function renderInvActive(){
     u.data._invoiceActive=(u.data._invoiceActive||[]).filter(it=>{ if(!it||!it.fromInvoice) return true; const k=String(it.description||'').trim().toLowerCase(); return invoicedMap[k] && invoicedMap[k].amt>0; });
     let changed=(u.data._invoiceActive.length!==before);
     const have=new Set(u.data._invoiceActive.map(it=>String(it.description||'').trim().toLowerCase()).filter(Boolean));
-    Object.keys(invoicedMap).forEach(k=>{ if(!k||have.has(k)) return; const m=invoicedMap[k]; if(!m||!(m.amt>0)) return; u.data._invoiceActive.push({ id:_invGenId(), room:m.room||'', description:m.desc||k, added:true, fromInvoice:true }); have.add(k); changed=true; });
+    Object.keys(invoicedMap).forEach(k=>{ if(!k||have.has(k)) return; const m=invoicedMap[k]; if(!m||!(m.amt>0)) return; u.data._invoiceActive.push({ id:'frominv-'+k, room:m.room||'', description:m.desc||k, added:true, fromInvoice:true }); have.add(k); changed=true; });
     if(changed){ _invSave(); if(typeof _invSyncFormSoon==='function') _invSyncFormSoon(); }
     items=u.data._invoiceActive;
   })();
@@ -27900,10 +27936,13 @@ function renderInvActive(){
     const _co=_companyForRow(it);
     const _invco=_invCompanyForRow(it);
     const done=!!it.invoiced;
-    const rowTip=done?' title="This item has already been invoiced for"':'';
-    const strike=done?'text-decoration:line-through;color:var(--text-dim);':'';
+    // Don't dim/strike Mismatch (fromInvoice) rows — they're informational and
+    // need to stay clearly interactive; only truly "done" original items dim.
+    const dim = done && !it.fromInvoice;
+    const rowTip=dim?' title="This item has already been invoiced for"':'';
+    const strike=dim?'text-decoration:line-through;color:var(--text-dim);':'';
     const ctrBadge = it.contractor ? '<span title="Quoted by '+escapeHtml(it.contractor)+'" style="flex:0 0 auto;font-size:9px;font-weight:800;color:#7c3aed;background:rgba(124,58,237,0.15);border-radius:4px;padding:2px 5px;white-space:nowrap">👷</span>' : '';
-    return '<div class="inv-arow'+(done?' invoiced':'')+'" data-id="'+escapeHtml(it.id)+'"'+rowTip+' style="display:grid;'+_INV_GRID+'margin-bottom:5px;align-items:center;'+(done?'opacity:0.6;':'')+'">'
+    return '<div class="inv-arow'+(dim?' invoiced':'')+'" data-id="'+escapeHtml(it.id)+'"'+rowTip+' style="display:grid;'+_INV_GRID+'margin-bottom:5px;align-items:center;'+(dim?'opacity:0.6;':'')+'">'
       + '<input class="inv-a-room" value="'+escapeHtml(it.room||'')+'" placeholder="Room" style="'+_invInput+strike+'">'
       + '<div style="display:flex;align-items:center;gap:4px;min-width:0">'+ctrBadge+'<input class="inv-a-desc" value="'+escapeHtml(it.description||'')+'" placeholder="Description" style="'+_invInput+strike+';flex:1;min-width:0">'+'</div>'
       + '<div class="inv-a-total" style="'+_invBox+'justify-content:flex-start;font-weight:700;font-size:12px;color:var(--brand)">'+(t?_invMoney(t):'—')+'</div>'
@@ -27914,12 +27953,19 @@ function renderInvActive(){
       + '<div class="inv-a-invoiced" style="'+_invBox+'justify-content:flex-start;font-weight:700;font-size:12px;color:'+(_inv>0?'#22c55e':'var(--text-dim)')+'" title="Invoiced by contractors for this line">'+(_inv>0?_invMoney(_inv):'—')+'</div>'
       + '<div class="inv-a-invcompany" style="'+_invBox+'font-size:11px;color:'+(_invco?'var(--text)':'var(--text-dim)')+';white-space:nowrap;text-overflow:ellipsis" title="'+escapeHtml(_invco||'Company that invoiced this line')+'">'+(_invco?escapeHtml(_invco):'—')+'</div>'
       + '<div style="justify-self:center;width:26px;height:26px;box-sizing:border-box;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;background:var(--panel-2)"><input type="checkbox" class="inv-a-inv" '+(done?'checked ':'')+'onclick="uwInvActiveToggleInvoiced(\''+escapeHtml(it.id)+'\',this.checked)" title="'+(done?'Marked paid — click to un-mark':'Mark this line paid')+'" style="width:15px;height:15px;cursor:pointer;accent-color:#22c55e"></div>'
-      + '<button onclick="uwInvActiveRemove(\''+escapeHtml(it.id)+'\')" title="Remove this line" style="justify-self:center;box-sizing:border-box;background:none;border:1px solid rgba(239,68,68,0.55);border-radius:6px;color:#ef4444;cursor:pointer;font-size:12px;line-height:1;width:26px;height:26px;display:flex;align-items:center;justify-content:center">✕</button>'
+      + '<div style="justify-self:center;display:flex;align-items:center;gap:4px">'
+        + (it.added ? '<button onclick="_invOpenAssignPopup(this,\''+escapeHtml(it.id)+'\')" title="Assign this to an item on your Original Invoice List (search &amp; pick)." style="box-sizing:border-box;background:none;border:1px solid rgba(99,102,241,0.55);border-radius:6px;color:#818cf8;cursor:pointer;font-size:12px;line-height:1;width:26px;height:26px;display:flex;align-items:center;justify-content:center">🔗</button>' : '')
+        + '<button onclick="uwInvActiveRemove(\''+escapeHtml(it.id)+'\')" title="Remove this line" style="box-sizing:border-box;background:none;border:1px solid rgba(239,68,68,0.55);border-radius:6px;color:#ef4444;cursor:pointer;font-size:12px;line-height:1;width:26px;height:26px;display:flex;align-items:center;justify-content:center">✕</button>'
+      + '</div>'
       + '</div>';
   };
   const secHead=(txt,color,bg)=>'<div style="margin:10px 0 6px;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:'+color+';background:'+bg+'">'+txt+'</div>';
   const origRows = items.filter(it=>!it.added);
-  const addedRows = items.filter(it=>it.added);
+  // "Mismatch" = items a contractor invoiced that AREN'T on the current list
+  // (the scope changed since they were invoiced). Split them out from the
+  // manually-added items so they show in their own section.
+  const mismRows = items.filter(it=>it.added && it.fromInvoice);
+  const addedRows = items.filter(it=>it.added && !it.fromInvoice);
   let rows='';
   // Deposit Requests — submitted "Request for Deposit" contractor invoices.
   const deposits=_invDepositRequests();
@@ -27942,6 +27988,7 @@ function renderInvActive(){
   if(origRows.length){ rows += secHead('✓ From Original Invoice List ('+origRows.length+')','#15803d','rgba(34,197,94,0.12)'); rows += origRows.map(mkRow).join(''); }
   rows += secHead('➕ Additional Items ('+addedRows.length+')','#a855f7','rgba(168,85,247,0.12)');
   rows += addedRows.length ? addedRows.map(mkRow).join('') : '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:2px 4px 6px">Nothing added yet — click <b>+ Add item</b>, or turn on 👷 Include Contractor Quotes to pull in items a contractor quoted.</div>';
+  if(mismRows.length){ rows += secHead('⚠ Mismatch in Updated Scope ('+mismRows.length+')','#d97706','rgba(245,158,11,0.14)'); rows += '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:0 4px 6px">Invoiced by a contractor but no longer on your current list — the scope changed since these were invoiced.</div>'; rows += mismRows.map(mkRow).join(''); }
   const grand=items.reduce((s,it)=>s+_invLineTotal(it),0);
   // Invoiced counts only amounts that match a line on this active list (so it stays
   // consistent with the per-line Invoiced column); unmatched invoice lines are ignored.
@@ -28036,6 +28083,81 @@ async function uwInvActiveToggleInvoiced(id, checked){
   }
 }
 window.uwInvActiveToggleInvoiced = uwInvActiveToggleInvoiced;
+
+// Re-pull the contractor-submitted invoices and refresh the Active list (invoiced
+// amounts, Paid totals, and the Mismatch section).
+async function uwInvReapplyInvoices(){
+  const dealId=_uwCurrentId; if(!dealId){ if(typeof toast==='function') toast('Open a deal first.','warn'); return; }
+  const btn=document.getElementById('uw-inv-reapply-btn'); const _t=btn?btn.textContent:'';
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Reapplying…'; }
+  try {
+    let req=(typeof _uwInv!=='undefined'&&_uwInv.byDeal)?_uwInv.byDeal[dealId]:undefined;
+    if(!req && typeof _uwInvFetchForDeal==='function') req=await _uwInvFetchForDeal(dealId);
+    if(req && req.id && typeof uwInvLoadResponses==='function') await uwInvLoadResponses(true);
+    if(typeof renderInvActive==='function') renderInvActive();
+    if(typeof _uwBudgetUpdateBar==='function') _uwBudgetUpdateBar();
+    if(typeof toast==='function') toast('Invoices reapplied — amounts, Paid, and mismatches refreshed.','ok');
+  } catch(e){ console.warn('reapply invoices', e); if(typeof toast==='function') toast('Could not reapply invoices.','err'); }
+  if(btn){ btn.disabled=false; btn.textContent=_t||'🔄 Reapply Invoices'; }
+}
+window.uwInvReapplyInvoices = uwInvReapplyInvoices;
+
+// Assign an Additional / Mismatch row to an item on the Original Invoice List.
+// For an invoiced (Mismatch) row we store an alias so the invoiced amount is
+// credited to that original item; for a manually-added row we re-point it.
+function uwInvAssignToOriginal(id, originalDesc){
+  const pop=document.getElementById('inv-assign-pop'); if(pop) pop.remove();
+  const u=(typeof _invGetDeal==='function')?_invGetDeal():null; if(!u||!u.data) return;
+  const arr=Array.isArray(u.data._invoiceActive)?u.data._invoiceActive:[];
+  const it=arr.find(x=>String(x.id)===String(id)); if(!it) return;
+  if(it.fromInvoice){
+    u.data._invoiceAliases=u.data._invoiceAliases||{};
+    u.data._invoiceAliases[String(it.description||'').trim().toLowerCase()]=originalDesc;
+  } else {
+    it.description=originalDesc; it.added=false; delete it.fromInvoice;
+  }
+  _invSave(); if(typeof renderInvActive==='function') renderInvActive();
+  if(typeof _invSyncFormSoon==='function') _invSyncFormSoon();
+  if(typeof toast==='function') toast('Assigned to "'+originalDesc+'".','ok');
+}
+window.uwInvAssignToOriginal = uwInvAssignToOriginal;
+
+// Centered modal to assign a row to an Original Invoice List item. (A centered
+// modal — not a floating dropdown — so it can never overlap/cover a row and
+// leave an invisible search box swallowing clicks.)
+function _invOpenAssignPopup(btnEl, id){
+  const old=document.getElementById('inv-assign-pop'); if(old) old.remove();
+  const u=(typeof _invGetDeal==='function')?_invGetDeal():null; if(!u||!u.data){ return; }
+  const seen={}; const uniq=[];
+  (Array.isArray(u.data._invoiceActive)?u.data._invoiceActive:[]).forEach(it=>{
+    if(!it || it.added || !it.description) return;
+    const d=String(it.description).trim(); const k=d.toLowerCase();
+    if(d && !seen[k]){ seen[k]=1; uniq.push(d); }
+  });
+  const ov=document.createElement('div'); ov.id='inv-assign-pop';
+  ov.style.cssText='position:fixed;inset:0;z-index:2147483000;background:rgba(8,11,20,0.55);display:flex;align-items:center;justify-content:center;padding:24px';
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--panel);border:1px solid var(--border);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.55);width:390px;max-width:100%;max-height:80vh;display:flex;flex-direction:column;padding:14px 16px';
+  box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-weight:800;font-size:14px">🔗 Assign to an Original item</div><button id="inv-assign-x" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;line-height:1">✕</button></div>'
+    +'<input id="inv-assign-search" type="search" placeholder="🔎 Search original items…" style="width:100%;height:34px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;outline:none;margin-bottom:8px;box-sizing:border-box">'
+    +'<div id="inv-assign-list" style="overflow:auto;display:flex;flex-direction:column;gap:4px"></div>';
+  ov.appendChild(box); document.body.appendChild(ov);
+  const listEl=box.querySelector('#inv-assign-list');
+  const _idEsc=String(id).replace(/'/g,"\\'");
+  const render=(q)=>{
+    const ql=String(q||'').trim().toLowerCase();
+    const filtered=uniq.filter(d=>!ql || d.toLowerCase().indexOf(ql)>=0);
+    listEl.innerHTML = filtered.length ? filtered.map(d=>'<button type="button" data-d="'+escapeHtml(d)+'" onclick="uwInvAssignToOriginal(\''+_idEsc+'\',this.dataset.d)" style="text-align:left;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;color:var(--text);cursor:pointer;font-size:13px;padding:9px 11px">'+escapeHtml(d)+'</button>').join('') : '<div style="color:var(--text-dim);font-size:12px;padding:10px 4px">No original items to assign to.</div>';
+  };
+  render('');
+  const s=box.querySelector('#inv-assign-search'); s.addEventListener('input',()=>render(s.value)); setTimeout(()=>{ try{ s.focus(); }catch(_){} },30);
+  const close=()=>{ ov.remove(); document.removeEventListener('keydown',esc); };
+  const esc=(e)=>{ if(e.key==='Escape') close(); };
+  box.querySelector('#inv-assign-x').onclick=close;
+  ov.addEventListener('mousedown',(e)=>{ if(e.target===ov) close(); });
+  document.addEventListener('keydown',esc);
+}
+window._invOpenAssignPopup = _invOpenAssignPopup;
 
 // Line items from contractor bids marked Accepted (for "Include Contractor Quotes").
 async function _invAcceptedContractorLines(){
@@ -28376,11 +28498,19 @@ function _uwBidOpenPrint(req, resp, kind){
     rows += '<tr><td colspan="8" class="room">Custom items added</td></tr>';
     customKeys.forEach(k => { rows += rowFor(lq[k].description || 'Custom item', lq[k]); });
   }
+  // Regular invoiced lines whose id no longer matches a current line item (the
+  // scope changed since submission) — show them using the saved description.
+  const orphanKeys = Object.keys(lq).filter(k => lq[k] && lq[k].interested && !lq[k].custom && !lineIds.has(k));
+  if (orphanKeys.length) {
+    rows += '<tr><td colspan="8" class="room">Other invoiced items</td></tr>';
+    orphanKeys.forEach(k => { rows += rowFor(lq[k].description || k, lq[k]); });
+  }
   // Collect any photos the contractor attached to each line.
   const _photoBlocks = [];
   const _addPhotos = (desc, q) => { const ph = Array.isArray(q && q.photos) ? q.photos.filter(Boolean) : []; if (ph.length) _photoBlocks.push('<div style="margin:12px 0"><div style="font-weight:700;font-size:12px;margin-bottom:5px;color:#c2410c">' + esc(desc) + '</div><div style="display:flex;flex-wrap:wrap;gap:8px">' + ph.map(u => '<a href="' + esc(u) + '" target="_blank" rel="noopener"><img src="' + esc(u) + '" style="width:150px;height:150px;object-fit:cover;border:1px solid #e6e2d8;border-radius:8px"></a>').join('') + '</div></div>'); };
   lines.forEach(l => { const q = lq[l.id]; if (q && q.interested) _addPhotos(l.description || '', q); });
   customKeys.forEach(k => _addPhotos(lq[k].description || 'Custom item', lq[k]));
+  orphanKeys.forEach(k => _addPhotos(lq[k].description || k, lq[k]));
   const photosSection = _photoBlocks.length ? '<h2 style="font-size:15px;margin:28px 0 4px">📷 Line Photos</h2><div style="font-size:11px;color:#666;margin-bottom:6px">Click a photo to open it full-size.</div>' + _photoBlocks.join('') : '';
   const days = sH > 0 ? (Math.round(sH / 8 * 10) / 10) : 0;
   const who = resp.contractor_company || resp.contractor_name || 'Contractor';
@@ -28410,9 +28540,36 @@ function _uwBidOpenPrint(req, resp, kind){
     '<p style="margin-top:22px;color:#999;font-size:11px">Generated from LABB Spot · ' + new Date().toLocaleDateString() + '</p>' +
     '</body></html>';
   const w = window.open('', '_blank');
-  if (!w) { if (typeof toast === 'function') toast('Allow pop-ups to print/save the PDF.', 'warn'); return; }
-  w.document.write(html); w.document.close(); w.focus();
-  setTimeout(() => { try { w.print(); } catch(e){} }, 350);
+  if (w) {
+    w.document.write(html); w.document.close(); w.focus();
+    setTimeout(() => { try { w.print(); } catch(e){} }, 350);
+    return;
+  }
+  // Pop-up blocked — show the invoice in an in-page overlay (with Print) so the
+  // button always does something.
+  try {
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,0.65);display:flex;flex-direction:column;padding:16px';
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-bottom:10px';
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'flex:1;width:100%;border:none;background:#fff;border-radius:8px';
+    iframe.src = url;
+    const btnPrint = document.createElement('button');
+    btnPrint.textContent = '🖨 Print / Save PDF';
+    btnPrint.style.cssText = 'background:#ea580c;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-weight:700;cursor:pointer';
+    btnPrint.onclick = () => { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(_){} };
+    const btnClose = document.createElement('button');
+    btnClose.textContent = 'Close';
+    btnClose.style.cssText = 'background:#fff;border:1px solid #ccc;border-radius:8px;padding:9px 16px;cursor:pointer';
+    btnClose.onclick = () => { ov.remove(); try { URL.revokeObjectURL(url); } catch(_){} };
+    bar.appendChild(btnPrint); bar.appendChild(btnClose);
+    ov.appendChild(bar); ov.appendChild(iframe);
+    ov.addEventListener('click', (e) => { if (e.target === ov) btnClose.onclick(); });
+    document.body.appendChild(ov);
+  } catch(e) { if (typeof toast === 'function') toast('Allow pop-ups to print/save the PDF.', 'warn'); }
 }
 window._uwBidOpenPrint = _uwBidOpenPrint;
 

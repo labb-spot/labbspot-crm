@@ -8104,6 +8104,22 @@
     /* A small box's parts can't be removed — hide the per-list-item × delete
        for any list that lives inside a small box. */
     #section-sop .sop-box.sop-small-box .sop-list li::after { display: none !important; }
+    /* Text box inside a small box stays clean when you're NOT editing it — no
+       edit-mode highlight box / outline. A faint cue appears only while the
+       text box is actually focused. (The header pill keeps its own color.) */
+    #section-sop.sop-editing .sop-box.sop-small-box .sop-list,
+    #section-sop.sop-editing .sop-box.sop-small-box .sop-list li,
+    #section-sop.sop-editing .sop-box.sop-small-box .sop-sb-text {
+      background: transparent !important;
+      box-shadow: none !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+    #section-sop.sop-editing .sop-box.sop-small-box .sop-sb-text:focus,
+    #section-sop.sop-editing .sop-box.sop-small-box .sop-list:focus,
+    #section-sop.sop-editing .sop-box.sop-small-box .sop-list li:focus {
+      background: rgba(99, 102, 241, 0.12) !important;
+    }
     /* Pop-out button removed — kept hidden defensively in case any stale one
        survives in an old saved snapshot. */
     #section-sop .sop-popout-btn { display: none !important; }

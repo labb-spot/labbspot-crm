@@ -4903,12 +4903,15 @@
         </div>
         <div style="height:16px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;overflow:hidden;position:relative" title="Read-only — moves as you fill in actual spending below.">
           <div id="uw-budget-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#10b981,#22c55e);transition:width 0.25s,background 0.25s"></div>
+          <!-- 90% budget marker -->
+          <div style="position:absolute;top:0;bottom:0;left:90%;width:2px;background:rgba(255,255,255,0.9);z-index:2;pointer-events:none" title="90% of budget"></div>
         </div>
         <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px;color:var(--text-dim)">
           <span>Spent: <span id="uw-budget-spent" style="color:var(--text);font-weight:600;font-variant-numeric:tabular-nums">$0</span></span>
           <span>Left: <span id="uw-budget-left" style="color:#fbbf24;font-weight:700;font-variant-numeric:tabular-nums">$0</span></span>
           <span>Budgeted: <span id="uw-budget-total" style="color:var(--text);font-weight:600;font-variant-numeric:tabular-nums">$0</span></span>
         </div>
+        <div id="uw-budget-90info" style="font-size:11px;margin-top:5px;color:var(--text-dim);text-align:center"></div>
       </div>
 
       <!-- Timeline Use: read-only progress bar driven by start + target dates -->
@@ -20585,6 +20588,19 @@ function _uwBudgetUpdateBar() {
     lf.textContent = (left < 0 ? '-$' : '$') + Math.abs(Math.round(left)).toLocaleString();
     lf.style.color = left < 0 ? '#f87171' : '#fbbf24';
   }
+  // 90% marker caption: the $ at the 90% line, distance to it, and the final 10%.
+  const info90 = document.getElementById('uw-budget-90info');
+  if (info90) {
+    const ninety = budgeted * 0.9;
+    const tenPct = budgeted * 0.1;
+    const toNinety = ninety - spent;
+    const fmt = n => '$' + Math.round(Math.abs(n)).toLocaleString();
+    info90.innerHTML = '90% mark = <b style="color:var(--text)">' + fmt(ninety) + '</b> &nbsp;·&nbsp; '
+      + (toNinety >= 0
+          ? '<b style="color:#fbbf24">' + fmt(toNinety) + '</b> until 90%'
+          : '<b style="color:#f87171">' + fmt(toNinety) + '</b> past 90%')
+      + ' &nbsp;·&nbsp; final 10% = <b style="color:var(--text)">' + fmt(tenPct) + '</b>';
+  }
 }
 window._uwBudgetUpdateBar = _uwBudgetUpdateBar;
 
@@ -28010,7 +28026,9 @@ function renderInvActive(){
     +'<span>Paid <b id="inv-a-paidtot" style="color:#10b981;font-size:16px">'+_invMoney(grandPaid)+'</b></span>'
     +'<span>Owed <b id="inv-a-owedtot" style="color:#ef4444;font-size:16px">'+_invMoney(grandOwed)+'</b></span>'
     +'</div>';
-  el.innerHTML=bar+head+rows;
+  // Trailing spacer so the last row is never pinned against the panel edge /
+  // any element that overlaps the very bottom, which made it unclickable.
+  el.innerHTML=bar+head+rows+'<div style="height:80px"></div>';
   el.querySelectorAll('.inv-arow input:not(.inv-a-inv)').forEach(inp => inp.addEventListener('input', _invActiveOnEdit));
 }
 window.renderInvActive = renderInvActive;

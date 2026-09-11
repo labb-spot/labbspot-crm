@@ -4908,10 +4908,9 @@
         </div>
         <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px;color:var(--text-dim)">
           <span>Spent: <span id="uw-budget-spent" style="color:var(--text);font-weight:600;font-variant-numeric:tabular-nums">$0</span></span>
-          <span>Left: <span id="uw-budget-left" style="color:#fbbf24;font-weight:700;font-variant-numeric:tabular-nums">$0</span></span>
+          <span>Left: <span id="uw-budget-left" style="color:#fbbf24;font-weight:700;font-variant-numeric:tabular-nums">$0</span><span id="uw-budget-90info"></span></span>
           <span>Budgeted: <span id="uw-budget-total" style="color:var(--text);font-weight:600;font-variant-numeric:tabular-nums">$0</span></span>
         </div>
-        <div id="uw-budget-90info" style="font-size:11px;margin-top:5px;color:var(--text-dim);text-align:center"></div>
       </div>
 
       <!-- Timeline Use: read-only progress bar driven by start + target dates -->
@@ -20595,7 +20594,7 @@ function _uwBudgetUpdateBar() {
     const tenPct = budgeted * 0.1;
     const toNinety = ninety - spent;
     const fmt = n => '$' + Math.round(Math.abs(n)).toLocaleString();
-    info90.innerHTML = '90% mark = <b style="color:var(--text)">' + fmt(ninety) + '</b> &nbsp;·&nbsp; '
+    info90.innerHTML = ' &nbsp;·&nbsp; 90% mark = <b style="color:var(--text)">' + fmt(ninety) + '</b> &nbsp;·&nbsp; '
       + (toNinety >= 0
           ? '<b style="color:#fbbf24">' + fmt(toNinety) + '</b> until 90%'
           : '<b style="color:#f87171">' + fmt(toNinety) + '</b> past 90%')

@@ -27147,6 +27147,9 @@ async function uwBidFillLineItems(){
       });
     });
   }
+  // Everything NOT in the active scope is grouped as "Additional Line Items"
+  // (left unselected) — so the scope stays clean and the extras are available.
+  _uwBid.draft.forEach(l => { if (l && !l.selected) l.room = 'Additional Line Items'; });
   _uwBid.mode = 'deal';
   _uwRenderBidEditor();
   const _n = _uwBid.draft.filter(l => l.selected).length;

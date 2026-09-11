@@ -27945,7 +27945,9 @@ function renderInvActive(){
   const _invCompanyForRow = (it) => { const b=invoicedMap[String(it.description||'').trim().toLowerCase()]; return (b&&b.companies&&b.companies.length)?b.companies.join(', '):''; };
   const head='<div style="display:grid;'+_INV_GRID+'font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-dim);padding:0 2px 4px"><div style="padding-left:8px">Room</div><div style="padding-left:8px">Description</div><div style="text-align:left;padding-left:8px" title="Your estimated amount for this line">Expected</div>'+_invDivHdr+'<div style="text-align:left;padding-left:8px" title="Accepted contractor\'s bid for this line">Quoted</div><div style="text-align:left;padding-left:8px" title="Company on the accepted bid that quoted this line">Quoted By</div>'+_invDivHdr+'<div style="text-align:left;padding-left:8px" title="Amount contractors have invoiced for this line">Invoiced</div><div style="text-align:left;padding-left:8px" title="Company that invoiced this line">Invoiced By</div><div style="text-align:center" title="Mark this line paid">Paid</div><div></div></div>';
   const mkRow = (it) => {
-    const t=_invLineTotal(it);
+    // Expected = YOUR estimate only. Contractor-quote items have no LABB estimate
+    // (their amount lives in the Quoted column), so they don't count as Expected.
+    const t=it.fromContractor?0:_invLineTotal(it);
     const _inv=_invForRow(it);
     const _bid=_bidForRow(it);
     const _co=_companyForRow(it);
@@ -28004,7 +28006,7 @@ function renderInvActive(){
   rows += secHead('➕ Additional Items ('+addedRows.length+')','#a855f7','rgba(168,85,247,0.12)');
   rows += addedRows.length ? addedRows.map(mkRow).join('') : '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:2px 4px 6px">Nothing added yet — click <b>+ Add item</b>, or turn on 👷 Include Contractor Quotes to pull in items a contractor quoted.</div>';
   if(mismRows.length){ rows += secHead('⚠ Mismatch in Updated Scope ('+mismRows.length+')','#d97706','rgba(245,158,11,0.14)'); rows += '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:0 4px 6px">Invoiced by a contractor but no longer on your current list — the scope changed since these were invoiced.</div>'; rows += mismRows.map(mkRow).join(''); }
-  const grand=items.reduce((s,it)=>s+_invLineTotal(it),0);
+  const grand=items.reduce((s,it)=>s+(it.fromContractor?0:_invLineTotal(it)),0);
   // Invoiced counts only amounts that match a line on this active list (so it stays
   // consistent with the per-line Invoiced column); unmatched invoice lines are ignored.
   const _actInvDescSet=new Set(items.map(it=>String(it.description||'').trim().toLowerCase()).filter(Boolean));

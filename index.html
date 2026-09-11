@@ -8052,6 +8052,52 @@
     #section-sop .sop-box.sop-flat { background: transparent !important; border: 1px dashed transparent !important; box-shadow: none !important; padding: 6px 8px !important; }
     #section-sop.sop-editing .sop-box.sop-flat { border: 1px dashed rgba(99,102,241,0.25) !important; }
     #section-sop.sop-editing .sop-box.sop-flat:hover { border-color: rgba(99,102,241,0.55) !important; background: rgba(99,102,241,0.05) !important; }
+    /* Standalone SECTION TITLE box — a header bar you drop OVER a group of
+       boxes to label them. Has the same dark card background as the main boxes
+       (per user request). No + Inside button (a title isn't a container). */
+    #section-sop .sop-box.sop-section-title {
+      background: var(--panel) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 10px !important;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
+      padding: 12px 16px !important;
+      overflow: visible !important;
+      display: flex !important;
+      align-items: center !important;
+    }
+    /* Section titles sit ABOVE the main boxes they label (z 50), but BELOW
+       small-box notes (z 9999). */
+    #section-sop .sop-box.sop-section-title { z-index: 50 !important; }
+    #section-sop .sop-box.sop-section-title .sop-add-inside { display: none !important; }
+    /* SMALL BOX — a free-floating note. ALWAYS rendered on top of every big box
+       and header so it can be grabbed and moved anywhere, and it clearly sits
+       OVER a big box (solid card, not a see-through overlay that blends in).
+       One uniform look whether it's a fresh + Small box or a card popped out of
+       a big box. */
+    #section-sop .sop-box.sop-small-box {
+      background: #1b2233 !important;
+      border: 1px solid #6366f1 !important;
+      border-radius: 10px !important;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55) !important;
+      padding: 10px 12px !important;
+      overflow: visible !important;
+      z-index: 2147483000 !important;
+    }
+    #section-sop.sop-editing .sop-box.sop-small-box { border-color: #818cf8 !important; }
+    /* Pop-out button removed — kept hidden defensively in case any stale one
+       survives in an old saved snapshot. */
+    #section-sop .sop-popout-btn { display: none !important; }
+    #section-sop .sop-section-title-text {
+      font-weight: 800;
+      font-size: calc(24px * var(--sop-scale, 1) * var(--sop-font-mult, 1));
+      letter-spacing: 0.3px;
+      color: var(--text);
+      line-height: 1.25;
+      width: 100%;
+      white-space: nowrap;
+      border-left: 4px solid rgba(245,158,11,0.85);
+      padding-left: 12px;
+    }
     /* Per-list-item delete button — small × shown on hover during edit mode */
     #section-sop.sop-editing .sop-list li { position: relative; padding-right: 22px; }
     #section-sop.sop-editing .sop-list li::after { content: "×"; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #f87171; opacity: 0; font-size: 14px; font-weight: 700; transition: opacity 0.1s; }
@@ -8309,7 +8355,9 @@
            never shifts when toggling Edit Mode. JS adds .sop-tb-inactive
            when Edit Mode is off (greys them out + makes them un-clickable
            via pointer-events:none); removes the class to bring them back. -->
-      <button class="btn btn-ghost sop-tb-btn sop-tb-inactive" id="sop-add-box-btn" onclick="sopAddBox()" style="background:#10b981;color:white;border:1px solid #10b981;font-weight:600" title="Add a new empty box to the canvas. Drag it where you want.">+ Box</button>
+      <button class="btn btn-ghost sop-tb-btn" id="sop-add-box-btn" onclick="sopAddBox()" style="background:#10b981;color:white;border:1px solid #10b981;font-weight:600" title="Add a new MAIN box — a full card with a title and bullet list. Appears in the center of your current view. No Edit Mode required.">+ Main</button>
+      <button class="btn btn-ghost sop-tb-btn" id="sop-add-small-btn" onclick="sopAddSmallBox()" style="background:#0ea5e9;color:white;border:1px solid #0ea5e9;font-weight:600" title="Add a small INTERNAL-style box (a pill label + bullet list) that lives directly on the canvas instead of only inside a big box. No Edit Mode required.">+ Small</button>
+      <button class="btn btn-ghost sop-tb-btn" id="sop-add-title-btn" onclick="sopAddSectionTitle()" style="background:#f59e0b;color:white;border:1px solid #f59e0b;font-weight:600" title="Add a section TITLE — a standalone header you can label and drop above a group of boxes. No Edit Mode required.">+ Title</button>
       <!-- Arrow tools — only clickable in Edit Mode (greyed out otherwise). -->
       <button class="btn btn-ghost sop-tb-btn sop-arrow-tool-btn sop-tb-inactive" id="sop-add-arrow-btn" onclick="sopStartAddArrow('line')" style="background:#3b82f6;color:white;border:1px solid #3b82f6;font-weight:600" title="Add a straight arrow. Click the source box, then the destination box. Esc cancels.">↗</button>
       <button class="btn btn-ghost sop-tb-btn sop-arrow-tool-btn sop-tb-inactive" id="sop-add-curve-btn" onclick="sopStartAddArrow('curve')" style="background:#8b5cf6;color:white;border:1px solid #8b5cf6;font-weight:600" title="Add a curved arrow. Click the source box, then the destination box. Drag the midpoint handle to bend the curve. Esc cancels.">⤴</button>
@@ -21862,7 +21910,7 @@ function _sopCaptureCanvas() {
   clone.querySelectorAll(
     '.sop-del-box, .sop-resize-handle, .sop-add-inside, .sop-font-btn, ' +
     '.sop-color-btn, .sop-dup-box, .sop-lock-box, .sop-section-drag, ' +
-    '.sop-sub-resize-handle'
+    '.sop-sub-resize-handle, .sop-popout-btn'
   ).forEach(el => el.remove());
   clone.querySelectorAll('#sop-arrows .sop-arrow-group').forEach(g => g.remove());
   clone.querySelectorAll('.sop-color-palette').forEach(p => p.remove());
@@ -22048,7 +22096,7 @@ function _sopAssignIdsAndRestore() {
       const saved = _sopState.boxes[savedId];
       if (!saved || typeof saved.html !== 'string') return;
       const div = document.createElement('div');
-      div.className = 'sop-box';
+      div.className = saved.cls || 'sop-box';
       div.dataset.sopId = savedId;
       if (typeof saved.x === 'number') div.style.left   = saved.x + 'px';
       if (typeof saved.y === 'number') div.style.top    = saved.y + 'px';
@@ -22074,12 +22122,8 @@ function _sopAssignIdsAndRestore() {
       del.addEventListener('click', (ev) => {
         ev.stopPropagation();
         if (!_sopEditing) return;
-        // Locked boxes refuse deletion.
-        if (_sopIsLocked(box)) {
-          if (typeof toast === 'function') toast('Box is locked. Unlock first to delete.', 'warn');
-          else alert('Box is locked. Unlock first to delete.');
-          return;
-        }
+        // In Edit Mode, the × + confirm is enough to delete — the global
+        // sub-lock no longer blocks it (the user asked to delete directly).
         if (!confirm('Delete this box?')) return;
         const parentBox = box.parentElement && box.parentElement.classList && box.parentElement.classList.contains('sop-box')
           ? box.parentElement : null;
@@ -22215,12 +22259,33 @@ function _sopAssignIdsAndRestore() {
   // this keeps the user's drag layouts persistent across reloads.
   if (typeof _sopApplySubFreeAll === 'function') _sopApplySubFreeAll();
   _sopApplyModeClass();
+  // MIGRATE OLD SMALL BOXES → NEW FORMAT: scrub any stale inline styling / legacy
+  // class off every small box so they all render with the current solid look
+  // (no need to pull them out and re-drop them to refresh).
+  if (typeof _sopNormalizeSmallBoxes === 'function') _sopNormalizeSmallBoxes();
   // Restore phase is done — subsequent saves can safely capture the canvas
   // without risk of overwriting saved state with init-time DOM.
   _sopRestoreComplete = true;
   // Snapshot the freshly-loaded (known-good) layout as a backup before any edits.
   if (typeof _sopPushBackup === 'function') { try { _sopCaptureCanvas(); _sopPushBackup(); } catch (_) {} }
 }
+
+// Force every small box (anywhere in the tree, at any nesting level) onto the
+// current solid "new format": strip the legacy .sop-flat class and any stale
+// inline background / border / shadow / blur that older sessions baked in, so
+// the CSS rules for .sop-small-box fully govern the look. Returns true if it
+// changed anything.
+function _sopNormalizeSmallBoxes() {
+  let changed = false;
+  document.querySelectorAll('#section-sop .sop-box.sop-small-box').forEach(box => {
+    if (box.classList.contains('sop-flat')) { box.classList.remove('sop-flat'); changed = true; }
+    ['background', 'background-color', 'background-image', 'border', 'border-color',
+     'box-shadow', 'backdrop-filter', '-webkit-backdrop-filter', 'filter', 'opacity']
+      .forEach(p => { if (box.style.getPropertyValue(p)) { box.style.removeProperty(p); changed = true; } });
+  });
+  return changed;
+}
+window._sopNormalizeSmallBoxes = _sopNormalizeSmallBoxes;
 
 function _sopApplyModeClass() {
   const sec = document.getElementById('section-sop');
@@ -22251,8 +22316,8 @@ function _sopApplyModeClass() {
   // Edit-only buttons stay in the toolbar at all times — toggle the
   // .sop-tb-inactive class so they grey out and stop accepting clicks
   // when Edit Mode is off, without changing layout width.
-  const addBtn = document.getElementById('sop-add-box-btn');
-  if (addBtn) addBtn.classList.toggle('sop-tb-inactive', !_sopEditing);
+  // + Main / + Small / + Title stay clickable at all times (Edit Mode not
+  // required to add) — so we no longer grey them out here.
   const editBtn = document.getElementById('sop-edit-btn');
   if (editBtn) {
     editBtn.textContent = _sopEditing ? '✓' : '📝';
@@ -22426,8 +22491,14 @@ function _sopSnapshotBox(box) {
   // attaches them with fresh listeners; leaving the old elements in causes
   // the re-attach guards to skip them and they become inert.
   const clone = top.cloneNode(true);
-  clone.querySelectorAll('.sop-del-box, .sop-resize-handle, .sop-add-inside, .sop-font-btn, .sop-color-btn, .sop-dup-box, .sop-lock-box, .sop-section-drag').forEach(b => b.remove());
+  clone.querySelectorAll('.sop-del-box, .sop-resize-handle, .sop-add-inside, .sop-font-btn, .sop-color-btn, .sop-dup-box, .sop-lock-box, .sop-section-drag, .sop-popout-btn, .sop-sub-resize-handle').forEach(b => b.remove());
   prev.html = clone.innerHTML;
+  // Persist the box's own class list (minus transient state classes) so the
+  // custom-box rebuild fallback can restore flat / small / section-title
+  // styling instead of always defaulting to a plain .sop-box card.
+  prev.cls = String(top.className || '').split(/\s+/)
+    .filter(c => c && c !== 'sop-locked' && c !== 'sop-dragging' && c !== 'sop-search-hit' && c !== 'sop-search-current')
+    .join(' ') || 'sop-box';
   // Persist this top-level box's own font multiplier so it survives reloads.
   // (Nested boxes carry their multiplier via inline style inside the parent's
   // saved HTML, but top-level boxes have only their innerHTML saved, not
@@ -22443,7 +22514,11 @@ function _sopSnapshotBox(box) {
   const scaleVar = parseFloat(top.style.getPropertyValue('--sop-scale'));
   if (isFinite(scaleVar) && scaleVar > 0 && scaleVar < 1) prev.scale = Math.round(scaleVar * 1000) / 1000;
   else delete prev.scale;
-  if (_sopMode === 'free' || _sopEditing) {
+  // Small boxes & headers are draggable in puzzle mode too (not just Free/Edit),
+  // so ALWAYS capture their position — otherwise a puzzle-mode move isn't saved
+  // and the box snaps back to its old spot on the next re-render / unlock.
+  const _alwaysPos = top.classList.contains('sop-small-box') || top.classList.contains('sop-section-title');
+  if (_sopMode === 'free' || _sopEditing || _alwaysPos) {
     // Capture position + size from inline styles (set during drag/resize)
     const x = parseFloat(top.style.left);
     const y = parseFloat(top.style.top);
@@ -22655,6 +22730,8 @@ function _sopAddNestedBox(parent) {
 
 // ----- Drag-to-move in free mode -----
 let _sopDragBox = null, _sopDragStartX = 0, _sopDragStartY = 0, _sopDragBoxX = 0, _sopDragBoxY = 0;
+// Small boxes overlapping a big box at drag-start travel WITH it (group drag).
+let _sopDragAttached = [];
 
 function _sopDragStart(ev) {
   // Arrow-add mode: any click on a box creates/completes an arrow instead
@@ -22703,6 +22780,24 @@ function _sopDragStart(ev) {
   _sopDragBoxY = parseFloat(box.style.top)  || rect.top;
   box.classList.add('sop-dragging-this');
   document.getElementById('section-sop')?.classList.add('sop-dragging');
+  // GROUP DRAG: if this is a BIG box, any small box overlapping it right now
+  // travels with it. (Small boxes / headers dragged on their own don't.)
+  _sopDragAttached = [];
+  if (!box.classList.contains('sop-small-box') && !box.classList.contains('sop-section-title')) {
+    const bx = parseFloat(box.style.left) || 0;
+    const by = parseFloat(box.style.top)  || 0;
+    const bw = box.offsetWidth  || 0;
+    const bh = box.offsetHeight || 0;
+    document.querySelectorAll('#sop-canvas > .sop-box.sop-small-box').forEach(sb => {
+      const sx = parseFloat(sb.style.left) || 0;
+      const sy = parseFloat(sb.style.top)  || 0;
+      const sw = sb.offsetWidth  || 0;
+      const sh = sb.offsetHeight || 0;
+      if (!(sx + sw <= bx || sx >= bx + bw || sy + sh <= by || sy >= by + bh)) {
+        _sopDragAttached.push({ el: sb, x: sx, y: sy });
+      }
+    });
+  }
   ev.preventDefault();
 }
 
@@ -22728,6 +22823,16 @@ function _sopDragMove(ev) {
   const ny = _sopSnap(_sopDragBoxY + dy, ev);
   _sopDragBox.style.left = nx + 'px';
   _sopDragBox.style.top  = ny + 'px';
+  // GROUP DRAG: shift any attached small boxes by the same delta so they ride
+  // along with the big box.
+  if (_sopDragAttached && _sopDragAttached.length) {
+    const ddx = nx - _sopDragBoxX;
+    const ddy = ny - _sopDragBoxY;
+    _sopDragAttached.forEach(a => {
+      a.el.style.left = Math.round(a.x + ddx) + 'px';
+      a.el.style.top  = Math.round(a.y + ddy) + 'px';
+    });
+  }
   // If this box is nested inside another box, the parent has overflow:hidden
   // and clips anything outside its bounds. Auto-grow the parent if the child
   // goes past its current right/bottom edge so the child stays visible.
@@ -22750,7 +22855,20 @@ function _sopDragEnd() {
   if (!_sopDragBox) return;
   _sopDragBox.classList.remove('sop-dragging-this');
   document.getElementById('section-sop')?.classList.remove('sop-dragging');
+  // Small boxes: refresh their over-a-big-box vs. loose-on-canvas styling now
+  // that they've landed in a new spot.
+  if (_sopDragBox.classList.contains('sop-small-box') && typeof _sopUpdateSmallBoxBg === 'function') {
+    _sopUpdateSmallBoxBg(_sopDragBox);
+  }
   _sopSnapshotBox(_sopDragBox);
+  // Persist any small boxes that rode along with a big box.
+  if (_sopDragAttached && _sopDragAttached.length) {
+    _sopDragAttached.forEach(a => {
+      if (typeof _sopUpdateSmallBoxBg === 'function') _sopUpdateSmallBoxBg(a.el);
+      if (typeof _sopSnapshotBox === 'function') _sopSnapshotBox(a.el);
+    });
+  }
+  _sopDragAttached = [];
   _sopDragBox = null;
 }
 
@@ -23581,33 +23699,187 @@ function _sopRgbToHex(rgb) {
   return '#' + toHex(m[1]) + toHex(m[2]) + toHex(m[3]);
 }
 
-// ----- Add a new empty top-level box (Edit Mode only) -----
-function sopAddBox() {
-  if (!_sopEditing) {
-    if (typeof toast === 'function') toast('Turn on Edit Mode to add boxes.', 'warn');
-    return;
+// Compute a spawn position (canvas coords) so a newly-added box lands in the
+// CENTER of whatever the user is currently looking at — accounting for pan
+// (viewport scroll) and zoom — instead of at a fixed 40,40 that may be far
+// off-screen. Returns {x, y} top-left for a box of the given width/height.
+function _sopSpawnXY(w, h) {
+  const vp = document.getElementById('sop-viewport');
+  const z = _sopZoom || 1;
+  if (!vp) return { x: 40, y: 40 };
+  const cx = (vp.scrollLeft + vp.clientWidth  / 2) / z - (w || 0) / 2;
+  const cy = (vp.scrollTop  + vp.clientHeight / 2) / z - (h || 0) / 2;
+  return { x: Math.max(10, Math.round(cx)), y: Math.max(10, Math.round(cy)) };
+}
+
+// Raise a box above every other top-level box so a freshly-added one always
+// appears in FRONT of anything already on the canvas.
+function _sopBringToFront(div) {
+  if (!div) return;
+  let maxZ = 0;
+  document.querySelectorAll('#sop-canvas > .sop-box').forEach(b => {
+    const z = parseInt(b.style.zIndex, 10);
+    if (isFinite(z) && z > maxZ) maxZ = z;
+  });
+  div.style.zIndex = String(maxZ + 1);
+}
+
+// Toggle a small box's "outside a big box" styling based on whether its
+// rectangle overlaps any big box on the canvas. Small boxes stay top-level and
+// always-on-top; "in a big box" is purely a visual overlap, not DOM nesting —
+// so a small box can be dragged over, off, or between big boxes freely.
+function _sopUpdateSmallBoxBg(box) {
+  if (!box || !box.classList || !box.classList.contains('sop-small-box')) return;
+  const sx = parseFloat(box.style.left) || 0;
+  const sy = parseFloat(box.style.top)  || 0;
+  const sw = box.offsetWidth  || parseFloat(box.style.width)  || 0;
+  const sh = box.offsetHeight || parseFloat(box.style.height) || 0;
+  let over = false;
+  document.querySelectorAll('#sop-canvas > .sop-box').forEach(b => {
+    if (over || b === box) return;
+    // Only BIG boxes count as containers — not other small boxes or headers.
+    if (b.classList.contains('sop-small-box') || b.classList.contains('sop-section-title')) return;
+    const bx = parseFloat(b.style.left) || 0;
+    const by = parseFloat(b.style.top)  || 0;
+    const bw = b.offsetWidth  || 0;
+    const bh = b.offsetHeight || 0;
+    if (!(sx + sw <= bx || sx >= bx + bw || sy + sh <= by || sy >= by + bh)) over = true;
+  });
+  box.classList.toggle('sop-small-outside', !over);
+}
+function _sopUpdateAllSmallBoxBg() {
+  document.querySelectorAll('#sop-canvas > .sop-box.sop-small-box').forEach(_sopUpdateSmallBoxBg);
+}
+
+// Finalize a freshly-added top-level box. CRITICAL ORDERING: _sopAssignIdsAndRestore
+// rebuilds the whole canvas from the canvasHtml snapshot when one exists — which
+// would WIPE the just-appended box (the reason new boxes "disappeared"). So we
+// first fold the new box INTO the snapshot via _sopCaptureCanvas(), then restore
+// (which now includes it + attaches its buttons), then re-query the rebuilt node
+// to snapshot + save it.
+function _sopFinalizeAdd(div, newId) {
+  _sopBringToFront(div);
+  // Fold the new box into the canvasHtml snapshot MANUALLY (no _sopRestoreComplete
+  // / offsetWidth guards that _sopCaptureCanvas applies). This is the critical
+  // step: _sopAssignIdsAndRestore rebuilds the canvas from canvasHtml, so if the
+  // snapshot doesn't already contain the new box, the box gets wiped and never
+  // appears. Capturing here unconditionally guarantees it's in the snapshot.
+  const canvas = document.getElementById('sop-canvas');
+  if (canvas) {
+    const clone = canvas.cloneNode(true);
+    clone.querySelectorAll(
+      '.sop-del-box, .sop-resize-handle, .sop-add-inside, .sop-font-btn, ' +
+      '.sop-color-btn, .sop-dup-box, .sop-lock-box, .sop-section-drag, ' +
+      '.sop-sub-resize-handle'
+    ).forEach(el => el.remove());
+    clone.querySelectorAll('#sop-arrows .sop-arrow-group').forEach(g => g.remove());
+    clone.querySelectorAll('.sop-color-palette').forEach(p => p.remove());
+    _sopState.canvasHtml = clone.innerHTML;
+    _sopRestoreComplete = true;
   }
+  _sopAssignIdsAndRestore();
+  const esc = (window.CSS && typeof CSS.escape === 'function') ? CSS.escape : (s => s);
+  const fresh = document.querySelector('#sop-canvas [data-sop-id="' + esc(newId) + '"]') || div;
+  if (typeof _sopSnapshotBox === 'function') _sopSnapshotBox(fresh);
+  if (typeof _sopRenderArrows === 'function') _sopRenderArrows();
+  if (typeof _sopSaveState === 'function') _sopSaveState();
+  // Make sure the new box is actually in view: scroll the viewport to center on
+  // it and flash a highlight so the user can see where it landed.
+  try { _sopRevealBox(fresh); } catch (_) {}
+  return fresh;
+}
+
+// Scroll the viewport so a box is centered in view, then briefly flash it.
+function _sopRevealBox(box) {
+  if (!box) return;
+  const vp = document.getElementById('sop-viewport');
+  if (vp) {
+    const z = _sopZoom || 1;
+    const bx = parseFloat(box.style.left) || 0;
+    const by = parseFloat(box.style.top)  || 0;
+    const bw = parseFloat(box.style.width)  || box.offsetWidth  || 0;
+    const bh = parseFloat(box.style.height) || box.offsetHeight || 0;
+    vp.scrollLeft = Math.max(0, (bx + bw / 2) * z - vp.clientWidth  / 2);
+    vp.scrollTop  = Math.max(0, (by + bh / 2) * z - vp.clientHeight / 2);
+    if (typeof _sopClampScroll === 'function') _sopClampScroll();
+  }
+  box.style.outline = '3px solid #6366f1';
+  box.style.transition = 'outline 0.2s';
+  setTimeout(() => { try { box.style.outline = ''; } catch (_) {} }, 1200);
+}
+
+// ----- Add a new empty top-level MAIN box (works in or out of Edit Mode) -----
+function sopAddBox() {
   const canvas = document.getElementById('sop-canvas');
   if (!canvas) return;
   const newId = 'sop-box-custom-' + Date.now();
   const div = document.createElement('div');
   div.className = 'sop-box';
   div.dataset.sopId = newId;
-  div.style.left = '40px';
-  div.style.top  = '40px';
+  const p = _sopSpawnXY(260, 180);
+  div.style.position = 'absolute';
+  div.style.left = p.x + 'px';
+  div.style.top  = p.y + 'px';
   div.style.width  = '260px';
   div.style.height = '180px';
+  // Always editable so the user can name it immediately, even outside Edit Mode.
   div.innerHTML =
-    '<div class="sop-title t-purple" contenteditable="' + (_sopEditing ? 'true' : 'false') + '">New Box</div>' +
-    '<ul class="sop-list"><li contenteditable="' + (_sopEditing ? 'true' : 'false') + '">First item</li></ul>';
+    '<div class="sop-title t-purple" contenteditable="true">New Box</div>' +
+    '<ul class="sop-list"><li contenteditable="true">First item</li></ul>';
   canvas.appendChild(div);
-  // Use the canonical plumbing path — assigns ID + attaches × delete,
-  // resize handle, AND the + Inside button (so the user can nest right away).
-  _sopAssignIdsAndRestore();
-  _sopSnapshotBox(div);
-  _sopRenderArrows();
+  _sopFinalizeAdd(div, newId);
 }
 window.sopAddBox = sopAddBox;
+
+// Add a standalone SMALL / internal-style box directly onto the canvas.
+// Visually identical to a nested sub-section (pill badge + bullet list, no
+// card chrome via .sop-flat) but it's a top-level box so it can float on the
+// canvas rather than living inside a big box.
+function sopAddSmallBox() {
+  const canvas = document.getElementById('sop-canvas');
+  if (!canvas) return;
+  const newId = 'sop-box-custom-small-' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'sop-box sop-small-box';
+  div.dataset.sopId = newId;
+  const p = _sopSpawnXY(220, 110);
+  div.style.position = 'absolute';
+  div.style.left = p.x + 'px';
+  div.style.top  = p.y + 'px';
+  div.style.width  = '220px';
+  div.style.padding = '10px 12px';
+  div.innerHTML =
+    '<div class="sop-group" style="margin:0">' +
+      '<span class="sop-sub bg-purple" contenteditable="true">LABEL</span>' +
+      '<ul class="sop-list"><li contenteditable="true">Item</li></ul>' +
+    '</div>';
+  canvas.appendChild(div);
+  _sopFinalizeAdd(div, newId);
+}
+window.sopAddSmallBox = sopAddSmallBox;
+
+// Add a standalone SECTION TITLE — a big editable header with no card chrome,
+// meant to be dropped above a group of boxes to label them.
+function sopAddSectionTitle() {
+  const canvas = document.getElementById('sop-canvas');
+  if (!canvas) return;
+  const newId = 'sop-box-custom-title-' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'sop-box sop-section-title';
+  div.dataset.sopId = newId;
+  const p = _sopSpawnXY(360, 60);
+  div.style.position = 'absolute';
+  div.style.left = p.x + 'px';
+  div.style.top  = p.y + 'px';
+  div.style.width  = '360px';
+  div.style.height = '60px';
+  div.style.padding = '6px 4px';
+  div.innerHTML =
+    '<div class="sop-section-title-text" contenteditable="true">Section Title</div>';
+  canvas.appendChild(div);
+  _sopFinalizeAdd(div, newId);
+}
+window.sopAddSectionTitle = sopAddSectionTitle;
 
 // ============================================================
 // ===== Search: highlight + jump to matches
@@ -24196,6 +24468,34 @@ function _sopApplySubFreeAll() {
   const canvas = document.getElementById('sop-canvas');
   if (!canvas || !canvas.offsetWidth) return;
   document.querySelectorAll('#sop-canvas > .sop-box').forEach(box => {
+    // Small boxes & section titles are single-unit boxes — never sub-free.
+    // Strip any sub-free state so their inner content stays put inside the frame
+    // (fixes content that detached in a prior session).
+    if (box.classList.contains('sop-small-box') || box.classList.contains('sop-section-title')) {
+      box.classList.remove('sop-sub-free');
+      // NORMALIZE OLD FORMAT → NEW: earlier small boxes / headers carried the
+      // .sop-flat class + stray inline background / blur that gave them the old
+      // see-through look. Strip those so every small box uses the current solid
+      // style. Also ensure absolute positioning + no fixed height (auto-fit).
+      box.classList.remove('sop-flat');
+      box.style.removeProperty('background');
+      box.style.removeProperty('backdrop-filter');
+      box.style.removeProperty('-webkit-backdrop-filter');
+      if (box.classList.contains('sop-small-box')) box.style.position = 'absolute';
+      box.querySelectorAll(':scope > .sop-group, :scope > .sop-grid2 > div, :scope > .sop-grid3 > div, :scope > .sop-tag').forEach(sub => {
+        sub.style.removeProperty('left');
+        sub.style.removeProperty('top');
+        sub.style.removeProperty('position');
+        sub.style.removeProperty('width');
+        sub.style.removeProperty('height');
+        const h = sub.querySelector(':scope > .sop-sub-resize-handle');
+        if (h) h.remove();
+      });
+      if (box.classList.contains('sop-small-box') && typeof _sopUpdateSmallBoxBg === 'function') {
+        _sopUpdateSmallBoxBg(box);
+      }
+      return;
+    }
     _sopAssignSubIds(box);
     _sopApplySubFree(box);
   });
@@ -24221,11 +24521,36 @@ function _sopSubDragStart(ev) {
   if (ev.button !== 0) return;
   const t = ev.target;
   if (!t) return;
-  if (t.closest('button, input, select, textarea, .sop-color-btn, .sop-color-btn-title, .sop-del-box, .sop-add-inside, .sop-dup-box, .sop-lock-box, .sop-font-btn, .sop-resize-handle, .sop-section-drag, .sop-sub-resize-handle')) return;
+  if (t.closest('button, input, select, textarea, .sop-color-btn, .sop-color-btn-title, .sop-del-box, .sop-add-inside, .sop-dup-box, .sop-lock-box, .sop-font-btn, .sop-resize-handle, .sop-section-drag, .sop-sub-resize-handle, .sop-popout-btn')) return;
   // Find the top-level box containing the click. This works whether or not
   // .sop-sub-free is already on it.
   const box = t.closest('#sop-canvas > .sop-box');
   if (!box) return;
+  // Small boxes & section-title headers move as a SINGLE UNIT — their inner
+  // content must never detach. Route the drag through the top-level box drag
+  // vars so the WHOLE box slides on the canvas (fields stay inside).
+  //   • SMALL boxes  → always draggable (free-floating notes, over anything).
+  //   • SECTION titles → only when the big boxes can move (Free Mode) OR the
+  //                      lock is unlocked (🧩 puzzle).
+  const _isSmall = box.classList.contains('sop-small-box');
+  const _isTitle = box.classList.contains('sop-section-title');
+  if (_isSmall || _isTitle) {
+    if (t.isContentEditable) return;                 // let text editing win
+    if (t.closest('.sop-del-box, .sop-add-inside, .sop-dup-box, .sop-lock-box, .sop-font-btn, .sop-resize-handle, .sop-sub-resize-handle')) return;
+    // Small boxes AND headers move when the lock is unlocked (🧩 puzzle) OR in
+    // Free Mode (🔓). In the default locked view nothing moves.
+    if (!(_sopMode === 'free' || !_sopIsLocked(box))) return;
+    const rect = box.getBoundingClientRect();
+    _sopDragBox = box;
+    _sopDragStartX = ev.clientX;
+    _sopDragStartY = ev.clientY;
+    _sopDragBoxX = parseFloat(box.style.left) || rect.left;
+    _sopDragBoxY = parseFloat(box.style.top)  || rect.top;
+    box.classList.add('sop-dragging-this');
+    const _sec = document.getElementById('section-sop'); if (_sec) _sec.classList.add('sop-dragging');
+    ev.preventDefault();
+    return;                                          // do NOT arm sub-drag
+  }
   if (_sopIsLocked(box)) return;
   // On-demand: if sub-free positioning hasn't been applied to this box yet
   // (e.g. the init-time call skipped because the section was hidden), apply
@@ -24268,6 +24593,12 @@ function _sopSubDragMove(ev) {
     _sopSubDragOffsetX = _sopSubArmedX - r.left;
     _sopSubDragOffsetY = _sopSubArmedY - r.top;
     _sopSubDrag.classList.add('sop-sub-dragging');
+    // Let the card be dragged OUT of its box: lift the parent's overflow clip
+    // and raise the card so it stays visible past the box edge. Restored on drop.
+    try {
+      _sopSubDragBox.style.overflow = 'visible';
+      _sopSubDrag.style.zIndex = '10000';
+    } catch (_) {}
   }
   if (!_sopSubDrag || !_sopSubDragBox) return;
   ev.preventDefault();
@@ -24287,9 +24618,9 @@ function _sopSubDragMove(ev) {
     x = Math.round(x / _SOP_SNAP_GRID) * _SOP_SNAP_GRID;
     y = Math.round(y / _SOP_SNAP_GRID) * _SOP_SNAP_GRID;
   }
-  // Clamp to box interior (don't let cards drag outside).
-  x = Math.max(0, x);
-  y = Math.max(0, y);
+  // NOTE: no longer clamped to the box interior — cards can be dragged OUT of
+  // their box. On drop, a card whose center left the box detaches into a
+  // free-floating small box (see _sopSubDragEnd).
   _sopSubDrag.style.left = Math.round(x) + 'px';
   _sopSubDrag.style.top  = Math.round(y) + 'px';
 }
@@ -24405,6 +24736,24 @@ function _sopSubDragEnd(ev) {
   sub.classList.remove('sop-sub-dragging');
   _sopSubDrag = null;
   _sopSubDragBox = null;
+  // Restore the parent's overflow clip + the card's z-index (lifted during drag
+  // so the card could be dragged past the box edge).
+  try { box.style.overflow = ''; sub.style.zIndex = ''; } catch (_) {}
+  // DETACH: if the card's CENTER ended up outside its parent box, pop it out
+  // into a free-floating small box (over another box → looks "in" it; over the
+  // open canvas → light transparent). Otherwise fall through to the normal
+  // save-position-within-parent path below.
+  try {
+    const sr = sub.getBoundingClientRect();
+    const br = box.getBoundingClientRect();
+    const cx = sr.left + sr.width / 2;
+    const cy = sr.top  + sr.height / 2;
+    const insideParent = (cx >= br.left && cx <= br.right && cy >= br.top && cy <= br.bottom);
+    if (!insideParent && typeof _sopPopOutCard === 'function') {
+      _sopPopOutCard(sub);
+      return;
+    }
+  } catch (_) {}
   // DOUBLE PERSISTENCE: save the position in subPos AND snapshot the parent
   // box so the new inline left/top is also baked into saved.html. Either
   // path is enough to restore — having both means stale subPos can't lose
@@ -24435,6 +24784,12 @@ function _sopSubDragEnd(ev) {
 // ----- Original sub-section drag handle (now mostly cosmetic) -----
 function _sopAttachSectionDrag(section) {
   if (!section) return;
+  // A card that already lives inside a small box (e.g. after pop-out) doesn't
+  // get its own drag handle or pop-out button — the small box moves as a unit.
+  if (section.closest('.sop-small-box')) {
+    section.querySelectorAll(':scope > .sop-section-drag, :scope > .sop-popout-btn').forEach(el => el.remove());
+    return;
+  }
   // Always wipe any pre-existing handle so we can re-attach a fresh one
   // with the CURRENT listeners. Older sessions may have left handles with
   // stale listeners in the DOM via saved.html.
@@ -24452,7 +24807,58 @@ function _sopAttachSectionDrag(section) {
   handle.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
   handle.addEventListener('mousedown', (ev) => { ev.stopPropagation(); });
   section.appendChild(handle);
+  // (Pop-out button removed — small boxes are created via the + Small button and
+  // are freely movable anywhere; no per-card pop-out control needed.)
+  const oldPop = section.querySelector(':scope > .sop-popout-btn');
+  if (oldPop) oldPop.remove();
 }
+
+// Convert an internal sub-section card into a top-level floating small box at
+// its current on-screen position. Small boxes are top-level + always-on-top, so
+// after popping out the card can be dragged anywhere — over another big box or
+// onto the open canvas.
+function _sopPopOutCard(section) {
+  if (!section) return;
+  const canvas = document.getElementById('sop-canvas');
+  if (!canvas) return;
+  const parentBox = section.closest('#sop-canvas > .sop-box');
+  // Card position → canvas coordinates (accounting for zoom).
+  const secRect = section.getBoundingClientRect();
+  const canRect = canvas.getBoundingClientRect();
+  const z = _sopZoom || 1;
+  // Subtract the canvas's 20px padding: absolute left/top are measured from the
+  // padding edge, but the bounding-rect delta is from the border edge.
+  const _cpad = parseFloat(getComputedStyle(canvas).paddingLeft) || 0;
+  const x = Math.max(10, Math.round((secRect.left - canRect.left) / z - _cpad));
+  const y = Math.max(10, Math.round((secRect.top  - canRect.top)  / z - _cpad));
+  const w = Math.max(160, Math.round(secRect.width / z));
+  // Clone the card content, stripping control chrome + any sub-free inline pos.
+  const clone = section.cloneNode(true);
+  clone.querySelectorAll('.sop-section-drag, .sop-sub-resize-handle, .sop-popout-btn').forEach(el => el.remove());
+  ['position', 'left', 'top', 'width', 'height'].forEach(p => clone.style.removeProperty(p));
+  if (clone.dataset) delete clone.dataset.subId;
+  // Build the floating small box.
+  const newId = 'sop-box-custom-small-' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'sop-box sop-small-box';
+  div.dataset.sopId = newId;
+  div.style.position = 'absolute';
+  div.style.left = x + 'px';
+  div.style.top  = y + 'px';
+  div.style.width = w + 'px';
+  div.style.padding = '10px 12px';
+  div.appendChild(clone);
+  canvas.appendChild(div);
+  // Remove the original card from its parent box and persist that removal.
+  section.remove();
+  if (parentBox && typeof _sopSnapshotBox === 'function') _sopSnapshotBox(parentBox);
+  // Fold the new small box into the snapshot, wire it up, reveal + style it.
+  _sopFinalizeAdd(div, newId);
+  const esc = (window.CSS && typeof CSS.escape === 'function') ? CSS.escape : (s => s);
+  const fresh = document.querySelector('#sop-canvas > [data-sop-id="' + esc(newId) + '"]') || div;
+  if (typeof _sopUpdateSmallBoxBg === 'function') _sopUpdateSmallBoxBg(fresh);
+}
+window._sopPopOutCard = _sopPopOutCard;
 
 // Shared "arm drag" entry-point used by both the ⋮⋮ handle and the
 // card-wide mousedown listener. Records the source + start position so the

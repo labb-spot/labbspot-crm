@@ -28969,14 +28969,16 @@ async function _priceSubIndexLoad(force) {
   try {
     const { data, error } = await sb.from('price_submissions').select('address, asking, offer').limit(50000);
     if (error) throw error;
-    const hasVal = v => v != null && String(v).replace(/[^0-9.]/g, '') !== '';
+    const numOf = v => parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')) || 0;
     const idx = {};
     (data || []).forEach(r => {
       const k = _priceSubNorm(r.address);
       if (!k) return;
-      if (!idx[k]) idx[k] = { seller: false, offer: false };
-      if (hasVal(r.asking)) idx[k].seller = true;
-      if (hasVal(r.offer)) idx[k].offer = true;
+      if (!idx[k]) idx[k] = { seller: false, offer: false, low: 0 };
+      const a = numOf(r.asking), o = numOf(r.offer);
+      if (a > 0) idx[k].seller = true;
+      if (o > 0) idx[k].offer = true;
+      [a, o].forEach(v => { if (v > 0 && (idx[k].low === 0 || v < idx[k].low)) idx[k].low = v; });
     });
     window._priceSubIndex = idx;
   } catch (e) {
@@ -41481,54 +41483,70 @@ function renderUnderwriteList() {
         (Array.isArray(data._rehab) && data._rehab.some(col => (col && col.items || []).some(it => it && it.needed === true)));
       const _isDispo = !!(u.dispo_contract || data._dispoContract);
 
-      // ----- Exclusion filters: ALWAYS applied, regardless of AND/OR mode -----
+      // ----- Exclusion filters: ALWAYS applied -----
       if (_S.excludeDispo && _isDispo) return false;                // Drop deals already in Dispositions
       if (_S.excludeTagged && data._tagged === true) return false;  // Drop tagged properties
 
-      // ----- Inclusion filters: gathered as pass/fail, then combined by AND or OR -----
-      const _checks = [];
-      if (_S.hasArv)    _checks.push(_arvC > 0);              // Has ARV
-      if (_S.hasBudget) _checks.push(_hasRehab);             // Has a rehab budget
-      if (_S.hasAsking)   _checks.push((_n(data['uw-asking']) || _n(u.asking)) > 0);  // Has Asking Price (Data Lab field)
-      if (_S.hasAccepted) _checks.push(_n(data['uw-accepted']) > 0);                   // Has Accepted Price (Data Lab field)
-      if (_S.hasSeller || _S.hasOffer) {                     // Has a Seller / Offer price submission on file
-        if (!window._priceSubIndex) {
-          // Index not built yet — load it once, then re-render so the filter applies.
-          if (!window._priceSubIndexLoading && typeof _priceSubIndexLoad === 'function') {
-            window._priceSubIndexLoading = true;
-            _priceSubIndexLoad(true).then(() => { window._priceSubIndexLoading = false; if (typeof renderUnderwriteList === 'function') renderUnderwriteList(); });
-          }
-          // Skip these two checks this pass (a re-render follows once the index is ready).
-        } else {
-          const _info = window._priceSubIndex[(typeof _priceSubNorm === 'function' ? _priceSubNorm(u.address) : '')] || null;
-          if (_S.hasSeller) _checks.push(!!(_info && _info.seller));
-          if (_S.hasOffer)  _checks.push(!!(_info && _info.offer));
-        }
+      // ----- Inclusion filters: each tagged Or or And via _S.g[key] -----
+      // Final match = (every AND filter passes) AND (at least one OR filter passes).
+      const _G = _S.g || {};
+      // The price comparisons and the Seller/Offer filters need the price-submission
+      // index. Load it once (in the background) if any of those filters is active.
+      const _needsIdx = _G.hasSeller || _G.hasOffer || _G.pricePct || _G.underArv || _G.withinDollar || _G.withinPct;
+      if (_needsIdx && !window._priceSubIndex && !window._priceSubIndexLoading && typeof _priceSubIndexLoad === 'function') {
+        window._priceSubIndexLoading = true;
+        _priceSubIndexLoad(true).then(() => { window._priceSubIndexLoading = false; if (typeof renderUnderwriteList === 'function') renderUnderwriteList(); });
       }
-      if (_S.inAnalyzed) {                                   // In the Analyzed bucket
+      const _pinfo = window._priceSubIndex
+        ? (window._priceSubIndex[(typeof _priceSubNorm === 'function' ? _priceSubNorm(u.address) : '')] || null)
+        : null;
+
+      // Lowest known price for this property — the min across the Data Lab
+      // Asking / Offer / Accepted fields and the lowest Seller/Offer price
+      // submission (once the index is loaded). Drives the "Lowest Price …" filters.
+      let _lowest = Infinity;
+      [_n(data['uw-asking']), _n(data['uw-offer']), _n(data['uw-accepted']), _n(u.asking)].forEach(v => { if (v > 0 && v < _lowest) _lowest = v; });
+      if (_pinfo && _pinfo.low > 0 && _pinfo.low < _lowest) _lowest = _pinfo.low;
+      const _lowestPrice = isFinite(_lowest) ? _lowest : _price;
+
+      const _orC = [], _andC = [];
+      const _route = (key, result) => {
+        const m = _G[key];
+        if (m === 'or') _orC.push(!!result);
+        else if (m === 'and') _andC.push(!!result);
+      };
+      _route('hasArv', _arvC > 0);
+      _route('hasBudget', _hasRehab);
+      _route('hasAsking', (_n(data['uw-asking']) || _n(u.asking)) > 0);
+      _route('hasAccepted', _n(data['uw-accepted']) > 0);
+      if (window._priceSubIndex) {                            // Seller / Offer presence (needs the index)
+        _route('hasSeller', !!(_pinfo && _pinfo.seller));
+        _route('hasOffer', !!(_pinfo && _pinfo.offer));
+      }
+      {
         const _flag = (k) => data[k] === true;
         const _analyzing = (typeof _uwIsAnalyzing === 'function')
           ? _uwIsAnalyzing(u)
           : (function(){ const ps = ((u.packet_status) || '').trim(); return ps === '' || ps === 'Evaluating'; })();
         const _isAnalyzed = !_flag('_needsHelp') && !_flag('_isPriority') && !_flag('_inChecking') && !_analyzing && ((u.packet_status) || '').trim() !== 'Closed';
-        _checks.push(_isAnalyzed);
+        _route('inAnalyzed', _isAnalyzed);
       }
-      if (_S.inDispo) _checks.push(_isDispo);                // Keep ONLY deals in the Dispositions pipeline
-      if (_S.pricePctOn) _checks.push(_arvC > 0 && _price <= (_S.pricePct / 100) * _arvC);  // Price ≤ X% of ARV
-      if (_S.underArvOn) {                                   // Asking is at least $X under ARV
-        const _ask = _n(data['uw-asking']) || _n(u.asking);
-        _checks.push(_arvC > 0 && _ask > 0 && (_arvC - _ask) >= _S.underArv);
-      }
-      if (_S.withinDollarOn || _S.withinPctOn) {             // within $ / % of max offer
+      _route('inDispo', _isDispo);
+      // Price comparisons use the LOWEST known price for the property.
+      _route('pricePct', _arvC > 0 && _lowestPrice > 0 && _lowestPrice <= (_S.pricePct / 100) * _arvC);
+      _route('underArv', _arvC > 0 && _lowestPrice > 0 && (_arvC - _lowestPrice) >= _S.underArv);
+      {
         const _mo = parseFloat(u.max_offer || data._maxOffer || 0) ||
           (typeof _uwComputeMaxOfferFromData === 'function' ? _uwComputeMaxOfferFromData(data) : 0);
-        const _gap = _mo > 0 ? Math.abs(_mo - _price) : Infinity;
-        if (_S.withinDollarOn) _checks.push(_mo > 0 && _gap <= _S.withinDollar);
-        if (_S.withinPctOn)    _checks.push(_mo > 0 && _gap <= (_S.withinPct / 100) * _mo);
+        const _gap = (_mo > 0 && _lowestPrice > 0) ? Math.abs(_mo - _lowestPrice) : Infinity;
+        _route('withinDollar', _mo > 0 && _lowestPrice > 0 && _gap <= _S.withinDollar);
+        _route('withinPct', _mo > 0 && _lowestPrice > 0 && _gap <= (_S.withinPct / 100) * _mo);
       }
 
-      if (!_checks.length) return true;                      // no inclusion filters → any priced, non-excluded deal
-      return (_S.logic === 'or') ? _checks.some(Boolean) : _checks.every(Boolean);
+      if (!_orC.length && !_andC.length) return true;        // no inclusion filters → any priced, non-excluded deal
+      if (_andC.length && !_andC.every(Boolean)) return false;   // every AND filter must pass
+      if (_orC.length && !_orC.some(Boolean)) return false;      // at least one OR filter must pass
+      return true;
     }
     // GATE B: not Finalized (Closed or Dropped).
     const _hotOffer = (data['uw-offer-status'] || '').trim();
@@ -60187,11 +60205,60 @@ window.toggleDealHistory = function(ev){
 //   mode 'custom'  → any property with a price, optionally narrowed to those
 //                    with an ARV, a rehab budget, and/or price ≤ X% of ARV.
 window._uwHotSettings = (function(){
-  var d = { mode:'default', logic:'and', hasArv:false, hasBudget:false, hasAsking:false, hasAccepted:false, hasSeller:false, hasOffer:false, inAnalyzed:false, inDispo:false, excludeDispo:false, excludeTagged:false, pricePctOn:false, pricePct:80, underArvOn:false, underArv:20000, withinDollarOn:false, withinDollar:15000, withinPctOn:false, withinPct:25 };
-  try { var s = JSON.parse(localStorage.getItem('uw-hot-settings-v1')); if (s && typeof s === 'object') return Object.assign(d, s); } catch(_){}
+  var d = { mode:'default', g:{}, excludeDispo:false, excludeTagged:false, pricePct:80, underArv:20000, withinDollar:15000, withinPct:25 };
+  try {
+    var s = JSON.parse(localStorage.getItem('uw-hot-settings-v1'));
+    if (s && typeof s === 'object') {
+      var m = Object.assign(d, s);
+      if (!m.g || typeof m.g !== 'object') {
+        // Migrate legacy boolean filters into the new Or/And group model (as And).
+        m.g = {};
+        var _mig = { hasArv:'hasArv', hasBudget:'hasBudget', hasAsking:'hasAsking', hasAccepted:'hasAccepted', hasSeller:'hasSeller', hasOffer:'hasOffer', inAnalyzed:'inAnalyzed', inDispo:'inDispo', pricePctOn:'pricePct', underArvOn:'underArv', withinDollarOn:'withinDollar', withinPctOn:'withinPct' };
+        for (var _k in _mig) { if (s[_k]) m.g[_mig[_k]] = 'and'; }
+      }
+      return m;
+    }
+  } catch(_){}
   return d;
 })();
 window._uwSaveHotSettings = function(){ try { localStorage.setItem('uw-hot-settings-v1', JSON.stringify(window._uwHotSettings)); } catch(_){} };
+// Builds the Custom Hot filter rows. Each INCLUSION filter gets two checkboxes —
+// an "Or" column and an "And" column — so the user tags each filter as part of
+// the OR group (match any) or the AND group (all required). Exclude filters keep
+// a single always-applied checkbox. Final match = (any Or match) AND (all And match).
+function _uwHotCustomRowsHTML(S, _ck) {
+  var g = (S && S.g) || {};
+  var orCk  = function(k){ return g[k] === 'or'  ? 'checked' : ''; };
+  var andCk = function(k){ return g[k] === 'and' ? 'checked' : ''; };
+  var vinp = 'flex:0 0 auto;padding:3px 6px;text-align:right;margin:0';
+  var dim  = 'font-size:10px;color:var(--text-dim)';
+  var row = function(key, inner){
+    return '<div style="display:flex;align-items:center;gap:0;padding:5px 0;font-size:13px">' +
+      '<label style="width:34px;display:flex;justify-content:center;cursor:pointer;flex:0 0 auto"><input type="checkbox" data-hsor="'+key+'" '+orCk(key)+' style="'+_ck+'"></label>' +
+      '<label style="width:42px;display:flex;justify-content:center;cursor:pointer;flex:0 0 auto"><input type="checkbox" data-hsand="'+key+'" '+andCk(key)+' style="'+_ck+'"></label>' +
+      '<span style="flex:1;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+inner+'</span>' +
+    '</div>';
+  };
+  var html =
+    '<div style="display:flex;align-items:center;gap:0;padding:2px 0 6px;font-size:10px;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);margin-bottom:2px">' +
+      '<span style="width:34px;text-align:center">Or</span><span style="width:42px;text-align:center">And</span><span style="flex:1;padding-left:2px">Filter</span></div>' +
+    row('hasArv', 'Has After Repair Value') +
+    row('hasBudget', 'Has Renovation Budget') +
+    row('hasAsking', 'Has Asking Price <span style="'+dim+'">(Data Lab)</span>') +
+    row('hasAccepted', 'Has Accepted Price <span style="'+dim+'">(Data Lab)</span>') +
+    row('hasSeller', 'Has Seller Price <span style="'+dim+'">(GHL)</span>') +
+    row('hasOffer', 'Has Offer Price <span style="'+dim+'">(GHL)</span>') +
+    row('inAnalyzed', 'In Analyzed') +
+    row('inDispo', 'In Dispositions') +
+    row('pricePct', 'Lowest Price is <input type="number" id="hs-pctval" value="'+((S&&S.pricePct)||80)+'" min="1" max="200" step="1" style="width:56px;'+vinp+'"> % of ARV or less') +
+    row('underArv', 'Lowest Price is $ <input type="text" inputmode="numeric" id="hs-underarvval" oninput="_uwCommaFmt(this)" value="'+(((S&&S.underArv)||20000)).toLocaleString()+'" style="width:88px;'+vinp+'"> under ARV or less') +
+    row('withinDollar', 'Lowest Price is within $ <input type="text" inputmode="numeric" id="hs-wdval" oninput="_uwCommaFmt(this)" value="'+(((S&&S.withinDollar)||15000)).toLocaleString()+'" style="width:78px;'+vinp+'"> of Max Offer or less') +
+    row('withinPct', 'Lowest Price is within <input type="number" id="hs-wpval" value="'+((S&&S.withinPct)||25)+'" min="1" max="200" step="1" style="width:56px;'+vinp+'"> % of Max Offer or less') +
+    '<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:4px"></div>' +
+    '<label style="display:flex;gap:9px;align-items:center;padding:5px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-exdispo" '+((S&&S.excludeDispo)?'checked':'')+' style="'+_ck+'"><span>Exclude Properties in Dispositions</span></label>' +
+    '<label style="display:flex;gap:9px;align-items:center;padding:5px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-extagged" '+((S&&S.excludeTagged)?'checked':'')+' style="'+_ck+'"><span>Exclude Tagged Properties</span></label>';
+  return html;
+}
 window._uwOpenHotSettings = function(){
   var S = window._uwHotSettings;
   var ov = document.createElement('div');
@@ -60203,76 +60270,67 @@ window._uwOpenHotSettings = function(){
   var _ck = 'width:16px;height:16px;flex:0 0 auto;margin:0;cursor:pointer';
   box.innerHTML =
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-weight:700;font-size:16px">🔥 Hot list settings</div><div style="display:flex;align-items:center;gap:8px"><button id="hs-save-top" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;font-weight:700;font-size:13px">Apply</button><button id="hs-x" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;line-height:1">✕</button></div></div>' +
+    '<div style="display:flex;gap:6px;margin-bottom:14px"><button type="button" id="hs-tabbtn-filters" style="padding:6px 16px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:700;background:var(--brand);color:#fff">Filters</button><button type="button" id="hs-tabbtn-funnel" style="padding:6px 16px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:700;background:transparent;color:var(--text-dim)">Funnel</button></div>' +
+    '<div id="hs-tab-filters">' +
     '<label style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;cursor:pointer;border-bottom:1px solid var(--border)"><input type="radio" name="hs-mode" value="default" ' + (S.mode!=='custom'?'checked':'') + ' style="' + _rd + '"><span style="flex:1"><div style="font-weight:600;font-size:13.5px">Standard Hot (current)</div><div style="font-size:12px;color:var(--text-dim);line-height:1.45;margin-top:2px">Rehab-priced, still-live deals where Asking is below Max Offer, within $15k, or within 25% of it.</div></span></label>' +
-    '<div style="display:flex;align-items:center;gap:10px;padding:12px 0 6px">' +
-      '<label style="display:flex;gap:10px;align-items:center;cursor:pointer;flex:1"><input type="radio" name="hs-mode" value="custom" ' + (S.mode==='custom'?'checked':'') + ' style="' + _rd + ';margin-top:0"><span style="font-weight:600;font-size:13.5px">Custom Hot</span></label>' +
-      '<span title="AND = a property must match every checked filter. OR = it only needs to match one." style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:11px;font-weight:800;flex:0 0 auto">' +
-        '<button type="button" id="hs-logic-and" style="padding:5px 12px;border:none;cursor:pointer;background:transparent;color:var(--text-dim)">AND</button>' +
-        '<button type="button" id="hs-logic-or" style="padding:5px 12px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim)">OR</button>' +
-      '</span>' +
-    '</div>' +
-    '<div id="hs-custom" style="padding:4px 0 2px 27px;opacity:' + (S.mode==='custom'?'1':'0.45') + '">' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-arv" ' + (S.hasArv?'checked':'') + ' style="' + _ck + '"><span>Has After Repair Value</span></label>' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-budget" ' + (S.hasBudget?'checked':'') + ' style="' + _ck + '"><span>Has Renovation Budget</span></label>' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-has-asking" ' + (S.hasAsking?'checked':'') + ' style="' + _ck + '"><span>Has Asking Price <span style="font-size:10px;color:var(--text-dim)">(Data Lab)</span></span></label>' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-has-accepted" ' + (S.hasAccepted?'checked':'') + ' style="' + _ck + '"><span>Has Accepted Price <span style="font-size:10px;color:var(--text-dim)">(Data Lab)</span></span></label>' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-has-seller" ' + (S.hasSeller?'checked':'') + ' style="' + _ck + '"><span>Has Seller Price <span style="font-size:10px;color:var(--text-dim)">(GHL)</span></span></label>' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-has-offer" ' + (S.hasOffer?'checked':'') + ' style="' + _ck + '"><span>Has Offer Price <span style="font-size:10px;color:var(--text-dim)">(GHL)</span></span></label>' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-analyzed" ' + (S.inAnalyzed?'checked':'') + ' style="' + _ck + '"><span>In Analyzed</span></label>' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-indispo" ' + (S.inDispo?'checked':'') + ' style="' + _ck + '"><span>In Dispositions</span></label>' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-exdispo" ' + (S.excludeDispo?'checked':'') + ' style="' + _ck + '"><span>Exclude Properties in Dispositions</span></label>' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-extagged" ' + (S.excludeTagged?'checked':'') + ' style="' + _ck + '"><span>Exclude Tagged Properties</span></label>' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-pct" ' + (S.pricePctOn?'checked':'') + ' style="' + _ck + '"><span>Price is</span><input type="number" id="hs-pctval" value="' + (S.pricePct||80) + '" min="1" max="200" step="1" style="width:56px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>% of After Repair Value</span></label>' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-underarv" ' + (S.underArvOn?'checked':'') + ' style="' + _ck + '"><span>Asking is $</span><input type="text" inputmode="numeric" id="hs-underarvval" oninput="_uwCommaFmt(this)" value="' + (S.underArv||20000).toLocaleString() + '" style="width:88px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>under After Repair Value</span></label>' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-wd" ' + (S.withinDollarOn?'checked':'') + ' style="' + _ck + '"><span>Price is within $</span><input type="text" inputmode="numeric" id="hs-wdval" oninput="_uwCommaFmt(this)" value="' + (S.withinDollar||15000).toLocaleString() + '" style="width:78px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>of max offer</span></label>' +
-      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-wp" ' + (S.withinPctOn?'checked':'') + ' style="' + _ck + '"><span>Price is within</span><input type="number" id="hs-wpval" value="' + (S.withinPct||25) + '" min="1" max="200" step="1" style="width:56px;flex:0 0 auto;padding:3px 6px;text-align:right;margin:0"><span>% of max offer</span></label>' +
+    '<label style="display:flex;gap:10px;align-items:center;padding:12px 0 6px;cursor:pointer"><input type="radio" name="hs-mode" value="custom" ' + (S.mode==='custom'?'checked':'') + ' style="' + _rd + ';margin-top:0"><span style="flex:1;font-weight:600;font-size:13.5px">Custom Hot</span></label>' +
+    '<div id="hs-custom" style="padding:4px 0 2px 8px;opacity:' + (S.mode==='custom'?'1':'0.45') + '">' +
+      _uwHotCustomRowsHTML(S, _ck) +
     '</div>' +
     '<label style="display:flex;gap:10px;align-items:center;padding:12px 0 6px;cursor:pointer;border-top:1px solid var(--border)"><input type="radio" name="hs-mode" value="tagged" ' + (S.mode==='tagged'?'checked':'') + ' style="' + _rd + ';margin-top:0"><span style="flex:1"><div style="font-weight:600;font-size:13.5px">Tagged Properties</div><div style="font-size:12px;color:var(--text-dim);line-height:1.45;margin-top:2px">Only properties that have at least one custom 🏷️ tag.</div></span></label>' +
+    '</div>' +
+    '<div id="hs-tab-funnel" style="display:none">' +
     _uwFunnelSettingsHTML() +
+    '</div>' +
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:18px"><button id="hs-funnel-reset" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:9px 14px;cursor:pointer;font-size:12px">↺ Reset funnel</button><button id="hs-save" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700;font-size:13px">Apply</button></div>';
   ov.appendChild(box); document.body.appendChild(ov);
   var close = function(){ ov.remove(); };
   box.querySelector('#hs-x').onclick = close;
-  box.querySelectorAll('input[name="hs-mode"]').forEach(function(r){ r.onchange = function(){ box.querySelector('#hs-custom').style.opacity = (box.querySelector('input[name="hs-mode"]:checked').value==='custom') ? '1' : '0.45'; }; });
-  // AND / OR toggle for the Custom Hot filters.
-  var _logicSel = (S.logic === 'or') ? 'or' : 'and';
-  var _paintLogic = function(){
-    var a = box.querySelector('#hs-logic-and'), o = box.querySelector('#hs-logic-or');
-    if (a) { a.style.background = _logicSel==='and' ? 'var(--brand)' : 'transparent'; a.style.color = _logicSel==='and' ? '#fff' : 'var(--text-dim)'; }
-    if (o) { o.style.background = _logicSel==='or'  ? 'var(--brand)' : 'transparent'; o.style.color = _logicSel==='or'  ? '#fff' : 'var(--text-dim)'; }
+  // Filters / Funnel chips — swap which section is visible inside the same popout.
+  var _showTab = function(which){
+    var tf = box.querySelector('#hs-tab-filters'), tu = box.querySelector('#hs-tab-funnel');
+    if (tf) tf.style.display = (which==='funnel') ? 'none' : 'block';
+    if (tu) tu.style.display = (which==='funnel') ? 'block' : 'none';
+    var bf = box.querySelector('#hs-tabbtn-filters'), bu = box.querySelector('#hs-tabbtn-funnel');
+    if (bf) { bf.style.background = which==='funnel' ? 'transparent' : 'var(--brand)'; bf.style.color = which==='funnel' ? 'var(--text-dim)' : '#fff'; }
+    if (bu) { bu.style.background = which==='funnel' ? 'var(--brand)' : 'transparent'; bu.style.color = which==='funnel' ? '#fff' : 'var(--text-dim)'; }
   };
-  _paintLogic();
-  { var _la = box.querySelector('#hs-logic-and'), _lo = box.querySelector('#hs-logic-or');
-    if (_la) _la.onclick = function(e){ e.preventDefault(); e.stopPropagation(); _logicSel='and'; _paintLogic(); };
-    if (_lo) _lo.onclick = function(e){ e.preventDefault(); e.stopPropagation(); _logicSel='or'; _paintLogic(); }; }
+  { var _bf = box.querySelector('#hs-tabbtn-filters'), _bu = box.querySelector('#hs-tabbtn-funnel');
+    if (_bf) _bf.onclick = function(){ _showTab('filters'); };
+    if (_bu) _bu.onclick = function(){ _showTab('funnel'); }; }
+  box.querySelectorAll('input[name="hs-mode"]').forEach(function(r){ r.onchange = function(){ box.querySelector('#hs-custom').style.opacity = (box.querySelector('input[name="hs-mode"]:checked').value==='custom') ? '1' : '0.45'; }; });
+  // OR / AND columns are mutually exclusive per filter — checking one clears the other.
+  box.querySelectorAll('input[data-hsor]').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      if (cb.checked) { var k = cb.getAttribute('data-hsor'); var sib = box.querySelector('input[data-hsand="'+k+'"]'); if (sib) sib.checked = false; }
+    });
+  });
+  box.querySelectorAll('input[data-hsand]').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      if (cb.checked) { var k = cb.getAttribute('data-hsand'); var sib = box.querySelector('input[data-hsor="'+k+'"]'); if (sib) sib.checked = false; }
+    });
+  });
   var _doSave = function(){
     S.mode      = box.querySelector('input[name="hs-mode"]:checked').value;
-    S.hasArv    = box.querySelector('#hs-arv').checked;
-    S.hasBudget = box.querySelector('#hs-budget').checked;
-    S.hasAsking = box.querySelector('#hs-has-asking').checked;
-    S.hasAccepted = box.querySelector('#hs-has-accepted').checked;
-    S.hasSeller = box.querySelector('#hs-has-seller').checked;
-    S.hasOffer  = box.querySelector('#hs-has-offer').checked;
-    S.logic     = _logicSel;
-    S.inAnalyzed= box.querySelector('#hs-analyzed').checked;
-    S.inDispo   = box.querySelector('#hs-indispo').checked;
+    // Per-filter OR / AND groups: {key: 'or'|'and'}. Absent = filter off.
+    var _g = {};
+    box.querySelectorAll('input[data-hsor]').forEach(function(cb){ if (cb.checked) _g[cb.getAttribute('data-hsor')] = 'or'; });
+    box.querySelectorAll('input[data-hsand]').forEach(function(cb){ if (cb.checked) _g[cb.getAttribute('data-hsand')] = 'and'; });
+    S.g = _g;
     S.excludeDispo = box.querySelector('#hs-exdispo').checked;
     S.excludeTagged = box.querySelector('#hs-extagged').checked;
-    S.pricePctOn= box.querySelector('#hs-pct').checked;
-    S.pricePct  = parseFloat(box.querySelector('#hs-pctval').value) || 80;
-    S.underArvOn = box.querySelector('#hs-underarv').checked;
-    S.underArv   = parseFloat(String(box.querySelector('#hs-underarvval').value).replace(/,/g,'')) || 20000;
-    S.withinDollarOn = box.querySelector('#hs-wd').checked;
-    S.withinDollar   = parseFloat(String(box.querySelector('#hs-wdval').value).replace(/,/g,'')) || 15000;
-    S.withinPctOn    = box.querySelector('#hs-wp').checked;
-    S.withinPct      = parseFloat(box.querySelector('#hs-wpval').value) || 25;
+    var _gv = function(id, def){ var el = box.querySelector('#'+id); return el ? el.value : def; };
+    S.pricePct     = parseFloat(_gv('hs-pctval', 80)) || 80;
+    S.underArv     = parseFloat(String(_gv('hs-underarvval', 20000)).replace(/,/g,'')) || 20000;
+    S.withinDollar = parseFloat(String(_gv('hs-wdval', 15000)).replace(/,/g,'')) || 15000;
+    S.withinPct    = parseFloat(_gv('hs-wpval', 25)) || 25;
     window._uwSaveHotSettings();
     // Funnel thresholds (Hold / Flip / Assign chips)
     if (typeof _uwCollectFunnelSettings === 'function') _uwCollectFunnelSettings(box);
     close();
     // If the Seller/Offer price filters are active, refresh the address index
     // from the latest price_submissions, then re-render so it reflects reality.
-    if ((S.hasSeller || S.hasOffer) && typeof _priceSubIndexLoad === 'function') {
+    if (S.g && (S.g.hasSeller || S.g.hasOffer) && typeof _priceSubIndexLoad === 'function') {
       _priceSubIndexLoad(true).then(() => { if (typeof renderUnderwriteList === 'function') renderUnderwriteList(); });
     }
     if (typeof renderUnderwriteList === 'function') renderUnderwriteList();

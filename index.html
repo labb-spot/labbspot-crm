@@ -19295,7 +19295,7 @@ function _uwCollect() {
       //                    via the keystroke handler — preserve here too so
       //                    autosave doesn't strip any unsaved keystrokes.
       if (k.indexOf('_source') === 0 || k === '_priorityHandled' || k === '_holdingStatus' || k === '_leadType' || k === '_leadTypes' ||
-          k === '_budgetActuals' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
+          k === '_budgetActuals' || k === '_budgetSpentCache' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
           k === '_reno_phase_override' || k === '_compsMode' ||
           k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_customRehabPresets' || k === '_scopeQuotes' || k === '_taggedBuyers' || k === '_offerActive' || k === '_offerPacket' || k === '_bigTicket' ||
           k === '_invoiceOriginal' || k === '_invoiceActive' || k === '_invoiceTab' || k === '_invoiceInclContractor' || k === '_invoicePaidDeposits' || k === '_invoiceAliases' || k === '_externalInvoices' || k === '_constructionAgreements' ||
@@ -20587,6 +20587,9 @@ function _uwBudgetUpdateBar() {
     lf.textContent = (left < 0 ? '-$' : '$') + Math.abs(Math.round(left)).toLocaleString();
     lf.style.color = left < 0 ? '#f87171' : '#fbbf24';
   }
+  // Cache this Paid-based Spent on the deal so the Renovation/Holdings list rows
+  // show the SAME budget figure as this bar (the list can't recompute Paid itself).
+  try { const _bu = cache.underwrites && cache.underwrites[_uwCurrentId]; if (_bu && _bu.data) _bu.data._budgetSpentCache = Math.round(spent); } catch (_) {}
   // 90% marker caption: the $ at the 90% line, distance to it, and the final 10%.
   const info90 = document.getElementById('uw-budget-90info');
   if (info90) {
@@ -29019,10 +29022,15 @@ function _hrComputeBudget(u) {
   cols.forEach(col => (col.items || []).forEach(it => {
     if (it && it.needed) baseRehab += (parseFloat(it.price) || 0) * sqft;
   }));
-  // Spent comes from the Phase Timelines SPENT inputs (_scope_phases[].realSpent),
-  // matching the in-deal Budget Use bar.
-  const phases = Array.isArray(data._scope_phases) ? data._scope_phases : [];
-  phases.forEach(p => { const v = Number(p && p.realSpent); if (v > 0) spent += v; });
+  // Spent = the deal's Paid total, cached by the in-deal Budget Use bar so this
+  // list row shows the SAME number. Falls back to the Phase Timelines SPENT
+  // inputs for deals that haven't been opened since this was added.
+  if (typeof data._budgetSpentCache === 'number' && data._budgetSpentCache >= 0) {
+    spent = data._budgetSpentCache;
+  } else {
+    const phases = Array.isArray(data._scope_phases) ? data._scope_phases : [];
+    phases.forEach(p => { const v = Number(p && p.realSpent); if (v > 0) spent += v; });
+  }
   // Mirror the rehab calculator's rehabFinal logic so the preview matches
   // what the user sees inside the calculator.
   const contPct  = parseFloat(String(data['uw-rehab-contingency-pct'] || '10').replace(/,/g, '')) || 0;

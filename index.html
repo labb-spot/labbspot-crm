@@ -27580,7 +27580,7 @@ function _invGenId(){ return 'inv' + Math.random().toString(36).slice(2,9); }
 function _invGetDeal(){ return (cache.underwrites || {})[_uwCurrentId] || null; }
 function _invGetOriginal(){ const u=_invGetDeal(); return (u && u.data && Array.isArray(u.data._invoiceOriginal)) ? u.data._invoiceOriginal : []; }
 function _invGetActive(){ const u=_invGetDeal(); return (u && u.data && Array.isArray(u.data._invoiceActive)) ? u.data._invoiceActive : []; }
-function _invSave(){ if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave(); }
+function _invSave(){ if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave(true); } // force: explicit invoice edits bypass the load-time save guard
 function _invNum(v){ const n=parseFloat(String(v==null?'':v).replace(/[^0-9.]/g,'')); return isFinite(n)?n:0; }
 function _invLineTotal(it){ const q=_invNum(it.units); const qy=q>0?q:1; return qy*(_invNum(it.labor)+_invNum(it.material)); }
 function _invMoney(n){ return '$' + (Math.round(parseFloat(n)||0)).toLocaleString(); }

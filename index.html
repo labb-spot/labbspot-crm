@@ -4932,6 +4932,27 @@
         <input type="hidden" id="uw-reno-start">
       </div>
 
+      <!-- Final actuals: lock in the final paid budget + the completion date so the
+           bars stop moving once the project is done. -->
+      <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-top:2px">
+        <label style="display:block;margin-bottom:0">
+          <span style="display:block;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.4px;font-weight:600;margin-bottom:4px">🏁 Final Budget Paid <span style="text-transform:none;font-weight:400;color:var(--text-dim)">— overrides Spent when set</span></span>
+          <input type="text" inputmode="decimal" id="uw-budget-final" placeholder="Leave blank to use Paid" oninput="(function(el){var v=el.value.replace(/[^\d.]/g,'');el.value=v?('$'+(parseInt(v,10)||0).toLocaleString()):'';})(this); if(typeof _uwBudgetUpdateBar==='function')_uwBudgetUpdateBar(); if(typeof _uwQueueAutosave==='function')_uwQueueAutosave();" style="width:100%">
+        </label>
+        <label style="display:block;margin-bottom:0">
+          <span style="display:block;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.4px;font-weight:600;margin-bottom:4px"><span style="color:#38bdf8">●</span> Possession Date</span>
+          <input type="date" id="uw-possession-date" oninput="if(typeof _uwTimelineUpdateBar==='function')_uwTimelineUpdateBar(); if(typeof _uwQueueAutosave==='function')_uwQueueAutosave();" onchange="if(typeof _uwTimelineUpdateBar==='function')_uwTimelineUpdateBar(); if(typeof _uwQueueAutosave==='function')_uwQueueAutosave();" style="width:100%">
+        </label>
+        <label style="display:block;margin-bottom:0">
+          <span style="display:block;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.4px;font-weight:600;margin-bottom:4px"><span style="color:#f59e0b">●</span> Project Completed <span style="text-transform:none;font-weight:400;color:var(--text-dim)">— ends renovation</span></span>
+          <input type="date" id="uw-project-completed" oninput="if(typeof _uwTimelineUpdateBar==='function')_uwTimelineUpdateBar(); if(typeof _uwQueueAutosave==='function')_uwQueueAutosave();" onchange="if(typeof _uwTimelineUpdateBar==='function')_uwTimelineUpdateBar(); if(typeof _uwQueueAutosave==='function')_uwQueueAutosave();" style="width:100%">
+        </label>
+        <label style="display:block;margin-bottom:0">
+          <span style="display:block;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.4px;font-weight:600;margin-bottom:4px"><span style="color:#22c55e">●</span> Refinance / Sold Date <span style="text-transform:none;font-weight:400;color:var(--text-dim)">— exit</span></span>
+          <input type="date" id="uw-exit-date" onchange="if(typeof _uwQueueAutosave==='function')_uwQueueAutosave();" style="width:100%">
+        </label>
+      </div>
+
       <!-- Rehab Calculator item table removed — Budget Use now reflects the
            Phase Timelines SPENT inputs in the Scope of Work section. -->
     </div><!-- /Budget & Timeline panel -->
@@ -17967,6 +17988,10 @@ const UW_FIELDS = [
   'uw-reno-start',  // Renovation start date (Budget tab — Holdings/Reno only)
   'uw-reno-target', // Legacy, no longer in UI but kept for back-compat
   'uw-closed-on',   // Editable closed-on date (Deal Status — Holdings/Reno only)
+  'uw-budget-final',      // Final budget paid — locks the Budget Use bar's Spent
+  'uw-possession-date',   // Possession date (milestone marker)
+  'uw-project-completed', // Project completed — caps the renovation segment
+  'uw-exit-date',         // Refinance / Sold (exit) date
 ];
 
 // ---------- Editable Condition Checklist (custom user-added rows) ----------
@@ -20563,6 +20588,9 @@ function _uwBudgetUpdateBar() {
   // back to the locally recomputed subtotal only if that's unavailable.
   const rehabFinal = (typeof window._uwGetRehabFinal === 'function') ? (window._uwGetRehabFinal() || 0) : 0;
   const budgeted = rehabFinal > 0 ? rehabFinal : (override > 0 ? override : subtotal);
+  // Final Budget Paid: once entered, it locks the Spent figure (project done).
+  const finalPaid = parseFloat(String(document.getElementById('uw-budget-final')?.value || '').replace(/[^\d.]/g, '')) || 0;
+  if (finalPaid > 0) spent = finalPaid;
   const realPct = budgeted > 0 ? (spent / budgeted) * 100 : 0;
   const widthPct = Math.max(0, Math.min(100, realPct));
   const color = _hrPctColor(realPct);
@@ -20684,17 +20712,22 @@ function _uwTimelineGetAutoDays(data) {
 // Compute timeline progress given a start date string and total project days.
 // Returns { pct, daysLeft, totalDays, target } or null if inputs invalid.
 // Start string is parsed as LOCAL time to avoid the UTC-midnight day shift.
-function _uwTimelineCompute(startStr, totalDays) {
+function _uwTimelineCompute(startStr, totalDays, asOfStr) {
   if (!startStr || !totalDays || totalDays <= 0) return null;
   const sd = (typeof _hrParseLocalDate === 'function') ? _hrParseLocalDate(startStr) : new Date(startStr);
   if (!sd || isNaN(sd.getTime())) return null;
   const s = sd.getTime();
   const target  = s + totalDays * 86400000;
-  const now     = Date.now();
+  // As-of = the Completion date when set (freezes the bar), else "now".
+  let now = Date.now(), done = false;
+  if (asOfStr) {
+    const ad = (typeof _hrParseLocalDate === 'function') ? _hrParseLocalDate(asOfStr) : new Date(asOfStr);
+    if (ad && !isNaN(ad.getTime())) { now = ad.getTime(); done = true; }
+  }
   const elapsed = Math.max(0, now - s);
   const pct     = (elapsed / (totalDays * 86400000)) * 100;
   const daysLeft = Math.ceil((target - now) / 86400000);
-  return { pct, daysLeft, totalDays, target };
+  return { pct, daysLeft, totalDays, target, done };
 }
 
 // Called when either date input changes. Re-renders the bar; the field
@@ -20753,6 +20786,9 @@ function _uwTimelineUpdateBar() {
     };
     totalDays = _uwTimelineGetAutoDays(liveData);
   }
+  const completedStr = document.getElementById('uw-project-completed')?.value || '';
+  // Completion no longer freezes the whole bar — it only caps the renovation
+  // segment (below). The fill keeps tracking "now".
   const t = _uwTimelineCompute(start, totalDays);
   const bar    = document.getElementById('uw-timeline-bar');
   const txt    = document.getElementById('uw-timeline-pct-text');
@@ -20786,7 +20822,14 @@ function _uwTimelineUpdateBar() {
   // visually distinct so the user can see the hand-off point. The progress
   // fill (#uw-timeline-bar) overlays on top showing where they are.
   if (bar && bar.parentElement && renoDays > 0 && listedDays > 0 && t.totalDays > 0) {
-    const renoPct = Math.max(0, Math.min(100, (renoDays / t.totalDays) * 100));
+    // The renovation portion ends at the ACTUAL Project Completed date when set,
+    // otherwise at the projected reno duration.
+    let renoPct = Math.max(0, Math.min(100, (renoDays / t.totalDays) * 100));
+    if (completedStr) {
+      const cd = (typeof _hrParseLocalDate === 'function') ? _hrParseLocalDate(completedStr) : new Date(completedStr);
+      const startMs2 = t.target - t.totalDays * 86400000;
+      if (cd && !isNaN(cd.getTime())) renoPct = Math.max(0, Math.min(100, ((cd.getTime() - startMs2) / (t.totalDays * 86400000)) * 100));
+    }
     bar.parentElement.style.background =
       'linear-gradient(90deg,' +
         'rgba(99,102,241,0.18) 0%,' +
@@ -20847,6 +20890,44 @@ function _uwTimelineUpdateBar() {
     }
     days.textContent = primary + secondary;
     days.style.color = color;
+  }
+  // Actual phase overlays + milestone markers on the bar.
+  const _wrap = bar && bar.parentElement;
+  if (_wrap && t.totalDays > 0) {
+    _wrap.querySelectorAll('.uw-tl-marker, .uw-tl-band').forEach(m => m.remove());
+    const startMs = t.target - t.totalDays * 86400000;
+    const totalMs = t.totalDays * 86400000;
+    const possVal = document.getElementById('uw-possession-date')?.value || '';
+    const soldVal = document.getElementById('uw-exit-date')?.value || '';
+    const pctOf = (val) => {
+      if (!val) return null;
+      const d = (typeof _hrParseLocalDate === 'function') ? _hrParseLocalDate(val) : new Date(val);
+      if (!d || isNaN(d.getTime())) return null;
+      return Math.max(0, Math.min(100, ((d.getTime() - startMs) / totalMs) * 100));
+    };
+    const pPoss = pctOf(possVal), pComp = pctOf(completedStr), pSold = pctOf(soldVal);
+    // Transparent phase bands OVER the red fill (z 2), markers on top (z 3).
+    const band = (from, to, colr, label) => {
+      if (from == null || to == null || to <= from) return;
+      const b = document.createElement('div'); b.className = 'uw-tl-band';
+      b.style.cssText = 'position:absolute;top:0;bottom:0;left:' + from + '%;width:' + (to - from) + '%;background:' + colr + ';z-index:2;pointer-events:none';
+      b.title = label;
+      _wrap.appendChild(b);
+    };
+    band(0, pPoss, 'rgba(56,189,248,0.35)', 'Up to Possession');
+    band(pPoss != null ? pPoss : 0, pComp, 'rgba(245,158,11,0.34)', 'Up to Completion');
+    band(pComp, pSold, 'rgba(34,197,94,0.32)', 'Up to Refinance / Sold');
+    const mk = (pct, colr, label, dstr) => {
+      if (pct == null) return;
+      const m = document.createElement('div'); m.className = 'uw-tl-marker';
+      m.style.cssText = 'position:absolute;top:0;bottom:0;left:' + pct + '%;width:3px;background:' + colr + ';z-index:3;pointer-events:none;box-shadow:0 0 0 1px rgba(0,0,0,0.35)';
+      m.title = label + (dstr ? (': ' + dstr) : '');
+      _wrap.appendChild(m);
+    };
+    const dstr = (v) => { if (!v) return ''; try { const d = (typeof _hrParseLocalDate === 'function') ? _hrParseLocalDate(v) : new Date(v); return isNaN(d.getTime()) ? '' : d.toLocaleDateString(); } catch (_) { return ''; } };
+    mk(pPoss, '#38bdf8', 'Possession', dstr(possVal));
+    mk(pComp, '#f59e0b', 'Project Completed', dstr(completedStr));
+    mk(pSold, '#22c55e', 'Refinance / Sold', dstr(soldVal));
   }
 }
 window._uwTimelineUpdateBar = _uwTimelineUpdateBar;

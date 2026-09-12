@@ -28929,11 +28929,16 @@ async function _priceSubLoad() {
   try {
     // Pull recent submissions and match by normalized address client-side, so
     // small formatting differences (St vs Street, unit spacing) still line up.
-    const { data, error } = await sb
-      .from('price_submissions')
-      .select('*')
-      .order('submitted_at', { ascending: false })
-      .limit(1000);
+    // Scale-safe: ask Supabase for ONLY rows whose address starts with this
+    // property's house number (server-side filter), instead of pulling every
+    // recent row and filtering in the browser. Then normalize-match client-side
+    // for exactness (handles "St" vs "Street", unit spacing, etc.). This keeps
+    // deal-open fast and correct no matter how large the table grows.
+    let q = sb.from('price_submissions').select('*')
+      .order('submitted_at', { ascending: false }).limit(500);
+    const numMatch = String(rawAddr).trim().match(/^(\d+)/);
+    if (numMatch) q = q.like('address', numMatch[1] + '%');
+    const { data, error } = await q;
     if (error) throw error;
     // Guard against a slow fetch resolving after the user opened another deal.
     if (_priceSubNorm((document.getElementById('uw-address') || {}).value) !== norm) return;
@@ -28952,6 +28957,35 @@ async function _priceSubLoad() {
   _priceSubRenderPopup();
 }
 window._priceSubLoad = _priceSubLoad;
+
+// Address → {seller, offer} presence index for the Hot list filters. Built from
+// price_submissions in one shot so the synchronous Hot filter can quickly check
+// whether a property has ever received a Seller and/or an Offer price. Refreshed
+// on demand (when the Hot settings using these filters are applied).
+window._priceSubIndex = null;
+window._priceSubIndexLoading = false;
+async function _priceSubIndexLoad(force) {
+  if (window._priceSubIndex && !force) return window._priceSubIndex;
+  try {
+    const { data, error } = await sb.from('price_submissions').select('address, asking, offer').limit(50000);
+    if (error) throw error;
+    const hasVal = v => v != null && String(v).replace(/[^0-9.]/g, '') !== '';
+    const idx = {};
+    (data || []).forEach(r => {
+      const k = _priceSubNorm(r.address);
+      if (!k) return;
+      if (!idx[k]) idx[k] = { seller: false, offer: false };
+      if (hasVal(r.asking)) idx[k].seller = true;
+      if (hasVal(r.offer)) idx[k].offer = true;
+    });
+    window._priceSubIndex = idx;
+  } catch (e) {
+    console.warn('[price sub index] load failed', e);
+    window._priceSubIndex = window._priceSubIndex || {};
+  }
+  return window._priceSubIndex;
+}
+window._priceSubIndexLoad = _priceSubIndexLoad;
 
 // Each GoHighLevel row is a SNAPSHOT that may carry an asking (Seller) price
 // and/or an offer (Accepted) price. Expand each snapshot into individual typed
@@ -41462,6 +41496,20 @@ function renderUnderwriteList() {
         if (u.dispo_contract || data._dispoContract) return false;
       }
       if (_S.excludeTagged && data._tagged === true) return false;  // Drop tagged properties
+      if (_S.hasSeller || _S.hasOffer) {                     // Has a Seller / Offer price submission on file
+        if (!window._priceSubIndex) {
+          // Index not built yet — load it once, then re-render so the filter applies.
+          if (!window._priceSubIndexLoading && typeof _priceSubIndexLoad === 'function') {
+            window._priceSubIndexLoading = true;
+            _priceSubIndexLoad(true).then(() => { window._priceSubIndexLoading = false; if (typeof renderUnderwriteList === 'function') renderUnderwriteList(); });
+          }
+          // Skip these two checks this pass (a re-render follows once the index is ready).
+        } else {
+          const _info = window._priceSubIndex[(typeof _priceSubNorm === 'function' ? _priceSubNorm(u.address) : '')] || null;
+          if (_S.hasSeller && !(_info && _info.seller)) return false;
+          if (_S.hasOffer && !(_info && _info.offer)) return false;
+        }
+      }
       if (_S.pricePctOn) {                                   // Price ≤ X% of ARV
         if (!(_arvC > 0)) return false;
         if (_price > (_S.pricePct / 100) * _arvC) return false;
@@ -60159,6 +60207,8 @@ window._uwOpenHotSettings = function(){
     '<div id="hs-custom" style="padding:4px 0 2px 27px;opacity:' + (S.mode==='custom'?'1':'0.45') + '">' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-arv" ' + (S.hasArv?'checked':'') + ' style="' + _ck + '"><span>Has After Repair Value</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-budget" ' + (S.hasBudget?'checked':'') + ' style="' + _ck + '"><span>Has Renovation Budget</span></label>' +
+      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-has-seller" ' + (S.hasSeller?'checked':'') + ' style="' + _ck + '"><span>Has Seller Price</span></label>' +
+      '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-has-offer" ' + (S.hasOffer?'checked':'') + ' style="' + _ck + '"><span>Has Offer Price</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-analyzed" ' + (S.inAnalyzed?'checked':'') + ' style="' + _ck + '"><span>In Analyzed</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-indispo" ' + (S.inDispo?'checked':'') + ' style="' + _ck + '"><span>In Dispositions</span></label>' +
       '<label style="display:flex;gap:9px;align-items:center;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-exdispo" ' + (S.excludeDispo?'checked':'') + ' style="' + _ck + '"><span>Exclude Properties in Dispositions</span></label>' +
@@ -60179,6 +60229,8 @@ window._uwOpenHotSettings = function(){
     S.mode      = box.querySelector('input[name="hs-mode"]:checked').value;
     S.hasArv    = box.querySelector('#hs-arv').checked;
     S.hasBudget = box.querySelector('#hs-budget').checked;
+    S.hasSeller = box.querySelector('#hs-has-seller').checked;
+    S.hasOffer  = box.querySelector('#hs-has-offer').checked;
     S.inAnalyzed= box.querySelector('#hs-analyzed').checked;
     S.inDispo   = box.querySelector('#hs-indispo').checked;
     S.excludeDispo = box.querySelector('#hs-exdispo').checked;
@@ -60195,6 +60247,11 @@ window._uwOpenHotSettings = function(){
     // Funnel thresholds (Hold / Flip / Assign chips)
     if (typeof _uwCollectFunnelSettings === 'function') _uwCollectFunnelSettings(box);
     close();
+    // If the Seller/Offer price filters are active, refresh the address index
+    // from the latest price_submissions, then re-render so it reflects reality.
+    if ((S.hasSeller || S.hasOffer) && typeof _priceSubIndexLoad === 'function') {
+      _priceSubIndexLoad(true).then(() => { if (typeof renderUnderwriteList === 'function') renderUnderwriteList(); });
+    }
     if (typeof renderUnderwriteList === 'function') renderUnderwriteList();
   };
   var fr = box.querySelector('#hs-funnel-reset');

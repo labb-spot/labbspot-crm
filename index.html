@@ -27000,7 +27000,7 @@ function _uwRenderInvCompare(req, responses){
       + '<td style="padding:6px 8px;font-weight:600">' + esc(resp.contractor_company||resp.contractor_name||'—') + '</td>'
       + '<td style="padding:6px 8px;text-align:center">' + (resp.contractor_start?esc(resp.contractor_start):'—') + '</td>'
       + '<td style="padding:6px 8px;text-align:right;font-weight:700">' + money(tot) + '</td>'
-      + '<td style="padding:6px 8px;text-align:center;font-size:11px;color:var(--text-dim)">' + esc(dt) + '</td>'
+      + '<td style="padding:6px 8px;text-align:center;font-size:11px;color:var(--text-dim)"><span id="invdate-'+esc(resp.id)+'" style="display:inline-flex;align-items:center;gap:5px;justify-content:center">' + esc(dt) + ' <button onclick="event.stopPropagation();uwInvEditDate(\''+esc(resp.id)+'\')" title="Edit submitted date" style="background:none;border:none;color:#a5b4fc;cursor:pointer;font-size:11px;padding:0;line-height:1">✏️</button></span></td>'
       + '<td style="padding:6px 8px;text-align:center"><input type="checkbox" ' + (resp.paid?'checked ':'') + 'onchange="uwInvTogglePaid(\'' + esc(resp.id) + '\',this.checked)" onclick="event.stopPropagation()" style="width:16px;height:16px;accent-color:#14b8a6;cursor:pointer" title="Mark paid"></td>'
       + '<td style="padding:6px 8px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ea580c;padding:2px 7px" onclick="event.stopPropagation();uwInvPrint(\'' + esc(resp.id) + '\')" title="PDF">📄</button></td>'
       + '<td style="padding:6px 8px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ef4444;padding:2px 7px" onclick="event.stopPropagation();uwInvDeleteResponse(\'' + esc(resp.id) + '\')" title="Remove">✕</button></td>'
@@ -27011,6 +27011,31 @@ function _uwRenderInvCompare(req, responses){
     + '<th style="padding:6px 8px;text-align:left">Name</th><th style="padding:6px 8px;text-align:left">Company</th><th style="padding:6px 8px;text-align:center">Status</th><th style="padding:6px 8px;text-align:right">Total</th><th style="padding:6px 8px;text-align:center">Submitted</th><th style="padding:6px 8px;text-align:center">Paid</th><th style="padding:6px 8px;text-align:center">PDF</th><th style="padding:6px 8px;text-align:center"></th>'
     + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
+
+// Edit a submitted invoice's date inline; on save, persist + re-sort the list by date.
+function uwInvEditDate(id){
+  const cell=document.getElementById('invdate-'+id); if(!cell) return;
+  const req=_uwInv.byDeal[_uwCurrentId]; if(!req) return;
+  const resp=((_uwInv.responses[req.id])||[]).find(r=>String(r.id)===String(id)); if(!resp) return;
+  let cur=''; try{ if(resp.submitted_at){ cur=new Date(resp.submitted_at).toISOString().slice(0,10); } }catch(_){}
+  cell.innerHTML='<input type="date" value="'+cur+'" onchange="uwInvSaveDate(\''+id+'\',this.value)" onblur="if(!this.value)renderInvActive&&_uwRenderInvCompare&&_uwRenderInvCompare(_uwInv.byDeal[_uwCurrentId],(_uwInv.responses[_uwInv.byDeal[_uwCurrentId].id]||[]))" onclick="event.stopPropagation()" style="height:26px;font-size:11px;padding:0 4px;background:var(--panel-2);border:1px solid var(--border);border-radius:5px;color:var(--text)">';
+  const inp=cell.querySelector('input'); if(inp) try{ inp.focus(); if(inp.showPicker) inp.showPicker(); }catch(_){}
+}
+window.uwInvEditDate=uwInvEditDate;
+async function uwInvSaveDate(id, val){
+  if(!val) return;
+  const req=_uwInv.byDeal[_uwCurrentId]; if(!req) return;
+  const iso=new Date(val+'T12:00:00').toISOString();
+  try{ const {error}=await sb.from('invoice_responses').update({submitted_at:iso}).eq('id',id); if(error) throw error; }
+  catch(e){ console.warn('uwInvSaveDate:',e); if(typeof toast==='function') toast('Could not update the date.','err'); }
+  const arr=(_uwInv.responses[req.id])||[];
+  const r=arr.find(x=>String(x.id)===String(id)); if(r) r.submitted_at=iso;
+  arr.sort((a,b)=> new Date(a.submitted_at||0) - new Date(b.submitted_at||0)); // oldest → newest, matches load order
+  _uwRenderInvCompare(req, arr);
+  if(typeof renderInvActive==='function') renderInvActive();
+  if(typeof toast==='function') toast('Submitted date updated.','ok');
+}
+window.uwInvSaveDate=uwInvSaveDate;
 
 function uwInvToggleDetail(id, ev){
   if (ev){ const t=ev.target; if (t && t.closest && t.closest('button, input')) return; }

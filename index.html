@@ -33761,7 +33761,10 @@ window._mapSectionRender = function (fit) {
   if (window._mapPendingOpenId) {
     var _pmk = window._mapPropMarkers && window._mapPropMarkers[window._mapPendingOpenId];
     if (_pmk) {
-      window._mapPendingOpenId = null;
+      // Do NOT clear the pending id here — the async price-index load fires a
+      // second render right after, which would clear layers and close the popup.
+      // Keeping it set means every render re-opens the card; _uwFocusOnMap clears
+      // it once things settle.
       try {
         window._mapSectionObj.invalidateSize();
         window._mapSectionObj.setView(_pmk.getLatLng(), Math.max(window._mapSectionObj.getZoom() || 0, 16), { animate: false });
@@ -33793,7 +33796,9 @@ window._uwFocusOnMap = function (id) {
   // fresh pin is built (see _mapSectionRender) — robust against timing/re-renders.
   window._mapPendingOpenId = id;
   if (typeof goSection === 'function') goSection('map');
-  // Nudge the map to (re)render until it has built the pin and opened the card.
+  // Nudge the map to render a few times (catches first-visit init + the one-time
+  // price-index re-render). Each render re-opens the pending card. Then clear the
+  // flag once it's settled so normal map use isn't affected.
   var _tries = 0;
   var _kick = function () {
     _tries++;
@@ -33803,11 +33808,9 @@ window._uwFocusOnMap = function (id) {
         if (typeof window._mapSectionRender === 'function') window._mapSectionRender(false);
       }
     } catch (e) {}
-    if (window._mapPendingOpenId && _tries < 16) { setTimeout(_kick, 220); return; }
-    if (window._mapPendingOpenId) {
-      window._mapPendingOpenId = null;
-      if ((!isFinite(la) || !isFinite(lo)) && typeof toast === 'function') toast('This property isn\'t geocoded yet — opened the map without centering.', 'warn');
-    }
+    if (_tries < 6) { setTimeout(_kick, 260); return; }
+    // Give the last render's popup a moment, then stop honoring the pending focus.
+    setTimeout(function () { window._mapPendingOpenId = null; }, 1200);
   };
   setTimeout(_kick, 300);
 };

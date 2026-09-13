@@ -33722,7 +33722,9 @@ window._mapSectionRender = function (fit) {
       var mk = L.marker([la, lo], { icon: L.divIcon({ className: 'map-prop-sq', html: sq, iconSize: [18, 18], iconAnchor: [9, 9] }) });
       var _dispoLine = (_dstage ? '<br><span style="color:#a855f7;font-weight:700">📄 ' + _dstage.charAt(0).toUpperCase() + _dstage.slice(1) + ' Contract</span>' : '') + (_isActive ? (_dstage ? ' ' : '<br>') + '<span style="color:#16a34a;font-weight:700">🟢 Active</span>' : '');
       var _finLine = (!_dstage && _pcats.indexOf('finalized') >= 0) ? '<br><span style="color:' + (_isDropped ? '#ef4444' : '#10b981') + ';font-weight:700">' + _finIcon + ' ' + (_isDropped ? 'Dropped' : 'Closed') + '</span>' : '';
-      mk.bindPopup('<div style="font-size:12px;min-width:170px"><b>🏠 ' + esc(addr) + '</b>' + (loc ? '<br>' + esc(loc) : '') + _dispoLine + _finLine + (_priceLine ? '<br><b>' + _priceLine + '</b>' : '') + (arv ? '<br>ARV: ' + arv : '') + '<br><div style="display:flex;align-items:center;gap:5px;margin-top:6px"><button onclick="_mapSectionOpenDeal(\'' + esc(u.id) + '\')" style="padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">Open in Underwriting</button><span style="margin-left:auto;display:inline-flex;gap:5px">' + window._mapZGBtns(_zUrl, _gUrl) + '</span></div></div>');
+      var _tagged = !!(u.data && u.data._tagged === true);
+      var _tagBtn = '<button onclick="_mapToggleTag(\'' + esc(u.id) + '\', this)" title="' + (_tagged ? 'Tagged — click to untag' : 'Tag this property') + '" style="padding:2px 8px;font-size:12px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid ' + (_tagged ? '#eab308' : 'var(--border)') + ';background:' + (_tagged ? 'rgba(234,179,8,0.22)' : 'rgba(148,163,184,0.12)') + ';color:' + (_tagged ? '#a16207' : '#64748b') + '">🏷️</button>';
+      mk.bindPopup('<div style="font-size:12px;min-width:170px"><b>🏠 ' + esc(addr) + '</b>' + (loc ? '<br>' + esc(loc) : '') + _dispoLine + _finLine + (_priceLine ? '<br><b>' + _priceLine + '</b>' : '') + (arv ? '<br>ARV: ' + arv : '') + '<br><div style="display:flex;align-items:center;gap:5px;margin-top:6px"><button onclick="_mapSectionOpenDeal(\'' + esc(u.id) + '\')" style="padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">Underwrite</button>' + _tagBtn + '<span style="margin-left:auto;display:inline-flex;gap:5px">' + window._mapZGBtns(_zUrl, _gUrl) + '</span></div></div>');
       window._mapSectionPropLayer.addLayer(mk);
     });
   }
@@ -33747,6 +33749,23 @@ window._mapSectionRender = function (fit) {
 window._mapSectionOpenDeal = function (id) {
   if (typeof goSection === 'function') goSection('underwriting');
   if (typeof uwLoadById === 'function') uwLoadById(id);
+};
+// Toggle a property's 🏷️ tag straight from the map popup — updates the button in
+// place and saves to Supabase. Mirrors uwToggleTagged but works without the deal
+// being open in the calculator.
+window._mapToggleTag = function (id, btn) {
+  var u = cache.underwrites && cache.underwrites[id];
+  if (!u) return;
+  if (!u.data) u.data = {};
+  u.data._tagged = !(u.data._tagged === true);
+  var on = u.data._tagged === true;
+  if (btn) {
+    btn.style.background  = on ? 'rgba(234,179,8,0.22)' : 'rgba(148,163,184,0.12)';
+    btn.style.borderColor = on ? '#eab308' : 'var(--border)';
+    btn.style.color       = on ? '#a16207' : '#64748b';
+    btn.title = on ? 'Tagged — click to untag' : 'Tag this property';
+  }
+  try { if (typeof sb !== 'undefined' && sb) sb.from('underwrites').update({ data: u.data }).eq('id', id); } catch (e) { console.warn('[map tag] save failed', e); }
 };
 window._mapSectionRefresh = async function (btn) {
   var prev = btn ? btn.textContent : '';

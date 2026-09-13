@@ -33787,13 +33787,16 @@ window._uwFocusOnMap = function (id) {
         window._mapSectionObj.invalidateSize();
         if (isFinite(la) && isFinite(lo)) window._mapSectionObj.setView([la, lo], 16, { animate: true });
         var mk = window._mapPropMarkers && window._mapPropMarkers[id];
-        if (mk) { try { mk.openPopup(); } catch (e) {} return; }
+        if (mk) { setTimeout(function () { try { mk.openPopup(); } catch (e) {} }, 60); return; }
+        // Map is up but this property's pin isn't built yet — force a render so the
+        // marker registry populates (this is why it only worked on the 2nd click).
+        if (typeof window._mapSectionRender === 'function') { try { window._mapSectionRender(false); } catch (e) {} }
       }
     } catch (e) {}
-    if (_tries < 8) { setTimeout(_go, 300); return; }
+    if (_tries < 14) { setTimeout(_go, 250); return; }
     if ((!isFinite(la) || !isFinite(lo)) && typeof toast === 'function') toast('This property isn\'t geocoded yet — opened the map without centering.', 'warn');
   };
-  setTimeout(_go, 400);
+  setTimeout(_go, 350);
 };
 // Toggle a property's 🏷️ tag straight from the map popup — updates the button in
 // place and saves to Supabase. Mirrors uwToggleTagged but works without the deal

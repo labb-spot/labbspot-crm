@@ -33187,7 +33187,7 @@ window._mapRenderChips = function () {
   var counts = window._mapCounts || {};
   var groups = [
     { g: 'buyer', layer: 'buyer', label: 'Buyers', color: '#10b981', shape: 'circle', months: true, opts: [['tagged', 'Tagged'], ['recent', 'Recent'], ['vetting', 'Vetting'], ['qualified', 'Qualified'], ['unqualified', 'Unqualified']] },
-    { g: 'prop', layer: 'prop', label: 'Properties', color: '#f97316', shape: 'square', opts: [['analyzed', 'Analyzed'], ['all', 'All'], ['hot', 'Hot'], ['contracted', 'Contracted'], ['finalized', 'Finalized']] },
+    { g: 'prop', layer: 'prop', label: 'Properties', color: '#f97316', shape: 'square', opts: [['priced', 'Priced'], ['analyzed', 'Analyzed'], ['all', 'All'], ['hot', 'Hot'], ['contracted', 'Contracted'], ['finalized', 'Finalized']] },
     { g: 'dispo', layer: 'prop', label: 'Dispositions', color: '#a855f7', shape: 'square', noToggle: true, opts: [['new', 'New'], ['assigning', 'Assigning'], ['hot', 'Hot'], ['assigned', 'Assigned'], ['dead', 'Dead'], ['active', 'Active']] }
   ];
   var mkShape = function (shape, color) {
@@ -33216,7 +33216,7 @@ window._mapRenderChips = function () {
       return '<button type="button" onclick="_mapToggleChip(\'' + grp.g + '\',\'' + o[0] + '\')" style="padding:3px 12px;border-radius:8px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;white-space:nowrap;opacity:' + (layerOn ? '1' : '0.4') + ';border:1.5px solid ' + (on ? grp.color : 'var(--border)') + ';background:' + (on ? grp.color + '22' : 'transparent') + ';color:' + (on ? grp.color : 'var(--text-dim)') + '">' + o[1] + '</button>';
     };
     // Certain chips are promoted to the TOP-RIGHT of the box; the rest go on the bottom row.
-    var topKeys = { buyer: ['tagged'], prop: ['analyzed'], dispo: ['active'] }[grp.g] || [];
+    var topKeys = { buyer: ['tagged'], prop: ['priced', 'analyzed'], dispo: ['active'] }[grp.g] || [];
     var topExtra = grp.opts.filter(function (o) { return topKeys.indexOf(o[0]) >= 0; }).map(topChipBtn).join('');
     var bottomOpts = grp.opts.filter(function (o) { return topKeys.indexOf(o[0]) < 0; });
     var monthSel = '';
@@ -33520,6 +33520,15 @@ window._mapPropCats = function (u) {
   var analyzing = (typeof _uwIsAnalyzing === 'function') ? _uwIsAnalyzing(u) : (packet === '' || packet === 'Evaluating');
   if (!flag('_needsHelp') && !flag('_isPriority') && !flag('_inChecking') && !analyzing && packet !== 'Closed') cats.push('analyzed');
   if ((window._uwHotIds || []).indexOf(u.id) >= 0) cats.push('hot');
+  // Priced: any deal with a price on it — Asking / Offer / Accepted field, or a
+  // Seller/Offer price submission from GoHighLevel (once the index is loaded).
+  var _pn = function (v) { var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) && n > 0 ? n : 0; };
+  var _isPriced = _pn(data['uw-asking']) || _pn(u.asking) || _pn(data['uw-offer']) || _pn(data['uw-accepted']);
+  if (!_isPriced && window._priceSubIndex && typeof _priceSubNorm === 'function') {
+    var _pi = window._priceSubIndex[_priceSubNorm(u.address || data['uw-address'] || '')];
+    if (_pi && _pi.low > 0) _isPriced = true;
+  }
+  if (_isPriced) cats.push('priced');
   return cats;
 };
 // Dispositions categories for a property: contract stage + Active (live for offers).

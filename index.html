@@ -33756,6 +33756,19 @@ window._mapSectionRender = function (fit) {
   var _st = document.getElementById('map-mapped-stats');
   if (_st) _st.innerHTML = '📍 <b>' + propPins.toLocaleString() + '</b> / ' + _totProps.toLocaleString() + ' properties mapped &nbsp;·&nbsp; <b>' + buyerPins.toLocaleString() + '</b> / ' + _totPurch.toLocaleString() + ' buyer purchases mapped';
   if (fit && bounds.length) { try { window._mapSectionObj.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 }); } catch (e) {} }
+  // If the list 🗺️ button asked to focus a specific property, do it now that the
+  // pins are freshly built — center on its (fresh) marker and open its card.
+  if (window._mapPendingOpenId) {
+    var _pmk = window._mapPropMarkers && window._mapPropMarkers[window._mapPendingOpenId];
+    if (_pmk) {
+      window._mapPendingOpenId = null;
+      try {
+        window._mapSectionObj.invalidateSize();
+        window._mapSectionObj.setView(_pmk.getLatLng(), Math.max(window._mapSectionObj.getZoom() || 0, 16), { animate: false });
+      } catch (e) {}
+      setTimeout(function () { try { _pmk.openPopup(); } catch (e) {} }, 90);
+    }
+  }
 };
 window._mapSectionOpenDeal = function (id) {
   if (typeof goSection === 'function') goSection('underwriting');
@@ -33776,27 +33789,27 @@ window._uwFocusOnMap = function (id) {
     window._mapChips = window._mapChips || {};
     window._mapChips.prop = (window._mapChips.prop || []).filter(function (c) { return c !== 'analyzed' && c !== 'priced'; });
   } catch (_) {}
+  // Flag the property to focus. The map's own render opens its card the moment the
+  // fresh pin is built (see _mapSectionRender) — robust against timing/re-renders.
+  window._mapPendingOpenId = id;
   if (typeof goSection === 'function') goSection('map');
-  // Center the map and open THIS property's pin popup — as if it was clicked on
-  // the map. Retry a few times while the map/markers finish rendering.
+  // Nudge the map to (re)render until it has built the pin and opened the card.
   var _tries = 0;
-  var _go = function () {
+  var _kick = function () {
     _tries++;
     try {
       if (window._mapSectionObj) {
         window._mapSectionObj.invalidateSize();
-        if (isFinite(la) && isFinite(lo)) window._mapSectionObj.setView([la, lo], 16, { animate: true });
-        var mk = window._mapPropMarkers && window._mapPropMarkers[id];
-        if (mk) { setTimeout(function () { try { mk.openPopup(); } catch (e) {} }, 60); return; }
-        // Map is up but this property's pin isn't built yet — force a render so the
-        // marker registry populates (this is why it only worked on the 2nd click).
-        if (typeof window._mapSectionRender === 'function') { try { window._mapSectionRender(false); } catch (e) {} }
+        if (typeof window._mapSectionRender === 'function') window._mapSectionRender(false);
       }
     } catch (e) {}
-    if (_tries < 14) { setTimeout(_go, 250); return; }
-    if ((!isFinite(la) || !isFinite(lo)) && typeof toast === 'function') toast('This property isn\'t geocoded yet — opened the map without centering.', 'warn');
+    if (window._mapPendingOpenId && _tries < 16) { setTimeout(_kick, 220); return; }
+    if (window._mapPendingOpenId) {
+      window._mapPendingOpenId = null;
+      if ((!isFinite(la) || !isFinite(lo)) && typeof toast === 'function') toast('This property isn\'t geocoded yet — opened the map without centering.', 'warn');
+    }
   };
-  setTimeout(_go, 350);
+  setTimeout(_kick, 300);
 };
 // Toggle a property's 🏷️ tag straight from the map popup — updates the button in
 // place and saves to Supabase. Mirrors uwToggleTagged but works without the deal

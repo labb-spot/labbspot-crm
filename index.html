@@ -33643,6 +33643,7 @@ window._mapSectionRender = function (fit) {
   } else { window._mapCapping = false; }
   // ----- Underwriting properties (colored squares) -----
   {
+    window._mapPropMarkers = {};   // deal id → marker, so we can open a pin's popup programmatically
     Object.values(cache.underwrites || {}).forEach(function (u) {
       if (!u || u.deleted_at) return;
       var _pcats = window._mapPropCats(u);
@@ -33735,6 +33736,7 @@ window._mapSectionRender = function (fit) {
       var _detLine = _detParts.length ? '<br>Details: ' + _detParts.join(', ') : '';
       mk.bindPopup('<div style="font-size:12px;min-width:170px"><b>🏠 ' + esc(addr) + '</b>' + (loc ? '<br>' + esc(loc) : '') + _dispoLine + _finLine + (_priceLine ? '<br><b>' + _priceLine + '</b>' : '') + (arv ? '<br>ARV: ' + arv : '') + _detLine + '<br><div style="display:flex;align-items:center;gap:5px;margin-top:6px"><button onclick="_mapSectionOpenDeal(\'' + esc(u.id) + '\')" style="padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">Underwrite</button>' + _tagBtn + '<span style="margin-left:auto;display:inline-flex;gap:5px">' + window._mapZGBtns(_zUrl, _gUrl) + '</span></div></div>');
       window._mapSectionPropLayer.addLayer(mk);
+      window._mapPropMarkers[u.id] = mk;
     });
   }
   window._mapCounts = { buyer: buyerPins, prop: propPins };
@@ -33758,6 +33760,34 @@ window._mapSectionRender = function (fit) {
 window._mapSectionOpenDeal = function (id) {
   if (typeof goSection === 'function') goSection('underwriting');
   if (typeof uwLoadById === 'function') uwLoadById(id);
+};
+// Jump to the in-app Map section and center it on this property's pin.
+window._uwFocusOnMap = function (id) {
+  var u = cache.underwrites && cache.underwrites[id];
+  var la = NaN, lo = NaN;
+  if (u) {
+    var dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
+    la = (dc && dc.lat != null) ? Number(dc.lat) : (u.uw_lat != null ? Number(u.uw_lat) : NaN);
+    lo = (dc && dc.lng != null) ? Number(dc.lng) : (u.uw_lng != null ? Number(u.uw_lng) : NaN);
+  }
+  if (typeof goSection === 'function') goSection('map');
+  // Center the map and open THIS property's pin popup — as if it was clicked on
+  // the map. Retry a few times while the map/markers finish rendering.
+  var _tries = 0;
+  var _go = function () {
+    _tries++;
+    try {
+      if (window._mapSectionObj) {
+        window._mapSectionObj.invalidateSize();
+        if (isFinite(la) && isFinite(lo)) window._mapSectionObj.setView([la, lo], 16, { animate: true });
+        var mk = window._mapPropMarkers && window._mapPropMarkers[id];
+        if (mk) { try { mk.openPopup(); } catch (e) {} return; }
+      }
+    } catch (e) {}
+    if (_tries < 8) { setTimeout(_go, 300); return; }
+    if ((!isFinite(la) || !isFinite(lo)) && typeof toast === 'function') toast('This property isn\'t geocoded yet — opened the map without centering.', 'warn');
+  };
+  setTimeout(_go, 400);
 };
 // Toggle a property's 🏷️ tag straight from the map popup — updates the button in
 // place and saves to Supabase. Mirrors uwToggleTagged but works without the deal
@@ -41798,36 +41828,45 @@ function renderUnderwriteList() {
         return fmtImported(useCl ? (cl.length === 10 ? cl + 'T00:00:00' : cl) : u.created_at);
       })()}</td>
       <td style="padding:8px 10px;white-space:nowrap" onclick="event.stopPropagation()">
-        <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%">
-          <span style="flex:1;min-width:0;overflow:visible;text-align:right;padding-right:4px">${(function(){
-            // Closed-only routing UI. Flow: Closed → Renovation → Holdings.
-            // Accept Closed status from EITHER source — packet_status (workflow
-            // stage) or uw-offer-status (live offer state). These can fall out
-            // of sync if a deal is updated on one device but not the other, or
-            // if the user manually toggled offer status without committing the
-            // workflow stage. Showing the badge in either case avoids the
-            // "why isn't my hammer/key showing" confusion.
+        <div style="display:flex;align-items:flex-start;justify-content:flex-end;gap:4px;width:100%">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;align-items:flex-end;padding-right:2px">${(function(){
+            // Renovation/Holdings badges. Flow: Closed → Renovation → Holdings.
+            // Hammer (Renovation) sits on the TOP row, Key (Holdings) on the BOTTOM
+            // row, aligned with the two rows of action buttons. A deal is only ever
+            // in one of these states, so only one badge shows.
             const _offerSt = (u.data && u.data['uw-offer-status']) || '';
             const _packetSt = (u.packet_status || '').trim();
-            if (_packetSt !== 'Closed' && _offerSt !== 'Closed') return '';
+            const _cell = 'height:24px;display:flex;align-items:center;justify-content:flex-end';
+            if (_packetSt !== 'Closed' && _offerSt !== 'Closed') return '<div style="' + _cell + '"></div><div style="' + _cell + '"></div>';
             const hs = (u.data && u.data._holdingStatus) || null;
-            if (hs === 'holding') {
-              return `<span class="badge ok" style="display:inline-flex;align-items:center;justify-content:center;padding:3px 6px;font-size:11px;line-height:1.4;box-sizing:border-box;border-radius:8px;overflow:visible;margin-right:6px" title="In Holdings — to remove, open the Holdings tab and click ✕ Remove on this row.">🔑</span>`;
-            }
-            if (hs === 'renovation') {
-              return `<span class="badge warn" style="display:inline-flex;align-items:center;justify-content:center;padding:3px 6px;font-size:11px;line-height:1.4;box-sizing:border-box;border-radius:8px;overflow:visible;margin-right:6px" title="In Renovation — to remove, open the Renovation tab and click ✕ Remove on this row.">🔨</span>`;
-            }
-            // Only show the hammer/key badge for routed deals. Otherwise nothing.
-            return '';
-          })()}</span>
+            const _bs = 'display:inline-flex;align-items:center;justify-content:center;padding:3px 6px;font-size:11px;line-height:1.4;box-sizing:border-box;border-radius:8px';
+            const _ham = (hs === 'renovation') ? '<span class="badge warn" style="' + _bs + '" title="In Renovation — to remove, open the Renovation tab and click ✕ Remove on this row.">🔨</span>' : '';
+            const _key = (hs === 'holding') ? '<span class="badge ok" style="' + _bs + '" title="In Holdings — to remove, open the Holdings tab and click ✕ Remove on this row.">🔑</span>' : '';
+            return '<div style="' + _cell + '">' + _ham + '</div><div style="' + _cell + '">' + _key + '</div>';
+          })()}</div>
+          <div style="display:flex;flex-direction:column;gap:4px;flex:0 0 auto">
+          <div style="display:flex;gap:4px;justify-content:flex-end">
           ${(() => {
             const _picsUrl = String((u.data && u.data['uw-pics']) || '').trim();
             if (!_picsUrl) return '';
             const _safe = _picsUrl.replace(/'/g, '%27').replace(/"/g, '&quot;');
-            return `<button class="btn btn-ghost text-xs" style="flex-shrink:0;padding:3px 7px;font-size:13px;color:#a78bfa" onclick="event.stopPropagation(); window.open('${_safe}', '_blank', 'noopener,noreferrer');" title="Open picture folder in a new tab"><span style="display:inline-block;transform:translateY(-2px)">📷</span></button>`;
+            return `<button class="btn btn-ghost text-xs" style="flex-shrink:0;width:32px;padding:3px 0;font-size:13px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;color:#a78bfa" onclick="event.stopPropagation(); window.open('${_safe}', '_blank', 'noopener,noreferrer');" title="Open picture folder in a new tab"><span style="display:inline-block;transform:translateY(-2px)">📷</span></button>`;
           })()}
-          <button class="btn btn-ghost text-xs" style="flex-shrink:0;padding:3px 7px;font-size:13px" onclick="_hrOpenDeal('${u.id}')" title="Open this deal in the Deal Calculator">📂</button>
-          <button class="btn btn-ghost text-xs" style="flex-shrink:0;padding:3px 7px;font-size:13px;color:#f87171" onclick="uwDelete('${u.id}')" title="Delete">🗑</button>
+          <button class="btn btn-ghost text-xs" style="flex-shrink:0;width:32px;padding:3px 0;font-size:13px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center" onclick="_hrOpenDeal('${u.id}')" title="Open this deal in the Deal Calculator">📂</button>
+          <button class="btn btn-ghost text-xs" style="flex-shrink:0;width:32px;padding:3px 0;font-size:13px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;color:#f87171" onclick="uwDelete('${u.id}')" title="Delete">🗑</button>
+          </div>
+          <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center">${(function(){
+            const _fa = [u.address, [u.city, u.state, u.zip].filter(Boolean).join(', ')].filter(Boolean).join(', ');
+            const _q = encodeURIComponent(_fa);
+            const _z = 'https://www.zillow.com/homes/' + _q + '_rb/';
+            const _g = 'https://www.google.com/maps/search/?api=1&query=' + _q;
+            const _bs = 'flex-shrink:0;width:32px;padding:3px 0;font-size:13px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center';
+            const _gSvg = '<svg width="14" height="14" viewBox="0 0 48 48" style="display:block"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+            return '<button class="btn btn-ghost text-xs" style="' + _bs + ';font-weight:800;color:#006aff" title="Search this address on Zillow" onclick="event.stopPropagation(); window.open(\'' + _z + '\', \'_blank\', \'noopener,noreferrer\')">Z</button>'
+              + '<button class="btn btn-ghost text-xs" style="' + _bs + '" title="Search this address on Google" onclick="event.stopPropagation(); window.open(\'' + _g + '\', \'_blank\', \'noopener,noreferrer\')">' + _gSvg + '</button>'
+              + '<button class="btn btn-ghost text-xs" style="' + _bs + '" title="Show this property on my map" onclick="event.stopPropagation(); _uwFocusOnMap(\'' + u.id + '\')">🗺️</button>';
+          })()}</div>
+          </div>
         </div>
       </td>
     </tr>`;

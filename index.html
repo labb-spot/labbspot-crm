@@ -33534,6 +33534,12 @@ window._mapDispoCats = function (u) {
 };
 window._mapSectionRender = function (fit) {
   if (!window._mapSectionObj || !window._mapSectionBuyerLayer) return;
+  // Load the GoHighLevel price-submission index once so map prices can include
+  // the lowest Seller/Offer submission; re-render (without refitting) when ready.
+  if (!window._priceSubIndex && !window._priceSubIndexLoading && typeof _priceSubIndexLoad === 'function') {
+    window._priceSubIndexLoading = true;
+    _priceSubIndexLoad(true).then(function(){ window._priceSubIndexLoading = false; if (typeof window._mapSectionRender === 'function') window._mapSectionRender(false); });
+  }
   window._mapRenderChips();
   var _bChips = window._mapChips.buyer || [];
   var _pChips = window._mapChips.prop || [];
@@ -33660,15 +33666,19 @@ window._mapSectionRender = function (fit) {
       var _gUrl = 'https://www.google.com/maps/search/?api=1&query=' + _q;
       var _zUrl = 'https://www.zillow.com/homes/' + _q + '_rb/';
       var arv = fmt$(u.data && (u.data['uw-arv-override'] || u.data['uw-arv']));
-      // Show Asking or Accepted price — whichever is LOWER — on its own line above ARV.
+      // Show the LOWEST known price for this property — the min across the Data Lab
+      // Asking / Offer / Accepted fields and the lowest Seller/Offer price submission
+      // from GoHighLevel (once the index is loaded).
       var _num = function (v) { var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) && n > 0 ? n : null; };
-      var _askN = _num((u.data && u.data['uw-asking']) || u.asking);
-      var _accN = _num(u.data && u.data['uw-accepted']);
       var _priceCands = [];
-      if (_askN != null) _priceCands.push(['Asking', _askN]);
-      if (_accN != null) _priceCands.push(['Accepted', _accN]);
-      _priceCands.sort(function (a, b) { return a[1] - b[1]; });
-      var _priceLine = _priceCands.length ? 'Price: $' + Math.round(_priceCands[0][1]).toLocaleString() : '';
+      var _askN = _num((u.data && u.data['uw-asking']) || u.asking); if (_askN != null) _priceCands.push(_askN);
+      var _offN = _num(u.data && u.data['uw-offer']);               if (_offN != null) _priceCands.push(_offN);
+      var _accN = _num(u.data && u.data['uw-accepted']);            if (_accN != null) _priceCands.push(_accN);
+      if (window._priceSubIndex && typeof _priceSubNorm === 'function') {
+        var _pi = window._priceSubIndex[_priceSubNorm(u.address || (u.data && u.data['uw-address']) || '')];
+        if (_pi && _pi.low > 0) _priceCands.push(_pi.low);
+      }
+      var _priceLine = _priceCands.length ? 'Price: $' + Math.round(Math.min.apply(null, _priceCands)).toLocaleString() : '';
       // If the property is in Dispositions, show a dispo-stage icon (separate
       // from the underwriting icon). Otherwise show the underwriting icon:
       // Finalized: Closed 🏁 vs Dropped 💀 > Contracted 📝 > Hot 🔥 > Analyzed ✓ > else 📋.

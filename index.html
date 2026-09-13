@@ -33770,6 +33770,12 @@ window._uwFocusOnMap = function (id) {
     la = (dc && dc.lat != null) ? Number(dc.lat) : (u.uw_lat != null ? Number(u.uw_lat) : NaN);
     lo = (dc && dc.lng != null) ? Number(dc.lng) : (u.uw_lng != null ? Number(u.uw_lng) : NaN);
   }
+  // Turn OFF the Analyzed and Priced property chips for this open, so a property
+  // that isn't analyzed/priced yet still shows a pin (and can open its card).
+  try {
+    window._mapChips = window._mapChips || {};
+    window._mapChips.prop = (window._mapChips.prop || []).filter(function (c) { return c !== 'analyzed' && c !== 'priced'; });
+  } catch (_) {}
   if (typeof goSection === 'function') goSection('map');
   // Center the map and open THIS property's pin popup — as if it was clicked on
   // the map. Retry a few times while the map/markers finish rendering.

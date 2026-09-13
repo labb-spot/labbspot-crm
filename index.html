@@ -33657,8 +33657,9 @@ window._mapSectionRender = function (fit) {
         ? true
         : _catChips.some(function (c) { return _pcats.indexOf(c) >= 0; });
       var pMatch = _catMatch && (!_pricedOn || _isPriced);
+      // Property chips (Priced / Analyzed / Hot / …) only filter PROPERTY pins.
+      // Disposition pins are governed solely by the dispo chips — untouched.
       var dMatch = _dChips.some(function (c) { return _dcats.indexOf(c) >= 0; });
-      if (_pricedOn && dMatch && !_isPriced) dMatch = false;   // Priced also narrows dispo-matched pins
       // When the Properties layer is ON: show all (no chips) or anything matching a
       // selected prop/dispo chip. When it's OFF: keep only dispo-selected properties up.
       var _showThis = showProps

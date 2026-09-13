@@ -33793,26 +33793,38 @@ window._uwFocusOnMap = function (id) {
     window._mapChips.prop = (window._mapChips.prop || []).filter(function (c) { return c !== 'analyzed' && c !== 'priced'; });
   } catch (_) {}
   // Flag the property to focus. The map's own render opens its card the moment the
-  // fresh pin is built (see _mapSectionRender) — robust against timing/re-renders.
+  // fresh pin is built (see _mapSectionRender).
   window._mapPendingOpenId = id;
-  if (typeof goSection === 'function') goSection('map');
-  // Nudge the map to render a few times (catches first-visit init + the one-time
-  // price-index re-render). Each render re-opens the pending card. Then clear the
-  // flag once it's settled so normal map use isn't affected.
-  var _tries = 0;
-  var _kick = function () {
-    _tries++;
-    try {
-      if (window._mapSectionObj) {
-        window._mapSectionObj.invalidateSize();
-        if (typeof window._mapSectionRender === 'function') window._mapSectionRender(false);
+  // Only render (build pins) WHILE the target pin doesn't exist yet — stop as soon
+  // as it's built, so we don't rebuild-and-flicker the popup.
+  var _proceed = function () {
+    if (typeof goSection === 'function') goSection('map');
+    var _tries = 0;
+    var _kick = function () {
+      _tries++;
+      var have = window._mapPropMarkers && window._mapPropMarkers[id];
+      if (!have) {
+        try {
+          if (window._mapSectionObj) {
+            window._mapSectionObj.invalidateSize();
+            if (typeof window._mapSectionRender === 'function') window._mapSectionRender(false);
+          }
+        } catch (e) {}
       }
-    } catch (e) {}
-    if (_tries < 6) { setTimeout(_kick, 260); return; }
-    // Give the last render's popup a moment, then stop honoring the pending focus.
-    setTimeout(function () { window._mapPendingOpenId = null; }, 1200);
+      have = window._mapPropMarkers && window._mapPropMarkers[id];
+      if (!have && _tries < 12) { setTimeout(_kick, 240); return; }
+      // Pin exists (or gave up) — let the render's popup settle, then release focus.
+      setTimeout(function () {
+        window._mapPendingOpenId = null;
+        if (!have && (!isFinite(la) || !isFinite(lo)) && typeof toast === 'function') toast('This property isn\'t geocoded yet — opened the map without centering.', 'warn');
+      }, 900);
+    };
+    setTimeout(_kick, 250);
   };
-  setTimeout(_kick, 300);
+  // Preload the price-submission index FIRST so _mapSectionRender doesn't fire a
+  // second async re-render (that re-render was closing the just-opened popup).
+  if (window._priceSubIndex || typeof _priceSubIndexLoad !== 'function') { _proceed(); }
+  else { try { _priceSubIndexLoad(true).then(_proceed, _proceed); } catch (e) { _proceed(); } }
 };
 // Toggle a property's 🏷️ tag straight from the map popup — updates the button in
 // place and saves to Supabase. Mirrors uwToggleTagged but works without the deal

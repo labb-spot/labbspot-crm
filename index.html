@@ -33647,8 +33647,18 @@ window._mapSectionRender = function (fit) {
       if (!u || u.deleted_at) return;
       var _pcats = window._mapPropCats(u);
       var _dcats = window._mapDispoCats(u);
-      var pMatch = _pChips.indexOf('all') >= 0 || _pChips.some(function (c) { return _pcats.indexOf(c) >= 0; });
+      // "Priced" is a NARROWING modifier (AND), not another OR category: when it's
+      // selected, only priced properties show — combined with whatever category
+      // chips (Analyzed / Hot / …) are also selected.
+      var _pricedOn = _pChips.indexOf('priced') >= 0;
+      var _catChips = _pChips.filter(function (c) { return c !== 'priced'; });
+      var _isPriced = _pcats.indexOf('priced') >= 0;
+      var _catMatch = (_catChips.indexOf('all') >= 0 || _catChips.length === 0)
+        ? true
+        : _catChips.some(function (c) { return _pcats.indexOf(c) >= 0; });
+      var pMatch = _catMatch && (!_pricedOn || _isPriced);
       var dMatch = _dChips.some(function (c) { return _dcats.indexOf(c) >= 0; });
+      if (_pricedOn && dMatch && !_isPriced) dMatch = false;   // Priced also narrows dispo-matched pins
       // When the Properties layer is ON: show all (no chips) or anything matching a
       // selected prop/dispo chip. When it's OFF: keep only dispo-selected properties up.
       var _showThis = showProps
@@ -61231,7 +61241,13 @@ window.openPlan = openPlan; window.closePlan = closePlan;
 window._mapAreas = window._mapAreas || [];
 const _MAP_STRAT = { flip:{label:'🔨 Flip', color:'#3b82f6'}, hold:{label:'🏠 Hold', color:'#10b981'}, avoid:{label:'🚫 Avoid', color:'#ef4444'} };
 function _maEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
-function _mapAreaColor(a){ if(a && a.type==='flood') return '#06b6d4'; var s=_MAP_STRAT[a && a.strat]; return s ? s.color : '#94a3b8'; }
+// Zone color by Class grade: A green, B blue, C yellow, D orange, F red.
+const _MAP_GRADE_COLORS = { A:'#22c55e', B:'#3b82f6', C:'#eab308', D:'#f97316', F:'#ef4444' };
+function _mapAreaColor(a){
+  if(a && a.type==='flood') return '#06b6d4';
+  if(a && a.cls && _MAP_GRADE_COLORS[a.cls]) return _MAP_GRADE_COLORS[a.cls];   // grade-based color
+  var s=_MAP_STRAT[a && a.strat]; return s ? s.color : '#94a3b8';               // fallback: strategy color
+}
 async function _mapAreasPullAndRender(){
   try {
     if (typeof sb !== 'undefined' && sb) {

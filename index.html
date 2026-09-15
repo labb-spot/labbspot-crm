@@ -21381,7 +21381,20 @@ function _uwSetDealAge(createdAt, lastSubmissionAt, updatedAt) {
         '</div>';
     }
   }
-  el.innerHTML = addedRow + newestRow + editedRow;
+  // Flags row — any flags this property carries (from cache.config.flags, stored
+  // on the deal as u.flags). Read straight from the already-loaded deal, so it's
+  // instant — no extra fetch. Only shows when the deal has at least one flag.
+  let flagsRow = '';
+  try {
+    const _fu = (typeof _uwCurrentId !== 'undefined' && cache.underwrites) ? cache.underwrites[_uwCurrentId] : null;
+    const _fl = (_fu && _fu.flags && typeof _fu.flags === 'object') ? Object.keys(_fu.flags).filter(k => _fu.flags[k] === true) : [];
+    if (_fl.length) {
+      const _esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const _chips = _fl.map(n => '<span style="display:inline-block;background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.4);border-radius:6px;padding:1px 7px;font-size:11px;font-weight:600;white-space:nowrap">' + _esc(n) + '</span>').join(' ');
+      flagsRow = '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px"><span>🚩 Flags</span>' + _chips + '</div>';
+    }
+  } catch (_) {}
+  el.innerHTML = addedRow + newestRow + editedRow + flagsRow;
   el.title = 'Property entered the system on ' + fmtDate(created) + ' (' + fmtAgo(created) + ').' +
     ' Last Submission ' + fmtDate(newest) + ' (' + fmtAgo(newest) + ').' +
     (updatedAt ? ' Last Edit ' + fmtDate(new Date(updatedAt)) + ' (' + fmtAgo(new Date(updatedAt)) + ').' : '');

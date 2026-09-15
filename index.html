@@ -21937,7 +21937,12 @@ async function uwRescanHotProfits() {
     if (typeof toast === 'function') toast('No deals loaded yet — open Underwriting first.', 'warn');
     return;
   }
-  const ids = (Array.isArray(window._uwHotIds) ? window._uwHotIds : []).filter(id => cache.underwrites[id]);
+  // Only rescan the CURRENTLY-FILTERED/displayed Hot deals, not every Hot deal.
+  // Falls back to the full Hot set if the filtered list hasn't been captured yet.
+  const _src = (Array.isArray(window._uwHotFilteredIds) && window._uwHotFilteredIds.length)
+    ? window._uwHotFilteredIds
+    : (Array.isArray(window._uwHotIds) ? window._uwHotIds : []);
+  const ids = _src.filter(id => cache.underwrites[id]);
   const total = ids.length;
   if (total === 0) {
     if (typeof toast === 'function') toast('No Hot deals to rescan — open the Hot tab so the list builds first.', 'info');
@@ -42047,6 +42052,8 @@ function renderUnderwriteList() {
       if (window._uwHotStrategy && typeof _uwDealStrategy === 'function' && _uwDealStrategy(u) !== window._uwHotStrategy) return false;
       return true;
     }), 'hot');
+    // Expose the CURRENTLY-FILTERED hot ids so Rescan only re-runs what's displayed.
+    try { window._uwHotFilteredIds = hFiltered.map(function (u) { return u && u.id; }).filter(Boolean); } catch (_) {}
     if (!hFiltered.length) {
       hotTbody.innerHTML = '';
       if (hotEmpty) hotEmpty.style.display = '';

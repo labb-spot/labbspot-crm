@@ -28967,18 +28967,20 @@ window._priceSubIndexLoading = false;
 async function _priceSubIndexLoad(force) {
   if (window._priceSubIndex && !force) return window._priceSubIndex;
   try {
-    const { data, error } = await sb.from('price_submissions').select('address, asking, offer').limit(50000);
+    const { data, error } = await sb.from('price_submissions').select('address, asking, offer, submitted_at').limit(50000);
     if (error) throw error;
     const numOf = v => parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')) || 0;
     const idx = {};
     (data || []).forEach(r => {
       const k = _priceSubNorm(r.address);
       if (!k) return;
-      if (!idx[k]) idx[k] = { seller: false, offer: false, low: 0 };
+      if (!idx[k]) idx[k] = { seller: false, offer: false, low: 0, lastAt: 0 };
       const a = numOf(r.asking), o = numOf(r.offer);
       if (a > 0) idx[k].seller = true;
       if (o > 0) idx[k].offer = true;
       [a, o].forEach(v => { if (v > 0 && (idx[k].low === 0 || v < idx[k].low)) idx[k].low = v; });
+      const t = Date.parse(r.submitted_at || '') || 0;   // most recent price-change date
+      if (t > idx[k].lastAt) idx[k].lastAt = t;
     });
     window._priceSubIndex = idx;
   } catch (e) {
@@ -30277,7 +30279,11 @@ function _uwBumpSortOrder(prefix, key, isOn) {
 const _uwAskSort = { all: 'off', analyzing: 'off', priority: 'off', checking: 'off', analyzed: 'off', help: 'off', hot: 'off', offered: 'off', inspection: 'off', contracted: 'off', closed: 'off' };
 function _uwToggleAskSort(prefix) {
   const cur = _uwAskSort[prefix] || 'off';
-  _uwAskSort[prefix] = cur === 'off' ? 'desc' : cur === 'desc' ? 'asc' : 'off';
+  // Cycle: off → amount ↓ → amount ↑ (purple) → price-change date ↓ → date ↑ (orange) → off.
+  const next = { 'off': 'amt-desc', 'amt-desc': 'amt-asc', 'amt-asc': 'date-desc', 'date-desc': 'date-asc', 'date-asc': 'off',
+                 // legacy values → map into the new amount states
+                 'desc': 'amt-asc', 'asc': 'off' };
+  _uwAskSort[prefix] = next[cur] || 'off';
   _uwBumpSortOrder(prefix, 'ask', _uwAskSort[prefix] !== 'off');
   renderUnderwriteList();
 }
@@ -30285,7 +30291,26 @@ window._uwToggleAskSort = _uwToggleAskSort;
 function _uwApplyAskSort(arr, prefix) {
   const dir = _uwAskSort[prefix] || 'off';
   if (dir === 'off') return arr;
-  const sign = dir === 'asc' ? 1 : -1;
+  const sign = (dir.indexOf('asc') >= 0) ? 1 : -1;
+  // Date mode: sort by each property's most recent price-change date (from the
+  // GoHighLevel price-submission index). Load the index if needed.
+  if (dir.indexOf('date') === 0) {
+    if (!window._priceSubIndex && !window._priceSubIndexLoading && typeof _priceSubIndexLoad === 'function') {
+      window._priceSubIndexLoading = true;
+      _priceSubIndexLoad(true).then(() => { window._priceSubIndexLoading = false; if (typeof renderUnderwriteList === 'function') renderUnderwriteList(); });
+    }
+    const getAt = (u) => {
+      if (!u || !window._priceSubIndex || typeof _priceSubNorm !== 'function') return 0;
+      const pi = window._priceSubIndex[_priceSubNorm(u.address || (u.data && u.data['uw-address']) || '')];
+      return (pi && pi.lastAt) ? pi.lastAt : 0;
+    };
+    return arr.slice().sort((a, b) => {
+      const av = getAt(a), bv = getAt(b);
+      if (av === bv) return 0;
+      return av < bv ? -sign : sign;
+    });
+  }
+  // Amount mode (default/purple).
   const getAsk = (u) => {
     if (!u) return 0;
     const raw = (u.data && u.data['uw-asking']) || u.asking || 0;
@@ -30381,12 +30406,17 @@ function _uwUpdateAskSortHeader(prefix) {
   const el = document.getElementById('uw-th-' + prefix + '-ask');
   if (!el) return;
   const dir = _uwAskSort[prefix] || 'off';
-  const arrow = dir === 'desc' ? '↓' : dir === 'asc' ? '↑' : '';
-  // Absolutely position the arrow so "Asking" stays centered when sorted.
+  const isDate = dir.indexOf('date') === 0;
+  const arrow = (dir === 'off') ? '' : ((dir.indexOf('asc') >= 0) ? '↑' : '↓');
+  const color = isDate ? '#f97316' : '#6366f1';   // orange = price-change date, purple = amount
+  // Absolutely position the arrow so "Price" stays centered when sorted.
   el.style.position = 'relative';
-  el.innerHTML = 'Price' + (arrow ? `<span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);color:#6366f1;font-weight:700">${arrow}</span>` : '');
+  el.innerHTML = 'Price' + (arrow ? `<span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);color:${color};font-weight:700">${arrow}</span>` : '');
   el.style.color = dir !== 'off' ? 'var(--text)' : '';
   el.style.fontWeight = dir !== 'off' ? '700' : '';
+  el.title = isDate
+    ? 'Sorting by price-change date (orange ' + (arrow === '↑' ? 'oldest first' : 'newest first') + '). Click to cycle.'
+    : 'Sort by price: amount ↓ → amount ↑ (purple) → change-date ↓ → change-date ↑ (orange) → off.';
 }
 function _uwToggleImpSort(prefix) {
   const cur = _uwImpSort[prefix] || 'off';

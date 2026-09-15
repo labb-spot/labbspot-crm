@@ -5387,7 +5387,7 @@
   // Keep/Flip/Assign rules are finalized.
   window._uwHotStrategy = window._uwHotStrategy || '';
   // ---- Editable strategy thresholds (chips only) ----
-  const _uwStratDefaults = { holdMo:200, holdYear:1950, holdCrime:'C', flipProfit:25000, assignCap:15, assignFlip:20000, brrrrPct:5 };
+  const _uwStratDefaults = { holdMo:200, holdYear:1950, holdCrime:'C', flipProfit:25000, assignCap:15, assignFlip:20000, brrrrPct:5, budgetMode:'manual' };
   const _uwCrimeRank = { A:1, B:2, C:3, D:4, F:5 };
   function _uwGetStratSettings(){
     let s = {};
@@ -5425,7 +5425,13 @@
     // shown, never removed for lacking a budget. Estimates never count here.
     const manual   = num(d['uw-rehab-override']);        // manual budget ($0 if none)
     const effRehab = num(u.renovation_budget);           // rehab the stored profit was computed with
-    const addBack  = manual > 0 ? 0 : effRehab;          // undo the estimate when there's no manual budget
+    // Budget mode (set in the Funnel tab): how these chips treat rehab.
+    //   ignore → rehab counts as $0 (best case, even if a manual budget exists)
+    //   manual → only a manually-typed budget counts (auto estimates ignored)  [default]
+    //   any    → whatever budget was used counts (manual OR auto estimate)
+    const _bMode = String((typeof _uwGetStratSettings==='function' ? _uwGetStratSettings().budgetMode : 'manual') || 'manual');
+    const usedRehab = (_bMode === 'ignore') ? 0 : (_bMode === 'any') ? effRehab : manual;
+    const addBack  = effRehab - usedRehab;               // re-base the stored profit onto the rehab we want to count
     const arv   = num(typeof _uwComputeArvFromData==='function' ? _uwComputeArvFromData(d) : 0) || num(u.arv);
     const cap   = num(u.cash_rental_cap_pct);
     const flip  = num(u.flip_financed_profit) + addBack; // flip profit at the treated rehab
@@ -5437,7 +5443,7 @@
     const crimeOk = !crime || (_uwCrimeRank[crime] || 99) <= maxRank;   // unknown ⇒ don't exclude
     // HOLD — turn-key if rehab < brrrrPct% of ARV (turn-key cashflow), else BRRRR (refi cashflow).
     // No manual budget ⇒ rehab treated as $0 ⇒ turn-key.
-    const isBrrrr = arv > 0 && manual >= (num(S.brrrrPct)/100) * arv;
+    const isBrrrr = arv > 0 && usedRehab >= (num(S.brrrrPct)/100) * arv;
     const holdMo  = isBrrrr ? (num(u.refi_rental_annualized) / 12) : num(d._tkRentalMo);
     if(crimeOk && year >= num(S.holdYear) && holdMo >= num(S.holdMo)) return 'hold';
     // FLIP — profit ≥ threshold
@@ -41636,9 +41642,13 @@ function renderUnderwriteList() {
       const _hasRehab = _n(data['uw-rehab-override']) > 0 ||
         (Array.isArray(data._rehab) && data._rehab.some(col => (col && col.items || []).some(it => it && it.needed === true)));
       const _isDispo = !!(u.dispo_contract || data._dispoContract);
+      const _offStat = (data['uw-offer-status'] || '').trim();
+      const _pktStat = (u.packet_status || '').trim();
+      const _isFinalized = _offStat === 'Closed' || _offStat === 'Dropped' || _pktStat === 'Closed';
 
       // ----- Exclusion filters: ALWAYS applied -----
       if (_S.excludeDispo && _isDispo) return false;                // Drop deals already in Dispositions
+      if (_S.excludeFinalized && _isFinalized) return false;        // Drop finalized (Closed / Dropped) deals
       if (_S.excludeTagged && data._tagged === true) return false;  // Drop tagged properties
 
       // ----- Inclusion filters: each tagged Or or And via _S.g[key] -----
@@ -60368,7 +60378,7 @@ window.toggleDealHistory = function(ev){
 //   mode 'custom'  → any property with a price, optionally narrowed to those
 //                    with an ARV, a rehab budget, and/or price ≤ X% of ARV.
 window._uwHotSettings = (function(){
-  var d = { mode:'default', g:{}, excludeDispo:false, excludeTagged:false, pricePct:80, underArv:20000, withinDollar:15000, withinPct:25 };
+  var d = { mode:'default', g:{}, excludeDispo:false, excludeFinalized:false, excludeTagged:false, pricePct:80, underArv:20000, withinDollar:15000, withinPct:25 };
   try {
     var s = JSON.parse(localStorage.getItem('uw-hot-settings-v1'));
     if (s && typeof s === 'object') {
@@ -60419,6 +60429,7 @@ function _uwHotCustomRowsHTML(S, _ck) {
     row('withinPct', 'Lowest Price is within <input type="number" id="hs-wpval" value="'+((S&&S.withinPct)||25)+'" min="1" max="200" step="1" style="width:56px;'+vinp+'"> % of Max Offer or less') +
     '<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:4px"></div>' +
     '<label style="display:flex;gap:9px;align-items:center;padding:5px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-exdispo" '+((S&&S.excludeDispo)?'checked':'')+' style="'+_ck+'"><span>Exclude Properties in Dispositions</span></label>' +
+    '<label style="display:flex;gap:9px;align-items:center;padding:5px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-exfinalized" '+((S&&S.excludeFinalized)?'checked':'')+' style="'+_ck+'"><span>Exclude Properties in Finalized</span></label>' +
     '<label style="display:flex;gap:9px;align-items:center;padding:5px 0;cursor:pointer;font-size:13px"><input type="checkbox" id="hs-extagged" '+((S&&S.excludeTagged)?'checked':'')+' style="'+_ck+'"><span>Exclude Tagged Properties</span></label>';
   return html;
 }
@@ -60481,6 +60492,7 @@ window._uwOpenHotSettings = function(){
     box.querySelectorAll('input[data-hsand]').forEach(function(cb){ if (cb.checked) _g[cb.getAttribute('data-hsand')] = 'and'; });
     S.g = _g;
     S.excludeDispo = box.querySelector('#hs-exdispo').checked;
+    S.excludeFinalized = box.querySelector('#hs-exfinalized').checked;
     S.excludeTagged = box.querySelector('#hs-extagged').checked;
     var _gv = function(id, def){ var el = box.querySelector('#'+id); return el ? el.value : def; };
     S.pricePct     = parseFloat(_gv('hs-pctval', 80)) || 80;
@@ -60520,7 +60532,12 @@ function _uwFunnelSettingsHTML(){
   var crimeOpts = ['A','B','C','D','F'].map(function(g){
     return '<option value="'+g+'"'+(s.holdCrime===g?' selected':'')+'>'+g+(g==='F'?'+ (any)':'+')+'</option>';
   }).join('');
+  var bm = String(s.budgetMode || 'manual');
+  var bbtn = function(m,label){ var on=(bm===m); return '<button type="button" data-m="'+m+'" onclick="(function(b){var c=b.parentNode;c.setAttribute(\'data-mode\',b.getAttribute(\'data-m\'));Array.prototype.forEach.call(c.children,function(x){var o=(x===b);x.style.background=o?\'var(--brand)\':\'transparent\';x.style.color=o?\'#fff\':\'var(--text-dim)\';});})(this)" style="padding:6px 16px;border:none;'+(m==='ignore'?'':'border-left:1px solid var(--border);')+'cursor:pointer;font-weight:700;font-size:12px;background:'+(on?'var(--brand)':'transparent')+';color:'+(on?'#fff':'var(--text-dim)')+'">'+label+'</button>'; };
   return '<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px">' +
+    '<div style="font-weight:700;font-size:14px;margin-bottom:2px">💰 Budget</div>' +
+    '<div style="font-size:12px;color:var(--text-dim);line-height:1.45;margin-bottom:8px">How the Hold / Flip / Assign chips treat rehab. <b>Ignore</b>: rehab counts as $0. <b>Manual</b>: only budgets you typed in. <b>Any</b>: manual + auto-estimated budgets.</div>' +
+    '<div id="fs-budget" data-mode="'+bm+'" style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px">'+bbtn('ignore','Ignore')+bbtn('manual','Manual')+bbtn('any','Any')+'</div>' +
     '<div style="font-weight:700;font-size:14px;margin-bottom:2px">🧭 Funnel thresholds</div>' +
     '<div style="font-size:12px;color:var(--text-dim);line-height:1.45;margin-bottom:8px">Tune the Hold / Flip / Assign chips. Affects those chips only — no other math.</div>' +
     '<div style="font-weight:600;font-size:12px;color:#86efac;margin:6px 0 2px">🏠 HOLD</div>' +
@@ -60548,7 +60565,8 @@ function _uwCollectFunnelSettings(box){
     flipProfit: numOr(g('fs-flipProfit'), _uwStratDefaults.flipProfit),
     assignCap:  numOr(g('fs-assignCap'),  _uwStratDefaults.assignCap),
     assignFlip: numOr(g('fs-assignFlip'), _uwStratDefaults.assignFlip),
-    brrrrPct:   numOr(g('fs-brrrrPct'),   _uwStratDefaults.brrrrPct)
+    brrrrPct:   numOr(g('fs-brrrrPct'),   _uwStratDefaults.brrrrPct),
+    budgetMode: (function(){ var el=box.querySelector('#fs-budget'); return (el && el.getAttribute('data-mode')) || _uwStratDefaults.budgetMode; })()
   };
   if (typeof _uwSaveStratSettings === 'function') _uwSaveStratSettings(s);
 }

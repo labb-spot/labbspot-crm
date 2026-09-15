@@ -21381,20 +21381,49 @@ function _uwSetDealAge(createdAt, lastSubmissionAt, updatedAt) {
         '</div>';
     }
   }
-  // Flags row — any flags this property carries (from cache.config.flags, stored
-  // on the deal as u.flags). Read straight from the already-loaded deal, so it's
-  // instant — no extra fetch. Only shows when the deal has at least one flag.
-  let flagsRow = '';
-  try {
-    const _fu = (typeof _uwCurrentId !== 'undefined' && cache.underwrites) ? cache.underwrites[_uwCurrentId] : null;
-    const _fl = (_fu && _fu.flags && typeof _fu.flags === 'object') ? Object.keys(_fu.flags).filter(k => _fu.flags[k] === true) : [];
-    if (_fl.length) {
-      const _esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-      const _chips = _fl.map(n => '<span style="display:inline-block;background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.4);border-radius:6px;padding:1px 7px;font-size:11px;font-weight:600;white-space:nowrap">' + _esc(n) + '</span>').join(' ');
-      flagsRow = '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px"><span>🚩 Flags</span>' + _chips + '</div>';
-    }
-  } catch (_) {}
+  // Flags row — flags live on the PROPERTY record, matched to this deal by ADDRESS
+  // (street + zip), the same way Call Records and the map resolve them. Always shown
+  // ("none" when empty). Uses cache.properties if loaded, else a small address fetch.
+  const _esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const _flagChips = (arr) => (arr && arr.length)
+    ? arr.map(n => '<span style="display:inline-block;background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.4);border-radius:6px;padding:1px 7px;font-size:11px;font-weight:600;white-space:nowrap">' + _esc(n) + '</span>').join(' ')
+    : '<span style="color:var(--text-dim)">none</span>';
+  const _flagsFromProp = (p) => (p && p.flags && typeof p.flags === 'object') ? Object.keys(p.flags).filter(k => p.flags[k] === true) : [];
+  const flagsRow = '<div id="uw-deal-flags-row" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px"><span>🚩 Flags</span>' + _flagChips([]) + '</div>';
   el.innerHTML = addedRow + newestRow + editedRow + flagsRow;
+  // Resolve the matching property's flags after the row is in the DOM.
+  (function () {
+    const _cid = (typeof _uwCurrentId !== 'undefined') ? _uwCurrentId : null;
+    const u = (_cid && cache.underwrites) ? cache.underwrites[_cid] : null;
+    if (!u) return;
+    const street = u.address || (u.data && u.data['uw-address']) || '';
+    const zip = u.zip || (u.data && u.data['uw-zip']) || '';
+    if (!street) return;
+    const setRow = (arr) => { const row = document.getElementById('uw-deal-flags-row'); if (row) row.innerHTML = '<span>🚩 Flags</span>' + _flagChips(arr); };
+    // 1) In-memory: match against loaded properties using the app's address matcher.
+    try {
+      if (cache.properties && Object.keys(cache.properties).length && typeof buildPropertyIndex === 'function') {
+        const pid = buildPropertyIndex(Object.values(cache.properties)).find(street, zip);
+        if (pid && cache.properties[pid]) { setRow(_flagsFromProp(cache.properties[pid])); return; }
+      }
+    } catch (_) {}
+    // 2) Fetch fallback: pull matching property rows by normalized address, pick by zip.
+    try {
+      if (typeof sb !== 'undefined' && sb && typeof normalizeAddress === 'function') {
+        const ns = normalizeAddress(street);
+        if (!ns) return;
+        sb.from('properties').select('flags, zip').eq('normalized_address', ns).limit(50).then(res => {
+          const rows = (res && res.data) || [];
+          let pick = rows[0];
+          if (rows.length > 1 && zip && typeof normalizeZip === 'function') {
+            const nz = normalizeZip(zip);
+            pick = rows.find(r => normalizeZip(r.zip) === nz) || rows[0];
+          }
+          setRow(_flagsFromProp(pick));
+        }).catch(() => {});
+      }
+    } catch (_) {}
+  })();
   el.title = 'Property entered the system on ' + fmtDate(created) + ' (' + fmtAgo(created) + ').' +
     ' Last Submission ' + fmtDate(newest) + ' (' + fmtAgo(newest) + ').' +
     (updatedAt ? ' Last Edit ' + fmtDate(new Date(updatedAt)) + ' (' + fmtAgo(new Date(updatedAt)) + ').' : '');

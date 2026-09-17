@@ -3458,7 +3458,7 @@
             <input type="text" inputmode="numeric" id="uw-asking" oninput="_uwCommaFmt(this);uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
           </span>
         </label>
-        <label class="text-xs">Offer
+        <label class="text-xs">Offer <input type="checkbox" id="uw-use-offer-price" onclick="event.stopPropagation()" onchange="if(typeof _uwQueueAutosave==='function')_uwQueueAutosave(true); if(typeof _uwFlushAutosave==='function')_uwFlushAutosave(); if(typeof renderUnderwriteList==='function')renderUnderwriteList();" title="When checked, this deal uses the Offer amount as its price (map / Hot Lowest-Price filters), ignoring the normal lowest-price logic." style="margin:0 0 0 5px;width:13px;height:13px;vertical-align:middle;cursor:pointer">
           <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:54px;margin-top:4px;padding:0 14px;gap:3px">
             <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
             <input type="text" inputmode="numeric" id="uw-offer" oninput="_uwCommaFmt(this);uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
@@ -13709,9 +13709,10 @@ function uwComputeExits(ctx) {
   // Rent compounds at 3%/yr (historical national rent-growth average) — same
   // for every grade since rent growth is more market-driven than block-level.
   const _crimeGrade = (document.getElementById('uw-crime')?.value || '').toUpperCase();
-  const _crimeApprMap = { 'A': 4, 'B': 3, 'C': 2, 'D': 1, 'F': 0.5 };
+  const _crimeApprMap = { 'A': 4, 'B': 3, 'C': 2.5, 'D': 1.5, 'F': 1 };   // property appreciation %/yr by grade
+  const _crimeRentMap = { 'A': 3, 'B': 3, 'C': 3, 'D': 2, 'F': 2 };       // rent growth %/yr by grade
   const RT_PROP_APPR_PCT = (_crimeGrade in _crimeApprMap) ? _crimeApprMap[_crimeGrade] : 2;
-  const RT_RENT_APPR_PCT = 3; // rent appreciation %/yr (same for all grades)
+  const RT_RENT_APPR_PCT = (_crimeGrade in _crimeRentMap) ? _crimeRentMap[_crimeGrade] : 3;
   // Monthly/Year-1 equity-gain appreciation now uses the SAME crime-grade rate
   // as the projection table above (previously used the separate rt-appr-pct input).
   const rtAnnualAppreciation = arv * (RT_PROP_APPR_PCT / 100);
@@ -13728,7 +13729,7 @@ function uwComputeExits(ctx) {
     ];
   })();
   const _rtAppSrc = _crimeGrade in _crimeApprMap ? ' · Crime ' + _crimeGrade : '';
-  const _rtAppSection = { title: '📈 Appreciation<br>(Property ' + RT_PROP_APPR_PCT + '%/yr · Rent ' + RT_RENT_APPR_PCT + '%/yr' + _rtAppSrc + ')', rows: _rtAppRows };
+  let _rtAppSection = { title: '📈 Appreciation<br>(Property ' + RT_PROP_APPR_PCT + '%/yr · Rent ' + RT_RENT_APPR_PCT + '%/yr' + _rtAppSrc + ')', rows: _rtAppRows };
   const rtVac      = rent * (rtVacPct   / 100);
   const rtMaint    = rent * (rtMaintPct / 100);
   const rtCapex    = rent * (rtCapexPct / 100);
@@ -13997,6 +13998,58 @@ function uwComputeExits(ctx) {
   const rfDscrRes = rfMonthlyExp > 0 ? rent / rfMonthlyExp : 0;
   const rfAnnualCashflow = rfCashflow * 12;
   window._3p_refiAnnual = rfAnnualCashflow;
+
+  // ===== Enriched Appreciation projection (per-mode) =====
+  // Builds an Appreciation section for a SINGLE mode, so each exit's detail shows
+  // only its own projected cashflow. Each horizon: Property Value · Rent, then that
+  // mode's monthly cashflow with the loan's LTV at that future value. Rent and
+  // operating costs grow with rent; taxes + insurance grow with the NEW value; P&I
+  // is fixed. label = mode name, loan/pi = that mode's loan + fixed payment.
+  const _mkAppSection = (emoji, modeName, loan, pi, rate, nMonths) => {
+    const _pr = RT_PROP_APPR_PCT / 100, _rr = RT_RENT_APPR_PCT / 100;
+    const _opEx0 = rtVac + rtMaint + rtCapex + rtPm;   // scales with rent
+    const _taxIns0 = rtTaxFin + rtIns;                  // scales with property value
+    // Remaining loan balance after `yrs` of amortization (monthly rate + payment).
+    const _balAt = (yrs) => {
+      if (!(loan > 0)) return 0;
+      const m = Math.min(yrs * 12, nMonths || 0);
+      if (!(rate > 0)) return Math.max(0, loan - (pi || 0) * m);   // 0% edge
+      const g = Math.pow(1 + rate, m);
+      return Math.max(0, loan * g - (pi || 0) * ((g - 1) / rate));
+    };
+    const _row = (yrs) => {
+      const fV = Math.pow(1 + _pr, yrs), fR = Math.pow(1 + _rr, yrs);
+      const val = arv * fV, futRent = rent * fR;
+      // P&I only applies while the loan is still being paid — once the term is up
+      // (e.g. year 30 on a 30-yr loan) the payment stops and cashflow jumps.
+      const _piActive = ((pi || 0) > 0 && nMonths && (yrs * 12) < nMonths) ? pi : 0;
+      const cf = futRent - (_opEx0 * fR) - (_taxIns0 * fV) - _piActive;
+      const col = cf >= 0 ? '#6ee7b7' : '#fca5a5';
+      const _bal = _balAt(yrs);
+      const ltv = (loan > 0 && val > 0) ? ' <span style="color:var(--text-dim);font-size:10px">' + Math.round((_bal / val) * 100) + '% LTV</span>' : '';
+      // Amount owed (remaining balance) in red, shown as "owed / value". Shows $0
+      // once the loan is paid off (only hidden entirely for no-loan modes).
+      const _owedStr = _bal > 0 ? fmt(_bal) : '$0';
+      const owedHtml = (loan > 0) ? '<span style="color:#fca5a5" title="Amount still owed on the loan at this point">' + _owedStr + '</span> / ' : '';
+      // Max cash-out refi here: biggest loan that still cashflows $0/mo after
+      // reserves AND stays ≤ 70% LTV; cash pulled = that loan minus current payoff.
+      const _maxPI = futRent - (_opEx0 * fR) - (_taxIns0 * fV);
+      let _loanByCf = 0;
+      if (_maxPI > 0) _loanByCf = (rfRate > 0) ? (_maxPI * (1 - Math.pow(1 + rfRate, -rfN)) / rfRate) : (_maxPI * rfN);
+      const _maxLoan = Math.min(_loanByCf, 0.70 * val);
+      const _cashOut = Math.max(0, _maxLoan - _bal);
+      const outHtml = ' · <span style="color:#fde047;font-size:10px" title="Max cash you could pull with a cash-out refi at this point — largest new loan that still cashflows $0/mo after reserves and stays within a 70% LTV cap, minus the current payoff.">' + fmt(_cashOut) + ' out</span>';
+      const label = yrs === 0 ? 'Today' : (yrs + ' Yrs');
+      const valHtml = '<div style="white-space:normal;text-align:right;line-height:1.5">' +
+        '<div>' + owedHtml + '<b>' + fmt(val) + '</b> · ' + fmt(futRent) + '/mo</div>' +
+        '<div style="font-size:11px">' + emoji + ' <span style="color:' + col + '">' + fmt(cf) + '/mo</span>' + ltv + outHtml + '</div></div>';
+      return [label, valHtml];
+    };
+    return {
+      title: '🕐 Appreciation ' + RT_PROP_APPR_PCT + '% · Rent Increase ' + RT_RENT_APPR_PCT + '%',
+      rows: [_row(0), _row(5), _row(10), _row(15), _row(20), _row(25), _row(30)]
+    };
+  };
   // ===== MAX-LTV variants (informational — what you COULD pull out) =====
   // The smart-sized loan above is "what you'd actually take" — only enough
   // to recover your initial cash. The MAX variants below show what the
@@ -14812,11 +14865,13 @@ function uwComputeExits(ctx) {
           ['Monthly Interest', '−' + fmt(rfInterest)],
           ['Property tax (1% ARV/yr)', '−' + fmt(rtTaxFin)],
           ['Insurance (1% ARV/yr)', '−' + fmt(rtIns)],
+          ['Total PITI Expenses', '−' + fmt(rfPrincipal + rfInterest + rtTaxFin + rtIns), 'redlite'],
           ['Cashflow after PITI', fmt(rent - rfInterest - rfPrincipal - rtTaxFin - rtIns), 'amber'],
           ['Management fee (' + rtPmPct + '%)', '−' + fmt(rtPm)],
           ['Vacancy (' + rtVacPct + '%)', '−' + fmt(rtVac)],
           ['Maintenance (' + rtMaintPct + '%)', '−' + fmt(rtMaint)],
           ['Capital Expenses (' + rtCapexPct + '%)', '−' + fmt(rtCapex)],
+          ['Total Reserves Expenses', '−' + fmt(rtPm + rtVac + rtMaint + rtCapex), 'redlite'],
           ['Cashflow after Reserves', fmt(rfCashflow), 'purple'],
           ['Annual cashflow', fmt(rfAnnualCashflow), 'profit'],
           ['Time to Re-Coup Total Invested', rfLeftIn <= 0 ? '0 yrs (all capital out)' : (rfCashflow > 0 ? (rfLeftIn / rfCashflow / 12).toFixed(1) + ' yrs' : '—'), 'orange'],
@@ -14859,7 +14914,7 @@ function uwComputeExits(ctx) {
           ['Year-1 appreciation (' + RT_PROP_APPR_PCT + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(rtForcedEquity + (rfPrincipal * 12) + rtAnnualAppreciation), 'profit'],
         ]},
-        _rtAppSection,
+        _mkAppSection('🔁', 'Refinanced', rfLoan, rfPi, rfRate, rfN),
         { title: '🧾 Tenant-Paid Expenses', rows: [
           ['Electricity & gas', fmt(tenantElec)],
           ['Water & sewer', fmt(tenantWater)],
@@ -14902,11 +14957,13 @@ function uwComputeExits(ctx) {
           ['Monthly Interest', '−' + fmt(finInterest)],
           ['Property tax (1% ARV/yr)', '−' + fmt(rtTaxFin)],
           ['Insurance (1% ARV/yr)', '−' + fmt(rtIns)],
+          ['Total PITI Expenses', '−' + fmt(finPrincipal + finInterest + rtTaxFin + rtIns), 'redlite'],
           ['Cashflow after PITI', fmt(rent - finInterest - finPrincipal - rtTaxFin - rtIns), 'amber'],
           ['Management fee (' + rtPmPct + '%)', '−' + fmt(rtPm)],
           ['Vacancy (' + rtVacPct + '%)', '−' + fmt(rtVac)],
           ['Maintenance (' + rtMaintPct + '%)', '−' + fmt(rtMaint)],
           ['Capital Expenses (' + rtCapexPct + '%)', '−' + fmt(rtCapex)],
+          ['Total Reserves Expenses', '−' + fmt(rtPm + rtVac + rtMaint + rtCapex), 'redlite'],
           ['Cashflow after Reserves', fmt(finCashflow), 'purple'],
           ['Annual cashflow', fmt(finAnnualCashflow), 'profit'],
           ['Time to Re-Coup Total Invested', finLeftIn <= 0 ? '0 yrs (all capital out)' : (finCashflow > 0 ? (finLeftIn / finCashflow / 12).toFixed(1) + ' yrs' : '—'), 'orange'],
@@ -14940,7 +14997,7 @@ function uwComputeExits(ctx) {
           ['Year-1 appreciation (' + RT_PROP_APPR_PCT + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(rtForcedEquity + (finPrincipal * 12) + rtAnnualAppreciation), 'profit'],
         ]},
-        _rtAppSection,
+        _mkAppSection('💵', 'Financed', finLoan, finPi, finRate, finN),
         { title: '🧾 Tenant-Paid Expenses', rows: [
           ['Electricity & gas', fmt(tenantElec)],
           ['Water & sewer', fmt(tenantWater)],
@@ -14976,11 +15033,13 @@ function uwComputeExits(ctx) {
           ['Monthly Interest', '−' + fmt(tkFinInterest)],
           ['Property tax (1% ARV/yr)', '−' + fmt(rtTaxFin)],
           ['Insurance (1% ARV/yr)', '−' + fmt(rtIns)],
+          ['Total PITI Expenses', '−' + fmt(tkFinPrincipal + tkFinInterest + rtTaxFin + rtIns), 'redlite'],
           ['Cashflow after PITI', fmt(rent - tkFinInterest - tkFinPrincipal - rtTaxFin - rtIns), 'amber'],
           ['Management fee (' + rtPmPct + '%)', '−' + fmt(rtPm)],
           ['Vacancy (' + rtVacPct + '%)', '−' + fmt(rtVac)],
           ['Maintenance (' + rtMaintPct + '%)', '−' + fmt(rtMaint)],
           ['Capital Expenses (' + rtCapexPct + '%)', '−' + fmt(rtCapex)],
+          ['Total Reserves Expenses', '−' + fmt(rtPm + rtVac + rtMaint + rtCapex), 'redlite'],
           ['Cashflow after Reserves', fmt(tkFinCashflow), 'purple'],
           ['Annual cashflow', fmt(tkFinAnnualCashflow), 'profit'],
           ['Time to Re-Coup Total Invested', tkFinLeftIn <= 0 ? '0 yrs (all capital out)' : (tkFinCashflow > 0 ? (tkFinLeftIn / tkFinCashflow / 12).toFixed(1) + ' yrs' : '—'), 'orange'],
@@ -15006,7 +15065,7 @@ function uwComputeExits(ctx) {
           ['Year-1 appreciation (' + RT_PROP_APPR_PCT + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(Math.max(0, arv - tkFinCashPutUp) + (tkFinPrincipal * 12) + rtAnnualAppreciation), 'profit'],
         ]},
-        _rtAppSection,
+        _mkAppSection('🔑', 'Turn-Key', tkFinLoan, tkFinPi, finRate, finN),
         { title: '🧾 Tenant-Paid Expenses', rows: [
           ['Electricity & gas', fmt(tenantElec)],
           ['Water & sewer', fmt(tenantWater)],
@@ -15028,11 +15087,13 @@ function uwComputeExits(ctx) {
           ['Monthly Rent', fmt(rent)],
           ['Property tax (1% ARV/yr)', '−' + fmt(rtTaxCash)],
           ['Insurance (1% ARV/yr)', '−' + fmt(rtIns)],
+          ['Total PITI Expenses', '−' + fmt(rtTaxCash + rtIns), 'redlite'],
           ['Cashflow after PITI', fmt(rent - rtTaxCash - rtIns), 'amber'],
           ['Management fee (' + rtPmPct + '%)', '−' + fmt(rtPm)],
           ['Vacancy (' + rtVacPct + '%)', '−' + fmt(rtVac)],
           ['Maintenance (' + rtMaintPct + '%)', '−' + fmt(rtMaint)],
           ['Capital Expenses (' + rtCapexPct + '%)', '−' + fmt(rtCapex)],
+          ['Total Reserves Expenses', '−' + fmt(rtPm + rtVac + rtMaint + rtCapex), 'redlite'],
           ['Cashflow after Reserves', fmt(cashRentalCashflow), 'purple'],
         ]},
         { title: '📊 Returns', rows: [
@@ -15050,7 +15111,7 @@ function uwComputeExits(ctx) {
           ['Year-1 appreciation (' + RT_PROP_APPR_PCT + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(rtForcedEquity + rtAnnualAppreciation), 'profit'],
         ]},
-        _rtAppSection,
+        _mkAppSection('💰', 'Cash Rental', 0, 0),
         { title: '🧾 Tenant-Paid Expenses', rows: [
           ['Electricity & gas', fmt(tenantElec)],
           ['Water & sewer', fmt(tenantWater)],
@@ -15482,6 +15543,7 @@ function uwComputeExits(ctx) {
               const isOrange  = r[2] === 'orange';
               const isPurple  = r[2] === 'purple';
               const isRedHl   = r[2] === 'redhl';
+              const isRedLite = r[2] === 'redlite';
               const isGreenHl = r[2] === 'greenhl';
               const isBlue    = r[2] === 'blue';
               const isCyan    = r[2] === 'cyan';
@@ -15499,6 +15561,8 @@ function uwComputeExits(ctx) {
                       ? 'font-weight:700;color:#fbbf24'
                       : isPurple
                         ? 'font-weight:700;color:#c4b5fd'
+                        : isRedLite
+                          ? 'font-weight:700;color:#fecdd3'
                         : isRedHl
                           ? 'font-weight:700;color:#fca5a5'
                           : isGreenHl
@@ -15519,6 +15583,7 @@ function uwComputeExits(ctx) {
                                : isStruck ? 'color:var(--text-dim);text-decoration:line-through;opacity:0.7'
                                : isAmber   ? 'color:#fbbf24;font-weight:600'
                                : isPurple  ? 'color:#c4b5fd;font-weight:600'
+                               : isRedLite ? 'color:#fecdd3;font-weight:600'
                                : isRedHl   ? 'color:#fca5a5;font-weight:600'
                                : isGreenHl ? 'color:#6ee7b7;font-weight:600'
                                : isBlue    ? 'color:#93c5fd;font-weight:600'
@@ -15528,6 +15593,7 @@ function uwComputeExits(ctx) {
               const rowExtra = isOrange  ? ';background:rgba(249,115,22,0.16);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isAmber   ? ';background:rgba(245,158,11,0.12);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isPurple  ? ';background:rgba(168,85,247,0.14);border-radius:5px;padding-left:6px;padding-right:6px'
+                             : isRedLite ? ';background:rgba(239,68,68,0.06);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isRedHl   ? ';background:rgba(239,68,68,0.12);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isGreenHl ? ';background:rgba(16,185,129,0.12);border-radius:5px;padding-left:6px;padding-right:6px'
                              : isBlue    ? ';background:rgba(59,130,246,0.14);border-radius:5px;padding-left:6px;padding-right:6px'
@@ -17950,6 +18016,7 @@ const _UW_SESSION_ID = (typeof crypto !== 'undefined' && crypto.randomUUID)
 const UW_FIELDS = [
   'uw-packet-status','uw-asking','uw-offer','uw-accepted','uw-packet-asking-override',
   'uw-address','uw-city','uw-state','uw-zip','uw-legal',
+  'uw-use-offer-price',
   'uw-built','uw-bed','uw-bath','uw-sqft','uw-floor1','uw-floor2','uw-floor3','uw-bsmt','uw-bsmt-include','uw-attic','uw-attic-include','uw-zsqft','uw-lot-size','uw-lot-size-sqft','uw-prop-parking','uw-prop-material','uw-prop-foundation',
   'uw-condition','uw-rehab-real','uw-rehab-expected','uw-flood','uw-crime','uw-assessor-url',
   'uw-asqft','uw-arv','uw-arv-override','uw-lavg-psf','uw-lest-arv','uw-lreal-arv','uw-lreal-override','uw-ravg-rent','uw-ravg-override',
@@ -33774,15 +33841,22 @@ window._mapSectionRender = function (fit) {
       // Asking / Offer / Accepted fields and the lowest Seller/Offer price submission
       // from GoHighLevel (once the index is loaded).
       var _num = function (v) { var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) && n > 0 ? n : null; };
-      var _priceCands = [];
-      var _askN = _num((u.data && u.data['uw-asking']) || u.asking); if (_askN != null) _priceCands.push(_askN);
-      var _offN = _num(u.data && u.data['uw-offer']);               if (_offN != null) _priceCands.push(_offN);
-      var _accN = _num(u.data && u.data['uw-accepted']);            if (_accN != null) _priceCands.push(_accN);
-      if (window._priceSubIndex && typeof _priceSubNorm === 'function') {
-        var _pi = window._priceSubIndex[_priceSubNorm(u.address || (u.data && u.data['uw-address']) || '')];
-        if (_pi && _pi.low > 0) _priceCands.push(_pi.low);
+      var _priceLine = '';
+      if (u.data && u.data['uw-use-offer-price'] === '1') {
+        // This deal forces the Offer amount as its price, ignoring the lowest.
+        var _ovN = _num(u.data['uw-offer']);
+        _priceLine = (_ovN != null) ? 'Price: $' + Math.round(_ovN).toLocaleString() : '';
+      } else {
+        var _priceCands = [];
+        var _askN = _num((u.data && u.data['uw-asking']) || u.asking); if (_askN != null) _priceCands.push(_askN);
+        var _offN = _num(u.data && u.data['uw-offer']);               if (_offN != null) _priceCands.push(_offN);
+        var _accN = _num(u.data && u.data['uw-accepted']);            if (_accN != null) _priceCands.push(_accN);
+        if (window._priceSubIndex && typeof _priceSubNorm === 'function') {
+          var _pi = window._priceSubIndex[_priceSubNorm(u.address || (u.data && u.data['uw-address']) || '')];
+          if (_pi && _pi.low > 0) _priceCands.push(_pi.low);
+        }
+        _priceLine = _priceCands.length ? 'Price: $' + Math.round(Math.min.apply(null, _priceCands)).toLocaleString() : '';
       }
-      var _priceLine = _priceCands.length ? 'Price: $' + Math.round(Math.min.apply(null, _priceCands)).toLocaleString() : '';
       // If the property is in Dispositions, show a dispo-stage icon (separate
       // from the underwriting icon). Otherwise show the underwriting icon:
       // Finalized: Closed 🏁 vs Dropped 💀 > Contracted 📝 > Hot 🔥 > Analyzed ✓ > else 📋.
@@ -41715,9 +41789,16 @@ function renderUnderwriteList() {
       // Lowest known price for this property — the min across the Data Lab
       // Asking / Offer / Accepted fields and the lowest Seller/Offer price
       // submission (once the index is loaded). Drives the "Lowest Price …" filters.
+      // Per-deal override: if "Use Offer as price" is checked, the Offer amount is
+      // used as the price, ignoring the lowest.
       let _lowest = Infinity;
-      [_n(data['uw-asking']), _n(data['uw-offer']), _n(data['uw-accepted']), _n(u.asking)].forEach(v => { if (v > 0 && v < _lowest) _lowest = v; });
-      if (_pinfo && _pinfo.low > 0 && _pinfo.low < _lowest) _lowest = _pinfo.low;
+      if (data['uw-use-offer-price'] === '1') {
+        const _ov = _n(data['uw-offer']);
+        if (_ov > 0) _lowest = _ov;
+      } else {
+        [_n(data['uw-asking']), _n(data['uw-offer']), _n(data['uw-accepted']), _n(u.asking)].forEach(v => { if (v > 0 && v < _lowest) _lowest = v; });
+        if (_pinfo && _pinfo.low > 0 && _pinfo.low < _lowest) _lowest = _pinfo.low;
+      }
       const _lowestPrice = isFinite(_lowest) ? _lowest : _price;
 
       const _orC = [], _andC = [];

@@ -3371,6 +3371,7 @@
         <!-- Phase mover — only visible when the calculator is opened from Renovation. Lets the user manually move this deal between renovation phases (overrides auto-detection). -->
         <div id="uw-reno-phase-selector" style="display:none;align-items:center;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:11px;flex-shrink:0" title="Manually move this deal to a different renovation phase. Overrides auto-detection until you click Auto.">
           <button type="button" data-reno-phase-btn="auto"         onclick="uwSetRenoPhase('auto')"         style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0" title="Use auto-detection from closing date + phase durations.">Auto</button>
+          <button type="button" data-reno-phase-btn="funding"      onclick="uwSetRenoPhase('funding')"      style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">💰 Funding</button>
           <button type="button" data-reno-phase-btn="repossession" onclick="uwSetRenoPhase('repossession')" style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🚪 Repossession</button>
           <button type="button" data-reno-phase-btn="demo"         onclick="uwSetRenoPhase('demo')"         style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">💥 Demolition &amp; Clean Out</button>
           <button type="button" data-reno-phase-btn="planning"     onclick="uwSetRenoPhase('planning')"     style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">📋 Planning &amp; Permits</button>
@@ -6155,15 +6156,20 @@
     </div>
     <!-- Phase subtabs — filter the renovation phase table by phase. Clicking
          any of these also switches the view back from contractors/lenders to phases. -->
+    <!-- Give the count badges a fixed, compact footprint so the loading "–"
+         placeholder is the same tight width as a loaded digit (no wide em-dash
+         pill, no shift between the placeholder and the real count). -->
+    <style>[id^="reno-count-"]{display:inline-block;min-width:16px;text-align:center;box-sizing:border-box;padding:1px 4px}</style>
     <div class="flex items-center gap-0 panel p-1" id="reno-subtabs" style="flex-shrink:1;min-width:0;width:fit-content;font-size:12px">
-      <div class="subtab subtab-compact active" data-reno-subtab="all"          onclick="setRenoSubtab('all')">All <span id="reno-count-all" class="badge ok" style="margin-left:4px;font-size:10px">—</span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="repossession" onclick="setRenoSubtab('repossession')" title="Deals currently in eviction / getting a tenant out.">🚪 Repossession <span id="reno-count-repossession" class="badge bad" style="margin-left:4px;font-size:10px">—</span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="demo"         onclick="setRenoSubtab('demo')" title="Deals currently in demolition + clean out (tear-out work, trash haul-out, odor remediation).">💥 Demo <span id="reno-count-demo" class="badge warn" style="margin-left:4px;font-size:10px">—</span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="planning"     onclick="setRenoSubtab('planning')" title="Deals currently in the planning + permits phase (or restructure work).">📋 Planning <span id="reno-count-planning" class="badge warn" style="margin-left:4px;font-size:10px">—</span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="mechanicals"  onclick="setRenoSubtab('mechanicals')" title="Deals currently in mechanicals + exterior shell work (drain/supply/electrical, HVAC, roof, siding, windows, gutters).">⚙️ Mechanicals <span id="reno-count-mechanicals" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="cosmetics"    onclick="setRenoSubtab('cosmetics')" title="Deals currently in cosmetics (paint, flooring, fixtures, cabinets).">🎨 Cosmetics <span id="reno-count-cosmetics" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="punch-list"   onclick="setRenoSubtab('punch-list')" title="Deals currently in the final walkthrough / punch list.">✅ Punch List <span id="reno-count-punch-list" class="badge ok" style="margin-left:4px;font-size:10px">—</span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="renovated"    onclick="setRenoSubtab('renovated')" title="Deals whose renovation timeline is complete — past the punch list.">🏁 Renovated <span id="reno-count-renovated" class="badge ok" style="margin-left:4px;font-size:10px">—</span></div>
+      <div class="subtab subtab-compact active" data-reno-subtab="all"          onclick="setRenoSubtab('all')">All <span id="reno-count-all" class="badge ok" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="funding" onclick="setRenoSubtab('funding')" title="Deals that just entered renovation — finding / securing funding before work starts.">💰 Funding <span id="reno-count-funding" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="repossession" onclick="setRenoSubtab('repossession')" title="Deals currently in eviction / getting a tenant out.">🚪 Repossession <span id="reno-count-repossession" class="badge bad" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="demo"         onclick="setRenoSubtab('demo')" title="Deals currently in demolition + clean out (tear-out work, trash haul-out, odor remediation).">💥 Demo <span id="reno-count-demo" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="planning"     onclick="setRenoSubtab('planning')" title="Deals currently in the planning + permits phase (or restructure work).">📋 Planning <span id="reno-count-planning" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="mechanicals"  onclick="setRenoSubtab('mechanicals')" title="Deals currently in mechanicals + exterior shell work (drain/supply/electrical, HVAC, roof, siding, windows, gutters).">⚙️ Mechanicals <span id="reno-count-mechanicals" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="cosmetics"    onclick="setRenoSubtab('cosmetics')" title="Deals currently in cosmetics (paint, flooring, fixtures, cabinets).">🎨 Cosmetics <span id="reno-count-cosmetics" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="punch-list"   onclick="setRenoSubtab('punch-list')" title="Deals currently in the final walkthrough / punch list.">✅ Punch List <span id="reno-count-punch-list" class="badge ok" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="renovated"    onclick="setRenoSubtab('renovated')" title="Deals whose renovation timeline is complete — past the punch list.">🏁 Renovated <span id="reno-count-renovated" class="badge ok" style="margin-left:4px;font-size:10px">–</span></div>
     </div>
     <!-- Properties sub-views — Bids + Invoices, a small distinct cluster after
          the phase tabs. Visible in Properties mode; hidden under Connections. -->
@@ -6174,11 +6180,11 @@
     <!-- Connections sub-nav — rolodex pills, inline on THIS row after the phase
          tabs. Shown only when Connections is active (phase tabs hide then). -->
     <div id="reno-connections-subnav" class="flex items-center gap-0 panel p-1" style="display:none;flex-shrink:0;width:fit-content;font-size:12px">
-      <div class="subtab subtab-compact" data-renoview="inspectors" onclick="setRenoView('inspectors')" title="Inspectors — your rolodex of property inspectors with per-service pricing and contact info.">🔍 Inspectors <span id="reno-count-inspectors" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
-      <div class="subtab subtab-compact" data-renoview="contractors" onclick="setRenoView('contractors')" title="Contractors — your rolodex of trade vendors with ratings, prices, and contact info, organized in one place.">👷 Contractors <span id="reno-count-contractors" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
-      <div class="subtab subtab-compact" data-renoview="lenders"     onclick="setRenoView('lenders')"     title="Lenders — your rolodex of banks, hard money sources, and private lenders with ratings, rates, and contact info.">🏦 Lenders <span id="reno-count-lenders" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
-      <div class="subtab subtab-compact" data-renoview="realtors"    onclick="setRenoView('realtors')"    title="Agents — your rolodex of real estate agents with ratings, brokerages, specialties, commission terms, and contact info.">🤝 Agents <span id="reno-count-realtors" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
-      <div class="subtab subtab-compact" data-renoview="attorneys"   onclick="setRenoView('attorneys')"   title="Attorneys — your rolodex of closing / eviction / contract attorneys with ratings, practice areas, fees, and contact info.">⚖️ Attorneys <span id="reno-count-attorneys" class="badge brand" style="margin-left:4px;font-size:10px">—</span></div>
+      <div class="subtab subtab-compact" data-renoview="inspectors" onclick="setRenoView('inspectors')" title="Inspectors — your rolodex of property inspectors with per-service pricing and contact info.">🔍 Inspectors <span id="reno-count-inspectors" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-renoview="contractors" onclick="setRenoView('contractors')" title="Contractors — your rolodex of trade vendors with ratings, prices, and contact info, organized in one place.">👷 Contractors <span id="reno-count-contractors" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-renoview="lenders"     onclick="setRenoView('lenders')"     title="Lenders — your rolodex of banks, hard money sources, and private lenders with ratings, rates, and contact info.">🏦 Lenders <span id="reno-count-lenders" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-renoview="realtors"    onclick="setRenoView('realtors')"    title="Agents — your rolodex of real estate agents with ratings, brokerages, specialties, commission terms, and contact info.">🤝 Agents <span id="reno-count-realtors" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-renoview="attorneys"   onclick="setRenoView('attorneys')"   title="Attorneys — your rolodex of closing / eviction / contract attorneys with ratings, practice areas, fees, and contact info.">⚖️ Attorneys <span id="reno-count-attorneys" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
     </div>
   </div>
 
@@ -28879,7 +28885,7 @@ async function uwSetRenoPhase(phaseId) {
   _uwUpdateRenoPhaseSelector();
   if (typeof renderRenovationList === 'function') renderRenovationList();
   if (typeof toast === 'function') {
-    const labels = { auto:'Auto-detect', repossession:'Repossession', demo:'Demolition & Clean Out', planning:'Planning & Permits', mechanicals:'Mechanicals & Exterior', cosmetics:'Cosmetics', 'punch-list':'Punch List' };
+    const labels = { auto:'Auto-detect', funding:'Funding', repossession:'Repossession', demo:'Demolition & Clean Out', planning:'Planning & Permits', mechanicals:'Mechanicals & Exterior', cosmetics:'Cosmetics', 'punch-list':'Punch List' };
     toast('Phase: ' + (labels[phaseId] || phaseId), 'ok');
   }
 }
@@ -28904,6 +28910,7 @@ function _uwUpdateRenoPhaseSelector() {
     : (_renoCurrentPhaseId(u) || 'auto');
   const colors = {
     auto:         { bg: 'rgba(99,102,241,0.20)',  fg: '#a5b4fc' },
+    funding:      { bg: 'rgba(234,179,8,0.20)',   fg: '#eab308' },
     repossession: { bg: 'rgba(239,68,68,0.20)',   fg: '#f87171' },
     demo:         { bg: 'rgba(245,158,11,0.20)',  fg: '#f59e0b' },
     planning:     { bg: 'rgba(99,102,241,0.20)',  fg: '#a5b4fc' },
@@ -29696,11 +29703,11 @@ function _renoUpdateSubtabCounts() {
   // Phase counts — only meaningful once underwrites have loaded. Until then
   // we leave the "—" seed in the badge so it's clear the count isn't ready.
   const uwReady = (typeof cache !== 'undefined' && cache.underwrites);
-  const counts = { all: null, repossession: null, demo: null, planning: null, mechanicals: null, cosmetics: null, 'punch-list': null, renovated: null };
+  const counts = { all: null, funding: null, repossession: null, demo: null, planning: null, mechanicals: null, cosmetics: null, 'punch-list': null, renovated: null };
   if (uwReady) {
     const all = Object.values(cache.underwrites).filter(u => u && u.data && u.data._holdingStatus === 'renovation');
     counts.all = all.length;
-    counts.repossession = counts.demo = counts.planning = 0;
+    counts.funding = counts.repossession = counts.demo = counts.planning = 0;
     counts.mechanicals = counts.cosmetics = counts['punch-list'] = counts.renovated = 0;
     all.forEach(u => {
       const phase = _renoCurrentPhaseId(u);
@@ -29722,9 +29729,9 @@ function _renoUpdateSubtabCounts() {
   Object.keys(counts).forEach(key => {
     const el = document.getElementById('reno-count-' + key);
     if (!el) return;
-    el.style.display = '';
-    // Null → keep '—' (data not loaded yet). Number → render the count.
-    if (counts[key] === null || counts[key] === undefined) el.textContent = '—';
+    el.style.display = 'inline-block';
+    // Null → keep the '–' placeholder (data not loaded yet). Number → real count.
+    if (counts[key] === null || counts[key] === undefined) el.textContent = '–';
     else el.textContent = (counts[key] || 0).toLocaleString();
   });
 }
@@ -29743,12 +29750,14 @@ function _renoCurrentPhaseId(deal) {
   const manual = deal.data._reno_phase_override;
   if (typeof manual === 'string' && manual && manual !== 'auto') return manual;
   const closingStr = deal.data['uw-closed-on'] || deal.data['uw-reno-start'];
-  if (typeof closingStr !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(closingStr)) return null;
+  // No closing date yet → the deal just entered renovation and is still finding
+  // funding. Same if the closing date is in the future (funding not yet closed).
+  if (typeof closingStr !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(closingStr)) return 'funding';
   const [y, m, d] = closingStr.slice(0, 10).split('-').map(Number);
   const startMs = new Date(y, m - 1, d).getTime();
-  if (isNaN(startMs)) return null;
+  if (isNaN(startMs)) return 'funding';
   const daysSince = Math.floor((Date.now() - startMs) / 86400000);
-  if (daysSince < 0) return null; // closing in the future
+  if (daysSince < 0) return 'funding'; // closing in the future → still securing funding
   const phases = Array.isArray(deal.data._scope_phases)
     ? deal.data._scope_phases
     : _UW_SCOPE_PHASE_DEFAULTS;
@@ -29807,6 +29816,7 @@ function renderRenovationList() {
       // Reflect subtab context in the empty message.
       const labels = {
         all: 'No properties in Renovation yet. Open the <b>Underwriting → 🏁 Finalized</b> tab and click <b>🔨 Reno</b> on a deal to add it here.',
+        funding:      'No deals currently finding funding.',
         repossession: 'No deals currently in Repossession.',
         demo:         'No deals currently in Demolition &amp; Clean Out.',
         planning:     'No deals currently in Planning &amp; Permits.',

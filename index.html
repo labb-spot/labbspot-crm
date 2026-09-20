@@ -52991,7 +52991,9 @@ function _listDrawAreasOn(mapObj, lg, editable) {
     if (!a || !Array.isArray(a.coords) || a.coords.length < 3) return;
     var col = '#06b6d4';
     var poly = L.polygon(a.coords, { color: col, weight: 2, fillColor: col, fillOpacity: 0.15, interactive: true });
-    if (a.name) poly.bindTooltip(a.name, { sticky: true });
+    var _lab = _sqAreaLabelOf(a);
+    var _tip = (a.name && String(a.name).trim()) ? (String(a.name).trim() + (_lab && _lab !== a.name ? ' · ' + _lab : '')) : _lab;
+    if (_tip) poly.bindTooltip(_tip, { sticky: true });
     if (editable) poly.on('click', function () { _listAreaOpenModal(a, false); });
     lg.addLayer(poly);
   });
@@ -53003,22 +53005,30 @@ function _listAreaOpenModal(area, isNew) {
   ov.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(8,11,20,0.6);display:flex;align-items:center;justify-content:center;padding:20px';
   var box = document.createElement('div');
   box.style.cssText = 'background:var(--panel,#141a28);border:1px solid var(--border);border-radius:14px;padding:22px 24px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.55)';
-  // Distinct existing area names, so you can assign this shape to one you already made.
-  var _existing = [];
-  (window._listAreas || []).forEach(function (a) { var nm = a && a.name && String(a.name).trim(); if (nm && _existing.indexOf(nm) < 0) _existing.push(nm); });
-  _existing.sort(function (x, y) { return x.localeCompare(y); });
-  var _ddHtml = _existing.length
-    ? '<label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">' + (isNew ? 'Assign to an existing label' : 'Move to another label') + '</label>'
-      + '<select id="la-existing" style="width:100%;margin-bottom:12px" onchange="if(this.value){document.getElementById(\'la-name\').value=this.value;}">'
-      + '<option value="">— New label (type below) —</option>'
-      + _existing.map(function (nm) { return '<option value="' + _maEsc(nm) + '"' + ((area.name || '') === nm ? ' selected' : '') + '>' + _maEsc(nm) + '</option>'; }).join('')
+  // Distinct existing LABELS (the chips), so this shape can join one you already made.
+  var _labels = [];
+  (window._listAreas || []).forEach(function (a) { var lb = _sqAreaLabelOf(a); if (lb && lb !== '(unlabeled)' && _labels.indexOf(lb) < 0) _labels.push(lb); });
+  _labels.sort(function (x, y) { return x.localeCompare(y); });
+  var _curLabel = (area.label && String(area.label).trim()) ? String(area.label).trim()
+    : ((!isNew && area.name && String(area.name).trim() && _labels.indexOf(String(area.name).trim()) >= 0) ? String(area.name).trim() : '');
+  var _curInExisting = _curLabel && _labels.indexOf(_curLabel) >= 0;
+  var _labelBlock;
+  if (_labels.length) {
+    _labelBlock = '<label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Label (the chip this area shows under)</label>'
+      + '<select id="la-label" style="width:100%;margin-bottom:8px" onchange="var w=document.getElementById(\'la-label-new-wrap\'); if(w) w.style.display=this.value===\'__new__\'?\'block\':\'none\';">'
+      + _labels.map(function (lb) { return '<option value="' + _maEsc(lb) + '"' + (_curInExisting && _curLabel === lb ? ' selected' : '') + '>' + _maEsc(lb) + '</option>'; }).join('')
+      + '<option value="__new__"' + (_curInExisting ? '' : ' selected') + '>➕ New label…</option>'
       + '</select>'
-    : '';
+      + '<div id="la-label-new-wrap" style="display:' + (_curInExisting ? 'none' : 'block') + '"><input id="la-label-new" value="' + _maEsc(_curInExisting ? '' : _curLabel) + '" placeholder="New label name" style="width:100%;margin-bottom:12px"></div>';
+  } else {
+    _labelBlock = '<label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Label (the chip this area shows under)</label>'
+      + '<input id="la-label-new" value="' + _maEsc(_curLabel) + '" placeholder="e.g. Evansville Downtown" style="width:100%;margin-bottom:12px">';
+  }
   box.innerHTML = '<div style="font-weight:800;font-size:16px;margin-bottom:14px">' + (isNew ? '🗺️ New Area' : '🗺️ Edit Area') + '</div>'
-    + _ddHtml
-    + '<label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Label</label>'
-    + '<input id="la-name" value="' + _maEsc(area.name || '') + '" placeholder="e.g. Evansville Downtown" style="width:100%;margin-bottom:6px">'
-    + '<div style="font-size:11px;color:var(--text-dim);margin-bottom:16px">Pick a label above, or type a new one. Shapes with the same label group into one Area chip.</div>'
+    + '<label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Area name</label>'
+    + '<input id="la-name" value="' + _maEsc(area.name || '') + '" placeholder="e.g. North of Lincoln Ave" style="width:100%;margin-bottom:14px">'
+    + _labelBlock
+    + '<div style="font-size:11px;color:var(--text-dim);margin-bottom:16px">The area name is just for this shape. The label is the chip you filter by — put several areas under one label to group them.</div>'
     + '<div style="display:flex;justify-content:space-between;gap:8px">'
     + '<button id="la-del" style="background:none;border:1px solid rgba(239,68,68,0.5);color:#f87171;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:12px' + (isNew ? ';visibility:hidden' : '') + '">🗑 Delete</button>'
     + '<div style="display:flex;gap:8px"><button id="la-cancel" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:9px 16px;cursor:pointer">Cancel</button>'
@@ -53029,7 +53039,15 @@ function _listAreaOpenModal(area, isNew) {
   ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
   box.querySelector('#la-cancel').onclick = function () { ov.remove(); };
   box.querySelector('#la-save').onclick = function () {
-    area.name = document.getElementById('la-name').value.trim();
+    var nameEl = document.getElementById('la-name');
+    area.name = nameEl ? nameEl.value.trim() : (area.name || '');
+    // Label: chosen from the dropdown, or a freshly typed one.
+    var lab = '';
+    var sel = document.getElementById('la-label');
+    if (sel && sel.value && sel.value !== '__new__') lab = sel.value;
+    else { var ni = document.getElementById('la-label-new'); lab = ni ? ni.value.trim() : ''; }
+    if (!lab) lab = area.name;   // no label given → the area stands alone under its own name
+    area.label = lab;
     area.updated_at = new Date().toISOString();
     if (isNew) { area.created_at = area.updated_at; window._listAreas.push(area); }
     _listAreasSync();
@@ -53061,7 +53079,11 @@ function _sqPtInRing(lat, lng, coords) {
   return inside;
 }
 function _sqAreaLabelOf(a) {
-  return (a && a.name && String(a.name).trim()) ? String(a.name).trim() : '(unlabeled)';
+  // The LABEL is what the filter chips show (the group). Older shapes stored the
+  // group in `name`, so fall back to name for those.
+  if (a && a.label && String(a.label).trim()) return String(a.label).trim();
+  if (a && a.name && String(a.name).trim()) return String(a.name).trim();
+  return '(unlabeled)';
 }
 // Distinct list-area labels (only areas that are real polygons).
 function _sqAreaLabels() {
@@ -53519,7 +53541,7 @@ function _computeFilteredMarketingProps() {
     areaPolysByLabel = {};
     (window._listAreas || []).forEach(a => {
       if (!a || !Array.isArray(a.coords) || a.coords.length < 3) return;
-      const lab = (a.name && String(a.name).trim()) ? String(a.name).trim() : '(unlabeled)';
+      const lab = _sqAreaLabelOf(a);
       if (areaFilters.indexOf(lab) < 0) return;
       (areaPolysByLabel[lab] ||= []).push(a.coords);
     });

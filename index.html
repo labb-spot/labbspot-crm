@@ -52888,10 +52888,25 @@ window._sqFlagFilters = window._sqFlagFilters || {};
 // Multi-select state for suggested-queue list chips (keyed by list id)
 window._sqListFilters = window._sqListFilters || {};
 
+// Preferred display order for the Flags filter — these surface first (in this
+// order), the rest follow in their stored order. Only reorders display; the saved
+// flag list is untouched. Matched case-insensitively.
+function _sqOrderFlags(flags) {
+  const front = ['code violations', 'utility lien', 'foreclosure', 'probate', 'eviction', 'fire damage', 'tax delinquent'];
+  const used = {};
+  const out = [];
+  front.forEach(fn => {
+    for (let i = 0; i < flags.length; i++) {
+      if (!used[i] && String(flags[i]).trim().toLowerCase() === fn) { out.push(flags[i]); used[i] = true; break; }
+    }
+  });
+  flags.forEach((f, i) => { if (!used[i]) out.push(f); });
+  return out;
+}
 function renderSqFlagChips() {
   const container = document.getElementById('sq-filter-flags');
   if (!container) return;
-  const flags = Array.isArray(cache.config && cache.config.flags) ? cache.config.flags : [];
+  const flags = _sqOrderFlags(Array.isArray(cache.config && cache.config.flags) ? cache.config.flags : []);
   const chosen = window._sqFlagFilters;
   container.innerHTML = flags.map(f => {
     const on = !!chosen[f];

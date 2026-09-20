@@ -52963,15 +52963,30 @@ async function _listAreasLoad() {
         const { data } = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle();
         const arr = data && data.column_mappings && data.column_mappings.list_areas;
         if (Array.isArray(arr)) window._listAreas = arr;
+        window._listAreasLoaded = true;   // we now know the true saved state
+        // Keep a last-known-good backup snapshot (once per session, on first load)
+        // so a bad write can never lose all of them — recover from list_areas_bak.
+        if (Array.isArray(arr) && arr.length && typeof _uwCfgMerge === 'function') {
+          try { _uwCfgMerge({ list_areas_bak: arr, list_areas_bak_at: new Date().toISOString() }); } catch (_) {}
+        }
       }
     } catch (_) {}
+  } else {
+    window._listAreasLoaded = true;
   }
 }
-function _listAreasSync() { if (typeof _uwCfgMerge === 'function') _uwCfgMerge({ list_areas: window._listAreas }); }
+// Guard: never write an EMPTY list over the saved one before we've confirmed the
+// saved state (that's the only way areas could get wiped). A real save always has
+// at least one area in memory, so legitimate saves/deletes still go through.
+function _listAreasSync() {
+  if (!window._listAreasLoaded && !(window._listAreas && window._listAreas.length)) return;
+  if (typeof _uwCfgMerge === 'function') _uwCfgMerge({ list_areas: window._listAreas });
+}
 // Draw the list-areas onto a Leaflet layer. editable=true wires click-to-edit.
 function _listDrawAreasOn(mapObj, lg, editable) {
   if (!mapObj || !lg || typeof L === 'undefined') return;
   lg.clearLayers();
+  if (window._mktAreasVisible === false) return;   // hidden via the 🗺️ toggle
   (window._listAreas || []).forEach(function (a) {
     if (!a || !Array.isArray(a.coords) || a.coords.length < 3) return;
     var col = '#06b6d4';
@@ -53112,6 +53127,8 @@ function _mktInitAreasMap() {
         window._mktAreasMap = L.map(host, { preferCanvas: true }).setView([39.5, -86.4], 7);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(window._mktAreasMap);
         window._mktAreasLayer = new L.FeatureGroup().addTo(window._mktAreasMap);
+        // Property pins (the currently-filtered table rows) sit on top of the areas.
+        window._mktPropLayer = new L.FeatureGroup().addTo(window._mktAreasMap);
         if (L.Control && L.Control.Draw) {
           var dc = new L.Control.Draw({
             position: 'topleft',
@@ -53128,6 +53145,26 @@ function _mktInitAreasMap() {
             } catch (err) { console.warn('[mkt area] create', err); }
           });
         }
+        // Show/hide the drawn areas (same idea as the main Map's 🗺️ toggle).
+        try {
+          var AreasToggleCtl = L.Control.extend({ options: { position: 'topleft' }, onAdd: function () {
+            var d = L.DomUtil.create('div', 'leaflet-bar');
+            var on = window._mktAreasVisible !== false;
+            d.innerHTML = '<button id="mkt-areas-toggle-icon" onclick="_mktToggleListAreas()" title="' + (on ? 'Hide areas' : 'Show areas') + '" style="width:34px;height:34px;border:none;background:' + (on ? 'rgba(6,182,212,0.22)' : '#fff') + ';color:' + (on ? '#0891b2' : '#6b7280') + ';font-size:15px;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center">🗺️</button>';
+            L.DomEvent.disableClickPropagation(d); return d;
+          } });
+          window._mktAreasMap.addControl(new AreasToggleCtl());
+        } catch (e) {}
+        // Show/hide the property pins (the filtered table rows).
+        try {
+          var PropToggleCtl = L.Control.extend({ options: { position: 'topleft' }, onAdd: function () {
+            var d = L.DomUtil.create('div', 'leaflet-bar');
+            var on = window._mktPropsVisible !== false;
+            d.innerHTML = '<button id="mkt-props-toggle-icon" onclick="_mktToggleAreaProps()" title="' + (on ? 'Hide properties' : 'Show properties') + '" style="width:34px;height:34px;border:none;background:' + (on ? 'rgba(249,115,22,0.22)' : '#fff') + ';color:' + (on ? '#c2410c' : '#6b7280') + ';font-size:15px;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center">📍</button>';
+            L.DomEvent.disableClickPropagation(d); return d;
+          } });
+          window._mktAreasMap.addControl(new PropToggleCtl());
+        } catch (e) {}
       }
       _mktRenderAreasMap();
       if (!window._mktAreasFitted) {
@@ -53146,12 +53183,45 @@ function _mktRenderAreasMap() {
   if (window._mktAreasMap && window._mktAreasLayer && typeof _listDrawAreasOn === 'function') {
     _listDrawAreasOn(window._mktAreasMap, window._mktAreasLayer, true);
   }
+  _mktRenderAreaProps();
   var cnt = document.getElementById('mkt-areas-count');
   if (cnt) {
     var n = (window._listAreas || []).filter(function (a) { return a && Array.isArray(a.coords) && a.coords.length >= 3; }).length;
     cnt.textContent = n ? '· ' + n + ' area' + (n === 1 ? '' : 's') : '';
   }
 }
+// Plot the currently-filtered table rows as pins on the Areas map. Reuses the last
+// filtered set computed by renderSuggestedQueue so we don't recompute needlessly.
+window._mktPropsVisible = (window._mktPropsVisible !== false);
+function _mktRenderAreaProps() {
+  if (!window._mktAreasMap || !window._mktPropLayer) return;
+  window._mktPropLayer.clearLayers();
+  if (window._mktPropsVisible === false) return;
+  var list = window._mktLastFiltered || (typeof _computeFilteredMarketingProps === 'function' ? _computeFilteredMarketingProps() : []);
+  var CAP = 4000, n = 0;
+  for (var i = 0; i < list.length && n < CAP; i++) {
+    var p = list[i] && list[i].p; if (!p) continue;
+    var la = Number(p.lat), lo = Number(p.lng);
+    if (!isFinite(la) || !isFinite(lo)) continue;
+    n++;
+    var mk = L.circleMarker([la, lo], { radius: 4, color: '#fff', weight: 1, fillColor: '#f97316', fillOpacity: 0.9 });
+    var addr = [p.street, p.city, p.state, p.zip].filter(Boolean).join(', ');
+    mk.bindTooltip(addr || '(no address)', { direction: 'top' });
+    window._mktPropLayer.addLayer(mk);
+  }
+}
+window._mktToggleListAreas = function () {
+  window._mktAreasVisible = (window._mktAreasVisible === false);
+  try { _mktRenderAreasMap(); } catch (e) {}
+  var b = document.getElementById('mkt-areas-toggle-icon');
+  if (b) { var on = window._mktAreasVisible !== false; b.style.background = on ? 'rgba(6,182,212,0.22)' : '#fff'; b.style.color = on ? '#0891b2' : '#6b7280'; b.title = on ? 'Hide areas' : 'Show areas'; }
+};
+window._mktToggleAreaProps = function () {
+  window._mktPropsVisible = (window._mktPropsVisible === false);
+  try { _mktRenderAreaProps(); } catch (e) {}
+  var b = document.getElementById('mkt-props-toggle-icon');
+  if (b) { var on = window._mktPropsVisible !== false; b.style.background = on ? 'rgba(249,115,22,0.22)' : '#fff'; b.style.color = on ? '#c2410c' : '#6b7280'; b.title = on ? 'Hide properties' : 'Show properties'; }
+};
 // Called by the area modal after any save/delete so this map + the Areas chips refresh.
 window._mktAreasAfterChange = function () {
   try { _mktRenderAreasMap(); } catch (e) {}
@@ -53493,6 +53563,9 @@ function renderSuggestedQueue() {
 
   const totalProps = Object.keys(cache.properties || {}).length;
   const filtered = _computeFilteredMarketingProps();
+  // Stash for the Areas map so it can plot the same filtered set as pins.
+  window._mktLastFiltered = filtered;
+  if (window._mktAreasMapOpen) { try { _mktRenderAreaProps(); } catch (e) {} }
   const PAGE_SIZE = 100;
   if (typeof window._mpPage !== 'number') window._mpPage = 0;
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -61966,11 +62039,22 @@ async function _mapAreasPullAndRender(){
       const { data } = await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle();
       const arr = data && data.column_mappings && data.column_mappings.map_areas;
       if (Array.isArray(arr)) window._mapAreas = arr;
+      window._mapAreasLoaded = true;   // we now know the true saved state
+      // Last-known-good backup snapshot (once per session) → recover from map_areas_bak.
+      if (Array.isArray(arr) && arr.length && typeof _uwCfgMerge==='function') {
+        try { _uwCfgMerge({ map_areas_bak: arr, map_areas_bak_at: new Date().toISOString() }); } catch(_){}
+      }
     }
   } catch(_){}
   _mapRenderAreas();
 }
-function _mapAreasSync(){ if (typeof _uwCfgMerge==='function') _uwCfgMerge({ map_areas: window._mapAreas }); }
+// Guard: don't write an EMPTY areas list over the saved one before we've confirmed
+// the saved state — the only way saved areas could get wiped. Real saves/deletes
+// (which always have the loaded list in memory) still go through.
+function _mapAreasSync(){
+  if (!window._mapAreasLoaded && !(window._mapAreas && window._mapAreas.length)) return;
+  if (typeof _uwCfgMerge==='function') _uwCfgMerge({ map_areas: window._mapAreas });
+}
 // Generic renderer — draws every saved area onto ANY Leaflet map/layer.
 // editable=true wires click-to-edit (Maps tab); false = read-only (per-deal map).
 window._mapAreasVisible = (window._mapAreasVisible !== false);
@@ -62023,8 +62107,11 @@ async function _mapAreasEnsureDispo(){
         const { data } = await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle();
         const arr = data && data.column_mappings && data.column_mappings.map_areas;
         if (Array.isArray(arr)) window._mapAreas = arr;
+        window._mapAreasLoaded = true;
       }
     } catch(_){}
+  } else {
+    window._mapAreasLoaded = true;
   }
   _mapRenderAreasDispo();
 }

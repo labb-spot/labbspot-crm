@@ -53199,13 +53199,45 @@ function _mktRenderAreaProps() {
   if (window._mktPropsVisible === false) return;
   var list = window._mktLastFiltered || (typeof _computeFilteredMarketingProps === 'function' ? _computeFilteredMarketingProps() : []);
   var esc = window.escapeHtml || function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); };
-  var CAP = 4000, n = 0;
+  // Build a set of underwriting addresses so we can tell if a property is already
+  // "in underwriting" (has a deal card), matched by normalized address (+zip).
+  var _uwSet = new Set();
+  if (typeof normalizeAddress === 'function') {
+    Object.values(cache.underwrites || {}).forEach(function (u) {
+      if (!u || u.deleted_at) return;
+      var st = u.address || (u.data && u.data['uw-address']) || '';
+      if (!st) return;
+      var na = normalizeAddress(st); if (!na) return;
+      var zp = u.zip || (u.data && u.data['uw-zip']) || '';
+      var nz = (typeof normalizeZip === 'function') ? normalizeZip(zp) : '';
+      _uwSet.add(na + '|' + nz);
+      _uwSet.add(na);
+    });
+  }
+  var _propInUw = function (p) {
+    if (!_uwSet.size || typeof normalizeAddress !== 'function') return false;
+    var na = normalizeAddress(p.street || ''); if (!na) return false;
+    var nz = (typeof normalizeZip === 'function') ? normalizeZip(p.zip) : '';
+    return _uwSet.has(na + '|' + nz) || _uwSet.has(na);
+  };
+  var CAP = 3000, n = 0;
   for (var i = 0; i < list.length && n < CAP; i++) {
     var item = list[i]; var p = item && item.p; if (!p) continue;
     var la = Number(p.lat), lo = Number(p.lng);
     if (!isFinite(la) || !isFinite(lo)) continue;
     n++;
-    var mk = L.circleMarker([la, lo], { radius: 4, color: '#fff', weight: 1, fillColor: '#f97316', fillOpacity: 0.9 });
+    // Square pin, three states:
+    //   uncontacted            → gray  ? box
+    //   contacted (not in UW)  → yellow ✓ box
+    //   contacted + in UW      → green  ✓ box
+    var _contacted0 = (item.mostRecentMs || 0) > 0;
+    var _inUw0 = _propInUw(p);
+    var _sym, _boxColor;
+    if (!_contacted0) { _sym = '?'; _boxColor = '#64748b'; }
+    else if (_inUw0) { _sym = '✓'; _boxColor = '#22c55e'; }
+    else { _sym = '✓'; _boxColor = '#eab308'; }
+    var _iconHtml = '<div style="width:18px;height:18px;border-radius:4px;background:' + _boxColor + ';border:2px solid #fff;box-shadow:0 1px 2px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;font-weight:900;color:#fff;text-shadow:-1px -1px 0 rgba(0,0,0,0.7),1px -1px 0 rgba(0,0,0,0.7),-1px 1px 0 rgba(0,0,0,0.7),1px 1px 0 rgba(0,0,0,0.7)">' + _sym + '</div>';
+    var mk = L.marker([la, lo], { icon: L.divIcon({ className: 'mkt-prop-pin', html: _iconHtml, iconSize: [18, 18], iconAnchor: [9, 9] }) });
     var street = p.street || '';
     var loc = [p.city, p.state, p.zip].filter(Boolean).join(', ');
     var addr = [street, loc].filter(Boolean).join(', ');
@@ -53216,11 +53248,16 @@ function _mktRenderAreaProps() {
       || '(unknown owner)';
     // Contacted status comes straight from the filtered row's most-recent contact.
     var ms = item.mostRecentMs || 0;
-    var contacted = ms > 0;
+    var contacted = _contacted0;
     var when = contacted ? (' · ' + new Date(ms).toLocaleDateString()) : '';
-    var statusChip = contacted
-      ? '<span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(16,185,129,0.18);color:#10b981;border:1px solid rgba(16,185,129,0.4)">☎ Contacted' + when + '</span>'
-      : '<span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(148,163,184,0.18);color:#94a3b8;border:1px solid rgba(148,163,184,0.4)">Uncontacted</span>';
+    var statusChip;
+    if (!contacted) {
+      statusChip = '<span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(100,116,139,0.18);color:#94a3b8;border:1px solid rgba(100,116,139,0.45)">? Uncontacted</span>';
+    } else if (_inUw0) {
+      statusChip = '<span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(34,197,94,0.18);color:#22c55e;border:1px solid rgba(34,197,94,0.45)">✓ Contacted · In Underwriting' + when + '</span>';
+    } else {
+      statusChip = '<span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(234,179,8,0.18);color:#eab308;border:1px solid rgba(234,179,8,0.45)">✓ Contacted' + when + '</span>';
+    }
     // Flags on the property record.
     var flags = (p.flags && typeof p.flags === 'object') ? Object.keys(p.flags).filter(function (k) { return p.flags[k] === true; }) : [];
     var flagChips = flags.length

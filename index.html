@@ -3350,6 +3350,23 @@
             </div>
           </div>
           <button class="btn btn-ghost text-sm" onclick="uwGenerateScopePacket()" style="white-space:nowrap;flex-shrink:0;border:1px solid #eab308;color:#fde047" title="Generate a contractor-facing Scope of Work PDF — same layout as the packet but WITHOUT the wholesale header, asking price, wholesale disclosure, or pro forma. Shows your rehab budget total.">🛠 Scope</button>
+          <!-- Appraisal split button: 💬 opens the Additional Notes popover; the
+               "Appraisal" text generates an appraiser-facing PDF (Improvements Made
+               + Additional Notes; no cost basis, no major systems, no $ amounts). -->
+          <div style="position:relative;display:inline-flex;flex-shrink:0;gap:0">
+            <button class="btn btn-ghost text-sm" onclick="uwToggleAppraisalNotesPopover()" style="white-space:nowrap;border:1px solid #f97316;border-right:none;border-top-right-radius:0;border-bottom-right-radius:0;color:#fdba74" title="Add Additional Notes for the appraisal packet.">💬</button>
+            <button class="btn btn-ghost text-sm" onclick="uwGenerateAppraisalPacket()" style="white-space:nowrap;border:1px solid #f97316;border-top-left-radius:0;border-bottom-left-radius:0;color:#fdba74" title="Generate an appraiser-facing PDF — Improvements Made + your Additional Notes. No cost basis, no major systems, no dollar amounts.">📐 Appraisal</button>
+            <div id="uw-appraisal-notes-popover" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:50;background:var(--panel);border:1px solid #f97316;border-radius:8px;padding:12px 14px;min-width:300px;box-shadow:0 8px 24px rgba(0,0,0,0.45)">
+              <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;font-weight:700">💬 Additional Notes</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;line-height:1.4">Prints in the <b style="color:#fdba74">Additional Notes</b> section of the appraisal packet, below Improvements Made.</div>
+              <textarea id="uw-appraisal-notes" maxlength="800" oninput="var c=document.getElementById('uw-appraisal-notes-count');if(c)c.textContent=this.value.length+' / 800';if(typeof _uwQueueAutosave==='function')_uwQueueAutosave();" placeholder="e.g. New roof (2024), kitchen fully remodeled, new HVAC, refinished hardwood floors…" style="width:100%;height:150px;max-height:150px;padding:8px 10px;background:var(--panel-2);border:1px solid #f97316;color:var(--text);border-radius:6px;font-size:13px;line-height:1.45;resize:none;box-sizing:border-box;overflow:auto"></textarea>
+              <div id="uw-appraisal-notes-count" style="font-size:10px;color:var(--text-dim);text-align:right;margin-top:3px">0 / 800</div>
+              <div style="display:flex;gap:6px;margin-top:10px">
+                <button class="btn btn-ghost text-xs" onclick="var t=document.getElementById('uw-appraisal-notes');if(t){t.value='';}if(typeof _uwQueueAutosave==='function')_uwQueueAutosave();" style="flex:1;color:var(--text-dim)">Clear</button>
+                <button class="btn btn-primary text-xs" onclick="uwToggleAppraisalNotesPopover()" style="flex:1">Done</button>
+              </div>
+            </div>
+          </div>
           <!-- Assign button — pushes this deal into Dispositions → New Contract
                so the contract appears in the dispo workflow alongside any
                others you've assigned. -->
@@ -16693,11 +16710,36 @@ function uwTogglePacketPricePopover() {
 }
 window.uwTogglePacketPricePopover = uwTogglePacketPricePopover;
 
+function uwToggleAppraisalNotesPopover() {
+  const pop = document.getElementById('uw-appraisal-notes-popover');
+  if (!pop) return;
+  if (pop.style.display !== 'none') { pop.style.display = 'none'; return; }
+  pop.style.display = 'block';
+  const _t = document.getElementById('uw-appraisal-notes');
+  const _c = document.getElementById('uw-appraisal-notes-count');
+  if (_t && _c) _c.textContent = (_t.value || '').length + ' / 800';
+  setTimeout(() => { if (_t) _t.focus(); }, 0);
+  setTimeout(() => {
+    const onDocClick = (ev) => {
+      if (!pop.contains(ev.target) && !ev.target.closest('[onclick="uwToggleAppraisalNotesPopover()"]')) {
+        pop.style.display = 'none';
+        document.removeEventListener('mousedown', onDocClick);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+  }, 0);
+}
+window.uwToggleAppraisalNotesPopover = uwToggleAppraisalNotesPopover;
+
 async function uwGenerateWholesalePacket(opts) {
   opts = opts || {};
   // Scope mode = a contractor-facing packet: no wholesale header/price/disclosure/
   // pro forma; shows the rehab budget total instead. Same layout otherwise.
   const scopeMode = !!opts.scopeMode;
+  // Appraisal mode = a scope-style packet for appraisers: like Scope but WITHOUT
+  // Cost Basis, WITHOUT Major Systems, and with NO dollar amounts in the work list
+  // (which is retitled "Improvements Made"). appraisalMode implies scopeMode.
+  const appraisalMode = !!opts.appraisalMode;
   if (typeof window.jspdf === 'undefined' || !window.jspdf.jsPDF) {
     alert('PDF library failed to load. Refresh the page and try again.');
     return;
@@ -16833,7 +16875,7 @@ async function uwGenerateWholesalePacket(opts) {
   // Scope packet shows per-line rehab-estimate $ (and group subtotals). Buyer
   // packet stays price-free.
   let scopeHasCost = false;
-  if (scopeMode && typeof window._rcGetScopeByGroupCost === 'function') {
+  if (scopeMode && !appraisalMode && typeof window._rcGetScopeByGroupCost === 'function') {
     const _withCost = window._rcGetScopeByGroupCost() || [];
     if (_withCost.length) { scopeColumns = _withCost; scopeHasCost = true; }
   }
@@ -17005,11 +17047,11 @@ async function uwGenerateWholesalePacket(opts) {
   doc.setTextColor(C_BRAND[0], C_BRAND[1], C_BRAND[2]);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text(scopeMode ? 'SCOPE OF WORK  ·  REHAB BUDGET' : 'OFF-MARKET  ·  WHOLESALE  ·  DEAL PACKET', MARGIN, 40, { charSpace: 2 });
+  doc.text(appraisalMode ? 'APPRAISAL  ·  IMPROVEMENTS PACKET' : (scopeMode ? 'SCOPE OF WORK  ·  REHAB BUDGET' : 'OFF-MARKET  ·  WHOLESALE  ·  DEAL PACKET'), MARGIN, 40, { charSpace: 2 });
   // Big title
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(28);
-  doc.text(scopeMode ? 'Scope of Work' : 'Investment Opportunity', MARGIN, 75);
+  doc.text(appraisalMode ? 'Improvements Made' : (scopeMode ? 'Scope of Work' : 'Investment Opportunity'), MARGIN, 75);
   // Small tagline
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
@@ -17526,7 +17568,7 @@ async function uwGenerateWholesalePacket(opts) {
   // (window._uwFlipCostSummary) so it matches the "Full Breakdown" panel:
   // purchase-price-based closing, detailed holding, resale agent/closing.
   // Falls back to ARV-percentage estimates only if that summary isn't set.
-  if (scopeMode) {
+  if (scopeMode && !appraisalMode) {
     const _fs = window._uwFlipCostSummary || null;
     const _arv      = arv > 0 ? arv : 0;
     const _totalMo  = (getN('uw-rehab-mo') || 1) + (getN('uw-listing-mo') || 2.5);
@@ -17574,6 +17616,43 @@ async function uwGenerateWholesalePacket(opts) {
       });
       y = doc.lastAutoTable.finalY + 12;
     }
+  }
+
+  // ---------- Appraisal packet only: Additional Notes ----------
+  // Sits directly under the rental comparables. Always rendered as a fixed-size
+  // box (even when empty). The box height is sized so it fits on the page even
+  // with every comp section filled; the textarea's maxlength matches that box.
+  if (appraisalMode) {
+    const NOTES_BOX_H = 150;               // fixed "max size" box
+    y += 8;
+    need(NOTES_BOX_H + 34);                // page-break if it wouldn't fit
+    section('ADDITIONAL NOTES');
+    const _bx = MARGIN, _bw = PAGE_W - 2 * MARGIN, _bt = y;
+    doc.setDrawColor(C_RULE[0], C_RULE[1], C_RULE[2]);
+    doc.setLineWidth(0.6);
+    doc.roundedRect(_bx, _bt, _bw, NOTES_BOX_H, 4, 4);
+    const _notes = (get('uw-appraisal-notes') || '').trim();
+    if (_notes) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+      const _lines = [];
+      _notes.split(/\r?\n/).forEach(para => {
+        if (para.trim() === '') { _lines.push(''); return; }
+        doc.splitTextToSize(para, _bw - 16).forEach(l => _lines.push(l));
+      });
+      const _lh = 13, _maxLines = Math.floor((NOTES_BOX_H - 16) / _lh);
+      let _ty = _bt + 16;
+      _lines.slice(0, _maxLines).forEach(l => { doc.text(l, _bx + 8, _ty); _ty += _lh; });
+    } else {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9.5);
+      doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+      doc.text('(No additional notes.)', _bx + 8, _bt + 16);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(C_TEXT[0], C_TEXT[1], C_TEXT[2]);
+    }
+    y = _bt + NOTES_BOX_H + 12;
   }
 
   // (Cash Rental Pro Forma — moved to AFTER the disclosure so page 2 stays
@@ -17769,7 +17848,8 @@ async function uwGenerateWholesalePacket(opts) {
   // ---------- Big Ticket Item Statuses ----------
   // Major systems the buyer cares about most. Always shown; anything the user
   // didn't mark reads "Unknown" so the buyer knows it wasn't assessed.
-  {
+  // Appraisal packet omits Major Systems entirely.
+  if (!appraisalMode) {
     const BT_ITEMS = (typeof _UW_BIG_TICKET_ITEMS !== 'undefined') ? _UW_BIG_TICKET_ITEMS : [
       { key: 'roof', label: 'Roof' }, { key: 'furnace', label: 'Furnace' },
       { key: 'condenser', label: 'Condenser' }, { key: 'foundation', label: 'Foundation' },
@@ -17817,8 +17897,16 @@ async function uwGenerateWholesalePacket(opts) {
   // Groups flow into whichever column is currently shortest (greedy load-
   // balance) so the bottom edges stay roughly even.
   if (scopeColumns.length) {
-    section(scopeMode ? 'SCOPE OF WORK — REHAB ESTIMATE' : 'SCOPE OF WORK (FLIP GRADE)');
-    if (!scopeMode) {
+    // Appraisal has no Major Systems block (which normally starts a fresh page in
+    // scope mode), so give Improvements Made its own page here.
+    if (appraisalMode) { doc.addPage(); y = MARGIN; }
+    section(appraisalMode ? 'IMPROVEMENTS MADE' : (scopeMode ? 'SCOPE OF WORK — REHAB ESTIMATE' : 'SCOPE OF WORK (FLIP GRADE)'));
+    if (appraisalMode) {
+      doc.setFontSize(9);
+      doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
+      doc.text('Improvements and updates completed on the property.', MARGIN, y);
+      y += 13;
+    } else if (!scopeMode) {
       doc.setFontSize(9);
       doc.setTextColor(C_DIM[0], C_DIM[1], C_DIM[2]);
       doc.text('Scope identified during the walkthrough. Buyer to verify on inspection.', MARGIN, y);
@@ -18045,13 +18133,15 @@ async function uwGenerateWholesalePacket(opts) {
   // Filename: "{address} - Packet.pdf". Strip filesystem-illegal characters
   // (\ / : * ? " < > |) so the browser-triggered download works on every OS.
   const safeAddr = (address || 'Property').replace(/[\\/:*?"<>|]+/g, '').trim();
-  doc.save(safeAddr + (scopeMode ? ' - Scope.pdf' : ' - Packet.pdf'));
-  if (typeof toast === 'function') toast(scopeMode ? '✅ Scope packet generated' : '✅ Wholesale packet generated', 'ok');
+  doc.save(safeAddr + (appraisalMode ? ' - Appraisal.pdf' : (scopeMode ? ' - Scope.pdf' : ' - Packet.pdf')));
+  if (typeof toast === 'function') toast(appraisalMode ? '✅ Appraisal packet generated' : (scopeMode ? '✅ Scope packet generated' : '✅ Wholesale packet generated'), 'ok');
 }
 // Scope packet = the packet without wholesale header/price/disclosure/pro forma,
 // showing the rehab budget total. Fully separate button; shares the generator.
 async function uwGenerateScopePacket() { return uwGenerateWholesalePacket({ scopeMode: true }); }
 window.uwGenerateScopePacket = uwGenerateScopePacket;
+async function uwGenerateAppraisalPacket() { return uwGenerateWholesalePacket({ scopeMode: true, appraisalMode: true }); }
+window.uwGenerateAppraisalPacket = uwGenerateAppraisalPacket;
 
 // ---------- Underwriting: persistence (Supabase `underwrites` table) ----------
 // Runs separately from cache.* loaders since the table may not exist yet.
@@ -18070,7 +18160,7 @@ const _UW_SESSION_ID = (typeof crypto !== 'undefined' && crypto.randomUUID)
   : ('sess-' + Date.now().toString(36) + Math.random().toString(36).slice(2));
 
 const UW_FIELDS = [
-  'uw-packet-status','uw-asking','uw-offer','uw-accepted','uw-packet-asking-override',
+  'uw-packet-status','uw-asking','uw-offer','uw-accepted','uw-packet-asking-override','uw-appraisal-notes',
   'uw-address','uw-city','uw-state','uw-zip','uw-legal',
   'uw-use-offer-price',
   'uw-built','uw-bed','uw-bath','uw-sqft','uw-floor1','uw-floor2','uw-floor3','uw-bsmt','uw-bsmt-include','uw-attic','uw-attic-include','uw-zsqft','uw-lot-size','uw-lot-size-sqft','uw-prop-parking','uw-prop-material','uw-prop-foundation',

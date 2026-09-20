@@ -53008,17 +53008,17 @@ function _listAreaOpenModal(area, isNew) {
   (window._listAreas || []).forEach(function (a) { var nm = a && a.name && String(a.name).trim(); if (nm && _existing.indexOf(nm) < 0) _existing.push(nm); });
   _existing.sort(function (x, y) { return x.localeCompare(y); });
   var _ddHtml = _existing.length
-    ? '<label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">' + (isNew ? 'Assign to an existing area' : 'Move to another area') + '</label>'
+    ? '<label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">' + (isNew ? 'Assign to an existing label' : 'Move to another label') + '</label>'
       + '<select id="la-existing" style="width:100%;margin-bottom:12px" onchange="if(this.value){document.getElementById(\'la-name\').value=this.value;}">'
-      + '<option value="">— New area (type a name below) —</option>'
+      + '<option value="">— New label (type below) —</option>'
       + _existing.map(function (nm) { return '<option value="' + _maEsc(nm) + '"' + ((area.name || '') === nm ? ' selected' : '') + '>' + _maEsc(nm) + '</option>'; }).join('')
       + '</select>'
     : '';
   box.innerHTML = '<div style="font-weight:800;font-size:16px;margin-bottom:14px">' + (isNew ? '🗺️ New Area' : '🗺️ Edit Area') + '</div>'
     + _ddHtml
-    + '<label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Area name / label</label>'
-    + '<input id="la-name" value="' + _maEsc(area.name || '') + '" placeholder="e.g. Fountain Square" style="width:100%;margin-bottom:6px">'
-    + '<div style="font-size:11px;color:var(--text-dim);margin-bottom:16px">Pick an existing area above, or type a new name. Same name = grouped into one Area.</div>'
+    + '<label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Label</label>'
+    + '<input id="la-name" value="' + _maEsc(area.name || '') + '" placeholder="e.g. Evansville Downtown" style="width:100%;margin-bottom:6px">'
+    + '<div style="font-size:11px;color:var(--text-dim);margin-bottom:16px">Pick a label above, or type a new one. Shapes with the same label group into one Area chip.</div>'
     + '<div style="display:flex;justify-content:space-between;gap:8px">'
     + '<button id="la-del" style="background:none;border:1px solid rgba(239,68,68,0.5);color:#f87171;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:12px' + (isNew ? ';visibility:hidden' : '') + '">🗑 Delete</button>'
     + '<div style="display:flex;gap:8px"><button id="la-cancel" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:9px 16px;cursor:pointer">Cancel</button>'

@@ -7338,7 +7338,7 @@
     <button class="btn btn-ghost text-xs" onclick="_mapSectionRefresh(this)" title="Re-pull buyers + properties and redraw">🔁 Refresh</button>
   </div>
   <style>#map-lists-dd summary::-webkit-details-marker{display:none}#map-lists-dd summary::marker{content:""}#map-lists-dd[open] summary{position:relative;z-index:2001}</style>
-  <div id="map-chips" style="display:flex;flex-wrap:nowrap;align-items:stretch;gap:10px;margin-bottom:12px"></div>
+  <div id="map-chips" style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;margin-bottom:12px"></div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
     <input id="map-search-input" type="text" placeholder="🔍 Search an address, or a buyer / seller name…" oninput="_mapSearchLive()" onkeydown="if(event.key==='Enter')_mapSectionSearch()" style="flex:0 1 420px;min-width:180px;height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box" />
     <button class="btn btn-primary text-sm" onclick="_mapSectionSearch()" style="height:38px;white-space:nowrap">Search</button>
@@ -33514,7 +33514,7 @@ window._mapRenderChips = function () {
     var bottomChips = bottomOpts.map(chipBtn).join('') + monthSel;
     // Boxed group: top row = pill (left) + promoted chips (right), bottom row = remaining options.
     // Groups stay side-by-side (one row of boxes); no scrollbar.
-    return '<div style="display:flex;flex-direction:column;gap:6px;padding:6px 10px;border-radius:12px;border:1px solid ' + grp.color + '44;background:' + grp.color + '0d;flex:0 1 auto;min-width:0">'
+    return '<div style="display:flex;flex-direction:column;gap:6px;padding:6px 10px;border-radius:12px;border:1px solid ' + grp.color + '44;background:' + grp.color + '0d;flex:0 0 auto">'
       + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + head + (topExtra ? '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + topExtra + '</div>' : '') + '</div>'
       + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + bottomChips + '</div>'
       + '</div>';
@@ -33527,7 +33527,8 @@ window._mapRenderChips = function () {
     var g = (L.g && typeof L.g === 'object') ? L.g : (L.g = {});
     var selCount = Object.keys(g).length;
     var active = selCount > 0 || L.contacted;
-    var allFlags = Array.isArray(cache.config && cache.config.flags) ? cache.config.flags : [];
+    var _rawFlags = Array.isArray(cache.config && cache.config.flags) ? cache.config.flags : [];
+    var allFlags = (typeof _sqOrderFlags === 'function') ? _sqOrderFlags(_rawFlags) : _rawFlags;
     var head = '<button type="button" id="map-lists-head" onclick="_mapClearLists()" title="Lists filters — click to clear all" '
       + 'style="display:inline-flex;align-items:center;gap:7px;padding:4px 13px;border-radius:999px;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;border:1.5px solid ' + color + ';background:' + (active ? color + '26' : 'transparent') + ';color:' + (active ? color : 'var(--text-dim)') + '">' + mkShape('square', color) + 'Lists</button>';
     // Per-flag Or / And columns (like the Hot filter). Or = match ANY of the
@@ -33586,7 +33587,7 @@ window._mapRenderChips = function () {
     var con = '<button type="button" id="map-lists-contacted" onclick="_mapToggleListContacted()" title="Only properties with a logged call (Contacted)" '
       + 'style="padding:3px 12px;border-radius:8px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;white-space:nowrap;border:1.5px solid ' + (L.contacted ? color : 'var(--border)') + ';background:' + (L.contacted ? color + '22' : 'transparent') + ';color:' + (L.contacted ? color : 'var(--text-dim)') + '">☎ Contacted</button>';
     el.insertAdjacentHTML('beforeend',
-      '<div style="display:flex;flex-direction:column;gap:6px;padding:6px 10px;border-radius:12px;border:1px solid ' + color + '44;background:' + color + '0d;flex:0 1 auto;min-width:0">'
+      '<div style="display:flex;flex-direction:column;gap:6px;padding:6px 10px;border-radius:12px;border:1px solid ' + color + '44;background:' + color + '0d;flex:0 0 auto">'
       + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + head + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + con + '</div></div>'
       + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">' + dd + ddArea + '</div>'
       + '</div>');

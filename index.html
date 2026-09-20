@@ -33453,6 +33453,18 @@ window._mapToggleLayer = function (g) {
 };
 window._mapRenderChips = function () {
   var el = document.getElementById('map-chips'); if (!el) return;
+  // Preserve which Lists dropdown is open (+ its scroll) so ticking a box — which
+  // re-renders the map and rebuilds these chips — doesn't slam the dropdown shut.
+  var _prevOpenDD = null, _prevDDScroll = 0;
+  ['map-lists-dd', 'map-lists-areas-dd'].forEach(function (id) {
+    var d = document.getElementById(id);
+    if (d && d.open) { _prevOpenDD = id; var inner = d.querySelector('div'); if (inner) _prevDDScroll = inner.scrollTop || 0; }
+  });
+  window._mapListsRestoreDD = function () {
+    if (!_prevOpenDD) return;
+    var d = document.getElementById(_prevOpenDD);
+    if (d) { d.open = true; var inner = d.querySelector('div'); if (inner) inner.scrollTop = _prevDDScroll; }
+  };
   var counts = window._mapCounts || {};
   var groups = [
     { g: 'buyer', layer: 'buyer', label: 'Buyers', color: '#10b981', shape: 'circle', months: true, opts: [['tagged', 'Tagged'], ['recent', 'Recent'], ['vetting', 'Vetting'], ['qualified', 'Qualified'], ['unqualified', 'Unqualified']] },
@@ -33576,9 +33588,10 @@ window._mapRenderChips = function () {
     el.insertAdjacentHTML('beforeend',
       '<div style="display:flex;flex-direction:column;gap:6px;padding:6px 10px;border-radius:12px;border:1px solid ' + color + '44;background:' + color + '0d;flex:0 1 auto;min-width:0">'
       + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + head + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + con + '</div></div>'
-      + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + dd + ddArea + '</div>'
+      + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">' + dd + ddArea + '</div>'
       + '</div>');
   })();
+  if (typeof window._mapListsRestoreDD === 'function') window._mapListsRestoreDD();
 };
 window._mapMonthFilter = (window._mapMonthFilter != null) ? window._mapMonthFilter : '12';
 window._mapMinPurchases = (window._mapMinPurchases != null) ? window._mapMinPurchases : '2';

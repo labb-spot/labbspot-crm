@@ -52951,10 +52951,76 @@ function toggleSqList(listId) {
   renderSuggestedQueue();
 }
 
+// ===== List-building Areas — SEPARATE from the main Map tab's areas =====
+// Stored in app_config.column_mappings.list_areas (NOT map_areas), so drawing here
+// never touches the main Map section. Each area is just { id, name, coords }. The
+// NAME is the label; several shapes can share a name to group them.
+window._listAreas = window._listAreas || [];
+async function _listAreasLoad() {
+  if (!(window._listAreas && window._listAreas.length)) {
+    try {
+      if (typeof sb !== 'undefined' && sb) {
+        const { data } = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle();
+        const arr = data && data.column_mappings && data.column_mappings.list_areas;
+        if (Array.isArray(arr)) window._listAreas = arr;
+      }
+    } catch (_) {}
+  }
+}
+function _listAreasSync() { if (typeof _uwCfgMerge === 'function') _uwCfgMerge({ list_areas: window._listAreas }); }
+// Draw the list-areas onto a Leaflet layer. editable=true wires click-to-edit.
+function _listDrawAreasOn(mapObj, lg, editable) {
+  if (!mapObj || !lg || typeof L === 'undefined') return;
+  lg.clearLayers();
+  (window._listAreas || []).forEach(function (a) {
+    if (!a || !Array.isArray(a.coords) || a.coords.length < 3) return;
+    var col = '#06b6d4';
+    var poly = L.polygon(a.coords, { color: col, weight: 2, fillColor: col, fillOpacity: 0.15, interactive: true });
+    if (a.name) poly.bindTooltip(a.name, { sticky: true });
+    if (editable) poly.on('click', function () { _listAreaOpenModal(a, false); });
+    lg.addLayer(poly);
+  });
+}
+// Simple name-only create/edit dialog for a list-area.
+function _listAreaOpenModal(area, isNew) {
+  var old = document.getElementById('list-area-modal'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'list-area-modal';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(8,11,20,0.6);display:flex;align-items:center;justify-content:center;padding:20px';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--panel,#141a28);border:1px solid var(--border);border-radius:14px;padding:22px 24px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.55)';
+  box.innerHTML = '<div style="font-weight:800;font-size:16px;margin-bottom:14px">' + (isNew ? '🗺️ New Area' : '🗺️ Edit Area') + '</div>'
+    + '<label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px">Area name / label</label>'
+    + '<input id="la-name" value="' + _maEsc(area.name || '') + '" placeholder="e.g. Fountain Square" style="width:100%;margin-bottom:6px">'
+    + '<div style="font-size:11px;color:var(--text-dim);margin-bottom:16px">Give shapes the same name to group them into one Area.</div>'
+    + '<div style="display:flex;justify-content:space-between;gap:8px">'
+    + '<button id="la-del" style="background:none;border:1px solid rgba(239,68,68,0.5);color:#f87171;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:12px' + (isNew ? ';visibility:hidden' : '') + '">🗑 Delete</button>'
+    + '<div style="display:flex;gap:8px"><button id="la-cancel" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:9px 16px;cursor:pointer">Cancel</button>'
+    + '<button id="la-save" style="background:var(--brand,#6366f1);color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700">Save</button></div>'
+    + '</div>';
+  ov.appendChild(box); document.body.appendChild(ov);
+  setTimeout(function () { var n = document.getElementById('la-name'); if (n) { n.focus(); n.select(); } }, 30);
+  ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
+  box.querySelector('#la-cancel').onclick = function () { ov.remove(); };
+  box.querySelector('#la-save').onclick = function () {
+    area.name = document.getElementById('la-name').value.trim();
+    area.updated_at = new Date().toISOString();
+    if (isNew) { area.created_at = area.updated_at; window._listAreas.push(area); }
+    _listAreasSync();
+    if (typeof window._mktAreasAfterChange === 'function') window._mktAreasAfterChange();
+    ov.remove();
+  };
+  var del = box.querySelector('#la-del'); if (del) del.onclick = function () {
+    if (!confirm('Delete this area?')) return;
+    window._listAreas = (window._listAreas || []).filter(function (x) { return x.id !== area.id; });
+    _listAreasSync();
+    if (typeof window._mktAreasAfterChange === 'function') window._mktAreasAfterChange();
+    ov.remove();
+  };
+}
+
 // ===== Marketing → Areas: collapsible draw-map + Areas filter chips =====
-// Areas are the shared polygons in app_config.column_mappings.map_areas (the same
-// ones drawn on the Map tab). An area's NAME is its label; several shapes can share
-// a label to group them. Selection state is keyed by label.
+// Uses the list-areas store above (window._listAreas). An area's NAME is its label;
+// several shapes can share a label to group them. Selection state is keyed by label.
 window._sqAreaFilters = window._sqAreaFilters || {};
 // Ray-casting point-in-polygon against a [[lat,lng],...] ring.
 function _sqPtInRing(lat, lng, coords) {
@@ -52970,35 +53036,25 @@ function _sqPtInRing(lat, lng, coords) {
 function _sqAreaLabelOf(a) {
   return (a && a.name && String(a.name).trim()) ? String(a.name).trim() : '(unlabeled)';
 }
-// Distinct area labels (only areas that are real polygons).
+// Distinct list-area labels (only areas that are real polygons).
 function _sqAreaLabels() {
   var seen = [];
-  (window._mapAreas || []).forEach(function (a) {
+  (window._listAreas || []).forEach(function (a) {
     if (!a || !Array.isArray(a.coords) || a.coords.length < 3) return;
     var lab = _sqAreaLabelOf(a);
     if (seen.indexOf(lab) < 0) seen.push(lab);
   });
   return seen;
 }
-// Ensure the shared areas are loaded from app_config before rendering chips/map.
-async function _sqEnsureAreas() {
-  if (!(window._mapAreas && window._mapAreas.length)) {
-    try {
-      if (typeof sb !== 'undefined' && sb) {
-        const { data } = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle();
-        const arr = data && data.column_mappings && data.column_mappings.map_areas;
-        if (Array.isArray(arr)) window._mapAreas = arr;
-      }
-    } catch (_) {}
-  }
-}
+// Ensure the list-areas are loaded from app_config before rendering chips/map.
+async function _sqEnsureAreas() { return _listAreasLoad(); }
 function renderSqAreaChips() {
   const container = document.getElementById('sq-filter-areas');
   if (!container) return;
   // Keep the collapsible panel's header count in sync too.
   const _hc = document.getElementById('mkt-areas-count');
   if (_hc) {
-    const _n = (window._mapAreas || []).filter(a => a && Array.isArray(a.coords) && a.coords.length >= 3).length;
+    const _n = (window._listAreas || []).filter(a => a && Array.isArray(a.coords) && a.coords.length >= 3).length;
     _hc.textContent = _n ? '· ' + _n + ' area' + (_n === 1 ? '' : 's') : '';
   }
   const labels = _sqAreaLabels();
@@ -53009,7 +53065,7 @@ function renderSqAreaChips() {
     return;
   }
   const countByLabel = {};
-  (window._mapAreas || []).forEach(function (a) {
+  (window._listAreas || []).forEach(function (a) {
     if (!a || !Array.isArray(a.coords) || a.coords.length < 3) return;
     var lab = _sqAreaLabelOf(a);
     countByLabel[lab] = (countByLabel[lab] || 0) + 1;
@@ -53054,7 +53110,7 @@ function _mktInitAreasMap() {
       if (!host || typeof L === 'undefined') return;
       if (!window._mktAreasMap) {
         window._mktAreasMap = L.map(host, { preferCanvas: true }).setView([39.5, -86.4], 7);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd', attribution: '© OpenStreetMap © CARTO' }).addTo(window._mktAreasMap);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(window._mktAreasMap);
         window._mktAreasLayer = new L.FeatureGroup().addTo(window._mktAreasMap);
         if (L.Control && L.Control.Draw) {
           var dc = new L.Control.Draw({
@@ -53068,7 +53124,7 @@ function _mktInitAreasMap() {
               var pts = e.layer.getLatLngs();
               var ring = Array.isArray(pts[0]) ? pts[0] : pts;
               var coords = ring.map(function (p) { return [p.lat, p.lng]; });
-              if (typeof _mapAreaOpenModal === 'function') _mapAreaOpenModal({ id: (typeof uid === 'function' ? uid() : String(Date.now())), name: '', cls: '', strat: '', flood: '', coords: coords }, true);
+              if (typeof _listAreaOpenModal === 'function') _listAreaOpenModal({ id: (typeof uid === 'function' ? uid() : String(Date.now())), name: '', coords: coords }, true);
             } catch (err) { console.warn('[mkt area] create', err); }
           });
         }
@@ -53077,7 +53133,7 @@ function _mktInitAreasMap() {
       if (!window._mktAreasFitted) {
         try {
           var b = [];
-          (window._mapAreas || []).forEach(function (a) { if (a && Array.isArray(a.coords)) a.coords.forEach(function (c) { b.push(c); }); });
+          (window._listAreas || []).forEach(function (a) { if (a && Array.isArray(a.coords)) a.coords.forEach(function (c) { b.push(c); }); });
           if (b.length) window._mktAreasMap.fitBounds(b, { padding: [30, 30], maxZoom: 13 });
           window._mktAreasFitted = true;
         } catch (e) {}
@@ -53087,12 +53143,12 @@ function _mktInitAreasMap() {
   });
 }
 function _mktRenderAreasMap() {
-  if (window._mktAreasMap && window._mktAreasLayer && typeof _mapDrawAreasOn === 'function') {
-    _mapDrawAreasOn(window._mktAreasMap, window._mktAreasLayer, true);
+  if (window._mktAreasMap && window._mktAreasLayer && typeof _listDrawAreasOn === 'function') {
+    _listDrawAreasOn(window._mktAreasMap, window._mktAreasLayer, true);
   }
   var cnt = document.getElementById('mkt-areas-count');
   if (cnt) {
-    var n = (window._mapAreas || []).filter(function (a) { return a && Array.isArray(a.coords) && a.coords.length >= 3; }).length;
+    var n = (window._listAreas || []).filter(function (a) { return a && Array.isArray(a.coords) && a.coords.length >= 3; }).length;
     cnt.textContent = n ? '· ' + n + ' area' + (n === 1 ? '' : 's') : '';
   }
 }
@@ -53305,7 +53361,7 @@ function _computeFilteredMarketingProps() {
   let areaPolysByLabel = null;
   if (areaFilters.length) {
     areaPolysByLabel = {};
-    (window._mapAreas || []).forEach(a => {
+    (window._listAreas || []).forEach(a => {
       if (!a || !Array.isArray(a.coords) || a.coords.length < 3) return;
       const lab = (a.name && String(a.name).trim()) ? String(a.name).trim() : '(unlabeled)';
       if (areaFilters.indexOf(lab) < 0) return;
@@ -62011,12 +62067,12 @@ function _mapAreaOpenModal(area, isNew){
     area.flood=box.querySelector('#ma-flood').value;
     area.updated_at=new Date().toISOString();
     if(isNew){ area.created_at=area.updated_at; window._mapAreas.push(area); }
-    _mapAreasSync(); _mapRenderAreas(); if(typeof window._mktAreasAfterChange==='function') window._mktAreasAfterChange(); ov.remove();
+    _mapAreasSync(); _mapRenderAreas(); ov.remove();
   };
   var del=box.querySelector('#ma-del'); if(del) del.onclick=function(){
     if(!confirm('Delete this area?')) return;
     window._mapAreas=(window._mapAreas||[]).filter(function(x){return x.id!==area.id;});
-    _mapAreasSync(); _mapRenderAreas(); if(typeof window._mktAreasAfterChange==='function') window._mktAreasAfterChange(); ov.remove();
+    _mapAreasSync(); _mapRenderAreas(); ov.remove();
   };
 }
 window._mapAreaOpenModal=_mapAreaOpenModal; window._mapAreasPullAndRender=_mapAreasPullAndRender; window._mapRenderAreas=_mapRenderAreas;

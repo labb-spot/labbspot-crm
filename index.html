@@ -46584,6 +46584,9 @@ async function retryAndFinalizeImport() {
 }
 
 async function finalizeListImport(newRowData, listName, m, keyMap, includedRows) {
+  // Blocking loading screen so the user knows to wait (and can't reload / re-fire
+  // the import) while properties + links are written and the data re-syncs.
+  if (typeof _showBatchOverlay === 'function') _showBatchOverlay('Importing your list…', 'Preparing rows — please don’t reload.');
   const listId = uid();
   // added            = new property records created (unique addresses).
   // merged           = file rows that matched an existing DB property (cross-list merges).
@@ -46854,6 +46857,10 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
     }
   }
 
+  // Hoisted so we can re-apply these links to the in-memory cache AFTER the
+  // post-import reload (the reload's property_lists fetch can miss just-written
+  // rows, which is what made fresh uploads look "orphaned").
+  let _appliedPlLinks = [];
   if (plLinks.length > 0) {
     // Filter out plLinks pointing at properties that didn't actually commit.
     // Without this, a single bad property in the batch would cause an FK
@@ -46866,6 +46873,7 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
       if (!newKeyIds.has(pl.property_id)) return true; // existing DB row
       return insertedPropIds.has(pl.property_id);
     });
+    _appliedPlLinks = validPlLinks;
     const droppedLinks = plLinks.length - validPlLinks.length;
     if (droppedLinks > 0) {
       console.warn('[finalizeListImport] dropped', droppedLinks, 'plLinks because their properties failed to insert');
@@ -46975,8 +46983,33 @@ async function finalizeListImport(newRowData, listName, m, keyMap, includedRows)
   }
   cache.dupesCaught += merged + dupedWithinFile;
   reviewData = null;
-  await loadAllFromDB();
-  renderAll();
+  try {
+    if (typeof _updateBatchOverlay === 'function') _updateBatchOverlay('Refreshing your data — almost done…');
+    await loadAllFromDB();
+    // Safety net: re-apply THIS import's property→list links to the cache. The
+    // reload above rebuilds _lists from a fresh property_lists fetch, which can
+    // miss rows we just wrote (offset pagination / read-replica lag) and make the
+    // just-uploaded properties look like unlinked "orphans" until the next reload.
+    // The links are already committed in the DB, so patching the cache just makes
+    // the on-screen count truthful right away.
+    let _reapplied = 0;
+    (_appliedPlLinks || []).forEach(pl => {
+      const cp = cache.properties && cache.properties[pl.property_id];
+      if (!cp) return;
+      if (!Array.isArray(cp._lists)) cp._lists = [];
+      if (cp._lists.indexOf(pl.list_id) < 0) { cp._lists.push(pl.list_id); _reapplied++; }
+    });
+    if (_reapplied > 0) console.log('[finalizeListImport] re-applied', _reapplied, 'list links the reload missed');
+    renderAll();
+    if (typeof _finishBatchOverlay === 'function') {
+      _finishBatchOverlay('Import complete', summary + '. Your list and its properties are saved and linked.', 'ok');
+    } else if (typeof _hideBatchOverlay === 'function') { _hideBatchOverlay(); }
+  } catch (err) {
+    console.error('[finalizeListImport] refresh failed:', err);
+    if (typeof _finishBatchOverlay === 'function') {
+      _finishBatchOverlay('Import saved — refresh hiccup', 'Your list uploaded and saved fine, but re-syncing the view hit an error. Reload the page to see it.', 'warn');
+    } else if (typeof _hideBatchOverlay === 'function') { _hideBatchOverlay(); }
+  }
 }
 
 // --------- Import: skiptrace (to Supabase) ---------
@@ -48440,15 +48473,49 @@ function renderLists() {
   const note = document.getElementById('lists-orphan-note');
   const linkBtn = document.getElementById('lists-link-orphans-btn');
   if (btn && note) {
-    if (orphans.length > 0) {
-      btn.style.display = '';
-      note.style.display = '';
-      if (linkBtn && lists.length > 0) linkBtn.style.display = '';
-      note.textContent = `⚠ ${orphans.length.toLocaleString()} propert${orphans.length===1?'y is':'ies are'} not linked to any list. Click "Link orphans to a list" to attach them to an existing list, or "Backfill" to create a new one.`;
-    } else {
+    if (orphans.length === 0) {
       btn.style.display = 'none';
       note.style.display = 'none';
       if (linkBtn) linkBtn.style.display = 'none';
+    } else if (window._orphanVerifyBusy) {
+      // A verification pass is already running — leave the "checking" note up.
+    } else if (!window._orphanVerifiedRecently && typeof sb !== 'undefined' && sb) {
+      // Before alarming, confirm these are REALLY unlinked and not just links the
+      // last DB load missed (offset pagination / read-replica lag right after an
+      // upload — the exact thing that made fresh uploads flash a false "orphans"
+      // warning). Show a clear "checking" status, re-pull their links from the DB,
+      // patch the cache, then re-render. Only genuinely unlinked ones alarm.
+      window._orphanVerifyBusy = true;
+      note.style.display = '';
+      note.style.color = 'var(--text-dim)';
+      note.textContent = '⏳ Checking ' + orphans.length.toLocaleString() + ' recently-changed propert' + (orphans.length === 1 ? 'y' : 'ies') + ' against the database…';
+      if (btn) btn.style.display = 'none';
+      if (linkBtn) linkBtn.style.display = 'none';
+      (async () => {
+        try {
+          const ids = orphans.map(p => p.id);
+          for (let i = 0; i < ids.length; i += 300) {
+            const slice = ids.slice(i, i + 300);
+            const { data } = await sb.from('property_lists').select('property_id, list_id').in('property_id', slice);
+            (data || []).forEach(r => {
+              const cp = cache.properties[r.property_id];
+              if (cp) { if (!Array.isArray(cp._lists)) cp._lists = []; if (cp._lists.indexOf(r.list_id) < 0) cp._lists.push(r.list_id); }
+            });
+          }
+        } catch (e) { console.warn('[renderLists] orphan verify failed:', e && e.message); }
+        window._orphanVerifyBusy = false;
+        window._orphanVerifiedRecently = true;
+        setTimeout(() => { window._orphanVerifiedRecently = false; }, 20000);
+        note.style.color = 'var(--warn)';
+        try { renderLists(); } catch (_) {}
+      })();
+    } else {
+      // Verified against the DB (or offline) — these are genuinely unlinked.
+      btn.style.display = '';
+      note.style.display = '';
+      note.style.color = 'var(--warn)';
+      if (linkBtn && lists.length > 0) linkBtn.style.display = '';
+      note.textContent = `⚠ ${orphans.length.toLocaleString()} propert${orphans.length===1?'y is':'ies are'} not linked to any list. Click "Link orphans" to attach them to an existing list, or "Backfill" to create a new one.`;
     }
   }
 }

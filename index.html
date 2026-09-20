@@ -53198,14 +53198,51 @@ function _mktRenderAreaProps() {
   window._mktPropLayer.clearLayers();
   if (window._mktPropsVisible === false) return;
   var list = window._mktLastFiltered || (typeof _computeFilteredMarketingProps === 'function' ? _computeFilteredMarketingProps() : []);
+  var esc = window.escapeHtml || function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); };
   var CAP = 4000, n = 0;
   for (var i = 0; i < list.length && n < CAP; i++) {
-    var p = list[i] && list[i].p; if (!p) continue;
+    var item = list[i]; var p = item && item.p; if (!p) continue;
     var la = Number(p.lat), lo = Number(p.lng);
     if (!isFinite(la) || !isFinite(lo)) continue;
     n++;
     var mk = L.circleMarker([la, lo], { radius: 4, color: '#fff', weight: 1, fillColor: '#f97316', fillOpacity: 0.9 });
-    var addr = [p.street, p.city, p.state, p.zip].filter(Boolean).join(', ');
+    var street = p.street || '';
+    var loc = [p.city, p.state, p.zip].filter(Boolean).join(', ');
+    var addr = [street, loc].filter(Boolean).join(', ');
+    // Owner: company if present, else person name.
+    var owner = (p.company && String(p.company).trim())
+      || [p.first_name, p.last_name].filter(Boolean).join(' ').trim()
+      || (p.full_name ? String(p.full_name).trim() : '')
+      || '(unknown owner)';
+    // Contacted status comes straight from the filtered row's most-recent contact.
+    var ms = item.mostRecentMs || 0;
+    var contacted = ms > 0;
+    var when = contacted ? (' · ' + new Date(ms).toLocaleDateString()) : '';
+    var statusChip = contacted
+      ? '<span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(16,185,129,0.18);color:#10b981;border:1px solid rgba(16,185,129,0.4)">☎ Contacted' + when + '</span>'
+      : '<span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(148,163,184,0.18);color:#94a3b8;border:1px solid rgba(148,163,184,0.4)">Uncontacted</span>';
+    // Flags on the property record.
+    var flags = (p.flags && typeof p.flags === 'object') ? Object.keys(p.flags).filter(function (k) { return p.flags[k] === true; }) : [];
+    var flagChips = flags.length
+      ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:3px">' + flags.map(function (f) { return '<span style="display:inline-block;padding:1px 7px;border-radius:6px;font-size:10px;font-weight:600;background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.4)">' + esc(f) + '</span>'; }).join('') + '</div>'
+      : '<div style="margin-top:6px;font-size:11px;color:var(--text-dim)">🚩 No flags</div>';
+    // Zillow / Google search buttons (same helper the main map uses).
+    var zg = '';
+    if (addr && typeof window._mapZGBtns === 'function') {
+      var _q = encodeURIComponent(addr);
+      var _zUrl = 'https://www.zillow.com/homes/' + _q + '_rb/';
+      var _gUrl = 'https://www.google.com/maps/search/?api=1&query=' + _q;
+      zg = '<div style="margin-top:8px;display:flex;gap:5px">' + window._mapZGBtns(_zUrl, _gUrl) + '</div>';
+    }
+    var card = '<div style="font-size:12px;min-width:190px;max-width:250px;line-height:1.4">'
+      + '<div style="font-weight:800">' + esc(street || '(no address)') + '</div>'
+      + (loc ? '<div style="color:var(--text-dim);font-size:11px">' + esc(loc) + '</div>' : '')
+      + '<div style="margin-top:5px">👤 ' + esc(owner) + '</div>'
+      + '<div style="margin-top:6px">' + statusChip + '</div>'
+      + flagChips
+      + zg
+      + '</div>';
+    mk.bindPopup(card);
     mk.bindTooltip(addr || '(no address)', { direction: 'top' });
     window._mktPropLayer.addLayer(mk);
   }

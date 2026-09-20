@@ -33370,7 +33370,7 @@ window._mapSectionOpen = function () {
           window._mapSectionObj.addControl(new AreasCtl());
         } catch (e) {}
       }
-      setTimeout(function () { if (window._mapSectionObj) window._mapSectionObj.invalidateSize(); window._mapSectionRender(firstBuild); if (typeof _mapAreasPullAndRender === 'function') _mapAreasPullAndRender(); }, 60);
+      setTimeout(function () { if (window._mapSectionObj) window._mapSectionObj.invalidateSize(); window._mapSectionRender(firstBuild); if (typeof _mapAreasPullAndRender === 'function') _mapAreasPullAndRender(); if (typeof _listAreasLoad === 'function') { _listAreasLoad().then(function () { if (typeof window._mapRenderChips === 'function') window._mapRenderChips(); }); } }, 60);
     });
   });
 };
@@ -33380,19 +33380,23 @@ window._mapLayers = window._mapLayers || { buyer: true, prop: true };
 window._mapCounts = window._mapCounts || {};
 // Lists filter state: per-flag Or/And selection map (g[flag]='or'|'and') + a
 // Contacted on/off toggle.
-window._mapLists = window._mapLists || { g: {}, contacted: false };
+window._mapLists = window._mapLists || { g: {}, ag: {}, contacted: false };
 if (!window._mapLists.g || typeof window._mapLists.g !== 'object') window._mapLists.g = {};
-// Keep the Lists header pill + flags-dropdown summary styling in sync without a
-// full chip re-render (so the open flags dropdown stays open while ticking boxes).
+if (!window._mapLists.ag || typeof window._mapLists.ag !== 'object') window._mapLists.ag = {};
+// Keep the Lists header pill + Flags/Areas dropdown summary styling in sync without
+// a full chip re-render (so an open dropdown stays open while ticking boxes).
 function _mapListsSyncHead() {
   var color = '#06b6d4';
-  var L = window._mapLists || { g: {}, contacted: false };
+  var L = window._mapLists || { g: {}, ag: {}, contacted: false };
   var n = L.g ? Object.keys(L.g).length : 0;
-  var active = n > 0 || L.contacted;
+  var na = L.ag ? Object.keys(L.ag).length : 0;
+  var active = n > 0 || na > 0 || L.contacted;
   var h = document.getElementById('map-lists-head');
   if (h) { h.style.background = active ? color + '26' : 'transparent'; h.style.color = active ? color : 'var(--text-dim)'; }
   var dd = document.getElementById('map-lists-dd');
   if (dd) { var s = dd.querySelector('summary'); if (s) { var on = n > 0; s.style.border = '1px solid ' + (on ? color : 'var(--border)'); s.style.background = on ? color + '22' : 'transparent'; s.style.color = on ? color : 'var(--text-dim)'; } }
+  var ddA = document.getElementById('map-lists-areas-dd');
+  if (ddA) { var sa = ddA.querySelector('summary'); if (sa) { var onA = na > 0; sa.style.border = '1px solid ' + (onA ? color : 'var(--border)'); sa.style.background = onA ? color + '22' : 'transparent'; sa.style.color = onA ? color : 'var(--text-dim)'; } }
 }
 // Toggle a flag's Or/And cell. A flag lives in one column at a time; ticking the
 // other column moves it; ticking its current column clears it. Updates the row's
@@ -33412,8 +33416,24 @@ window._mapToggleListFlagCell = function (flag, col) {
   _mapListsSyncHead();
   window._mapSectionRender(false);
 };
+// Toggle an area LABEL's Or/And cell (mirrors the flags one, on L.ag).
+window._mapToggleListAreaCell = function (label, col) {
+  var L = window._mapLists || (window._mapLists = { g: {}, ag: {}, contacted: false });
+  if (!L.ag || typeof L.ag !== 'object') L.ag = {};
+  if (L.ag[label] === col) delete L.ag[label]; else L.ag[label] = col;
+  var dd = document.getElementById('map-lists-areas-dd');
+  if (dd) {
+    dd.querySelectorAll('input[data-la]').forEach(function (inp) {
+      if (inp.getAttribute('data-la') === label) inp.checked = (L.ag[label] === inp.getAttribute('data-col'));
+    });
+  }
+  var c = document.getElementById('map-lists-areas-count');
+  if (c) { var n = Object.keys(L.ag).length; c.textContent = n ? ' (' + n + ')' : ''; }
+  _mapListsSyncHead();
+  window._mapSectionRender(false);
+};
 window._mapToggleListContacted = function () {
-  var L = window._mapLists || (window._mapLists = { g: {}, contacted: false });
+  var L = window._mapLists || (window._mapLists = { g: {}, ag: {}, contacted: false });
   L.contacted = !L.contacted;
   var color = '#06b6d4';
   var b = document.getElementById('map-lists-contacted');
@@ -33422,7 +33442,7 @@ window._mapToggleListContacted = function () {
   window._mapSectionRender(false);
 };
 window._mapClearLists = function () {
-  window._mapLists = { g: {}, contacted: false };
+  window._mapLists = { g: {}, ag: {}, contacted: false };
   window._mapRenderChips();
   window._mapSectionRender(false);
 };
@@ -33514,10 +33534,41 @@ window._mapRenderChips = function () {
       : '<div style="padding:6px 8px;font-size:11px;color:var(--text-dim);white-space:nowrap">No flags defined</div>';
     var flagsOn = selCount > 0;
     var cnt = flagsOn ? ' (' + selCount + ')' : '';
-    var dd = '<details id="map-lists-dd" style="position:relative">'
+    var dd = '<details id="map-lists-dd" style="position:relative" ontoggle="if(this.open){var o=document.getElementById(\'map-lists-areas-dd\');if(o)o.removeAttribute(\'open\');}">'
       + '<summary style="list-style:none;display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;border:1px solid ' + (flagsOn ? color : 'var(--border)') + ';background:' + (flagsOn ? color + '22' : 'transparent') + ';color:' + (flagsOn ? color : 'var(--text-dim)') + '">🚩 Flags<span id="map-lists-flags-count">' + cnt + '</span> ▾</summary>'
-      + '<div style="position:absolute;z-index:2000;top:calc(100% + 4px);left:0;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:0 0 5px 0;min-width:220px;max-height:280px;overflow:auto;box-shadow:0 6px 16px rgba(0,0,0,0.5)">' + hdr + items + '</div>'
+      + '<div style="position:absolute;z-index:2000;top:calc(100% + 4px);left:0;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:0 0 5px 0;min-width:220px;max-height:min(280px,46vh);overflow:auto;box-shadow:0 6px 16px rgba(0,0,0,0.5)">' + hdr + items + '</div>'
       + '</details>';
+    // ----- Areas dropdown (next to Flags) — same Or/And columns, on the drawn
+    // list-areas. We only filter which properties fall inside; no outlines drawn. -----
+    var ag = (L.ag && typeof L.ag === 'object') ? L.ag : (L.ag = {});
+    var _areaLabels = [];
+    (window._listAreas || []).forEach(function (a) {
+      if (!a || !Array.isArray(a.coords) || a.coords.length < 3) return;
+      var lb = (typeof _sqAreaLabelOf === 'function') ? _sqAreaLabelOf(a) : (a.label || a.name || '(unlabeled)');
+      if (lb && _areaLabels.indexOf(lb) < 0) _areaLabels.push(lb);
+    });
+    _areaLabels.sort(function (x, y) { return String(x).localeCompare(String(y)); });
+    var areaSelCount = Object.keys(ag).length;
+    var areasOn = areaSelCount > 0;
+    var aCnt = areasOn ? ' (' + areaSelCount + ')' : '';
+    var aHdr = '<div style="display:grid;' + colTmpl + ';gap:6px;align-items:center;padding:7px 8px 5px;position:sticky;top:0;z-index:1;background:var(--panel);border-bottom:1px solid var(--border);font-size:9.5px;font-weight:800;letter-spacing:.4px;color:var(--text-dim);text-transform:uppercase"><span style="text-align:center">Or</span><span style="text-align:center">And</span><span>Label</span></div>';
+    var aItems = _areaLabels.length
+      ? _areaLabels.map(function (lb) {
+          var sel = ag[lb] || '';
+          var cb = function (col) {
+            return '<span style="display:flex;justify-content:center"><input type="checkbox" ' + (sel === col ? 'checked' : '') + ' data-la="' + esc(lb) + '" data-col="' + col + '" onclick="event.stopPropagation();_mapToggleListAreaCell(this.getAttribute(\'data-la\'),\'' + col + '\')" style="cursor:pointer;margin:0"></span>';
+          };
+          return '<div style="display:grid;' + colTmpl + ';gap:6px;align-items:center;padding:3px 8px;font-size:12px;color:var(--text)">' + cb('or') + cb('and') + '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(lb) + '</span></div>';
+        }).join('')
+      : '<div style="padding:6px 8px;font-size:11px;color:var(--text-dim);white-space:nowrap">No areas yet — draw some in Marketing → Areas</div>';
+    var ddArea = '<details id="map-lists-areas-dd" style="position:relative" ontoggle="if(this.open){var o=document.getElementById(\'map-lists-dd\');if(o)o.removeAttribute(\'open\');}">'
+      + '<summary style="list-style:none;display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;border:1px solid ' + (areasOn ? color : 'var(--border)') + ';background:' + (areasOn ? color + '22' : 'transparent') + ';color:' + (areasOn ? color : 'var(--text-dim)') + '">🗺️ Areas<span id="map-lists-areas-count">' + aCnt + '</span> ▾</summary>'
+      + '<div style="position:absolute;z-index:2000;top:calc(100% + 4px);right:0;left:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:0 0 5px 0;min-width:220px;max-height:min(280px,46vh);overflow:auto;box-shadow:0 6px 16px rgba(0,0,0,0.5)">' + aHdr + aItems + '</div>'
+      + '</details>';
+    // Pull the drawn areas if they haven't loaded yet, then re-render so labels show.
+    if (!_areaLabels.length && (!window._listAreas || !window._listAreas.length) && typeof _listAreasLoad === 'function') {
+      _listAreasLoad().then(function () { if (window._listAreas && window._listAreas.length) window._mapRenderChips(); });
+    }
     // Contacted is a PROMOTED chip on the top row next to the Lists header — same
     // squarer/uppercase treatment ANALYZED gets in the Properties section.
     var con = '<button type="button" id="map-lists-contacted" onclick="_mapToggleListContacted()" title="Only properties with a logged call (Contacted)" '
@@ -33525,7 +33576,7 @@ window._mapRenderChips = function () {
     el.insertAdjacentHTML('beforeend',
       '<div style="display:flex;flex-direction:column;gap:6px;padding:6px 10px;border-radius:12px;border:1px solid ' + color + '44;background:' + color + '0d;flex:0 1 auto;min-width:0">'
       + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + head + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + con + '</div></div>'
-      + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + dd + '</div>'
+      + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + dd + ddArea + '</div>'
       + '</div>');
   })();
 };
@@ -33966,10 +34017,37 @@ window._mapSectionRender = function (fit) {
       var zp = u.zip || (u.data && u.data['uw-zip']) || '';
       try { return _listsPropIdx.find(st, zp); } catch (e) { return null; }
     };
+    // ----- Area filter (drawn list-areas) — narrows property pins by point-in-
+    // polygon on the pin's lat/lng. Or = inside ANY or-label; And = inside ALL
+    // and-labels. No outlines are drawn on this map — filter only. -----
+    var _ag = (_L && _L.ag && typeof _L.ag === 'object') ? _L.ag : {};
+    var _areaOrLabels = Object.keys(_ag).filter(function (k) { return _ag[k] === 'or'; });
+    var _areaAndLabels = Object.keys(_ag).filter(function (k) { return _ag[k] === 'and'; });
+    var _areaActive = _areaOrLabels.length > 0 || _areaAndLabels.length > 0;
+    var _areaPolys = {};
+    if (_areaActive) {
+      (window._listAreas || []).forEach(function (a) {
+        if (!a || !Array.isArray(a.coords) || a.coords.length < 3) return;
+        var lb = (typeof _sqAreaLabelOf === 'function') ? _sqAreaLabelOf(a) : (a.label || a.name || '(unlabeled)');
+        if (_areaOrLabels.indexOf(lb) < 0 && _areaAndLabels.indexOf(lb) < 0) return;
+        (_areaPolys[lb] || (_areaPolys[lb] = [])).push(a.coords);
+      });
+    }
+    var _inAreaLabel = function (la, lo, lab) {
+      var polys = _areaPolys[lab] || [];
+      for (var pi = 0; pi < polys.length; pi++) { if (typeof _sqPtInRing === 'function' && _sqPtInRing(la, lo, polys[pi])) return true; }
+      return false;
+    };
+    var _narrowActive = _listsActive || _areaActive;
     Object.values(cache.underwrites || {}).forEach(function (u) {
       if (!u || u.deleted_at) return;
       var _pcats = window._mapPropCats(u);
       var _dcats = window._mapDispoCats(u);
+      // Coordinates first — the area (point-in-polygon) filter needs them.
+      var dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
+      var la = (dc && dc.lat != null) ? Number(dc.lat) : (u.uw_lat != null ? Number(u.uw_lat) : NaN);
+      var lo = (dc && dc.lng != null) ? Number(dc.lng) : (u.uw_lng != null ? Number(u.uw_lng) : NaN);
+      if (!isFinite(la) || !isFinite(lo)) return;
       // "Priced" is a NARROWING modifier (AND), not another OR category: when it's
       // selected, only priced properties show — combined with whatever category
       // chips (Analyzed / Hot / …) are also selected.
@@ -33979,32 +34057,32 @@ window._mapSectionRender = function (fit) {
       var _catMatch = (_catChips.indexOf('all') >= 0 || _catChips.length === 0)
         ? true
         : _catChips.some(function (c) { return _pcats.indexOf(c) >= 0; });
-      // Lists filter — a NARROWING (AND) modifier on property pins, like Priced.
-      // Flags = property has ANY of the selected flags; Contacted = property has a
-      // logged call. Only computed when the Lists filter is active.
+      // Lists filter — Flags (any Or / all And) + Contacted. NARROWS property pins.
       var _listsMatch = true;
       if (_listsActive) {
         var _lpid = _listsPidFor(u);
         var _lpf = (_lpid && cache.properties[_lpid] && cache.properties[_lpid].flags) || {};
-        // And-checked flags are all required; Or-checked flags — any one qualifies.
-        // Final = (all And) AND (any Or).
         if (_andFlags.length) _listsMatch = _andFlags.every(function (f) { return _lpf[f] === true; });
         if (_listsMatch && _orFlags.length) _listsMatch = _orFlags.some(function (f) { return _lpf[f] === true; });
         if (_listsMatch && _listsContacted) {
           _listsMatch = !!(_lpid && _listsContactedSet && _listsContactedSet.has(_lpid));
         }
       }
-      var pMatch = _catMatch && (!_pricedOn || _isPriced) && (_listsActive ? _listsMatch : true);
-      // Property chips (Priced / Analyzed / Hot / … / Lists) only filter PROPERTY
-      // pins. Disposition pins are governed solely by the dispo chips — untouched.
+      // Area filter — point-in-polygon: (all And-labels) AND (any Or-label).
+      var _areaMatch = true;
+      if (_areaActive) {
+        if (_areaAndLabels.length) _areaMatch = _areaAndLabels.every(function (lab) { return _inAreaLabel(la, lo, lab); });
+        if (_areaMatch && _areaOrLabels.length) _areaMatch = _areaOrLabels.some(function (lab) { return _inAreaLabel(la, lo, lab); });
+      }
+      var _propNarrow = (_listsActive ? _listsMatch : true) && (_areaActive ? _areaMatch : true);
+      var pMatch = _catMatch && (!_pricedOn || _isPriced) && _propNarrow;
+      // Property chips + Lists (flags/contacted) + Areas narrow PROPERTY pins only.
+      // Disposition pins are governed solely by the dispo chips — untouched.
       var dMatch = _dChips.some(function (c) { return _dcats.indexOf(c) >= 0; });
-      // When the Properties layer is ON: show all (no chips) or anything matching a
-      // selected prop/dispo chip. When it's OFF: keep only dispo-selected properties up.
-      // Lists (when active) narrows the property side even if no chips are selected.
       var _showThis = showProps
         ? ((_pChips.length || _dChips.length)
             ? (pMatch || dMatch)
-            : (_listsActive ? (_listsMatch || dMatch) : true))
+            : (_narrowActive ? (_propNarrow || dMatch) : true))
         : dMatch;
       if (!_showThis) return;
       // Live-typed filter: address / city / seller-contact name.
@@ -34014,10 +34092,6 @@ window._mapSectionRender = function (fit) {
         var _phay = ((u.address || (u.data && u.data['uw-address']) || '') + ' ' + [u.city, u.state, u.zip].filter(Boolean).join(' ') + ' ' + _pseller).toLowerCase();
         if (_phay.indexOf(_plq) < 0) return;
       }
-      var dc = (typeof _dispoGetDealCoords === 'function') ? _dispoGetDealCoords(u) : null;
-      var la = (dc && dc.lat != null) ? Number(dc.lat) : (u.uw_lat != null ? Number(u.uw_lat) : NaN);
-      var lo = (dc && dc.lng != null) ? Number(dc.lng) : (u.uw_lng != null ? Number(u.uw_lng) : NaN);
-      if (!isFinite(la) || !isFinite(lo)) return;
       propPins++; bounds.push([la, lo]);
       var addr = u.address || (u.data && u.data['uw-address']) || '(no address)';
       var loc = [u.city, u.state, u.zip].filter(Boolean).join(', ');

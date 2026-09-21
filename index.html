@@ -3516,7 +3516,7 @@
             <input type="text" inputmode="numeric" id="uw-asking" oninput="_uwCommaFmt(this);uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
           </span>
         </label>
-        <label class="text-xs">Offer <input type="checkbox" id="uw-use-offer-price" onclick="event.stopPropagation()" onchange="if(typeof _uwQueueAutosave==='function')_uwQueueAutosave(true); if(typeof _uwFlushAutosave==='function')_uwFlushAutosave(); if(typeof renderUnderwriteList==='function')renderUnderwriteList();" title="When checked, this deal uses the Offer amount as its price (map / Hot Lowest-Price filters), ignoring the normal lowest-price logic." style="margin:0 0 0 5px;width:13px;height:13px;vertical-align:middle;cursor:pointer">
+        <label class="text-xs">Offer <input type="checkbox" id="uw-use-offer-price" onclick="event.stopPropagation()" onchange="if(typeof uwRecalc==='function')uwRecalc(); if(typeof _uwQueueAutosave==='function')_uwQueueAutosave(true); if(typeof _uwFlushAutosave==='function')_uwFlushAutosave(); if(typeof renderUnderwriteList==='function')renderUnderwriteList();" title="When checked, this deal uses the Offer amount as the purchase price in ALL calculations (Commission, exits, cost basis) and the map / Hot Lowest-Price filters — ignoring the Accepted price and the normal lowest-price logic." style="margin:0 0 0 5px;width:13px;height:13px;vertical-align:middle;cursor:pointer">
           <span style="display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;height:54px;margin-top:4px;padding:0 14px;gap:3px">
             <span style="color:var(--text-dim);font-size:18px;font-weight:600;line-height:1">$</span>
             <input type="text" inputmode="numeric" id="uw-offer" oninput="_uwCommaFmt(this);uwRecalc()" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:600;text-align:left;color:var(--text);width:100%;min-width:0;padding:0;height:100%">
@@ -12371,6 +12371,20 @@ function uwRecalcAsIs() {
 }
 window.uwRecalcAsIs = uwRecalcAsIs;
 
+// "Use Offer as price" override: when the checkbox next to Offer is on, force the
+// Offer amount as the purchase price used in every calculation, regardless of the
+// Accepted price. Otherwise return the caller's normal value unchanged (so default
+// behavior is untouched).
+function _uwBuyOverride(normal) {
+  const el = document.getElementById('uw-use-offer-price');
+  if (el && el.checked) {
+    const o = document.getElementById('uw-offer');
+    const ov = o ? parseFloat(String(o.value).replace(/[^0-9.]/g, '')) : NaN;
+    if (isFinite(ov) && ov > 0) return ov;
+  }
+  return normal;
+}
+window._uwBuyOverride = _uwBuyOverride;
 function uwRecalc() {
   // Make sure comp icons are in the right state (grey vs active)
   if (typeof uwInitCompLinks === 'function') uwInitCompLinks();
@@ -12388,7 +12402,8 @@ function uwRecalc() {
   // Effective buy price: when the seller has accepted a number, that's the
   // REAL price we'll pay → use it for all profit/cost/exit math. Fall back to
   // offer (what we proposed) when nothing is accepted yet.
-  const effectiveBuy = accepted || offer || 0;
+  // When "Use Offer as price" is checked, force the Offer amount instead.
+  const effectiveBuy = _uwBuyOverride(accepted || offer || 0);
   // Hoisted: buyPrice was originally declared further down (right before the
   // exit-card section). Moved up here so the mode-aware closing math can use
   // it. Ordering = accepted ?? offer ?? asking — same precedence as before.
@@ -12784,7 +12799,10 @@ function uwRecalc() {
   _uwSet('uw-max', _hasComps ? _uwFmt$(maxOffer) : '—');
   // Commission = 15% × (Max Offer − Accepted Price). Falls back to Asking when
   // Accepted is blank, since we need *some* expected purchase price to subtract.
-  const commissionBasis = accepted > 0 ? accepted : asking;
+  // "Use Offer as price" forces the Offer amount as the basis.
+  const _useOfferPx = !!document.getElementById('uw-use-offer-price')?.checked;
+  const commissionBasis = _uwBuyOverride(accepted > 0 ? accepted : asking);
+  const _commBasisLabel = (_useOfferPx && offer > 0) ? 'Offer $' : (accepted > 0 ? 'Accepted $' : 'Asking $');
   const commission = (maxOffer > 0 && commissionBasis > 0) ? (maxOffer - commissionBasis) * 0.15 : 0;
   const commEl = document.getElementById('uw-commission');
   if (commEl) {
@@ -12792,7 +12810,7 @@ function uwRecalc() {
     commEl.style.color = commission > 0 ? '#3b82f6' : (commission < 0 ? '#ef4444' : 'var(--text-dim)');
     commEl.title = (maxOffer > 0 && commissionBasis > 0)
       ? '15% × (Max Offer $' + Math.round(maxOffer).toLocaleString() + ' − ' +
-        (accepted > 0 ? 'Accepted $' : 'Asking $') + Math.round(commissionBasis).toLocaleString() +
+        _commBasisLabel + Math.round(commissionBasis).toLocaleString() +
         ') = $' + Math.round(commission).toLocaleString()
       : 'Fills once Max Offer and Accepted (or Asking) Price are computed.';
   }
@@ -15996,7 +16014,8 @@ function uwComputeExits(ctx) {
       // Commission = 15% × (Max Offer − Accepted/Asking). Recompute here so
       // it reflects the NEW max offer (uwRecalc's earlier commission used
       // the now-stale max-offer formula).
-      const _commBasis = accepted > 0 ? accepted : asking;
+      const _commBasis = _uwBuyOverride(accepted > 0 ? accepted : asking);
+      const _useOfferPx2 = !!document.getElementById('uw-use-offer-price')?.checked;
       const _commEl = document.getElementById('uw-commission');
       if (_commEl) {
         if (_commBasis > 0) {
@@ -16004,7 +16023,7 @@ function uwComputeExits(ctx) {
           _commEl.textContent = (_comm < 0 ? '−$' : '$') + Math.round(Math.abs(_comm)).toLocaleString();
           _commEl.style.color = _comm > 0 ? '#3b82f6' : (_comm < 0 ? '#ef4444' : 'var(--text-dim)');
           _commEl.title = '15% × (Max Offer ' + fmt$(newMaxOffer) + ' − ' +
-            (accepted > 0 ? 'Accepted ' : 'Asking ') + fmt$(_commBasis) + ') = ' +
+            ((_useOfferPx2 && offer > 0) ? 'Offer ' : (accepted > 0 ? 'Accepted ' : 'Asking ')) + fmt$(_commBasis) + ') = ' +
             (_comm < 0 ? '−$' : '$') + Math.round(Math.abs(_comm)).toLocaleString();
         } else {
           _commEl.textContent = '—';
@@ -18748,7 +18767,7 @@ function _uwComputeMaxOfferFromData(data) {
   }
   // Buy price (used to seed wholetail / flip estimates only — Max Offer
   // itself is independent of buy price)
-  const buyPrice = N('uw-accepted', 0) || N('uw-asking', 0) || 0;
+  const buyPrice = _uwBuyOverride(N('uw-accepted', 0) || N('uw-asking', 0) || 0);
   // ===== Wholesale ceiling — mirror live cascade =====
   // cashBuyerMAO = ARV − rehab − 3% buy close − 3% ARV sell close − 5% ARV
   //                agents − holding (3% ARV/yr × months + $150/mo ins) − IFP %
@@ -18815,7 +18834,7 @@ function _uwComputeWholesaleProfitFromData(data) {
   const arv = _uwComputeArvFromData(data);
   if (arv <= 0) return 0;
   // Buy price = accepted ?? asking
-  const buyPrice = N('uw-accepted', 0) || N('uw-asking', 0) || 0;
+  const buyPrice = _uwBuyOverride(N('uw-accepted', 0) || N('uw-asking', 0) || 0);
   if (buyPrice <= 0) return 0;
   // Flip-grade rehab: override > rehab calculator (with contingency) > flip rehab field
   let fRehab = N('uw-rehab-override', 0);
@@ -18887,7 +18906,7 @@ function _uwComputeCashRentalFromData(data) {
   // display, and the OTHER mode's override is ignored.
   const arv = _uwComputeArvFromData(data);
   if (arv <= 0) return empty;
-  const buyPrice = N('uw-accepted', 0) || N('uw-asking', 0) || 0;
+  const buyPrice = _uwBuyOverride(N('uw-accepted', 0) || N('uw-asking', 0) || 0);
   if (buyPrice <= 0) return empty;
   // Rent — mirror _uwComputeRentFromData priority
   let rent = N('uw-ravg-override', 0);
@@ -18924,14 +18943,14 @@ function _uwComputeCashRentalFromData(data) {
     if (rRehab <= 0) rRehab = N('uw-rehab-rental', 0) || N('uw-rehab-flip', 0) || N('uw-rehab-cost', 0);
   }
   // Closing: 1.5% buyer + 1.5% seller (= 3% of buy price)
-  const rtPurchClosingTotal = (N('uw-accepted', 0) || N('uw-asking', 0) || buyPrice) * 0.03;
+  const rtPurchClosingTotal = _uwBuyOverride(N('uw-accepted', 0) || N('uw-asking', 0) || buyPrice) * 0.03;
   // Operating costs
   const rtVac   = rent * (N('uw-rt-vac-pct',  10) / 100);
   const rtMaint = rent * (N('uw-rt-maint-pct', 5) / 100);
   const rtCapex = rent * (N('uw-rt-capex-pct', 5) / 100);
   const rtPm    = rent * (N('uw-rt-pm-pct',   10) / 100);
   const rtIns   = (arv * 0.01) / 12; // 1% ARV/yr
-  const wtTaxBasis = N('uw-accepted', 0) || N('uw-asking', 0) || 0;
+  const wtTaxBasis = _uwBuyOverride(N('uw-accepted', 0) || N('uw-asking', 0) || 0);
   const rtTaxCash  = (arv * 0.01) / 12; // 1% ARV/yr
   // Pre-rent holding (no mortgage in cash mode)
   const rtPreRentMo = N('uw-rt-reno-mo', 1) + N('uw-rt-rent-mo', 1);

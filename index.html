@@ -59196,6 +59196,48 @@ window._rcMoveBasicItem = function(groupIdx, name, dir){
   _rcSaveGroupOrder();
   if(typeof recalc === 'function') recalc();
 };
+// Drop-reorder: move dragName so it lands right before targetName (same unit only).
+function _rcDropReorder(groupIdx, dragName, targetName){
+  const g = basicGroups[groupIdx];
+  if(!g || !Array.isArray(g.items) || dragName === targetName) return;
+  const from = g.items.indexOf(dragName);
+  if(from < 0) return;
+  g.items.splice(from, 1);
+  const to = g.items.indexOf(targetName);
+  if(to < 0){ g.items.splice(from, 0, dragName); return; }   // target vanished — put it back
+  g.items.splice(to, 0, dragName);
+  _rcSaveGroupOrder();
+  if(typeof recalc === 'function') recalc();
+}
+// Wire drag-and-drop once (delegated on the stable #basicGroups container).
+function _rcWireDrag(){
+  const root = document.getElementById('basicGroups');
+  if(!root || root._rcDragWired) return;
+  root._rcDragWired = true;
+  const clearHints = () => root.querySelectorAll('[data-rc-row-name]').forEach(r => { r.style.borderTop=''; });
+  root.addEventListener('dragstart', e => {
+    const h = e.target.closest && e.target.closest('.rc-drag'); if(!h) return;
+    window._rcDrag = { group:h.getAttribute('data-rc-move-group'), name:h.getAttribute('data-rc-move-name'), unit:h.getAttribute('data-rc-move-unit') };
+    try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', window._rcDrag.name); }catch(_){}
+  });
+  root.addEventListener('dragover', e => {
+    const d = window._rcDrag; if(!d) return;
+    const row = e.target.closest && e.target.closest('[data-rc-row-name]'); if(!row) return;
+    if(row.getAttribute('data-rc-row-group')!==d.group || row.getAttribute('data-rc-row-unit')!==d.unit) return;
+    e.preventDefault(); try{ e.dataTransfer.dropEffect='move'; }catch(_){}
+    clearHints(); row.style.borderTop='2px solid #10b981';
+  });
+  root.addEventListener('drop', e => {
+    const d = window._rcDrag; window._rcDrag = null; clearHints();
+    if(!d) return;
+    const row = e.target.closest && e.target.closest('[data-rc-row-name]'); if(!row) return;
+    if(row.getAttribute('data-rc-row-group')!==d.group || row.getAttribute('data-rc-row-unit')!==d.unit) return;
+    e.preventDefault();
+    _rcDropReorder(parseInt(d.group,10), d.name, row.getAttribute('data-rc-row-name'));
+  });
+  root.addEventListener('dragend', () => { window._rcDrag = null; clearHints(); });
+}
+window._rcWireDrag = _rcWireDrag;
 // Snapshot the original built-in items list per basic group on first run,
 // so we can detect user-added items even after merging from localStorage.
 function _rcSnapshotGroupOrigItems(){
@@ -60194,14 +60236,19 @@ function renderBasic(){
         const hrCell = editing
           ? `<input type="text" inputmode="decimal" data-cost-cat="${f.cat}" data-cost-idx="${itemIdx}" data-cost-field="hr" value="${Math.round(f.item.hr||0)}" onclick="event.stopPropagation()" style="width:60px;background:var(--panel-2);border:1px solid #a5b4fc;color:#c4b5fd;font-size:12px;padding:2px 5px;text-align:right;border-radius:3px;font-family:monospace" title="Labor $/hr (crew rate). Hours = Labor ÷ this — currently ${f.item.hr>0?Math.round(c.hrs)+'h':'—'}">`
           : `<span style="width:28px;text-align:right;color:#c4b5fd;font-family:monospace;font-size:11px;${dimStyle}">${f.item.hr>0?Math.round(c.hrs)+'h':'—'}</span>`;
-        const _rcNm = name.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+        const _rcNmJs = name.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+        const _rcNmAttr = name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+        const _rcUnit = f.item.u==='$/SF' ? 'sf' : 'flat';
         const reorderCell = editing
-          ? `<span style="display:inline-flex;flex-direction:column;flex-shrink:0;line-height:1;margin-right:1px">
-               <button type="button" onclick="event.stopPropagation();event.preventDefault();window._rcMoveBasicItem&&window._rcMoveBasicItem(${idx},'${_rcNm}',-1)" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:10px;line-height:0.9;padding:0 1px" title="Move this item up">▲</button>
-               <button type="button" onclick="event.stopPropagation();event.preventDefault();window._rcMoveBasicItem&&window._rcMoveBasicItem(${idx},'${_rcNm}',1)" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:10px;line-height:0.9;padding:0 1px" title="Move this item down">▼</button>
+          ? `<span style="display:inline-flex;align-items:center;flex-shrink:0;gap:1px;margin-right:1px">
+               <span class="rc-drag" draggable="true" data-rc-move-group="${idx}" data-rc-move-name="${_rcNmAttr}" data-rc-move-unit="${_rcUnit}" onclick="event.stopPropagation();event.preventDefault()" style="cursor:grab;color:#64748b;font-size:12px;line-height:1;user-select:none;padding:0 2px" title="Drag to reorder">⠿</span>
+               <span style="display:inline-flex;flex-direction:column;line-height:1">
+                 <button type="button" onclick="event.stopPropagation();event.preventDefault();window._rcMoveBasicItem&&window._rcMoveBasicItem(${idx},'${_rcNmJs}',-1)" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:10px;line-height:0.9;padding:0 1px" title="Move this item up">▲</button>
+                 <button type="button" onclick="event.stopPropagation();event.preventDefault();window._rcMoveBasicItem&&window._rcMoveBasicItem(${idx},'${_rcNmJs}',1)" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:10px;line-height:0.9;padding:0 1px" title="Move this item down">▼</button>
+               </span>
              </span>`
           : '';
-        const rowHtml = `<label style="display:flex;align-items:center;gap:6px;padding:${editing?'7px':'5px'} 0;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)">
+        const rowHtml = `<label ${editing?`data-rc-row-group="${idx}" data-rc-row-name="${_rcNmAttr}" data-rc-row-unit="${_rcUnit}"`:''} style="display:flex;align-items:center;gap:6px;padding:${editing?'7px':'5px'} 0;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)">
           ${reorderCell}<input type="checkbox" data-cat="${f.cat}" data-idx="${itemIdx}" ${onState?'checked':''} style="accent-color:#10b981;width:${editing?'15':'13'}px;height:${editing?'15':'13'}px;flex-shrink:0" onclick="event.stopPropagation()">
           <span style="flex:1;color:${onState?'var(--text)':'var(--text-dim)'};${onState?'':'opacity:0.6'};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:5px">${nameCell}${userBadge}${autoToggleBtn}${countBadge}${deleteBtn}</span>
           ${rateCell}
@@ -61181,6 +61228,7 @@ if (_rcRoot && document.getElementById('basicGroups')) {
   loadLabRates();
   renderCategoryRows();
   recalc();
+  if(typeof _rcWireDrag === 'function') _rcWireDrag();
   _rcApplyRecsCollapse();
   _rcRenderCustomPresets();
 }

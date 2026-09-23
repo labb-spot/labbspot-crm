@@ -4465,6 +4465,7 @@
           <button type="button" id="rc-lab-edit-btn" onclick="window._rcToggleLabEditMode && window._rcToggleLabEditMode()" class="btn btn-ghost text-xs" style="display:none;padding:4px 10px;font-size:11px;font-weight:600" title="Toggle LAB Custom Edit Mode — unlocks rate cells for editing">🔒 Edit Mode: OFF</button>
           <button type="button" id="rc-edit-presets-btn" onclick="window._rcTogglePresetEdit && window._rcTogglePresetEdit()" class="btn btn-ghost text-xs" style="padding:4px 10px;font-size:11px;font-weight:600;border-color:#a855f7;color:#c4b5fd" title="Edit what's in each Quick Preset. GLOBAL — the change applies to every deal and every employee. Click this, pick a preset, check the items you want in it, then 💾 Save Quick Preset.">✏️ Edit Quick Presets</button>
           <button type="button" id="rc-sync-all" onclick="window._rcSyncAllNow && window._rcSyncAllNow()" class="btn btn-ghost text-xs" style="padding:4px 10px;font-size:11px;font-weight:600;border-color:#22d3ee;color:#67e8f9" title="Force-push ALL of this device's rehab customizations (custom items, groups, deletions, rate/price edits, and Quick Presets) to the cloud so every other device — iPad, employees — pulls them on next refresh. Use this device as the source of truth.">☁ Sync to Cloud</button>
+          <button type="button" id="rc-load-team" onclick="window._rcLoadTeamVersion && window._rcLoadTeamVersion()" class="btn btn-ghost text-xs" style="padding:4px 10px;font-size:11px;font-weight:600;border-color:#a78bfa;color:#c4b5fd" title="Replace THIS device's rehab items/groups with the shared cloud version — an exact copy, no guessing. Use after one device hits 'Sync to Cloud' as the master; every other device clicks this once and ends up identical. Fixes duplicates. The page refreshes when done.">⬇ Load Team Version</button>
         </div>
       </div>
 
@@ -59416,6 +59417,49 @@ function _rcApplyUserRenames(){
     });
   }catch(e){ console.warn('[_rcApplyUserRenames]', e); }
 }
+// ===== CUSTOM-ITEM RENAMES — reconcile across devices =====
+// A custom item stores by its CURRENT name, so a rename on one device leaves the
+// OLD name behind on another (the cloud merge unions both → a duplicate). We record
+// old→new so every device can safely collapse the pair back to one.
+const USER_ITEM_RENAMES_KEY = 'rehab-item-renames-v1';
+function _rcSaveCustomRename(cat, oldName, newName){
+  if(!oldName || !newName || oldName === newName) return;
+  try{
+    const map = JSON.parse(localStorage.getItem(USER_ITEM_RENAMES_KEY) || '{}');
+    Object.keys(map).forEach(k => { if(map[k] === oldName) map[k] = newName; }); // collapse chains
+    map[cat+':'+oldName] = newName;
+    localStorage.setItem(USER_ITEM_RENAMES_KEY, JSON.stringify(map));
+    if(typeof _rcUserItemRenamesSyncToCloud === 'function') _rcUserItemRenamesSyncToCloud(map);
+  }catch(e){ console.warn('[_rcSaveCustomRename]', e); }
+}
+function _rcApplyCustomRenames(){
+  try{
+    const map = JSON.parse(localStorage.getItem(USER_ITEM_RENAMES_KEY) || '{}');
+    Object.keys(map).forEach(fullKey => {
+      const ci = fullKey.indexOf(':'); if(ci < 0) return;
+      const cat = fullKey.slice(0, ci), oldName = fullKey.slice(ci+1), newName = map[fullKey];
+      if(!items[cat] || !newName || oldName === newName) return;
+      const oldIdx = items[cat].findIndex(x => x.n === oldName && x._user);
+      if(oldIdx < 0) return;                                 // nothing to reconcile
+      const hasNew = items[cat].some(x => x.n === newName && x._user);
+      if(hasNew){
+        // Both present → the old name is the stale duplicate. Drop it + its group
+        // refs (the new-named item already carries the real settings).
+        items[cat].splice(oldIdx, 1);
+        basicGroups.forEach(g=>{
+          if(Array.isArray(g.items)){ const i=g.items.indexOf(oldName); if(i>=0) g.items.splice(i,1); }
+          if(Array.isArray(g.auto)){  const a=g.auto.indexOf(oldName);  if(a>=0) g.auto.splice(a,1); }
+        });
+      } else {
+        // Only the old name is here (this device missed the rename) → apply it.
+        items[cat][oldIdx].n = newName;
+        _rcRewireName(cat, oldName, newName);
+      }
+    });
+    if(typeof _rcDedupeGroups === 'function') _rcDedupeGroups();
+  }catch(e){ console.warn('[_rcApplyCustomRenames]', e); }
+}
+window._rcApplyCustomRenames = _rcApplyCustomRenames;
 // Interactive rename from Edit Mode.
 window._rcRenameItem = function(cat, idx, newName){
   if(!items[cat] || !items[cat][idx]){ return; }
@@ -59430,7 +59474,9 @@ window._rcRenameItem = function(cat, idx, newName){
   it.n = newName;
   _rcRewireName(cat, oldName, newName);
   if(it._user){
-    // Custom item — stored by name, so the new name persists directly.
+    // Custom item — stored by name, so the new name persists directly. Also record
+    // old→new so other devices collapse the stale old-name copy instead of showing two.
+    _rcSaveCustomRename(cat, oldName, newName);
     _rcSaveUserItems();
     _rcSaveUserGroups();
     _rcSaveUserAuto();
@@ -59696,6 +59742,13 @@ function _rcUserRenamesSyncToCloud(payload) {
 }
 window._rcUserRenamesSyncToCloud = _rcUserRenamesSyncToCloud;
 
+let _rcUserItemRenamesCloudTimer = null;
+function _rcUserItemRenamesSyncToCloud(payload) {
+  if (_rcUserItemRenamesCloudTimer) clearTimeout(_rcUserItemRenamesCloudTimer);
+  _rcUserItemRenamesCloudTimer = setTimeout(() => { _rcUserItemRenamesCloudTimer = null; _rcPushToAppConfig('rehab_item_renames', payload); }, 600);
+}
+window._rcUserItemRenamesSyncToCloud = _rcUserItemRenamesSyncToCloud;
+
 let _rcUserTrashCloudTimer = null;
 function _rcUserTrashSyncToCloud(payload) {
   if (_rcUserTrashCloudTimer) clearTimeout(_rcUserTrashCloudTimer);
@@ -59716,6 +59769,7 @@ function _rcUserCustomHydrateFromCloud() {
     const cloudRenames = map.rehab_user_renames || null;
     const cloudTrash   = map.rehab_user_trash   || null;
     const cloudOrder   = map.rehab_group_order  || null;
+    const cloudItemRenames = map.rehab_item_renames || null;
     // MERGE, never overwrite. A blind overwrite here used to wipe custom items
     // that were added on this device but hadn't finished syncing to the cloud
     // yet (the sync is debounced 600ms — a quick push+reload beats it, and the
@@ -59758,6 +59812,11 @@ function _rcUserCustomHydrateFromCloud() {
       const merged = Object.assign({}, _readLS(USER_RENAMES_KEY), (cloudRenames && typeof cloudRenames === 'object') ? cloudRenames : {});
       try { localStorage.setItem(USER_RENAMES_KEY, JSON.stringify(merged)); } catch (_) {}
     }
+    // Custom-item renames: union the old→new maps so the pair collapses to one.
+    if (cloudItemRenames || Object.keys(_readLS(USER_ITEM_RENAMES_KEY)).length) {
+      const merged = Object.assign({}, _readLS(USER_ITEM_RENAMES_KEY), (cloudItemRenames && typeof cloudItemRenames === 'object') ? cloudItemRenames : {});
+      try { localStorage.setItem(USER_ITEM_RENAMES_KEY, JSON.stringify(merged)); } catch (_) {}
+    }
     // Trash (deleted items): union by entry id so a delete made here but not yet
     // synced isn't clobbered by a stale cloud copy.
     {
@@ -59779,6 +59838,7 @@ function _rcUserCustomHydrateFromCloud() {
       Object.keys(items).forEach(cat => items[cat].forEach(it => { if(it._origN === undefined) it._origN = it.n; }));
       if (typeof _rcApplyUserRenames === 'function') _rcApplyUserRenames();
       if (typeof _rcLoadUserGroups  === 'function') _rcLoadUserGroups();
+      if (typeof _rcApplyCustomRenames === 'function') _rcApplyCustomRenames();
       if (typeof _rcLoadGroupOrder  === 'function') _rcLoadGroupOrder();
       if (typeof _rcLoadUserAuto    === 'function') _rcLoadUserAuto();
       if (typeof _rcApplyTrash       === 'function') _rcApplyTrash();
@@ -59808,6 +59868,7 @@ window._rcSyncAllNow = function(){
       rehab_group_order:  readObj(USER_ORDER_KEY),
       rehab_user_auto:    readObj(USER_AUTO_KEY),
       rehab_user_renames: readObj(USER_RENAMES_KEY),
+      rehab_item_renames: readObj(USER_ITEM_RENAMES_KEY),
       rehab_user_trash:   readArr(USER_TRASH_KEY),
       rehab_price_book:   (typeof _uwRehabPriceBookGet === 'function') ? _uwRehabPriceBookGet() : readObj(_UW_REHAB_PRICEBOOK_KEY),
       rehab_preset_overrides: (typeof presets === 'object' && presets) ? presets : {}
@@ -59830,6 +59891,41 @@ window._rcSyncAllNow = function(){
       }
     });
   } catch(e){ if (btn){ btn.disabled = false; } alert('Sync failed: ' + (e && e.message || 'unknown')); }
+};
+// ----- Replace THIS device with the shared cloud version (exact copy) -----
+// Deterministic: no dedupe/guessing. Copies the cloud master into local storage,
+// then refreshes. Use after ONE device has Synced to Cloud as the source of truth —
+// every other device runs this once and ends up identical (fixes duplicates).
+window._rcLoadTeamVersion = function(){
+  const btn = document.getElementById('rc-load-team');
+  if (typeof sb === 'undefined' || !sb) { alert('Not connected to the cloud yet — try again in a few seconds.'); return; }
+  if (!confirm('Load the TEAM version from the cloud and replace this device’s rehab customizations?\n\nThis copies the shared cloud version EXACTLY (no guessing) so this device matches everyone else — the fix for duplicates. Any edits on THIS device not yet synced will be replaced.\n\nThe page refreshes when done.')) return;
+  if (btn){ btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = '⏳ Loading…'; }
+  sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle().then(({data})=>{
+    const map = (data && data.column_mappings) || {};
+    const K = {
+      rehab_user_items:   USER_ITEMS_KEY,
+      rehab_user_groups:  USER_GROUPS_KEY,
+      rehab_group_order:  USER_ORDER_KEY,
+      rehab_user_auto:    USER_AUTO_KEY,
+      rehab_user_renames: USER_RENAMES_KEY,
+      rehab_item_renames: USER_ITEM_RENAMES_KEY,
+      rehab_user_trash:   USER_TRASH_KEY
+    };
+    Object.keys(K).forEach(ck=>{
+      const v = map[ck];
+      try{
+        if(v !== undefined && v !== null) localStorage.setItem(K[ck], JSON.stringify(v));
+        else localStorage.removeItem(K[ck]);   // absent in cloud → clear locally too
+      }catch(_){}
+    });
+    try{ if(typeof _UW_REHAB_PRICEBOOK_KEY !== 'undefined' && map.rehab_price_book != null) localStorage.setItem(_UW_REHAB_PRICEBOOK_KEY, JSON.stringify(map.rehab_price_book)); }catch(_){}
+    if (typeof toast === 'function') toast('Team version loaded — refreshing…', 'ok');
+    setTimeout(()=>{ try{ location.reload(); }catch(_){} }, 600);
+  }).catch(e=>{
+    if (btn){ btn.disabled = false; btn.textContent = btn.dataset.label || '⬇ Load Team Version'; }
+    alert('Could not load the team version: ' + (e && e.message || 'unknown'));
+  });
 };
 window._rcToggleAutoForItem = function(groupIdx, itemName){
   const g = basicGroups[groupIdx];
@@ -61220,6 +61316,7 @@ if (_rcRoot && document.getElementById('basicGroups')) {
   // original is renamed to the same name → a duplicate row.
   _rcApplyUserRenames();
   _rcLoadUserGroups();
+  _rcApplyCustomRenames();
   _rcLoadGroupOrder();
   _rcLoadUserAuto();
   _rcApplyTrash();

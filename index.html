@@ -17836,11 +17836,18 @@ async function uwGenerateWholesalePacket(opts) {
     doc.autoTable({
       startY: y,
       head: [['RETURNS', '']],
-      body: [
-        ['Monthly Cashflow',                        fmt$(monthlyCashflow)],
-        ['Annual Cashflow',                         fmt$(annualCashflow)],
-        ['Cash Yield  (annual rent ÷ all-in cash)', yieldPct.toFixed(1) + '%'],
-      ],
+      body: (function () {
+        // Total Equity = ARV (what it's worth after repair) − all-in cash. In an
+        // all-cash purchase there's no debt, so this is the equity you'd hold.
+        var _equity = (Number(arv) || 0) - (Number(allIn) || 0);
+        var _equityTxt = (_equity < 0 ? '−' : '') + fmt$(Math.abs(_equity));
+        return [
+          ['Monthly Cashflow',                        fmt$(monthlyCashflow)],
+          ['Annual Cashflow',                         fmt$(annualCashflow)],
+          ['Cash Yield  (annual rent ÷ all-in cash)', yieldPct.toFixed(1) + '%'],
+          ['Total Equity  (ARV − all-in cash)',       _equityTxt],
+        ];
+      })(),
       theme: 'striped',
       headStyles: { fillColor: C_NAVY, textColor: 255, fontSize: 10, fontStyle: 'bold', cellPadding: 6 },
       bodyStyles: { fontSize: 10, textColor: C_TEXT, cellPadding: 6, fontStyle: 'bold' },
@@ -59144,6 +59151,51 @@ function _rcSaveUserGroups(){
   try{ localStorage.setItem(USER_GROUPS_KEY, JSON.stringify(out)); }catch(e){}
   if (typeof _rcUserGroupsSyncToCloud === 'function') _rcUserGroupsSyncToCloud(out);
 }
+// ===== USER ITEM ORDER (per group) — Edit-mode ▲▼ reorder =====
+// Stores the full ordered items list for any group whose order differs from the
+// default, so the Per-Square-Foot / Flat-Rate lists keep the user's arrangement.
+const USER_ORDER_KEY = 'rehab-group-order-v1';
+function _rcSaveGroupOrder(){
+  const out = {};
+  basicGroups.forEach(g => {
+    const orig = g._origItems || g.items;
+    const sameOrder = g.items.length === orig.length && g.items.every((n,i)=>n===orig[i]);
+    if(!sameOrder) out[g.n] = g.items.slice();
+  });
+  try{ localStorage.setItem(USER_ORDER_KEY, JSON.stringify(out)); }catch(e){}
+  if (typeof _rcUserOrderSyncToCloud === 'function') _rcUserOrderSyncToCloud(out);
+}
+function _rcLoadGroupOrder(){
+  try{
+    const stored = JSON.parse(localStorage.getItem(USER_ORDER_KEY) || '{}');
+    Object.keys(stored).forEach(groupName => {
+      const g = basicGroups.find(bg => bg.n === groupName);
+      if(!g || !Array.isArray(stored[groupName])) return;
+      const savedOrder = stored[groupName];
+      const present = new Set(g.items);
+      const ordered = savedOrder.filter(n => present.has(n));           // saved order, existing items
+      const remaining = g.items.filter(n => savedOrder.indexOf(n) < 0); // new/unlisted items keep their spot at the end
+      g.items = ordered.concat(remaining);
+    });
+  }catch(e){ console.warn('[_rcLoadGroupOrder]', e); }
+}
+window._rcLoadGroupOrder = _rcLoadGroupOrder;
+// Move an item up/down within its unit sub-list (SF and Flat reorder separately).
+window._rcMoveBasicItem = function(groupIdx, name, dir){
+  const g = basicGroups[groupIdx];
+  if(!g || !Array.isArray(g.items)) return;
+  const i = g.items.indexOf(name);
+  if(i < 0) return;
+  const unitOf = (nm) => { const f = (typeof findItem==='function') ? findItem(nm) : null; return (f && f.item && f.item.u === '$/SF') ? 'sf' : 'flat'; };
+  const myU = unitOf(name);
+  let j = -1;
+  if(dir < 0){ for(let k=i-1;k>=0;k--){ if(unitOf(g.items[k])===myU){ j=k; break; } } }
+  else       { for(let k=i+1;k<g.items.length;k++){ if(unitOf(g.items[k])===myU){ j=k; break; } } }
+  if(j < 0) return;   // already at the top/bottom of its sub-list
+  const tmp = g.items[i]; g.items[i] = g.items[j]; g.items[j] = tmp;
+  _rcSaveGroupOrder();
+  if(typeof recalc === 'function') recalc();
+};
 // Snapshot the original built-in items list per basic group on first run,
 // so we can detect user-added items even after merging from localStorage.
 function _rcSnapshotGroupOrigItems(){
@@ -59581,6 +59633,13 @@ function _rcUserGroupsSyncToCloud(payload) {
 }
 window._rcUserGroupsSyncToCloud = _rcUserGroupsSyncToCloud;
 
+let _rcUserOrderCloudTimer = null;
+function _rcUserOrderSyncToCloud(payload) {
+  if (_rcUserOrderCloudTimer) clearTimeout(_rcUserOrderCloudTimer);
+  _rcUserOrderCloudTimer = setTimeout(() => { _rcUserOrderCloudTimer = null; _rcPushToAppConfig('rehab_group_order', payload); }, 600);
+}
+window._rcUserOrderSyncToCloud = _rcUserOrderSyncToCloud;
+
 let _rcUserAutoCloudTimer = null;
 function _rcUserAutoSyncToCloud(payload) {
   if (_rcUserAutoCloudTimer) clearTimeout(_rcUserAutoCloudTimer);
@@ -59614,6 +59673,7 @@ function _rcUserCustomHydrateFromCloud() {
     const cloudAuto    = map.rehab_user_auto    || null;
     const cloudRenames = map.rehab_user_renames || null;
     const cloudTrash   = map.rehab_user_trash   || null;
+    const cloudOrder   = map.rehab_group_order  || null;
     // MERGE, never overwrite. A blind overwrite here used to wipe custom items
     // that were added on this device but hadn't finished syncing to the cloud
     // yet (the sync is debounced 600ms — a quick push+reload beats it, and the
@@ -59648,6 +59708,8 @@ function _rcUserCustomHydrateFromCloud() {
     // Auto overrides are a per-group replace (not an accretion), so cloud stays
     // authoritative when present — but we no longer wipe local when cloud is absent.
     if (cloudAuto && typeof cloudAuto === 'object') try { localStorage.setItem(USER_AUTO_KEY, JSON.stringify(cloudAuto)); } catch (_) {}
+    // Item order is a per-group replace (like auto) — cloud authoritative when present.
+    if (cloudOrder && typeof cloudOrder === 'object') try { localStorage.setItem(USER_ORDER_KEY, JSON.stringify(cloudOrder)); } catch (_) {}
     // Built-in renames: merge (union) the flat { "cat:orig": "new" } maps so a
     // rename made here but not yet synced isn't clobbered by a stale cloud copy.
     if (cloudRenames || Object.keys(_readLS(USER_RENAMES_KEY)).length) {
@@ -59675,6 +59737,7 @@ function _rcUserCustomHydrateFromCloud() {
       Object.keys(items).forEach(cat => items[cat].forEach(it => { if(it._origN === undefined) it._origN = it.n; }));
       if (typeof _rcApplyUserRenames === 'function') _rcApplyUserRenames();
       if (typeof _rcLoadUserGroups  === 'function') _rcLoadUserGroups();
+      if (typeof _rcLoadGroupOrder  === 'function') _rcLoadGroupOrder();
       if (typeof _rcLoadUserAuto    === 'function') _rcLoadUserAuto();
       if (typeof _rcApplyTrash       === 'function') _rcApplyTrash();
       if (typeof _rcHealCustomGroups === 'function') _rcHealCustomGroups();
@@ -59700,6 +59763,7 @@ window._rcSyncAllNow = function(){
     const patch = {
       rehab_user_items:   readObj(USER_ITEMS_KEY),
       rehab_user_groups:  readObj(USER_GROUPS_KEY),
+      rehab_group_order:  readObj(USER_ORDER_KEY),
       rehab_user_auto:    readObj(USER_AUTO_KEY),
       rehab_user_renames: readObj(USER_RENAMES_KEY),
       rehab_user_trash:   readArr(USER_TRASH_KEY),
@@ -60130,8 +60194,15 @@ function renderBasic(){
         const hrCell = editing
           ? `<input type="text" inputmode="decimal" data-cost-cat="${f.cat}" data-cost-idx="${itemIdx}" data-cost-field="hr" value="${Math.round(f.item.hr||0)}" onclick="event.stopPropagation()" style="width:60px;background:var(--panel-2);border:1px solid #a5b4fc;color:#c4b5fd;font-size:12px;padding:2px 5px;text-align:right;border-radius:3px;font-family:monospace" title="Labor $/hr (crew rate). Hours = Labor ÷ this — currently ${f.item.hr>0?Math.round(c.hrs)+'h':'—'}">`
           : `<span style="width:28px;text-align:right;color:#c4b5fd;font-family:monospace;font-size:11px;${dimStyle}">${f.item.hr>0?Math.round(c.hrs)+'h':'—'}</span>`;
+        const _rcNm = name.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+        const reorderCell = editing
+          ? `<span style="display:inline-flex;flex-direction:column;flex-shrink:0;line-height:1;margin-right:1px">
+               <button type="button" onclick="event.stopPropagation();event.preventDefault();window._rcMoveBasicItem&&window._rcMoveBasicItem(${idx},'${_rcNm}',-1)" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:10px;line-height:0.9;padding:0 1px" title="Move this item up">▲</button>
+               <button type="button" onclick="event.stopPropagation();event.preventDefault();window._rcMoveBasicItem&&window._rcMoveBasicItem(${idx},'${_rcNm}',1)" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:10px;line-height:0.9;padding:0 1px" title="Move this item down">▼</button>
+             </span>`
+          : '';
         const rowHtml = `<label style="display:flex;align-items:center;gap:6px;padding:${editing?'7px':'5px'} 0;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)">
-          <input type="checkbox" data-cat="${f.cat}" data-idx="${itemIdx}" ${onState?'checked':''} style="accent-color:#10b981;width:${editing?'15':'13'}px;height:${editing?'15':'13'}px;flex-shrink:0" onclick="event.stopPropagation()">
+          ${reorderCell}<input type="checkbox" data-cat="${f.cat}" data-idx="${itemIdx}" ${onState?'checked':''} style="accent-color:#10b981;width:${editing?'15':'13'}px;height:${editing?'15':'13'}px;flex-shrink:0" onclick="event.stopPropagation()">
           <span style="flex:1;color:${onState?'var(--text)':'var(--text-dim)'};${onState?'':'opacity:0.6'};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:5px">${nameCell}${userBadge}${autoToggleBtn}${countBadge}${deleteBtn}</span>
           ${rateCell}
           ${matCell}
@@ -61102,6 +61173,7 @@ if (_rcRoot && document.getElementById('basicGroups')) {
   // original is renamed to the same name → a duplicate row.
   _rcApplyUserRenames();
   _rcLoadUserGroups();
+  _rcLoadGroupOrder();
   _rcLoadUserAuto();
   _rcApplyTrash();
   _rcHealCustomGroups();

@@ -15089,7 +15089,7 @@ function uwComputeExits(ctx) {
         ]},
         { title: '📈 Equity Gain', rows: [
           ['Day-1 forced equity (ARV − buy − rehab)', fmt(rtForcedEquity)],
-          ['Day-1 leveraged equity (ARV − loan)', fmt(Math.max(0, arv - finLoan)), 'blue'],
+          ['Day-1 leveraged equity (ARV − Loan − Cash)', fmt(Math.max(0, arv - finLoan) - finExtraDownInCap), 'blue'],
           ['Year-1 loan paydown (principal × 12)', fmt(finPrincipal * 12)],
           ['Year-1 appreciation (' + RT_PROP_APPR_PCT + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(rtForcedEquity + (finPrincipal * 12) + rtAnnualAppreciation), 'profit'],
@@ -15157,7 +15157,7 @@ function uwComputeExits(ctx) {
         ]},
         { title: '📈 Equity Gain', rows: [
           ['Day-1 forced equity (ARV − Cash In)', fmt(Math.max(0, arv - tkFinCashPutUp))],
-          ['Day-1 leveraged equity (ARV − loan)', fmt(Math.max(0, arv - tkFinLoan)), 'blue'],
+          ['Day-1 leveraged equity (ARV − Loan − Cash)', fmt(Math.max(0, arv - tkFinLoan) - tkFinExtraDownInCap), 'blue'],
           ['Year-1 loan paydown (principal × 12)', fmt(tkFinPrincipal * 12)],
           ['Year-1 appreciation (' + RT_PROP_APPR_PCT + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(Math.max(0, arv - tkFinCashPutUp) + (tkFinPrincipal * 12) + rtAnnualAppreciation), 'profit'],

@@ -14097,7 +14097,7 @@ function uwComputeExits(ctx) {
   // mode's monthly cashflow with the loan's LTV at that future value. Rent and
   // operating costs grow with rent; taxes + insurance grow with the NEW value; P&I
   // is fixed. label = mode name, loan/pi = that mode's loan + fixed payment.
-  const _mkAppSection = (emoji, modeName, loan, pi, rate, nMonths) => {
+  const _mkAppSection = (emoji, modeName, loan, pi, rate, nMonths, leftInToday) => {
     const _pr = RT_PROP_APPR_PCT / 100, _rr = RT_RENT_APPR_PCT / 100;
     const _opEx0 = rtVac + rtMaint + rtCapex + rtPm;   // scales with rent
     const _taxIns0 = rtTaxFin + rtIns;                  // scales with property value
@@ -14133,9 +14133,17 @@ function uwComputeExits(ctx) {
       // you can pull OUT; negative = cash you'd have to leave IN (bring to the table)
       // to size the loan down to break-even cashflow.
       const _rawCash = _maxLoan - _bal;
-      const outHtml = (_rawCash < 0)
-        ? ' · <span style="color:#fca5a5;font-size:10px" title="To reach break-even ($0/mo) cashflow at this point you\'d have to leave cash IN — pay the loan down to a break-even size (largest loan that still cashflows $0/mo within a 70% LTV cap).">' + fmt(Math.abs(_rawCash)) + ' in</span>'
-        : ' · <span style="color:#fde047;font-size:10px" title="Max cash you could pull with a cash-out refi at this point — largest new loan that still cashflows $0/mo after reserves and stays within a 70% LTV cap, minus the current payoff.">' + fmt(_rawCash) + ' out</span>';
+      // TODAY row: if you already had capital trapped in the deal (the loan/refi
+      // couldn't return all your cash), show that trapped amount as red "in" —
+      // that's the money you actually had to leave in, not a hypothetical pull-out.
+      let outHtml;
+      if (yrs === 0 && (leftInToday || 0) > 0) {
+        outHtml = ' · <span style="color:#fca5a5;font-size:10px" title="Capital still trapped in the deal today — cash you had to leave IN because the loan/refi couldn\'t return it all.">' + fmt(leftInToday) + ' in</span>';
+      } else {
+        outHtml = (_rawCash < 0)
+          ? ' · <span style="color:#fca5a5;font-size:10px" title="To reach break-even ($0/mo) cashflow at this point you\'d have to leave cash IN — pay the loan down to a break-even size (largest loan that still cashflows $0/mo within a 70% LTV cap).">' + fmt(Math.abs(_rawCash)) + ' in</span>'
+          : ' · <span style="color:#fde047;font-size:10px" title="Max cash you could pull with a cash-out refi at this point — largest new loan that still cashflows $0/mo after reserves and stays within a 70% LTV cap, minus the current payoff.">' + fmt(_rawCash) + ' out</span>';
+      }
       const label = yrs === 0 ? 'Today' : (yrs + ' Yrs');
       const valHtml = '<div style="white-space:normal;text-align:right;line-height:1.5">' +
         '<div>' + owedHtml + '<b>' + fmt(val) + '</b> · ' + fmt(futRent) + '/mo</div>' +
@@ -15011,7 +15019,7 @@ function uwComputeExits(ctx) {
           ['Year-1 appreciation (' + RT_PROP_APPR_PCT + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(rtForcedEquity + (rfPrincipal * 12) + rtAnnualAppreciation), 'profit'],
         ]},
-        _mkAppSection('🔁', 'Refinanced', rfLoan, rfPi, rfRate, rfN),
+        _mkAppSection('🔁', 'Refinanced', rfLoan, rfPi, rfRate, rfN, rfLeftIn),
         { title: '🧾 Tenant-Paid Expenses', rows: [
           ['Electricity & gas', fmt(tenantElec)],
           ['Water & sewer', fmt(tenantWater)],
@@ -15094,7 +15102,7 @@ function uwComputeExits(ctx) {
           ['Year-1 appreciation (' + RT_PROP_APPR_PCT + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(rtForcedEquity + (finPrincipal * 12) + rtAnnualAppreciation), 'profit'],
         ]},
-        _mkAppSection('💵', 'Financed', finLoan, finPi, finRate, finN),
+        _mkAppSection('💵', 'Financed', finLoan, finPi, finRate, finN, finLeftIn),
         { title: '🧾 Tenant-Paid Expenses', rows: [
           ['Electricity & gas', fmt(tenantElec)],
           ['Water & sewer', fmt(tenantWater)],
@@ -15162,7 +15170,7 @@ function uwComputeExits(ctx) {
           ['Year-1 appreciation (' + RT_PROP_APPR_PCT + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(Math.max(0, arv - tkFinCashPutUp) + (tkFinPrincipal * 12) + rtAnnualAppreciation), 'profit'],
         ]},
-        _mkAppSection('🔑', 'Turn-Key', tkFinLoan, tkFinPi, finRate, finN),
+        _mkAppSection('🔑', 'Turn-Key', tkFinLoan, tkFinPi, finRate, finN, tkFinLeftIn),
         { title: '🧾 Tenant-Paid Expenses', rows: [
           ['Electricity & gas', fmt(tenantElec)],
           ['Water & sewer', fmt(tenantWater)],

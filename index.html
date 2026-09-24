@@ -33384,9 +33384,23 @@ async function _dispoLoadViewCounts() {
   }
 }
 window._dispoLoadViewCounts = _dispoLoadViewCounts;
-// Save the packet access codes (buyer + master) to app_config so every packet
-// page picks up the new code on its next load. Merges via _uwCfgMerge so it
-// never clobbers other config keys.
+// Packet access codes live in a dedicated PUBLIC-READABLE table (packet_gate)
+// because the offer page is anonymous and can't read app_config (which is locked
+// to logged-in users). Only the two codes are exposed there — nothing else.
+window._pgCodes = window._pgCodes || null;
+window._pgCodesLoaded = window._pgCodesLoaded || false;
+async function _pgLoadCodes() {
+  if (typeof sb === 'undefined' || !sb) return;
+  window._pgCodesLoaded = true;
+  try {
+    var res = await sb.from('packet_gate').select('buyer_code,master_code').eq('id', 1).maybeSingle();
+    window._pgCodes = res.data || {};
+    if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
+  } catch (e) {
+    console.warn('_pgLoadCodes:', e && e.message || e);
+  }
+}
+window._pgLoadCodes = _pgLoadCodes;
 window._pgSaveCodes = async function (btn) {
   var bEl = document.getElementById('pg-buyer'), mEl = document.getElementById('pg-master'), st = document.getElementById('pg-status');
   var b = ((bEl && bEl.value) || '').replace(/\D/g, '').slice(0, 4);
@@ -33397,11 +33411,12 @@ window._pgSaveCodes = async function (btn) {
   if (m && b === m) { say('Buyer & master codes must differ', false); return; }
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
-    await _uwCfgMerge({ packet_gate: { buyer_code: b, master_code: m || null } });
-    if (cache && cache.config && cache.config.column_mappings) cache.config.column_mappings.packet_gate = { buyer_code: b, master_code: m || null };
+    var res = await sb.from('packet_gate').upsert({ id: 1, buyer_code: b, master_code: m || null, updated_at: new Date().toISOString() });
+    if (res && res.error) throw res.error;
+    window._pgCodes = { buyer_code: b, master_code: m || null };
     say('✅ Saved — code is now live on every packet', true);
   } catch (e) {
-    say('❌ Save failed — try again', false);
+    say('❌ Save failed — ' + ((e && e.message) ? e.message : 'try again'), false);
   }
   if (btn) { btn.disabled = false; btn.textContent = '💾 Save & Reset'; }
 };
@@ -36010,7 +36025,8 @@ function buyerRenderPerDealPanel() {
   // every open is counted). Master code = your own code; opens with it are logged
   // but flagged as you, so they don't inflate the buyer 👁 count. Both live in
   // app_config so changing + saving here instantly resets the code everywhere.
-  const _pgCfg = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings && cache.config.column_mappings.packet_gate) || {};
+  if (!window._pgCodesLoaded && typeof _pgLoadCodes === 'function') _pgLoadCodes();
+  const _pgCfg = window._pgCodes || {};
   const _pgBuyer  = (_pgCfg.buyer_code  != null) ? esc(String(_pgCfg.buyer_code))  : '';
   const _pgMaster = (_pgCfg.master_code != null) ? esc(String(_pgCfg.master_code)) : '';
   const _gateBarHtml = ''

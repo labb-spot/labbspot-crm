@@ -14129,8 +14129,13 @@ function uwComputeExits(ctx) {
       let _loanByCf = 0;
       if (_maxPI > 0) _loanByCf = (rfRate > 0) ? (_maxPI * (1 - Math.pow(1 + rfRate, -rfN)) / rfRate) : (_maxPI * rfN);
       const _maxLoan = Math.min(_loanByCf, 0.70 * val);
-      const _cashOut = Math.max(0, _maxLoan - _bal);
-      const outHtml = ' · <span style="color:#fde047;font-size:10px" title="Max cash you could pull with a cash-out refi at this point — largest new loan that still cashflows $0/mo after reserves and stays within a 70% LTV cap, minus the current payoff.">' + fmt(_cashOut) + ' out</span>';
+      // Raw = biggest break-even refi loan minus what's still owed. Positive = cash
+      // you can pull OUT; negative = cash you'd have to leave IN (bring to the table)
+      // to size the loan down to break-even cashflow.
+      const _rawCash = _maxLoan - _bal;
+      const outHtml = (_rawCash < 0)
+        ? ' · <span style="color:#fca5a5;font-size:10px" title="To reach break-even ($0/mo) cashflow at this point you\'d have to leave cash IN — pay the loan down to a break-even size (largest loan that still cashflows $0/mo within a 70% LTV cap).">' + fmt(Math.abs(_rawCash)) + ' in</span>'
+        : ' · <span style="color:#fde047;font-size:10px" title="Max cash you could pull with a cash-out refi at this point — largest new loan that still cashflows $0/mo after reserves and stays within a 70% LTV cap, minus the current payoff.">' + fmt(_rawCash) + ' out</span>';
       const label = yrs === 0 ? 'Today' : (yrs + ' Yrs');
       const valHtml = '<div style="white-space:normal;text-align:right;line-height:1.5">' +
         '<div>' + owedHtml + '<b>' + fmt(val) + '</b> · ' + fmt(futRent) + '/mo</div>' +
@@ -15001,7 +15006,7 @@ function uwComputeExits(ctx) {
         ]},
         { title: '📈 Equity Gain', rows: [
           ['Day-1 forced equity (ARV − buy − rehab)', fmt(rtForcedEquity)],
-          ['Day-1 leveraged equity (ARV − refi loan)', fmt(Math.max(0, arv - rfLoan)), 'blue'],
+          ['Day-1 leveraged equity (ARV − Loan − Cash)', fmt(Math.max(0, arv - rfLoan) - rfLeftIn), 'blue'],
           ['Year-1 loan paydown (refi principal × 12)', fmt(rfPrincipal * 12)],
           ['Year-1 appreciation (' + RT_PROP_APPR_PCT + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(rtForcedEquity + (rfPrincipal * 12) + rtAnnualAppreciation), 'profit'],

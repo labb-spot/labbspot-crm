@@ -33239,7 +33239,7 @@ window._dispoRenderBuyerMap = function () {
     var oMeta = (ctx.OUTREACH || []).filter(function (o) { return o.key === oKey; })[0];
     var oDark = { reached: '#4338ca', responded: '#b45309', interested: '#059669', inspecting: '#0e7490', 'not-interested': '#b91c1c' };
     var oc = oDark[oKey] || '#6b7280';
-    var oLabel = oMeta ? (oMeta.icon + ' ' + oMeta.label) : '? Unreached';
+    var oLabel = oMeta ? (oMeta.icon + ' ' + oMeta.label) : '? Not Attempted';
     var oBadge = '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;background:' + oc + '22;color:' + oc + ';border:1px solid ' + oc + '66">' + oLabel + '</span>';
     // How many of this buyer's purchases fall inside the selected Active window.
     var recentCount = 0;
@@ -33273,6 +33273,7 @@ window._dispoRenderBuyerMap = function () {
       var tagBtn = '<button onclick="_dispoMapToggleTagFromPopup(\'' + esc(b.id) + '\',' + la + ',' + lo + ')" style="padding:1px 8px;font-size:10px;font-weight:700;line-height:1.5;border-radius:4px;cursor:pointer;vertical-align:middle;border:1px solid ' + (isTagged ? '#10b981' : '#94a3b8') + ';background:' + (isTagged ? 'rgba(16,185,129,0.15)' : '#fff') + ';color:' + (isTagged ? '#0f766e' : '#334155') + '">' + (isTagged ? '🏷 Untag' : '🏷 Tag') + '</button>';
       var sentBtn = '<button onclick="_dispoMapToggleSentFromPopup(\'' + esc(b.id) + '\',' + la + ',' + lo + ')" style="padding:1px 8px;font-size:10px;font-weight:700;line-height:1.5;border-radius:4px;cursor:pointer;vertical-align:middle;border:1px solid ' + (isSent ? '#3b82f6' : '#94a3b8') + ';background:' + (isSent ? 'rgba(59,130,246,0.15)' : '#fff') + ';color:' + (isSent ? '#1d4ed8' : '#334155') + '">' + (isSent ? '✉ Sent ✓' : '✉ Sent') + '</button>';
       var openBtn = '<button onclick="buyerOpenAddModal(\'' + esc(b.id) + '\')" title="Open this buyer\'s contact" style="padding:1px 9px;font-size:10.5px;font-weight:700;line-height:1.5;border-radius:4px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">👤 Open</button>';
+      var notesBtn = '<button onclick="_buyerNotePopover(\'' + esc(b.id) + '\')" title="Quick notes for this buyer (shared with the buyer\'s Notes field)" style="padding:1px 9px;font-size:10.5px;font-weight:700;line-height:1.5;border-radius:4px;cursor:pointer;border:1px solid #f59e0b;background:rgba(245,158,11,0.14);color:#b45309">📝 Notes</button>';
       // Qualification dropdown (PER BUYER — saves to this buyer everywhere).
       var _qOpts = [['unknown', '? Unknown'], ['vetting', '🔎 Vetting'], ['qualified', '✓ Qualified'], ['unqualified', '✗ Unqualified']];
       // Content-sized colored badge + a transparent <select> overlaid on top, so
@@ -33281,11 +33282,11 @@ window._dispoRenderBuyerMap = function () {
         + '<span style="padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap;background:' + qMeta.c + '22;color:' + qMeta.c + ';border:1px solid ' + qMeta.c + '66">' + qMeta.lab + ' ▾</span>'
         + '<select onchange="_dispoMapSetQual(\'' + esc(b.id) + '\',this.value,' + la + ',' + lo + ')" onclick="event.stopPropagation()" title="Buyer status — saved to this buyer everywhere" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0;color:#111827;background:#ffffff">' + _qOpts.map(function (o) { return '<option value="' + o[0] + '" style="background:#ffffff;color:#111827"' + (o[0] === qstate ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></span>';
       // Outreach dropdown (PER DEAL — this property only).
-      var _oOpts = [['', '— None'], ['reached', '📞 Reached'], ['responded', '💬 Responded'], ['interested', '👍 Interested'], ['inspecting', '🔎 Inspecting'], ['not-interested', '👎 Not Int']];
+      var _oOpts = [['', '— None'], ['reached', '📞 Attempted'], ['responded', '💬 Responded'], ['interested', '👍 Interested'], ['inspecting', '🔎 Inspecting'], ['not-interested', '👎 Not Int']];
       var oSelect = '<span style="position:relative;display:inline-flex;vertical-align:middle">'
         + '<span style="padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap;background:' + oc + '22;color:' + oc + ';border:1px solid ' + oc + '66">' + oLabel + ' ▾</span>'
         + '<select onchange="_dispoMapSetOutreach(\'' + esc(ctx.deal.id) + '\',\'' + esc(b.id) + '\',this.value,' + la + ',' + lo + ')" onclick="event.stopPropagation()" title="Outreach for THIS property" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0;color:#111827;background:#ffffff">' + _oOpts.map(function (o) { return '<option value="' + o[0] + '" style="background:#ffffff;color:#111827"' + (o[0] === oKey ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></span>';
-      m.bindPopup('<div style="font-size:12px;min-width:170px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + ((b.company && b.name) ? '<div style="font-size:11px;font-weight:700;color:#b45309;margin-top:1px">' + esc(b.name) + '</div>' : '') + '<div style="margin:4px 0;display:flex;gap:5px;flex-wrap:nowrap;align-items:center;white-space:nowrap">' + qSelect + oSelect + sentBtn + tagBtn + '</div>' + esc(addr || '(no address)') + '<br><b>' + priceStr + '</b>' + (dateStr ? ' · ' + esc(dateStr) : '') + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px">' + openBtn + recentBadge + '</div>' + '</div>');
+      m.bindPopup('<div style="font-size:12px;min-width:170px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + ((b.company && b.name) ? '<div style="font-size:11px;font-weight:700;color:#b45309;margin-top:1px">' + esc(b.name) + '</div>' : '') + '<div style="margin:4px 0;display:flex;gap:5px;flex-wrap:nowrap;align-items:center;white-space:nowrap">' + qSelect + oSelect + sentBtn + tagBtn + '</div>' + esc(addr || '(no address)') + '<br><b>' + priceStr + '</b>' + (dateStr ? ' · ' + esc(dateStr) : '') + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px"><span style="display:inline-flex;gap:5px">' + notesBtn + openBtn + '</span>' + recentBadge + '</div>' + '</div>');
       window._dispoMapLayer.addLayer(m);
       if (reopenReq && reopenReq.buyerId === b.id && Math.abs(la - reopenReq.lat) < 1e-6 && Math.abs(lo - reopenReq.lng) < 1e-6) reopenMarker = m;
     });
@@ -34174,7 +34175,7 @@ window._mapSectionRender = function (fit) {
       var iconHtml = '<div style="width:18px;height:18px;border-radius:50%;background:' + c.color + ';border:2px solid ' + c.dotBorder + ';box-shadow:0 1px 2px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;font-weight:900;color:#fff;text-shadow:-1px -1px 0 rgba(0,0,0,0.75),1px -1px 0 rgba(0,0,0,0.75),-1px 1px 0 rgba(0,0,0,0.75),1px 1px 0 rgba(0,0,0,0.75)">' + c.sym + '</div>';
       var m = L.marker([c.la, c.lo], { icon: L.divIcon({ className: 'map-buyer-pin', html: iconHtml, iconSize: [18, 18], iconAnchor: [9, 9] }) });
       var _zgBtns = (addr ? '<span style="margin-left:auto;display:inline-flex;gap:5px">' + window._mapZGBtns(_bzUrl, _bgUrl) + '</span>' : '');
-      m.bindPopup('<div style="font-size:12px;min-width:150px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + ((b.company && b.name) ? '<br><span style="color:#b45309;font-weight:700">' + esc(b.name) + '</span>' : '') + (c.isTagged ? '<br><span style="color:#10b981;font-weight:700">🏷 Tagged under: ' + esc(c.taggedProps.join(', ')) + '</span>' : '') + '<br>' + esc(addr || '(no address)') + '<br><b>' + (amt > 0 ? '$' + Math.round(amt).toLocaleString() : 'non-market ($0)') + '</b><br><div style="display:flex;align-items:center;gap:5px;margin-top:6px"><button onclick="buyerOpenAddModal(\'' + esc(b.id) + '\')" style="padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">👤 Open buyer</button>' + _zgBtns + '</div></div>');
+      m.bindPopup('<div style="font-size:12px;min-width:150px"><b>' + esc(b.company || b.name || '(no name)') + '</b>' + ((b.company && b.name) ? '<br><span style="color:#b45309;font-weight:700">' + esc(b.name) + '</span>' : '') + (c.isTagged ? '<br><span style="color:#10b981;font-weight:700">🏷 Tagged under: ' + esc(c.taggedProps.join(', ')) + '</span>' : '') + '<br>' + esc(addr || '(no address)') + '<br><b>' + (amt > 0 ? '$' + Math.round(amt).toLocaleString() : 'non-market ($0)') + '</b><br><div style="display:flex;align-items:center;gap:5px;margin-top:6px"><button onclick="_buyerNotePopover(\'' + esc(b.id) + '\')" title="Quick notes for this buyer (shared with the buyer\'s Notes field)" style="padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #f59e0b;background:rgba(245,158,11,0.14);color:#b45309">📝 Notes</button><button onclick="buyerOpenAddModal(\'' + esc(b.id) + '\')" style="padding:2px 9px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;border:1px solid #6366f1;background:rgba(99,102,241,0.12);color:#4338ca">👤 Open buyer</button>' + _zgBtns + '</div></div>');
       window._mapSectionBuyerLayer.addLayer(m);
     }
   } else { window._mapCapping = false; }
@@ -35399,7 +35400,7 @@ function buyerRenderPerDealPanel() {
   const buyers = Object.values(cache.buyers || {}).filter(b => b && (b.company || b.name));
 
   const OUTREACH = [
-    { key: 'reached',       label: 'Reached',       icon: '📞', color: '#a5b4fc' },
+    { key: 'reached',       label: 'Attempted',     icon: '📞', color: '#a5b4fc' },
     { key: 'responded',     label: 'Responded',     icon: '💬', color: '#fbbf24' },
     { key: 'interested',    label: 'Interested',    icon: '👍', color: '#10b981' },
     { key: 'inspecting',    label: 'Inspecting',    icon: '🔎', color: '#06b6d4' },
@@ -35806,7 +35807,7 @@ function buyerRenderPerDealPanel() {
       +   '<select id="dispo-deal-outreach" onchange="_dispoSetFilter(\'outreach\', this.value)" style="flex:0 0 auto;width:140px;height:30px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;box-sizing:border-box" title="Filter by outreach status">'
       +     '<option value="">All outreach</option>'
       +     '<option value="none"' +           (flt.outreach === 'none' ? ' selected' : '') +           '>Not contacted</option>'
-      +     '<option value="reached"' +        (flt.outreach === 'reached' ? ' selected' : '') +        '>📞 Reached</option>'
+      +     '<option value="reached"' +        (flt.outreach === 'reached' ? ' selected' : '') +        '>📞 Attempted</option>'
       +     '<option value="responded"' +      (flt.outreach === 'responded' ? ' selected' : '') +      '>💬 Responded</option>'
       +     '<option value="interested"' +     (flt.outreach === 'interested' ? ' selected' : '') +     '>👍 Interested</option>'
       +     '<option value="inspecting"' +     (flt.outreach === 'inspecting' ? ' selected' : '') +     '>🔎 Inspecting</option>'
@@ -39106,6 +39107,66 @@ function buyerOpenAddModal(editId) {
   }, 50);
 }
 window.buyerOpenAddModal = buyerOpenAddModal;
+// Small notes pop-out for the map popup. Reads/writes the SAME buyers.notes
+// field the buyer modal's "Notes" box uses, so the two always share one text.
+// If the buyer modal is open on this same buyer, its textarea is synced live.
+window._buyerNotePopover = function (buyerId) {
+  var b = (cache.buyers || {})[buyerId];
+  if (!b) return;
+  var esc = (typeof window._uwEsc === 'function') ? window._uwEsc
+    : function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+  var modalOpenId = (document.getElementById('buyer-edit-id') || {}).value || '';
+  var modalTa = document.getElementById('buyer-add-notes');
+  // Prefer the modal's live (possibly unsaved) text when it's editing this buyer.
+  var cur = (modalTa && modalOpenId === buyerId) ? modalTa.value : (b.notes || '');
+  var prev = document.getElementById('buyer-note-pop');
+  if (prev) prev.remove();
+  var ov = document.createElement('div');
+  ov.id = 'buyer-note-pop';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML =
+      '<div style="width:min(440px,94vw);background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 14px 46px rgba(0,0,0,0.45)">'
+    +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+    +     '<div style="font-weight:800;font-size:14px">📝 Notes — ' + esc(b.company || b.name || 'Buyer') + '</div>'
+    +     '<button id="bnp-x" style="background:none;border:none;color:var(--text-dim);font-size:22px;line-height:1;cursor:pointer">×</button>'
+    +   '</div>'
+    +   '<textarea id="bnp-ta" rows="5" placeholder="Notes about this buyer…" style="width:100%;box-sizing:border-box;font-size:14px;padding:11px 13px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);color:var(--text);resize:vertical;min-height:100px;line-height:1.5"></textarea>'
+    +   '<div id="bnp-status" style="font-size:11px;min-height:14px;margin-top:6px;color:var(--text-dim)"></div>'
+    +   '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">'
+    +     '<button id="bnp-cancel" style="padding:7px 14px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">Cancel</button>'
+    +     '<button id="bnp-save" style="padding:7px 16px;border:none;background:var(--brand);color:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">💾 Save</button>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  var ta = ov.querySelector('#bnp-ta');
+  ta.value = cur;
+  setTimeout(function () { try { ta.focus(); } catch (_) {} }, 40);
+  function close() { ov.remove(); }
+  ov.querySelector('#bnp-x').onclick = close;
+  ov.querySelector('#bnp-cancel').onclick = close;
+  ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+  ov.querySelector('#bnp-save').onclick = async function () {
+    var val = (ta.value || '').trim();
+    var st = ov.querySelector('#bnp-status');
+    var btn = ov.querySelector('#bnp-save');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      var res = await sb.from('buyers').update({ notes: val, updated_at: new Date().toISOString() }).eq('id', buyerId);
+      if (res && res.error) throw res.error;
+      b.notes = val;
+      // Keep the open buyer modal's Notes box in sync if it's this buyer.
+      var mta = document.getElementById('buyer-add-notes');
+      var mId = (document.getElementById('buyer-edit-id') || {}).value || '';
+      if (mta && mId === buyerId) mta.value = val;
+      if (typeof toast === 'function') toast('📝 Notes saved', 'ok');
+      close();
+    } catch (e) {
+      st.textContent = 'Save failed: ' + ((e && e.message) ? e.message : 'try again');
+      st.style.color = '#f87171';
+      btn.disabled = false; btn.textContent = '💾 Save';
+    }
+  };
+};
 
 function buyerCloseAddModal() {
   const modal = document.getElementById('buyer-add-modal');

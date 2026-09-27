@@ -7067,6 +7067,13 @@
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Email
           <input type="email" id="buyer-add-email" placeholder="e.g. mike@chenholdings.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
+        <div class="col-span-2" style="font-size:14px;font-weight:600">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <span>Mailing Address(es) <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span></span>
+            <button type="button" onclick="buyerAddMailingChip()" class="btn btn-ghost text-xs" style="height:28px;padding:0 10px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid var(--border)" title="Add another mailing address for this buyer">+ Add Mailing</button>
+          </div>
+          <div id="buyer-add-mailing-grid" style="margin-top:8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px" title="Mailing address(es) on file for this buyer."></div>
+        </div>
         <!-- ===== Geography / strategy / pricing block (reordered) ===== -->
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Price Range / Budget <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(free text)</span>
           <input type="text" id="buyer-add-price-notes" placeholder="e.g. $50k–$150k purchase • up to 75% ARV − rehab" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
@@ -39061,6 +39068,7 @@ function buyerOpenAddModal(editId) {
     setVal('buyer-add-name',        b.name);
     setVal('buyer-add-phone',       b.phone);
     setVal('buyer-add-email',       b.email);
+    buyerRenderMailingChips(Array.isArray(b.mailing_addresses) ? b.mailing_addresses : []);
     // States: prepend legacy single b.state if not already present in b.states.
     const stArr = Array.isArray(b.states) ? b.states.slice() : [];
     const legacySt = String(b.state || '').trim().toUpperCase();
@@ -39096,6 +39104,7 @@ function buyerOpenAddModal(editId) {
     if (delBtn)   delBtn.style.display = 'none';
     buyerRenderAliasChips([]);   // Fresh add — wipe any leftover chips.
     buyerRenderLenderChips([]);  // Wipe lender chips too.
+    buyerRenderMailingChips([]); // Fresh add — one empty mailing box.
   }
   // Purchased Addresses block inside the modal — show purchases for the
   // buyer being edited, or an empty placeholder for fresh-add.
@@ -39363,6 +39372,7 @@ async function buyerSaveNew() {
     const messenger = (editRowM && editRowM.messenger) ? editRowM.messenger : '';
     // Aliases come from the chip grid now — collect every non-empty input.
     const aliases   = buyerCollectAliasChips();
+    const mailing_addresses = buyerCollectMailingChips();
     const cities   = buyerCollectLocChips('cities');
     city = cities[0] || '';   // keep legacy b.city in sync
     const states   = buyerCollectLocChips('states');
@@ -39383,6 +39393,7 @@ async function buyerSaveNew() {
       name, company, company_norm, phone, email, messenger, criteria, city, state, rating,
       funding_type: funding, price_notes: prices, notes, verified, qualification,
       cities, counties, zips, lenders, channels, aliases, states, strategy,
+      mailing_addresses,
       avg_buy_price, acquisitions_count,
       updated_at: new Date().toISOString()
     };
@@ -39391,6 +39402,18 @@ async function buyerSaveNew() {
       ({ data, error } = await sb.from('buyers').update(payload).eq('id', editId).select().single());
     } else {
       ({ data, error } = await sb.from('buyers').insert(payload).select().single());
+    }
+    // If the mailing_addresses column doesn't exist yet (SQL not run), retry the
+    // save without it so nothing else breaks — mailing just won't persist until
+    // the one-time ALTER is run.
+    if (error && /mailing_addresses/.test(String(error.message || ''))) {
+      const _p2 = Object.assign({}, payload); delete _p2.mailing_addresses;
+      if (editId) {
+        ({ data, error } = await sb.from('buyers').update(_p2).eq('id', editId).select().single());
+      } else {
+        ({ data, error } = await sb.from('buyers').insert(_p2).select().single());
+      }
+      if (!error && data) data.mailing_addresses = mailing_addresses; // keep in-session
     }
     if (error) throw error;
     cache.buyers = cache.buyers || {};
@@ -40917,6 +40940,65 @@ function buyerCollectAliasChips() {
   return out;
 }
 window.buyerCollectAliasChips = buyerCollectAliasChips;
+
+// ============================================================
+// BUYERS — Mailing address boxes (2 per row, + Add Mailing)
+// Stored as buyers.mailing_addresses (text[]). Same add/remove/collect pattern
+// as aliases, but wider boxes and a 2-column grid.
+// ============================================================
+function buyerMailingChipHTML(value, idx) {
+  const safe = String(value == null ? '' : value).replace(/"/g, '&quot;');
+  return `<div class="mailing-chip" style="display:flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--panel-2)">
+    <input type="text" class="mailing-chip-input" data-idx="${idx}" value="${safe}" placeholder="e.g. 123 Main St, Evansville, IN 47711" style="flex:1;min-width:0;height:40px;padding:0 12px;background:transparent;border:none;color:var(--text);font-size:13px;outline:none">
+    <button type="button" onclick="buyerRemoveMailingChip(this)" title="Remove this mailing address" style="height:40px;padding:0 10px;background:transparent;border:none;border-left:1px solid var(--border);color:#f87171;cursor:pointer;font-size:14px;font-weight:600">×</button>
+  </div>`;
+}
+window.buyerMailingChipHTML = buyerMailingChipHTML;
+
+function buyerRenderMailingChips(list) {
+  const grid = document.getElementById('buyer-add-mailing-grid');
+  if (!grid) return;
+  const arr = Array.isArray(list) ? list.filter(a => a != null && String(a).trim() !== '') : [];
+  const rows = arr.length ? arr : [''];   // always show one empty box to type in
+  grid.innerHTML = rows.map((v, i) => buyerMailingChipHTML(v, i)).join('');
+}
+window.buyerRenderMailingChips = buyerRenderMailingChips;
+
+function buyerAddMailingChip() {
+  const grid = document.getElementById('buyer-add-mailing-grid');
+  if (!grid) return;
+  const next = document.createElement('div');
+  next.innerHTML = buyerMailingChipHTML('', grid.children.length);
+  const chip = next.firstElementChild;
+  grid.appendChild(chip);
+  const input = chip.querySelector('.mailing-chip-input');
+  if (input) input.focus();
+}
+window.buyerAddMailingChip = buyerAddMailingChip;
+
+function buyerRemoveMailingChip(btn) {
+  const chip = btn && btn.closest('.mailing-chip');
+  if (!chip) return;
+  chip.remove();
+  const grid = document.getElementById('buyer-add-mailing-grid');
+  if (grid && grid.children.length === 0) buyerRenderMailingChips([]);
+}
+window.buyerRemoveMailingChip = buyerRemoveMailingChip;
+
+function buyerCollectMailingChips() {
+  const inputs = document.querySelectorAll('#buyer-add-mailing-grid .mailing-chip-input');
+  const seen = new Set(); const out = [];
+  inputs.forEach(el => {
+    const v = String(el.value || '').trim();
+    if (!v) return;
+    const k = v.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push(v);
+  });
+  return out;
+}
+window.buyerCollectMailingChips = buyerCollectMailingChips;
 
 // ============================================================
 // BUYERS — Location chip grids (States / Cities / Counties / Zips)

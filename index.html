@@ -35667,6 +35667,11 @@ function buyerRenderPerDealPanel() {
         const contactBits = [];
         if (b.phone) contactBits.push('<a href="tel:' + ctx.esc(b.phone) + '" onclick="event.stopPropagation()" style="color:#60a5fa;text-decoration:none">📞 ' + ctx.esc(b.phone) + '</a>');
         if (b.email) contactBits.push('<a href="mailto:' + ctx.esc(b.email) + '" onclick="event.stopPropagation()" style="color:#60a5fa;text-decoration:none">✉️ ' + ctx.esc(b.email) + '</a>');
+        // First mailing address (if any) — shown above the phone line, links to Google Maps.
+        const _mail0 = (Array.isArray(b.mailing_addresses) && b.mailing_addresses.length) ? String(b.mailing_addresses[0] || '').trim() : '';
+        const _mailLineHtml = _mail0
+          ? '<div style="font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(_mail0) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#60a5fa;text-decoration:none" title="Open this mailing address in Google Maps">📍 ' + ctx.esc(_mail0) + '</a></div>'
+          : '';
         const acqChip = r.acq > 0
           ? '<span style="padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(251,191,36,0.18);color:#fbbf24;border:1px solid rgba(251,191,36,0.4)">🏠 ' + r.acq.toLocaleString() + ' acqs</span>'
           : '<span style="padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(148,163,184,0.16);color:#94a3b8;border:1px solid rgba(148,163,184,0.4)" title="No purchase records on file for this buyer">🏠 0 acqs</span>';
@@ -35724,6 +35729,7 @@ function buyerRenderPerDealPanel() {
           +     _scoreBadge
           +     '<div style="flex:1;min-width:0">'
           +       '<div style="font-size:14.5px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + ctx.esc(b.company || b.name || '(no name)') + ((b.company && b.name) ? ' : <span style="color:#fbbf24;font-weight:700">' + ctx.esc(b.name) + '</span>' : '') + '</div>'
+          +       _mailLineHtml
           +       '<div style="font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (contactBits.length ? contactBits.join(' <span style="color:var(--text-dim)">\u00B7</span> ') : '<span style="color:var(--text-dim);opacity:0.5">\uD83D\uDCDE \u2014 \u00B7 \u2709\uFE0F \u2014</span>') + '</div>'
           +       _activityLine
           +     '</div>'

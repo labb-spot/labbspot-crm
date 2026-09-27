@@ -14983,7 +14983,7 @@ function uwComputeExits(ctx) {
           ['Cash-on-cash', rfLeftIn < 1 ? '∞ (all capital out)' : rfCoC.toFixed(1) + '%', 'profit'],
         ]},
         { title: '🎯 Hit $200/mo Cashflow — what loan size?', rows: rfTargetPi <= 0 ? [
-          ['Status', 'Not possible — rent ($' + Math.round(rent).toLocaleString() + ') minus opex doesn\'t cover $200 cashflow', 'profit'],
+          ['', 'Not possible — rent ($' + Math.round(rent).toLocaleString() + ') minus opex doesn\'t cover $200 cashflow', 'note'],
         ] : rfTargetLtvBlocked ? [
           ['Target P&I that hits $200/mo', fmt(rfTargetPi)],
           ['Target loan needed', fmt(rfTargetLoan)],
@@ -15075,7 +15075,7 @@ function uwComputeExits(ctx) {
           ['Cash-on-cash', finLeftIn < 1 ? '∞ (all capital out)' : finCoC.toFixed(1) + '%', 'profit'],
         ]},
         { title: '🎯 Hit $200/mo Cashflow — what loan size?', rows: finTargetPi <= 0 ? [
-          ['Status', 'Not possible — rent ($' + Math.round(rent).toLocaleString() + ') minus opex doesn\'t cover $200 cashflow', 'profit'],
+          ['', 'Not possible — rent ($' + Math.round(rent).toLocaleString() + ') minus opex doesn\'t cover $200 cashflow', 'note'],
         ] : [
           ['Target P&I that hits $200/mo', fmt(finTargetPi)],
           ['Target loan size', fmt(finTargetLoan)],
@@ -15151,7 +15151,7 @@ function uwComputeExits(ctx) {
           ['Cash-on-cash', tkFinLeftIn < 1 ? '∞ (all capital out)' : tkFinCoC.toFixed(1) + '%', 'profit'],
         ]},
         { title: '🎯 Hit $200/mo Cashflow — what loan size?', rows: finTargetPi <= 0 ? [
-          ['Status', 'Not possible — rent ($' + Math.round(rent).toLocaleString() + ') minus opex doesn\'t cover $200 cashflow', 'profit'],
+          ['', 'Not possible — rent ($' + Math.round(rent).toLocaleString() + ') minus opex doesn\'t cover $200 cashflow', 'note'],
         ] : [
           ['Target P&I that hits $200/mo', fmt(finTargetPi)],
           ['Target loan size', fmt(finTargetLoan)],
@@ -15639,6 +15639,11 @@ function uwComputeExits(ctx) {
               // a section title but stays inside the current section's rows.
               if (r[2] === 'head') {
                 return `<div style="font-weight:600;font-size:12.5px;margin:9px 0 4px;color:var(--text);border-bottom:1px solid var(--border);padding-bottom:3px">${_tc(r[0])}</div>`;
+              }
+              // Full-width wrapping note row (long sentences that would otherwise
+              // overflow the narrow value column and bleed into the next panel).
+              if (r[2] === 'note') {
+                return `<div style="font-size:12px;line-height:1.5;font-weight:600;color:#10b981;padding:4px 0;border-bottom:1px dotted var(--border);white-space:normal;overflow-wrap:anywhere">${r[1]}</div>`;
               }
               const isProfit = r[2] === 'profit';
               const isCost   = r[2] === 'cost';

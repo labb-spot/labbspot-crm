@@ -7027,7 +7027,7 @@
               <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Name</th>
               <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:70px" title="Qualification status — click ✏ Edit to change.">Status</th>
               <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:120px" title="How many properties this buyer has closed">Acquisitions</th>
-              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:200px" title="What this buyer does with properties — Flip / Cashflow / Appreciation / Wholesale / Other">Strategy</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:200px" title="This buyer's strategy goal — Income / Cashflow / Appreciation / Unit Count">Strategy Goal</th>
               <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:220px">Contact</th>
               <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:200px">Location</th>
               <th style="padding:10px 12px;text-align:right;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:100px">Actions</th>
@@ -7110,8 +7110,8 @@
           </div>
           <div id="buyer-add-zips-grid" style="margin-top:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px" title="Zip codes this buyer purchases in."></div>
         </div>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Strategy
-          <div id="buyer-add-strategy-chips" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px" title="What this buyer does with the properties. Click to toggle each one on/off.">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Strategy Goal
+          <div id="buyer-add-strategy-chips" style="margin-top:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:5px" title="This buyer's strategy goal. Click to toggle each one on/off.">
             <!-- Chips injected by buyerRenderStrategyChips() on modal open -->
           </div>
           <input type="hidden" id="buyer-add-strategy" value="">
@@ -33407,7 +33407,7 @@ async function _pgLoadCodes() {
   if (typeof sb === 'undefined' || !sb) return;
   window._pgCodesLoaded = true;
   try {
-    var res = await sb.from('packet_gate').select('buyer_code,master_code').eq('id', 1).maybeSingle();
+    var res = await sb.from('packet_gate').select('buyer_code,master_code,gate_enabled').eq('id', 1).maybeSingle();
     window._pgCodes = res.data || {};
     if (typeof buyerRenderPerDealPanel === 'function') buyerRenderPerDealPanel();
   } catch (e) {
@@ -36052,6 +36052,7 @@ function buyerRenderPerDealPanel() {
   const _pgCfg = window._pgCodes || {};
   const _pgBuyer  = (_pgCfg.buyer_code  != null) ? esc(String(_pgCfg.buyer_code))  : '';
   const _pgMaster = (_pgCfg.master_code != null) ? esc(String(_pgCfg.master_code)) : '';
+  const _pgGateOn = (_pgCfg.gate_enabled === false) ? false : true;
   const _gateBarHtml = ''
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:12px;padding:11px 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px">'
     +   '<span style="font-size:11px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--text-dim)">🔐 Packet Access Code</span>'
@@ -36061,6 +36062,13 @@ function buyerRenderPerDealPanel() {
     +     '<input id="pg-master" inputmode="numeric" maxlength="4" value="' + _pgMaster + '" placeholder="9999" oninput="this.value=this.value.replace(/\\D/g,\'\').slice(0,4)" style="width:64px;height:30px;text-align:center;letter-spacing:3px;font-size:14px;font-weight:700;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);box-sizing:border-box"></label>'
     +   '<button type="button" onclick="_pgSaveCodes(this)" style="height:30px;padding:0 14px;background:var(--brand);border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">💾 Save &amp; Reset</button>'
     +   '<button type="button" onclick="_emailTplOpen()" title="Edit the default subject + message used by the ✉️ Send Email buttons" style="height:30px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">✉️ Edit Default Email</button>'
+    +   '<span style="display:inline-flex;align-items:center;gap:8px">'
+    +     '<span style="font-size:12px;font-weight:700;color:var(--text-dim);white-space:nowrap">🔒 Passcode Page</span>'
+    +     '<button type="button" id="pg-gate-toggle" role="switch" aria-checked="' + (_pgGateOn ? 'true' : 'false') + '" onclick="_pgToggleGate(this)" title="Slide to turn the packet passcode page on or off. When OFF, packets open immediately with no code." style="position:relative;width:48px;height:26px;border-radius:999px;border:none;cursor:pointer;padding:0;transition:background 0.18s;background:' + (_pgGateOn ? '#10b981' : '#94a3b8') + '">'
+    +       '<span id="pg-gate-knob" style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.35);transition:transform 0.18s;transform:translateX(' + (_pgGateOn ? '22px' : '0') + ')"></span>'
+    +     '</button>'
+    +     '<span id="pg-gate-label" style="font-size:12px;font-weight:700;min-width:26px;color:' + (_pgGateOn ? '#10b981' : 'var(--text-dim)') + '">' + (_pgGateOn ? 'ON' : 'OFF') + '</span>'
+    +   '</span>'
     +   '<span id="pg-status" style="font-size:11px;font-weight:600;min-height:14px"></span>'
     + '</div>';
 
@@ -39133,6 +39141,35 @@ function buyerOpenAddModal(editId) {
 }
 window.buyerOpenAddModal = buyerOpenAddModal;
 
+// Toggle the packet passcode page on/off (stored in packet_gate.gate_enabled).
+window._pgToggleGate = async function (btn) {
+  var cur = !(window._pgCodes && window._pgCodes.gate_enabled === false); // currently ON?
+  var next = !cur;
+  var knob = document.getElementById('pg-gate-knob');
+  var lab = document.getElementById('pg-gate-label');
+  var paint = function (on) {
+    if (btn) { btn.style.background = on ? '#10b981' : '#94a3b8'; btn.setAttribute('aria-checked', on ? 'true' : 'false'); }
+    if (knob) knob.style.transform = 'translateX(' + (on ? '22px' : '0') + ')';
+    if (lab) { lab.textContent = on ? 'ON' : 'OFF'; lab.style.color = on ? '#10b981' : 'var(--text-dim)'; }
+  };
+  paint(next);              // optimistic slide
+  if (btn) btn.disabled = true;
+  try {
+    var res = await sb.from('packet_gate').update({ gate_enabled: next, updated_at: new Date().toISOString() }).eq('id', 1);
+    if (res && res.error) throw res.error;
+    window._pgCodes = window._pgCodes || {};
+    window._pgCodes.gate_enabled = next;
+    if (btn) btn.disabled = false;
+    var st = document.getElementById('pg-status');
+    if (st) { st.textContent = next ? '✅ Passcode page ON' : '✅ Passcode page OFF (packets open freely)'; st.style.color = '#10b981'; }
+  } catch (e) {
+    paint(cur);            // revert on failure
+    if (btn) btn.disabled = false;
+    var st2 = document.getElementById('pg-status');
+    if (st2) { st2.textContent = 'Toggle failed: ' + ((e && e.message) ? e.message : 'try again'); st2.style.color = '#f87171'; }
+  }
+};
+
 // ===== Buyer signups (public "Become a Buyer" form → buyer_submissions) =====
 // Pending signups are reviewed here; Approve creates a real buyer, Dismiss hides it.
 window._buyerSignups = window._buyerSignups || [];
@@ -39153,16 +39190,16 @@ async function buyerLoadSignups(force) {
 window.buyerLoadSignups = buyerLoadSignups;
 
 function _bsEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-function _bsRange(a, b, prefix) {
+function _bsRange(a, b, prefix, raw) {
   if (a == null && b == null) return '';
-  var f = function (n) { return (prefix || '') + Number(n).toLocaleString(); };
+  var f = function (n) { return (prefix || '') + (raw ? String(n) : Number(n).toLocaleString()); };
   return (a != null ? f(a) : '?') + '–' + (b != null ? f(b) : '?');
 }
 function _bsNotes(s) {
   var parts = [];
   if (s.last_purchase_address) parts.push('Last purchase: ' + s.last_purchase_address);
   var arv = _bsRange(s.arv_min, s.arv_max, '$'); if (arv) parts.push('ARV: ' + arv);
-  var yr = _bsRange(s.year_min, s.year_max); if (yr) parts.push('Year: ' + yr);
+  var yr = _bsRange(s.year_min, s.year_max, '', true); if (yr) parts.push('Year: ' + yr);
   var bd = _bsRange(s.beds_min, s.beds_max); if (bd) parts.push('Beds: ' + bd);
   var ba = _bsRange(s.baths_min, s.baths_max); if (ba) parts.push('Baths: ' + ba);
   var sf = _bsRange(s.sqft_min, s.sqft_max); if (sf) parts.push('Sqft: ' + sf);
@@ -39198,20 +39235,44 @@ function buyerRenderSignupsList() {
   el.innerHTML = rows.map(function (s) {
     var company = (s.llc_name && s.llc_name.trim()) ? s.llc_name.trim() : (s.contact_name || '(no name)');
     var contact = (s.llc_name && s.contact_name) ? s.contact_name : '';
+    // Small labeled stat box (used for the numeric range criteria).
+    var stat = function (label, val) {
+      if (!val) return '';
+      return '<div style="background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:6px 9px">'
+        + '<div style="font-size:9px;letter-spacing:0.4px;text-transform:uppercase;color:var(--text-dim);font-weight:700">' + label + '</div>'
+        + '<div style="font-size:12.5px;font-weight:700;color:var(--text);margin-top:2px">' + _bsEsc(val) + '</div></div>';
+    };
+    var stats = ''
+      + stat('ARV', _bsRange(s.arv_min, s.arv_max, '$'))
+      + stat('Year Built', _bsRange(s.year_min, s.year_max, '', true))
+      + stat('Beds', _bsRange(s.beds_min, s.beds_max))
+      + stat('Baths', _bsRange(s.baths_min, s.baths_max))
+      + stat('Sqft', _bsRange(s.sqft_min, s.sqft_max))
+      + stat('Reno Scale', (Array.isArray(s.reno_scales) && s.reno_scales.length) ? (s.reno_scales[0] + (s.reno_scales.length > 1 ? ' → ' + s.reno_scales[s.reno_scales.length - 1] : '')) : '');
+    // Full-width labeled text row.
+    var row = function (label, val, color) {
+      if (!val) return '';
+      return '<div style="margin-top:8px;font-size:12.5px;line-height:1.45">'
+        + '<span style="font-size:9px;letter-spacing:0.4px;text-transform:uppercase;color:var(--text-dim);font-weight:700;display:block;margin-bottom:1px">' + label + '</span>'
+        + '<span style="color:' + (color || 'var(--text)') + '">' + _bsEsc(val) + '</span></div>';
+    };
     var contactBits = [];
     if (s.phone) contactBits.push('📞 ' + _bsEsc(s.phone));
     if (s.email) contactBits.push('✉️ ' + _bsEsc(s.email));
-    var loc = [];
-    if (Array.isArray(s.counties) && s.counties.length) loc.push('Counties: ' + _bsEsc(s.counties.join(', ')));
-    if (Array.isArray(s.zips) && s.zips.length) loc.push('Zips: ' + _bsEsc(s.zips.join(', ')));
-    var notes = _bsNotes(s);
-    return '<div style="border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin-bottom:10px;background:var(--panel-2)">'
-      + '<div style="font-weight:800;font-size:14px">' + _bsEsc(company) + (contact ? ' <span style="color:#fbbf24;font-weight:700">: ' + _bsEsc(contact) + '</span>' : '') + '</div>'
-      + (contactBits.length ? '<div style="font-size:12px;color:#60a5fa;margin-top:3px">' + contactBits.join(' · ') + '</div>' : '')
-      + (s.buy_box ? '<div style="font-size:12.5px;color:var(--text);margin-top:6px"><b>Buy box:</b> ' + _bsEsc(s.buy_box) + '</div>' : '')
-      + (loc.length ? '<div style="font-size:11.5px;color:var(--text-dim);margin-top:4px">' + loc.join(' · ') + '</div>' : '')
-      + (notes ? '<div style="font-size:11.5px;color:var(--text-dim);margin-top:4px">' + _bsEsc(notes) + '</div>' : '')
-      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">'
+    var when = s.submitted_at ? new Date(s.submitted_at).toLocaleDateString() : '';
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px;background:var(--panel-2)">'
+      + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap">'
+      +   '<div style="font-weight:800;font-size:15px">' + _bsEsc(company) + (contact ? ' <span style="color:#fbbf24;font-weight:700">: ' + _bsEsc(contact) + '</span>' : '') + '</div>'
+      +   (when ? '<div style="font-size:10.5px;color:var(--text-dim)">' + when + '</div>' : '')
+      + '</div>'
+      + (contactBits.length ? '<div style="font-size:12.5px;color:#60a5fa;margin-top:4px;font-weight:600">' + contactBits.join(' &nbsp;·&nbsp; ') + '</div>' : '')
+      + (stats ? '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px">' + stats + '</div>' : '')
+      + row('Buy Box &amp; End Goals', s.buy_box)
+      + row('Exit Strategies', (Array.isArray(s.exit_strategies) && s.exit_strategies.length) ? s.exit_strategies.join(', ') : '', '#10b981')
+      + row('Exit Strategy End Goals', (Array.isArray(s.end_goals) && s.end_goals.length) ? s.end_goals.join(', ') : '', '#a5b4fc')
+      + row('Favorite Zips', (Array.isArray(s.zips) && s.zips.length) ? s.zips.join(', ') : '')
+      + row('Last Purchase', s.last_purchase_address)
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;border-top:1px solid var(--border);padding-top:10px">'
       +   '<button onclick="buyerDismissSignup(\'' + _bsEsc(s.id) + '\')" style="padding:6px 12px;border:1px solid var(--border);background:var(--panel);color:var(--text-dim);border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">Dismiss</button>'
       +   '<button onclick="buyerApproveSignup(\'' + _bsEsc(s.id) + '\',this)" style="padding:6px 14px;border:none;background:#10b981;color:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">✓ Approve → Add Buyer</button>'
       + '</div></div>';
@@ -39232,7 +39293,7 @@ window.buyerApproveSignup = async function (id, btn) {
       phone: s.phone || '', email: s.email || '',
       price_notes: s.buy_box || '', notes: _bsNotes(s),
       zips: Array.isArray(s.zips) ? s.zips : [], counties: Array.isArray(s.counties) ? s.counties : [],
-      channels: channels, strategy: Array.isArray(s.exit_strategies) ? s.exit_strategies : [],
+      channels: channels, strategy: Array.isArray(s.end_goals) ? s.end_goals : [],
       qualification: null, verified: null,
       updated_at: new Date().toISOString()
     };
@@ -40812,11 +40873,9 @@ window.unionTags = unionTags;
 // Channel labels are CANONICAL — fixed set so filtering is reliable.
 // Each channel gets its own color when active (matches strategy chip pattern).
 const BUYER_CHANNEL_TYPES = [
-  { key: 'Phone',     color: '#10b981' },  // green
-  { key: 'Email',     color: '#60a5fa' },  // blue
-  { key: 'SMS',       color: '#fbbf24' },  // yellow
-  { key: 'Messenger', color: '#f472b6' },  // pink
-  { key: 'Other',     color: '#9ca3af' }   // gray
+  { key: 'Phone',    color: '#10b981' },  // green
+  { key: 'Email',    color: '#60a5fa' },  // blue
+  { key: 'Facebook', color: '#3b82f6' }   // facebook blue
 ];
 
 function buyerRenderChannelChips(selected) {
@@ -40972,11 +41031,12 @@ window.buyerQualState = buyerQualState;
 // readable.
 
 const BUYER_STRATEGY_TYPES = [
-  { key: 'Flip',         color: '#fb923c' },  // orange
-  { key: 'Cashflow',     color: '#10b981' },  // green
+  { key: 'Flip Income',  color: '#fb923c' },  // orange
+  { key: 'Rental Cashflow', color: '#10b981' },  // green
+  { key: 'Equity',       color: '#f472b6' },  // pink
   { key: 'Appreciation', color: '#60a5fa' },  // blue
-  { key: 'Wholesale',    color: '#a78bfa' },  // purple
-  { key: 'Other',        color: '#9ca3af' }   // gray
+  { key: 'Depreciation', color: '#22d3ee' },  // cyan
+  { key: 'Unit Count',   color: '#a78bfa' }   // purple
 ];
 
 function buyerRenderStrategyChips(selected) {

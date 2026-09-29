@@ -5065,6 +5065,65 @@
       </div><!-- /#uw-scope-body -->
     </div><!-- /Scope of Work panel -->
 
+    <!-- Property Measurements, Materials & Quantities — own section (shown to contractors on the bid form) -->
+    <div class="panel p-5 mb-4" data-uw-section="property-specs" data-uw-section-label="📐 Property Measurements">
+      <div class="font-semibold text-lg mb-2" onclick="toggleSection('uw-specs-body','uw-specs-arrow'); if(document.getElementById('uw-specs-body').style.display!=='none') uwRenderSpecsFields();" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between">
+        <span>📐 Property Measurements, Materials &amp; Quantities</span>
+        <span id="uw-specs-arrow" style="color:var(--text-dim);transition:transform 0.15s;font-size:14px;display:inline-block">▶</span>
+      </div>
+      <div class="text-xs mb-4" style="color:var(--text-dim)">Measurements, finish specs, and counts shown to contractors on the bid form so they can bid accurately. Fill in what you've measured — leave the rest blank.</div>
+      <div id="uw-specs-body" style="display:none">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+          <button type="button" class="btn btn-ghost text-xs" onclick="uwSpecsRestoreDefaults()" style="border:1px solid var(--border);padding:6px 12px" title="Reset every field back to your standard defaults (Luxury Vinyl Plank · 8mm · 22mil · Architectural, etc.)">↺ Restore Defaults</button>
+        </div>
+        <div id="uw-specs-fields"></div>
+        <div style="font-size:11px;color:var(--text-dim);margin:4px 0 6px">🔄 These calculate automatically from the values you enter above — no button needed.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin:0 0 4px">
+          <div style="padding:11px 13px;border:1px dashed var(--border);border-radius:8px;background:var(--panel-2)">
+            <div style="font-size:11.5px;font-weight:800;margin-bottom:7px">🧱 Exterior Estimator</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
+              <label style="font-size:10px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px">Footprint (SF)<input id="rc-footprint" readonly tabindex="-1" style="height:32px;width:90px;padding:0 9px;background:rgba(148,163,184,0.12);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box;cursor:not-allowed"></label>
+              <label style="font-size:10px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px">Floor Area (SF)<input id="plf-area" readonly tabindex="-1" style="height:32px;width:90px;padding:0 9px;background:rgba(148,163,184,0.12);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box;cursor:not-allowed"></label>
+              <label style="font-size:10px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px">Pitch<input id="rc-pitch" readonly tabindex="-1" style="height:32px;width:110px;padding:0 9px;background:rgba(148,163,184,0.12);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box;cursor:not-allowed"></label>
+              <label style="font-size:10px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px">Shape<select id="plf-shape" onchange="window.uwCalcLinear&&window.uwCalcLinear(true)" style="height:32px;padding:0 8px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px"><option value="4.0">Boxy / Simple</option><option value="4.3" selected>Typical</option><option value="4.8">Complex / Irregular</option></select></label>
+              <label style="font-size:10px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px">Roof<select id="plf-roof" onchange="window.uwCalcLinear&&window.uwCalcLinear(true)" style="height:32px;padding:0 8px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px"><option value="gable" selected>Gable</option><option value="hip">Hip</option></select></label>
+            </div>
+            <div id="rc-result" style="display:none"></div>
+            <div id="plf-result" style="font-size:12px;font-weight:700;color:#10b981;margin-top:6px;min-height:15px"></div>
+            <div style="font-size:9.5px;color:var(--text-dim);margin-top:2px">Auto-fills Roof squares, Fascia, Soffit, Gutters, Downspouts &amp; Siding above. Squares = footprint × pitch; perimeter ≈ √footprint × shape; soffit &amp; gutters = eave runs (Gable ≈ 55%, Hip ≈ 100%); a downspout every ~35 LF; siding = perimeter × (ceiling+1) × stories. Changing Shape or Roof re-fills; your own typed numbers are kept.</div>
+          </div>
+          <div style="padding:11px 13px;border:1px dashed var(--border);border-radius:8px;background:var(--panel-2)">
+            <div style="font-size:11.5px;font-weight:800;margin-bottom:7px">🎨 Paint & Trim Estimator</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
+              <label style="font-size:10px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px">Floor Area (SF)<input id="pc-sqft" readonly tabindex="-1" style="height:32px;width:100px;padding:0 9px;background:rgba(148,163,184,0.12);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box;cursor:not-allowed"></label>
+              <label style="font-size:10px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px">Ceiling Ht (ft)<input id="pc-height" readonly tabindex="-1" value="8" style="height:32px;width:70px;padding:0 9px;background:rgba(148,163,184,0.12);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box;cursor:not-allowed"></label>
+              <label style="font-size:10px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px">Coats<select id="pc-coats" style="height:32px;padding:0 8px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px"><option>1</option><option selected>2</option><option>3</option></select></label>
+              <label style="font-size:10px;color:var(--text-dim);display:flex;align-items:center;gap:5px;height:32px"><input type="checkbox" id="pc-ceil" checked style="width:15px;height:15px"> Ceilings</label>
+            </div>
+            <div id="pc-result" style="font-size:12px;font-weight:700;color:#10b981;margin-top:6px;min-height:15px"></div>
+            <div style="font-size:9.5px;color:var(--text-dim);margin-top:2px">Auto from Total Livable + Ceiling Height above; walls ≈ floor×3.2, 350 SF/gal. Also fills Baseboard (≈ floor area × 0.35 LF).</div>
+          </div>
+          <div style="padding:11px 13px;border:1px dashed var(--border);border-radius:8px;background:var(--panel-2)">
+            <div style="font-size:11.5px;font-weight:800;margin-bottom:7px">🍽 Kitchen Estimator</div>
+            <input id="ctc-run" type="hidden">
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
+              <label style="font-size:10px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px">Base (LF)<input id="cbc-base" readonly tabindex="-1" style="height:32px;width:70px;padding:0 9px;background:rgba(148,163,184,0.12);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box;cursor:not-allowed"></label>
+              <label style="font-size:10px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px">Upper (LF)<input id="cbc-upper" readonly tabindex="-1" style="height:32px;width:70px;padding:0 9px;background:rgba(148,163,184,0.12);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;box-sizing:border-box;cursor:not-allowed"></label>
+              <label style="font-size:10px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px">Counter Depth (in)<select id="ctc-depth" style="height:32px;padding:0 8px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px"><option>24</option><option selected>25</option><option>25.5</option><option>26</option><option>30</option></select></label>
+              <label style="font-size:10px;color:var(--text-dim);display:flex;flex-direction:column;gap:3px">Waste %<select id="ctc-waste" style="height:32px;padding:0 8px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px"><option>0</option><option>5</option><option selected>10</option><option>15</option><option>20</option></select></label>
+            </div>
+            <div id="cbc-result" style="font-size:12px;font-weight:700;color:#10b981;margin-top:6px;min-height:15px"></div>
+            <div id="ctc-result" style="font-size:12px;font-weight:700;color:#10b981;margin-top:3px;min-height:15px"></div>
+            <div style="font-size:9.5px;color:var(--text-dim);margin-top:2px">All auto from Base/Upper Cabinets above. Cabinets subtract selected Stove, Fridge &amp; Dishwasher openings (stock widths 12/15/18/24/30/36"). Countertop run = base cabinets; slab by sq ft, laminate by linear ft.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:12px">
+          <button class="btn btn-primary text-sm" onclick="uwSaveSpecs(this)" id="uw-specs-save-btn">💾 Save Measurements</button>
+          <span id="uw-specs-status" style="font-size:12px;color:var(--text-dim)"></span>
+        </div>
+      </div>
+    </div><!-- /Property Measurements panel -->
+
     <!-- Contractor Quotes & Bids — own section panel (Budget tab), sibling of Budget & Scope -->
     <div class="panel p-5 mb-4" data-uw-section="contractor-bids" data-uw-section-label="🔨 Contractor Quotes &amp; Bids">
       <div class="font-semibold text-lg" style="display:flex;align-items:center;gap:8px">🔨 Contractor Quotes &amp; Bids</div>
@@ -21236,6 +21295,7 @@ const _UW_SECTION_TAB = {
   'exit-strategy':        'strategy',
   'budget-overview':      'budget',
   'scope-of-work':        'budget',
+  'property-specs':       'budget',
   'contractor-bids':      'budget',
   'contractor-invoices':  'budget',
   // 'scope-of-work' was merged into 'budget-overview' — no longer a separate
@@ -27652,9 +27712,375 @@ async function uwBidFillBudget(){
 }
 window.uwBidFillBudget = uwBidFillBudget;
 
+// ===== Property Measurements / Materials / Quantities (shown to contractors) =====
+// Each field: { k:key, l:label, t:'text'|'num'|'sel', unit?, opts?[] }
+const _UW_BID_SPECS = {
+  kitchen: { title: '🍽 Kitchen — Cabinets & Countertops', layout: [6, 6, 3], fields: [
+    { k:'cab_grade',  l:'Cabinet Grade', t:'sel', d:'Stock', opts:['Stock','Ready-to-Assemble (RTA)','Builder Grade','Semi-Custom','Custom'] },
+    { k:'cab_box',    l:'Box Material',  t:'sel', d:'Plywood', opts:['Particle Board','Medium-Density Fiberboard (MDF)','Plywood','Solid Wood'] },
+    { k:'cab_door',   l:'Door Style',    t:'sel', d:'Shaker', opts:['Shaker','Flat / Slab','Raised Panel'] },
+    { k:'cab_softclose', l:'Close Type (doors & drawers)', t:'sel', d:'Soft-Close', opts:['Soft-Close','Self-Close','Free Swing (Standard)'] },
+    { k:'counter_mat', l:'Countertop Material', t:'sel', d:'Laminate (Formica)', opts:['Laminate (Formica)','Butcher Block','Granite','Quartz','Solid Surface','Tile','Cultured Marble'] },
+    { k:'backsplash', l:'Backsplash', t:'sel', d:'No Backsplash', opts:['No Backsplash','Integrated Countertop Strip','Tile to Uppers (Subway)'] },
+    { k:'app_fridge',     l:'Fridge (W)', t:'sel', d:'36"', opts:['None','30"','33"','36"','42"','48"'] },
+    { k:'app_stove',      l:'Stove (W)',  t:'sel', d:'30"', opts:['None','20"','24"','30"','36"','48"'] },
+    { k:'app_dishwasher', l:'Dishwasher (W)', t:'sel', d:'24"', opts:['None','18"','24"'] },
+    { k:'app_microwave',  l:'Microwave',  t:'sel', d:'Over-Range', opts:['None','Over-Range','Countertop','Built-in 24"','Drawer'] },
+    { k:'cab_lower',  l:'Base Cabinets', t:'num', unit:'LF', hl:true },
+    { k:'cab_upper',  l:'Upper Cabinets', t:'num', unit:'LF', hl:true },
+    { k:'sink_type', l:'Kitchen Sink', t:'sel', d:'Single Bowl', opts:['Single Bowl','Double Bowl (50/50)','Double Bowl (60/40)','Farmhouse / Apron-Front','Bar / Prep','Triple Bowl'] },
+    { k:'sink_mount', l:'Sink Mount', t:'sel', d:'Drop-In / Top-Mount', opts:['Drop-In / Top-Mount','Undermount'] },
+    { k:'faucet_type', l:'Faucet Handle', t:'sel', d:'Single-Lever', opts:['Single-Lever','Dual-Handle (Two Levers)','Pull-Down Sprayer','Touchless / Motion-Sensor','Wall-Mount'] }
+  ]},
+  bathroom: { title: '🛁 Bathroom', layout: [5, 4], fields: [
+    { k:'vanity_width', l:'Vanity Width', t:'sel', d:'30"', opts:['None','24"','30"','36"','48"','60"','72" (Double)'] },
+    { k:'vanity_top', l:'Vanity Top', t:'sel', d:'Cultured Marble', opts:['Cultured Marble','Laminate','Solid Surface','Quartz','Granite'] },
+    { k:'bath_sink', l:'Sink Type', t:'sel', d:'Integrated (Top + Bowl)', opts:['Integrated (Top + Bowl)','Drop-In','Undermount','Vessel','Pedestal'] },
+    { k:'bath_faucet', l:'Faucet', t:'sel', d:'Single-Lever', opts:['Single-Lever','Widespread (2-Handle)','Centerset (4")','Wall-Mount'] },
+    { k:'tub_shower', l:'Tub / Shower', t:'sel', d:'Tub / Shower Combo', opts:['Tub / Shower Combo','Walk-In Shower','Shower Only','Soaking Tub','None'] },
+    { k:'surround', l:'Surround', t:'sel', d:'Acrylic / Fiberglass Insert', opts:['Acrylic / Fiberglass Insert','Tile','Solid Surface'] },
+    { k:'shower_door', l:'Shower Door', t:'sel', d:'Curtain Rod', opts:['Curtain Rod','Sliding Glass','Framed Swing','Frameless Glass'] },
+    { k:'toilet_type', l:'Toilet', t:'sel', d:'Comfort-Height', opts:['Standard','Comfort-Height','One-Piece','Wall-Hung'] },
+    { k:'exhaust_fan', l:'Exhaust Fan', t:'sel', d:'Yes', opts:['Yes','No'] }
+  ]},
+  measurements: { title: '📐 Structure & Exterior', fields: [
+    { k:'sqft', l:'Property', t:'num', unit:'SF' },
+    { k:'ceiling_height', l:'Ceiling Height', t:'sel', d:'8 ft', opts:['8 ft','9 ft','10 ft','Vaulted / Cathedral'] },
+    { k:'roof_squares', l:'Roof', t:'num', unit:'squares' },
+    { k:'roof_pitch', l:'Roof Pitch', t:'sel', d:'6/12 (Normal)', hl:true, opts:['Flat / Low','2/12 (Low)','3/12 (Low)','4/12 (Normal)','5/12 (Normal)','6/12 (Normal)','7/12 (Normal)','8/12 (Normal)','9/12 (Steep)','10/12 (Steep)','12/12 (Steep)'] },
+    { k:'shingle_type', l:'Shingle Type', t:'sel', d:'Architectural', opts:['Architectural','3-Tab','Metal'] },
+    { k:'roof_layers', l:'Roof Layers to Tear Off', t:'num', hl:true },
+    { k:'siding', l:'Siding', t:'num', unit:'SF' },
+    { k:'soffit', l:'Soffit', t:'num', unit:'LF' },
+    { k:'fascia', l:'Fascia', t:'num', unit:'LF' },
+    { k:'gutters', l:'Gutters', t:'num', unit:'LF' },
+    { k:'downspouts', l:'Downspouts', t:'num', unit:'count' }
+  ]},
+  systems: { title: '⚙️ Major Systems', layout: [4, 4, 3], fields: [
+    { k:'hvac_type', l:'HVAC Type', t:'sel', d:'Forced Air (Gas Furnace + AC)', opts:['Forced Air (Gas Furnace + AC)','Heat Pump','Boiler / Radiator','Mini-Split','Baseboard Electric','None'] },
+    { k:'furnace_size', l:'Furnace Size', t:'sel', opts:['None','40k BTU (~900 SF)','60k BTU (~1,350 SF)','80k BTU (~1,800 SF)','100k BTU (~2,250 SF)','120k BTU (~2,700 SF)'] },
+    { k:'ac_size', l:'A/C Size', t:'sel', opts:['None','1.5 Ton (~900 SF)','2 Ton (~1,200 SF)','2.5 Ton (~1,500 SF)','3 Ton (~1,800 SF)','3.5 Ton (~2,100 SF)','4 Ton (~2,400 SF)','5 Ton (~3,000 SF)'] },
+    { k:'ductwork', l:'Ductwork', t:'sel', d:'Existing / Reuse', opts:['Existing / Reuse','Sheet Metal','Flex Duct','Insulated Flex'] },
+    { k:'panel_amps', l:'Electrical Panel', t:'sel', d:'100A', opts:['60A','100A','150A','200A'] },
+    { k:'wiring_mat', l:'Wiring', t:'sel', d:'Copper (Romex)', opts:['Copper (Romex)','Aluminum','Knob & Tube (Existing)'] },
+    { k:'supply_mat', l:'Water Supply Lines', t:'sel', d:'PEX', opts:['PEX','Copper','CPVC','Galvanized (Existing)'] },
+    { k:'drain_mat', l:'Drain / Waste Lines', t:'sel', d:'PVC', opts:['PVC','ABS','Cast Iron (Existing)'] },
+    { k:'water_heater', l:'Water Heater', t:'sel', opts:['Existing / Keep','30 gal Tank (~1-2 People)','40 gal Tank (~2-3 People)','50 gal Tank (~4-5 People)','Tankless (Whole-Home)'] },
+    { k:'sewer_line', l:'Sewer / Main Line', t:'sel', d:'Existing / OK', opts:['Existing / OK','Scope Needed','Repair / Replace'] },
+    { k:'insulation', l:'Insulation', t:'sel', d:'Existing / Adequate', opts:['Existing / Adequate','Blown-In (Cellulose)','Fiberglass Batt','Spray Foam','None'] }
+  ]},
+  flooring: { title: '🪵 Flooring & Finishes', layout: [4, 6, 4], fields: [
+    { k:'floor_type', l:'Type', t:'sel', d:'Luxury Vinyl Plank (LVP) / Luxury Vinyl Tile (LVT)', opts:['Luxury Vinyl Plank (LVP) / Luxury Vinyl Tile (LVT)','Carpet','Tile','Laminate','Hardwood','Sheet Vinyl'] },
+    { k:'floor_core', l:'Rigid Core', t:'sel', d:'Stone Plastic Composite (SPC)', opts:['Stone Plastic Composite (SPC)','Wood Plastic Composite (WPC)','None'] },
+    { k:'floor_underlay', l:'Underlayment', t:'sel', d:'Attached pad', opts:['Attached pad','Separate foam','Cork','None'] },
+    { k:'floor_install', l:'Install Method', t:'sel', d:'Floating / Click', opts:['Floating / Click','Glue-down','Nail-down'] },
+    { k:'floor_sf',   l:'Area', t:'num', unit:'SF' },
+    { k:'floor_wear', l:'Wear Layer', t:'sel', unit:'mil', d:'22', opts:['6','12','20','22','28','40'] },
+    { k:'floor_thick', l:'Thickness', t:'sel', unit:'mm', d:'6', opts:['4','5','6','7','8','12','20'] },
+    { k:'floor_waterproof', l:'Waterproof', t:'sel', d:'Yes', opts:['Yes','No'] },
+    { k:'trim', l:'Baseboard / Trim', t:'num', unit:'LF' },
+    { k:'floor_stairs', l:'Stairs', t:'num', unit:'count', hl:true },
+    { k:'fixture_level', l:'Fixture Level', t:'sel', d:'Mid-Grade', opts:['Builder Grade','Mid-Grade','Premium'] },
+    { k:'faucet_finish', l:'Fixtures & Hardware Finish', t:'sel', d:'Brushed Nickel', opts:['Chrome','Brushed Nickel','Matte Black','Brushed Gold / Champagne Bronze','Oil-Rubbed Bronze','Stainless Steel'] },
+    { k:'door_hardware', l:'Door Hardware Style', t:'sel', d:'Levers', opts:['Levers','Round Knobs','Levers & Knobs (Mixed)'] },
+    { k:'paint_scheme', l:'Paint Scheme', t:'text', hl:true }
+  ]},
+  quantities: { title: '🔢 Quantities', fields: [
+    { k:'q_int_doors', l:'Interior Doors', t:'num', hl:true }, { k:'q_ext_doors', l:'Exterior Doors', t:'num', hl:true },
+    { k:'q_windows', l:'Windows', t:'num', hl:true }, { k:'q_switches', l:'Light Switches', t:'num', hl:true },
+    { k:'q_outlets', l:'Outlets', t:'num', hl:true }, { k:'q_fixtures', l:'Light Fixtures', t:'num', hl:true },
+    { k:'q_fans', l:'Ceiling Fans', t:'num', hl:true }, { k:'q_showers', l:'Tubs / Showers', t:'num', hl:true },
+    { k:'q_vanities', l:'Vanities', t:'num', hl:true }, { k:'q_sinks', l:'Sinks / Faucets', t:'num', hl:true },
+    { k:'q_toilets', l:'Toilets', t:'num', hl:true }, { k:'q_vents', l:'Vents / Registers', t:'num', hl:true }
+  ]}
+};
+function _uwBidReadSpecsDOM(){
+  const inputs = document.querySelectorAll('.uw-spec-input');
+  if (!inputs.length) return null;
+  const o = {}; inputs.forEach(function(i){ const v = (i.value || '').trim(); if (v) o[i.getAttribute('data-key')] = v; });
+  return o;
+}
+// Standalone Property Measurements section (between Scope of Work and Bids).
+function _uwSpecFieldInput(f, v){
+  // Fall back to the field's default (f.d) only when nothing is saved yet.
+  if ((v == null || v === '') && f.d != null) v = f.d;
+  const val = (v != null) ? escapeHtml(String(v)) : '';
+  const lbl = escapeHtml(f.l) + (f.unit ? ' (' + escapeHtml(f.unit) + ')' : '');
+  const box = f.hl
+    ? 'height:34px;padding:0 10px;background:var(--panel-2);border:1.5px solid var(--brand,#ea580c);border-radius:6px;color:var(--text);font-size:13px;font-weight:600;width:100%;box-sizing:border-box;box-shadow:0 0 0 3px rgba(234,88,12,0.18)'
+    : 'height:34px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;width:100%;box-sizing:border-box';
+  let ctrl;
+  if (f.t === 'sel') {
+    ctrl = '<select class="uw-spec-input" data-key="' + f.k + '" style="' + box + '"><option value="">—</option>' +
+      f.opts.map(function(o){ return '<option value="' + escapeHtml(o) + '"' + (String(v) === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>'; }).join('') +
+      '</select>';
+  } else {
+    const im = f.t === 'num' ? ' inputmode="decimal"' : '';
+    ctrl = '<input type="text"' + im + ' class="uw-spec-input" data-key="' + f.k + '" value="' + val + '" style="' + box + '">';
+  }
+  const span = f.span ? (';grid-column:span ' + f.span) : '';
+  return '<div style="display:flex;flex-direction:column;gap:4px;min-width:0' + span + '">' +
+    '<div style="font-size:10.5px;font-weight:600;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + lbl + '">' + lbl + '</div>' +
+    ctrl + '</div>';
+}
+function _uwSpecsFieldsHtml(vals){
+  vals = vals || {};
+  const gridRow = (fields, cols) =>
+    '<div style="display:grid;grid-template-columns:' + cols + ';gap:10px 12px;margin-bottom:10px">' +
+      fields.map(function(f){ return _uwSpecFieldInput(f, vals[f.k]); }).join('') + '</div>';
+  return Object.keys(_UW_BID_SPECS).map(function(g){
+    const grp = _UW_BID_SPECS[g];
+    let body;
+    if (Array.isArray(grp.layout)) {
+      // Explicit per-row column counts (fewer fields on a row = wider fields).
+      let idx = 0; const parts = [];
+      grp.layout.forEach(function(n){
+        const slice = grp.fields.slice(idx, idx + n); idx += n;
+        if (slice.length) parts.push(gridRow(slice, 'repeat(' + n + ',minmax(0,1fr))'));
+      });
+      if (idx < grp.fields.length) parts.push(gridRow(grp.fields.slice(idx), 'repeat(auto-fill,minmax(185px,1fr))'));
+      body = parts.join('');
+    } else {
+      const cols = grp.cols ? ('repeat(' + grp.cols + ',minmax(0,1fr))') : 'repeat(auto-fill,minmax(185px,1fr))';
+      body = gridRow(grp.fields, cols);
+    }
+    return '<div style="margin-bottom:18px"><div style="font-size:12.5px;font-weight:800;color:var(--text);margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:5px">' + grp.title + '</div>' + body + '</div>';
+  }).join('');
+}
+async function uwRenderSpecsFields(){
+  const host = document.getElementById('uw-specs-fields'); if (!host) return;
+  const dealId = _uwCurrentId; if (!dealId) return;
+  let specs = (_uwBid.byDeal[dealId] && _uwBid.byDeal[dealId].specs) || null;
+  if (specs == null) {
+    try { const { data } = await sb.from('bid_requests').select('id,specs').eq('underwrite_id', dealId).maybeSingle(); specs = (data && data.specs) || {}; if (data && !_uwBid.byDeal[dealId]) _uwBid.byDeal[dealId] = data; }
+    catch (e) { specs = {}; }
+  }
+  host.innerHTML = _uwSpecsFieldsHtml(specs || {});
+  _uwSpecsPrefillFromProperty();
+  _uwSpecsRecalcAll();
+  // Live recalc: any change to a spec field (or a calc dropdown) re-runs the estimators.
+  const body = document.getElementById('uw-specs-body');
+  if (body && !body._recalcBound) { body.addEventListener('input', _uwSpecsRecalcAll); body.addEventListener('change', _uwSpecsRecalcAll); body._recalcBound = true; }
+}
+window.uwRenderSpecsFields = uwRenderSpecsFields;
+// Sync the (read-only) estimator inputs from the top values, then run all four
+// estimators. Called on render and on every edit — no button needed.
+function _uwSpecsRecalcAll(){
+  try {
+    const _n = (id) => { const e = document.getElementById(id); return e ? String(e.value || '').replace(/[^0-9.]/g,'') : ''; };
+    const _spec = (k) => { const e = document.querySelector('.uw-spec-input[data-key="' + k + '"]'); return e ? String(e.value || '') : ''; };
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+    set('rc-footprint', _n('uw-floor1') || _n('uw-sqft'));
+    set('rc-pitch', _spec('roof_pitch'));
+    set('pc-sqft', _n('uw-sqft') || _n('uw-floor1'));
+    const ch = parseFloat((_spec('ceiling_height') || '').replace(/[^0-9.]/g,'')); set('pc-height', ch || 8);
+    const bl = (_spec('cab_lower') || '').replace(/[^0-9.]/g,'');
+    const ul = (_spec('cab_upper') || '').replace(/[^0-9.]/g,'');
+    set('cbc-base', bl); set('cbc-upper', ul); set('ctc-run', bl);
+    set('plf-area', _n('uw-sqft') || _n('uw-floor1'));
+    if (window.uwCalcRoofSquares) window.uwCalcRoofSquares();
+    if (window.uwCalcPaint) window.uwCalcPaint();
+    if (window.uwCalcCountertop) window.uwCalcCountertop();
+    if (window.uwCalcCabinets) window.uwCalcCabinets();
+    if (window.uwCalcLinear) window.uwCalcLinear();
+  } catch (e) {}
+}
+// Prefill measured areas from the property fields (only where still empty):
+//  • Roof footprint = Floor 1 SqFt (ground-floor footprint the roof covers)
+//  • Paint / Flooring area = Total Livable SqFt (all floors)
+function _uwSpecsPrefillFromProperty(){
+  try {
+    const _n = (id) => { const e = document.getElementById(id); return e ? (String(e.value||'').replace(/[^0-9.]/g,'')) : ''; };
+    const rf = document.getElementById('rc-footprint'); if (rf && !rf.value) rf.value = _n('uw-floor1') || _n('uw-sqft');
+    const pf = document.getElementById('pc-sqft'); if (pf && !pf.value) pf.value = _n('uw-sqft') || _n('uw-floor1');
+    const fs = document.querySelector('.uw-spec-input[data-key="floor_sf"]'); if (fs && !fs.value) fs.value = _n('uw-sqft') || _n('uw-floor1');
+    const ps = document.querySelector('.uw-spec-input[data-key="sqft"]'); if (ps && !ps.value) ps.value = _n('uw-sqft') || _n('uw-floor1');
+    // Furnace & A/C size auto-picked from the property sqft (fill-when-empty; your pick is kept).
+    const _sf = parseFloat(_n('uw-sqft') || _n('uw-floor1')) || 0;
+    if (_sf) {
+      const fur = _sf <= 900 ? '40k BTU (~900 SF)' : _sf <= 1350 ? '60k BTU (~1,350 SF)' : _sf <= 1800 ? '80k BTU (~1,800 SF)' : _sf <= 2250 ? '100k BTU (~2,250 SF)' : '120k BTU (~2,700 SF)';
+      const ac = _sf <= 900 ? '1.5 Ton (~900 SF)' : _sf <= 1200 ? '2 Ton (~1,200 SF)' : _sf <= 1500 ? '2.5 Ton (~1,500 SF)' : _sf <= 1800 ? '3 Ton (~1,800 SF)' : _sf <= 2100 ? '3.5 Ton (~2,100 SF)' : _sf <= 2400 ? '4 Ton (~2,400 SF)' : '5 Ton (~3,000 SF)';
+      const fe = document.querySelector('.uw-spec-input[data-key="furnace_size"]'); if (fe && !String(fe.value||'').trim()) fe.value = fur;
+      const ae = document.querySelector('.uw-spec-input[data-key="ac_size"]'); if (ae && !String(ae.value||'').trim()) ae.value = ac;
+    }
+    // Water heater auto-picked from occupancy = bedrooms + bathrooms (e.g. 3 bed + 2 bath = 5 people).
+    const _people = (parseFloat(_n('uw-bed')) || 0) + (parseFloat(_n('uw-bath')) || 0);
+    if (_people) {
+      const wh = _people <= 2 ? '30 gal Tank (~1-2 People)' : _people <= 3 ? '40 gal Tank (~2-3 People)' : '50 gal Tank (~4-5 People)';
+      const we = document.querySelector('.uw-spec-input[data-key="water_heater"]'); if (we && !String(we.value||'').trim()) we.value = wh;
+    }
+    // Countertop estimator run defaults from the saved Countertop Run field.
+    const cr = document.getElementById('ctc-run');
+    const clf = document.querySelector('.uw-spec-input[data-key="cab_lower"]');
+    if (cr && !cr.value && clf && clf.value) cr.value = String(clf.value).replace(/[^0-9.]/g,'');
+    // Cabinet estimator base/upper default from the saved cabinet-length fields.
+    const cbB = document.getElementById('cbc-base'); const sb2 = document.querySelector('.uw-spec-input[data-key="cab_lower"]');
+    if (cbB && !cbB.value && sb2 && sb2.value) cbB.value = String(sb2.value).replace(/[^0-9.]/g,'');
+    const cbU = document.getElementById('cbc-upper'); const su2 = document.querySelector('.uw-spec-input[data-key="cab_upper"]');
+    if (cbU && !cbU.value && su2 && su2.value) cbU.value = String(su2.value).replace(/[^0-9.]/g,'');
+  } catch (e) {}
+}
+// Reset every field back to its default (blanks the ones with no default), then
+// re-apply the property-derived area prefills.
+window.uwSpecsRestoreDefaults = function(){
+  const host = document.getElementById('uw-specs-fields');
+  if (host) host.innerHTML = _uwSpecsFieldsHtml({});
+  _uwSpecsPrefillFromProperty();
+  _uwSpecsRecalcAll();
+  const st = document.getElementById('uw-specs-status');
+  if (st) { st.textContent = '↺ Reset to defaults — review, then Save'; st.style.color = 'var(--text-dim)'; }
+};
+async function uwSaveSpecs(btn){
+  const dealId = _uwCurrentId; if (!dealId) { return; }
+  const specs = _uwBidReadSpecsDOM() || {};
+  const st = document.getElementById('uw-specs-status');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    const u = (typeof cache !== 'undefined' && cache.underwrites) ? cache.underwrites[dealId] : null;
+    const addr = (u && (u.address || [u.street, u.city, u.state].filter(Boolean).join(', '))) || '';
+    const existing = _uwBid.byDeal[dealId];
+    let row;
+    if (existing && existing.id) {
+      let { data, error } = await sb.from('bid_requests').update({ specs: specs, updated_at: new Date().toISOString() }).eq('id', existing.id).select().single();
+      if (error && /specs/.test(String(error.message || ''))) ({ data, error } = await sb.from('bid_requests').update({ updated_at: new Date().toISOString() }).eq('id', existing.id).select().single());
+      if (error) throw error; row = data; if (row && !row.specs) row.specs = specs;
+    } else {
+      // Create a bid_requests row (status 'draft', not live to contractors) so the
+      // measurements persist even before you build/push the bid sheet.
+      const ins = { underwrite_id: dealId, property_address: addr, token: _uwBidToken(), status: 'draft', specs: specs };
+      let { data, error } = await sb.from('bid_requests').insert(ins).select().single();
+      if (error && /specs/.test(String(error.message || ''))) { delete ins.specs; ({ data, error } = await sb.from('bid_requests').insert(ins).select().single()); }
+      if (error) throw error; row = data; if (row && !row.specs) row.specs = specs;
+    }
+    if (row) _uwBid.byDeal[dealId] = row;
+    if (st) { st.textContent = '✅ Saved — visible to contractors on the bid form'; st.style.color = '#10b981'; }
+  } catch (e) {
+    if (st) { st.textContent = 'Save failed: ' + ((e && e.message) ? e.message : 'try again'); st.style.color = '#f87171'; }
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Save Measurements'; }
+}
+window.uwSaveSpecs = uwSaveSpecs;
+// Roof slope factors (pitch → area multiplier = sqrt(1 + (rise/12)^2)).
+const _ROOF_PITCH_MULT = { 'Flat / Low':1.02, '2/12':1.014, '3/12':1.031, '4/12':1.054, '5/12':1.083, '6/12':1.118, '7/12':1.158, '8/12':1.202, '9/12':1.25, '10/12':1.302, '11/12':1.357, '12/12':1.414 };
+window.uwCalcRoofSquares = function(){
+  const fp = parseFloat(((document.getElementById('rc-footprint')||{}).value || '').replace(/[^0-9.]/g,'')) || 0;
+  const p = (document.getElementById('rc-pitch')||{}).value || '';
+  const res = document.getElementById('rc-result');
+  if (!fp){ if (res){ res.textContent = 'Set Floor 1 SqFt up top.'; res.style.color = 'var(--text-dim)'; } return; }
+  const mult = _ROOF_PITCH_MULT[p.replace(/\s*\(.*\)\s*$/, '').trim()] || 1;
+  const squares = Math.round(fp * mult / 100 * 10) / 10;
+  const el = document.querySelector('.uw-spec-input[data-key="roof_squares"]'); if (el) el.value = squares;
+  const pe = document.querySelector('.uw-spec-input[data-key="roof_pitch"]'); if (pe && p) pe.value = p;
+  if (res){ res.textContent = '≈ ' + squares + ' squares → filled the Roof (squares) field'; res.style.color = '#10b981'; }
+};
+window.uwCalcCabinets = function(){
+  const baseLF = parseFloat(((document.getElementById('cbc-base')||{}).value || '').replace(/[^0-9.]/g,'')) || 0;
+  const upperLF = parseFloat(((document.getElementById('cbc-upper')||{}).value || '').replace(/[^0-9.]/g,'')) || 0;
+  // Pull the openings straight from the appliance widths set above (0 if "None").
+  const _w = (key) => { const el = document.querySelector('.uw-spec-input[data-key="' + key + '"]'); const v = el ? String(el.value || '') : ''; return parseFloat(v.replace(/[^0-9.]/g,'')) || 0; };
+  const stoveGap = _w('app_stove');
+  const fridgeGap = _w('app_fridge');
+  const dishGap = _w('app_dishwasher');
+  const res = document.getElementById('cbc-result');
+  if (!baseLF && !upperLF){ if (res){ res.textContent = 'Set Base / Upper Cabinets up top.'; res.style.color = 'var(--text-dim)'; } return; }
+  const baseIn = Math.max(0, baseLF * 12 - stoveGap - fridgeGap - dishGap);  // stove, fridge, dishwasher openings have no base cabinet
+  const upperIn = Math.max(0, upperLF * 12 - stoveGap);                       // only the range leaves an upper gap
+  const baseBoxes = Math.round(baseIn / 24);   // avg 24" box
+  const upperBoxes = Math.round(upperIn / 24);
+  const gaps = [];
+  if (stoveGap) gaps.push(stoveGap + '" stove');
+  if (fridgeGap) gaps.push(fridgeGap + '" fridge');
+  if (dishGap) gaps.push(dishGap + '" dishwasher');
+  const gapNote = gaps.length ? ' (minus ' + gaps.join(' + ') + ')' : '';
+  if (res){ res.textContent = '≈ ' + baseBoxes + ' base + ' + upperBoxes + ' upper boxes' + gapNote; res.style.color = '#10b981'; }
+};
+window.uwCalcCountertop = function(){
+  const run = parseFloat(((document.getElementById('ctc-run')||{}).value || '').replace(/[^0-9.]/g,'')) || 0;
+  const depth = parseFloat(((document.getElementById('ctc-depth')||{}).value || '').replace(/[^0-9.]/g,'')) || 25;
+  const waste = parseFloat(((document.getElementById('ctc-waste')||{}).value || '').replace(/[^0-9.]/g,'')) || 0;
+  const res = document.getElementById('ctc-result');
+  if (!run){ if (res){ res.textContent = 'Set Base Cabinets up top.'; res.style.color = 'var(--text-dim)'; } return; }
+  const sf = run * depth / 12;
+  const sfW = Math.ceil(sf * (1 + waste / 100));
+  if (res){ res.textContent = '≈ ' + sfW + ' sq ft to buy (incl. ' + waste + '% waste) for slab; or ' + run + ' LF for laminate'; res.style.color = '#10b981'; }
+};
+window.uwCalcPaint = function(){
+  const sf = parseFloat(((document.getElementById('pc-sqft')||{}).value || '').replace(/[^0-9.]/g,'')) || 0;
+  const h = parseFloat(((document.getElementById('pc-height')||{}).value || '').replace(/[^0-9.]/g,'')) || 8;
+  const coats = parseFloat(((document.getElementById('pc-coats')||{}).value || '').replace(/[^0-9.]/g,'')) || 2;
+  const ceil = !!(document.getElementById('pc-ceil') && document.getElementById('pc-ceil').checked);
+  const res = document.getElementById('pc-result');
+  if (!sf){ if (res){ res.textContent = 'Set Total Livable SqFt up top.'; res.style.color = 'var(--text-dim)'; } return; }
+  const wallArea = sf * 3.2 * (h / 8);         // rough interior wall area, scaled by ceiling height
+  const total = wallArea + (ceil ? sf : 0);     // + ceilings
+  const gallons = Math.ceil(total * coats / 350);
+  const baseboard = Math.round(sf * 0.35);      // baseboard ≈ floor area × 0.35 LF
+  if (res){ res.innerHTML = '<div>≈ ' + gallons + ' Gallons (' + coats + ' coat' + (coats===1?'':'s') + (ceil?', including ceilings':', walls only') + ')</div>' + '<div>≈ ' + baseboard + ' LF of Baseboard</div>'; res.style.color = '#10b981'; }
+  // Auto-fill the Baseboard / Trim field (fill-when-empty; your typed value is kept).
+  const tb = document.querySelector('.uw-spec-input[data-key="trim"]');
+  if (tb && baseboard && !String(tb.value || '').trim()) tb.value = String(baseboard);
+};
+window.uwCalcLinear = function(forceFill){
+  const fp   = parseFloat(((document.getElementById('rc-footprint')||{}).value || '').replace(/[^0-9.]/g,'')) || 0;
+  const area = parseFloat(((document.getElementById('plf-area')||{}).value || '').replace(/[^0-9.]/g,'')) || 0;
+  const shape= parseFloat(((document.getElementById('plf-shape')||{}).value || '4.3')) || 4.3;
+  const roof = ((document.getElementById('plf-roof')||{}).value || 'gable');
+  const res = document.getElementById('plf-result');
+  if (!fp && !area){ if (res){ res.textContent = 'Set Floor 1 / Total SqFt up top.'; res.style.color = 'var(--text-dim)'; } return; }
+  const chRaw = ((document.querySelector('.uw-spec-input[data-key="ceiling_height"]')||{}).value || '');
+  const ceil = parseFloat(chRaw.replace(/[^0-9.]/g,'')) || 8;  // ceiling height (ft)
+  const perim = fp ? Math.round(Math.sqrt(fp) * shape) : 0;   // building perimeter (LF)
+  const eaveF = (roof === 'hip') ? 1.0 : 0.55;                 // gutters/soffit run along eaves
+  const soffit = Math.round(perim * eaveF);
+  const gutters = soffit;                                       // gutters follow the eave line
+  const fascia = perim;                                         // fascia wraps the full roofline
+  const downs = perim ? Math.max(2, Math.ceil(gutters / 35)) : 0;  // ~1 downspout / 35 LF of gutter
+  const stories = (fp && area) ? Math.max(1, Math.round(area / fp)) : 1;
+  const wallH = ceil + 1;                                        // wall height ≈ ceiling + floor system
+  const siding = perim ? Math.round(perim * wallH * stories) : 0;  // exterior wall area (SF)
+  // Roof squares — read the value uwCalcRoofSquares just filled into the field.
+  const squares = parseFloat(((document.querySelector('.uw-spec-input[data-key="roof_squares"]')||{}).value || '').replace(/[^0-9.]/g,'')) || 0;
+  const parts = [];
+  if (squares) parts.push('≈ ' + squares + ' Squares');
+  if (perim) parts.push('≈ ' + fascia + ' LF of Fascia');
+  if (soffit) parts.push('≈ ' + soffit + ' LF of Soffit');
+  if (gutters) parts.push('≈ ' + gutters + ' LF of Gutters');
+  if (downs) parts.push('≈ ' + downs + ' Downspouts');
+  if (siding) parts.push('≈ ' + siding + ' SF of Siding (' + stories + '-story)');
+  if (res){
+    res.innerHTML = parts.map(function(p){ return '<div>' + p + '</div>'; }).join('');
+    res.style.color = '#10b981';
+  }
+  // Auto-fill the actual spec fields. Empty fields always fill; a filled field is
+  // only overwritten when forceFill is true (i.e. you changed Shape or Roof).
+  const _fill = (key, val) => {
+    if (!val) return;
+    const el = document.querySelector('.uw-spec-input[data-key="' + key + '"]');
+    if (!el) return;
+    if (forceFill || !String(el.value || '').trim()) el.value = String(val);
+  };
+  _fill('soffit', soffit);
+  _fill('fascia', fascia);
+  _fill('gutters', gutters);
+  _fill('downspouts', downs);
+  _fill('siding', siding);
+};
+
 function _uwRenderBidEditor(){
   const editor = document.getElementById('uw-bid-editor');
   if (!editor) return;
+  // Load spec values: keep the user's in-progress edits across re-renders of the
+  // SAME deal; otherwise pull the saved specs for the current deal.
+  var _curDeal = (typeof _uwCurrentId !== 'undefined') ? _uwCurrentId : null;
+  var _specData;
+  if (_uwBid.specsDealId === _curDeal && document.querySelector('.uw-spec-input')) {
+    _specData = _uwBidReadSpecsDOM() || {};
+  } else {
+    var _exRow = _uwBid.byDeal[_curDeal];
+    _specData = (_exRow && _exRow.specs) || {};
+  }
+  _uwBid.specsDealId = _curDeal;
+  _uwBid.draftSpecs = _specData;
   const isTpl = (_uwBid.mode === 'template');
   let lines = (_uwBid.draft || []).slice();
   if (!isTpl) lines.sort((a,b)=> (b.selected?1:0)-(a.selected?1:0));
@@ -27729,6 +28155,7 @@ window.uwBidToggleEditorRest = uwBidToggleEditorRest;
 function _uwBidCollectEditor(){
   const out = [];
   const _ov = document.getElementById('uw-bid-overview'); if (_ov) _uwBid.draftOverview = _ov.value;
+  { const _sp = _uwBidReadSpecsDOM(); if (_sp) _uwBid.draftSpecs = _sp; }
   // Preserve any stamped LABB budget ($ per line) across edits/saves — the editor
   // rows don't show it, so carry it forward by line id from the saved sheet/draft.
   const _estById = {};
@@ -27783,19 +28210,27 @@ async function uwBidSave(){
   const pics = (picsEl && picsEl.value.trim()) ? picsEl.value.trim() : ((u.data && u.data['uw-pics']) ? String(u.data['uw-pics']).trim() : '');
   const ovEl = document.getElementById('uw-bid-overview');
   const overview = ovEl ? ovEl.value.trim() : (_uwBid.draftOverview || '');
+  { const _sp = _uwBidReadSpecsDOM(); if (_sp) _uwBid.draftSpecs = _sp; }
+  const specs = _uwBid.draftSpecs || {};
   const btn = document.getElementById('uw-bid-save-btn') || document.getElementById('uw-bid-save-top');
   if (btn){ btn.disabled=true; btn.textContent='⏳ Saving…'; }
   try {
     if (typeof sb==='undefined' || !sb) throw new Error('Supabase not ready');
     const existing = _uwBid.byDeal[dealId];
     let row;
+    // Two-tier save: include specs, but retry without it if the column isn't
+    // added yet so saving never breaks before the one-time ALTER is run.
+    const _base = { line_items: lines, property_address: addr, pics_url: pics, overview_notes: overview };
+    const _withSpecs = Object.assign({ specs: specs }, _base);
     if (existing && existing.id){
-      const { data, error } = await sb.from('bid_requests').update({ line_items: lines, property_address: addr, pics_url: pics, overview_notes: overview }).eq('id', existing.id).select().single();
-      if (error) throw error; row = data;
+      let { data, error } = await sb.from('bid_requests').update(_withSpecs).eq('id', existing.id).select().single();
+      if (error && /specs/.test(String(error.message||''))) ({ data, error } = await sb.from('bid_requests').update(_base).eq('id', existing.id).select().single());
+      if (error) throw error; row = data; if (row && !row.specs) row.specs = specs;
     } else {
-      const payload = { underwrite_id: dealId, property_address: addr, line_items: lines, token: _uwBidToken(), status: 'closed', pics_url: pics, overview_notes: overview };
-      const { data, error } = await sb.from('bid_requests').insert(payload).select().single();
-      if (error) throw error; row = data;
+      const _ins = Object.assign({ underwrite_id: dealId, token: _uwBidToken(), status: 'closed' }, _withSpecs);
+      let { data, error } = await sb.from('bid_requests').insert(_ins).select().single();
+      if (error && /specs/.test(String(error.message||''))) { delete _ins.specs; ({ data, error } = await sb.from('bid_requests').insert(_ins).select().single()); }
+      if (error) throw error; row = data; if (row && !row.specs) row.specs = specs;
     }
     _uwBid.byDeal[dealId] = row;
     if (typeof toast==='function') toast('Bid sheet saved. Click 🚀 Push to Bid to make the link live.','ok');

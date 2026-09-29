@@ -33634,7 +33634,7 @@ window._dispoRenderBuyerMap = function () {
   // Active-timeframe window from the filter bar (6mo / 12mo / 24mo / Any) — used
   // to count how many purchases each buyer made inside that window.
   var _actKey = String((window._dispoFilter || {}).active || '');
-  var _actMonths = _actKey === '6mo' ? 6 : _actKey === '12mo' ? 12 : _actKey === '24mo' ? 24 : 0;
+  var _actMonths = _actKey === '3mo' ? 3 : _actKey === '6mo' ? 6 : _actKey === '12mo' ? 12 : _actKey === '24mo' ? 24 : _actKey === '36mo' ? 36 : 0;
   var _actCutoff = null;
   if (_actMonths > 0) { var _cd = new Date(); _cd.setMonth(_cd.getMonth() - _actMonths); _actCutoff = _cd.getTime(); }
   var _actLabel = _actMonths > 0 ? ('last ' + _actMonths + 'mo') : 'all time';
@@ -35983,9 +35983,11 @@ function buyerRenderPerDealPanel() {
           if (active) {
             const bb = r.buyBox || (typeof getBuyerDerivedBuyBox === 'function' ? getBuyerDerivedBuyBox(b.id) : null);
             const m  = bb ? bb.monthsSinceLast : null;
+            if (active === '3mo'  && (m == null || m > 3))   return false;
             if (active === '6mo'  && (m == null || m > 6))   return false;
             if (active === '12mo' && (m == null || m > 12))  return false;
             if (active === '24mo' && (m == null || m > 24))  return false;
+            if (active === '36mo' && (m == null || m > 36))  return false;
           }
           if (search) {
             const hay = ((b.company || '') + ' ' + (b.name || '') + ' ' + (b.email || '') + ' ' + (b.phone || '')).toLowerCase();
@@ -36311,9 +36313,11 @@ function buyerRenderPerDealPanel() {
       +   '</select>'
       +   '<select id="dispo-deal-active" onchange="_dispoSetFilter(\'active\', this.value)" style="flex:0 0 auto;width:130px;height:30px;padding:0 6px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;box-sizing:border-box" title="Only show buyers with a recent purchase">'
       +     '<option value=""'      + (flt.active === ''      ? ' selected' : '') + '>Active: All</option>'
+      +     '<option value="3mo"'   + (flt.active === '3mo'   ? ' selected' : '') + '>Active 3mo</option>'
       +     '<option value="6mo"'   + (flt.active === '6mo'   ? ' selected' : '') + '>Active 6mo</option>'
       +     '<option value="12mo"'  + (flt.active === '12mo'  ? ' selected' : '') + '>Active 12mo</option>'
       +     '<option value="24mo"'  + (flt.active === '24mo'  ? ' selected' : '') + '>Active 24mo</option>'
+      +     '<option value="36mo"'  + (flt.active === '36mo'  ? ' selected' : '') + '>Active 36mo</option>'
       +   '</select>'
       +   '<button onclick="_dispoClearFilters()" title="Clear all filters" style="flex:0 0 auto;width:30px;height:30px;padding:0;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:12px;cursor:pointer">✕</button>'
       + '</div>';

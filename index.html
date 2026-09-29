@@ -6996,6 +6996,7 @@
       <div class="flex items-center mb-3" style="flex-wrap:nowrap;gap:6px">
         <div class="font-semibold" style="flex:0 0 auto;margin-right:4px;white-space:nowrap;font-size:16px">💰 Buyers</div>
         <button class="btn btn-primary text-xs" onclick="buyerOpenAddModal()" style="height:36px;padding:0 10px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new buyer to your rolodex.">+ Add</button>
+        <button id="buyers-signups-btn" class="btn btn-ghost text-xs" onclick="buyerOpenSignups()" style="height:36px;padding:0 10px;white-space:nowrap;flex-shrink:0;line-height:1;border:1px solid #a78bfa;color:#7c3aed" title="Review buyers who signed up through your public Become a Buyer form.">📥 Signups <span id="buyers-signups-count" style="font-weight:800">(0)</span></button>
         <button class="btn btn-ghost text-xs" onclick="buyerOpenImportModal()" style="height:36px;padding:0 10px;white-space:nowrap;flex-shrink:0;line-height:1;border:1px solid var(--border)" title="Bulk-import buyers from a CSV / XLSX. You'll get to map columns + tag with a county / city / zip before importing.">📤 Import</button>
         <button id="buyers-undo-import-btn" class="btn btn-ghost text-xs" onclick="buyerUndoLastImport()" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0;display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4)" title="Delete every buyer that was NEWLY ADDED by the most recent import. Merged rows (rows that already existed) are NOT touched.">↶ Undo</button>
         <button id="buyers-retry-failed-btn" class="btn btn-ghost text-xs" onclick="_buyerRetryFailedGeocodes()" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0;color:#fbbf24;border:1px solid rgba(251,191,36,0.4)" title="Retry geocoding for purchase addresses that previously FAILED at Google. Uses your Google API — each call costs ~$0.005.">↻ Retry Failed</button>
@@ -39131,6 +39132,137 @@ function buyerOpenAddModal(editId) {
   }, 50);
 }
 window.buyerOpenAddModal = buyerOpenAddModal;
+
+// ===== Buyer signups (public "Become a Buyer" form → buyer_submissions) =====
+// Pending signups are reviewed here; Approve creates a real buyer, Dismiss hides it.
+window._buyerSignups = window._buyerSignups || [];
+window._buyerSignupsLoadedAt = window._buyerSignupsLoadedAt || 0;
+async function buyerLoadSignups(force) {
+  if (typeof sb === 'undefined' || !sb) return;
+  if (!force && Date.now() - window._buyerSignupsLoadedAt < 30000) return;
+  window._buyerSignupsLoadedAt = Date.now();
+  try {
+    var res = await sb.from('buyer_submissions').select('*').eq('status', 'pending').order('submitted_at', { ascending: false });
+    if (res.error) throw res.error;
+    window._buyerSignups = res.data || [];
+    var c = document.getElementById('buyers-signups-count');
+    if (c) c.textContent = '(' + window._buyerSignups.length + ')';
+    if (document.getElementById('buyer-signups-pop')) buyerRenderSignupsList();
+  } catch (e) { console.warn('buyerLoadSignups:', e && e.message || e); }
+}
+window.buyerLoadSignups = buyerLoadSignups;
+
+function _bsEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function _bsRange(a, b, prefix) {
+  if (a == null && b == null) return '';
+  var f = function (n) { return (prefix || '') + Number(n).toLocaleString(); };
+  return (a != null ? f(a) : '?') + '–' + (b != null ? f(b) : '?');
+}
+function _bsNotes(s) {
+  var parts = [];
+  if (s.last_purchase_address) parts.push('Last purchase: ' + s.last_purchase_address);
+  var arv = _bsRange(s.arv_min, s.arv_max, '$'); if (arv) parts.push('ARV: ' + arv);
+  var yr = _bsRange(s.year_min, s.year_max); if (yr) parts.push('Year: ' + yr);
+  var bd = _bsRange(s.beds_min, s.beds_max); if (bd) parts.push('Beds: ' + bd);
+  var ba = _bsRange(s.baths_min, s.baths_max); if (ba) parts.push('Baths: ' + ba);
+  var sf = _bsRange(s.sqft_min, s.sqft_max); if (sf) parts.push('Sqft: ' + sf);
+  if (Array.isArray(s.reno_scales) && s.reno_scales.length) parts.push('Reno: ' + s.reno_scales.join(', '));
+  if (Array.isArray(s.exit_strategies) && s.exit_strategies.length) parts.push('Exits: ' + s.exit_strategies.join(', '));
+  return parts.join(' · ');
+}
+
+window.buyerOpenSignups = function () {
+  var prev = document.getElementById('buyer-signups-pop'); if (prev) prev.remove();
+  var ov = document.createElement('div');
+  ov.id = 'buyer-signups-pop';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100003;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML = '<div style="width:min(640px,96vw);max-height:88vh;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 50px rgba(0,0,0,0.5)">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border)"><div style="font-weight:800;font-size:15px">📥 Buyer Signups</div><button id="bsu-x" style="background:none;border:none;color:var(--text-dim);font-size:22px;line-height:1;cursor:pointer">×</button></div>'
+    + '<div id="buyer-signups-list" style="overflow:auto;padding:14px 16px;flex:1"></div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#bsu-x').onclick = function () { ov.remove(); };
+  ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
+  buyerRenderSignupsList();
+  buyerLoadSignups(true);
+};
+
+function buyerRenderSignupsList() {
+  var el = document.getElementById('buyer-signups-list');
+  if (!el) return;
+  var rows = window._buyerSignups || [];
+  if (!rows.length) {
+    el.innerHTML = '<div style="padding:28px;text-align:center;color:var(--text-dim);font-size:13px">No pending signups right now.</div>';
+    return;
+  }
+  el.innerHTML = rows.map(function (s) {
+    var company = (s.llc_name && s.llc_name.trim()) ? s.llc_name.trim() : (s.contact_name || '(no name)');
+    var contact = (s.llc_name && s.contact_name) ? s.contact_name : '';
+    var contactBits = [];
+    if (s.phone) contactBits.push('📞 ' + _bsEsc(s.phone));
+    if (s.email) contactBits.push('✉️ ' + _bsEsc(s.email));
+    var loc = [];
+    if (Array.isArray(s.counties) && s.counties.length) loc.push('Counties: ' + _bsEsc(s.counties.join(', ')));
+    if (Array.isArray(s.zips) && s.zips.length) loc.push('Zips: ' + _bsEsc(s.zips.join(', ')));
+    var notes = _bsNotes(s);
+    return '<div style="border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin-bottom:10px;background:var(--panel-2)">'
+      + '<div style="font-weight:800;font-size:14px">' + _bsEsc(company) + (contact ? ' <span style="color:#fbbf24;font-weight:700">: ' + _bsEsc(contact) + '</span>' : '') + '</div>'
+      + (contactBits.length ? '<div style="font-size:12px;color:#60a5fa;margin-top:3px">' + contactBits.join(' · ') + '</div>' : '')
+      + (s.buy_box ? '<div style="font-size:12.5px;color:var(--text);margin-top:6px"><b>Buy box:</b> ' + _bsEsc(s.buy_box) + '</div>' : '')
+      + (loc.length ? '<div style="font-size:11.5px;color:var(--text-dim);margin-top:4px">' + loc.join(' · ') + '</div>' : '')
+      + (notes ? '<div style="font-size:11.5px;color:var(--text-dim);margin-top:4px">' + _bsEsc(notes) + '</div>' : '')
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">'
+      +   '<button onclick="buyerDismissSignup(\'' + _bsEsc(s.id) + '\')" style="padding:6px 12px;border:1px solid var(--border);background:var(--panel);color:var(--text-dim);border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">Dismiss</button>'
+      +   '<button onclick="buyerApproveSignup(\'' + _bsEsc(s.id) + '\',this)" style="padding:6px 14px;border:none;background:#10b981;color:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">✓ Approve → Add Buyer</button>'
+      + '</div></div>';
+  }).join('');
+}
+window.buyerRenderSignupsList = buyerRenderSignupsList;
+
+window.buyerApproveSignup = async function (id, btn) {
+  var s = (window._buyerSignups || []).filter(function (x) { return String(x.id) === String(id); })[0];
+  if (!s) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+  try {
+    var company = (s.llc_name && s.llc_name.trim()) ? s.llc_name.trim() : (s.contact_name || '');
+    var name = s.contact_name || '';
+    var channels = []; if (s.phone) channels.push('Phone'); if (s.email) channels.push('Email');
+    var payload = {
+      name: name, company: company, company_norm: (typeof companyNorm === 'function' ? companyNorm(company || name) : (company || name).toLowerCase()),
+      phone: s.phone || '', email: s.email || '',
+      price_notes: s.buy_box || '', notes: _bsNotes(s),
+      zips: Array.isArray(s.zips) ? s.zips : [], counties: Array.isArray(s.counties) ? s.counties : [],
+      channels: channels, strategy: Array.isArray(s.exit_strategies) ? s.exit_strategies : [],
+      qualification: null, verified: null,
+      updated_at: new Date().toISOString()
+    };
+    var ins = await sb.from('buyers').insert(payload).select().single();
+    if (ins.error) throw ins.error;
+    if (ins.data && ins.data.id) { cache.buyers = cache.buyers || {}; cache.buyers[ins.data.id] = ins.data; }
+    await sb.from('buyer_submissions').update({ status: 'approved' }).eq('id', id);
+    window._buyerSignups = (window._buyerSignups || []).filter(function (x) { return String(x.id) !== String(id); });
+    var c = document.getElementById('buyers-signups-count'); if (c) c.textContent = '(' + window._buyerSignups.length + ')';
+    buyerRenderSignupsList();
+    if (typeof renderBuyersList === 'function') renderBuyersList();
+    if (typeof toast === 'function') toast('✓ Added ' + (company || name) + ' to buyers', 'ok');
+  } catch (e) {
+    if (typeof toast === 'function') toast('Approve failed: ' + ((e && e.message) ? e.message : 'error'), 'err');
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Approve → Add Buyer'; }
+  }
+};
+
+window.buyerDismissSignup = async function (id) {
+  try {
+    await sb.from('buyer_submissions').update({ status: 'dismissed' }).eq('id', id);
+    window._buyerSignups = (window._buyerSignups || []).filter(function (x) { return String(x.id) !== String(id); });
+    var c = document.getElementById('buyers-signups-count'); if (c) c.textContent = '(' + window._buyerSignups.length + ')';
+    buyerRenderSignupsList();
+  } catch (e) {
+    if (typeof toast === 'function') toast('Dismiss failed', 'err');
+  }
+};
+window.addEventListener('load', function () { setTimeout(function () { try { buyerLoadSignups(true); } catch (_) {} }, 3000); });
+
 // ===== Default email template (editable from the Packet Access bar) =====
 // Stored in app_config.column_mappings.email_template so it's shared across
 // devices. Tokens like {address} are swapped per buyer/property when sending.

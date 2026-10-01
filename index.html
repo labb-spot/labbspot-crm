@@ -5232,6 +5232,7 @@
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
           <button class="btn btn-ghost text-sm" onclick="uwInvActiveAddRow()" title="Add a blank line item to the invoice list.">+ Add item</button>
           <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;border:1.5px solid rgba(124,58,237,0.55);background:rgba(124,58,237,0.10);border-radius:8px;padding:7px 12px" title="Merge in the line items from contractor bids you marked Accepted. If you already have an item, it just gets tagged as a contractor's; items only they have are added and tagged."><input type="checkbox" id="uw-inv-incl-contractor" onchange="uwInvActiveToggleContractor(this.checked)" style="width:15px;height:15px;cursor:pointer;accent-color:#7c3aed"> 👷 Include Contractor Quotes</label>
+          <button class="btn btn-ghost text-sm" onclick="_uwRefreshWithFeedback(this,'invoices')" title="Refresh contractor invoices + the invoiced/paid amounts on this list.">🔁 Refresh</button>
         </div>
         <div id="uw-inv-active-list"></div>
       </div>
@@ -28897,12 +28898,14 @@ function renderInvActive(){
   // so they show as rows (with their Invoiced amount + company) instead of vanishing.
   (function(){
     const u=_invGetDeal(); if(!u||!u.data) return;
+    const _al=u.data._invoiceAliases||{};   // merged items — never show them as a mismatch row again
     const before=(u.data._invoiceActive||[]).length;
-    // Drop auto-added invoiced rows that no longer match a current invoice line.
-    u.data._invoiceActive=(u.data._invoiceActive||[]).filter(it=>{ if(!it||!it.fromInvoice) return true; const k=String(it.description||'').trim().toLowerCase(); return invoicedMap[k] && invoicedMap[k].amt>0; });
+    // Drop auto-added invoiced rows that no longer match a current invoice line,
+    // or that have been merged into an original line (alias source).
+    u.data._invoiceActive=(u.data._invoiceActive||[]).filter(it=>{ if(!it||!it.fromInvoice) return true; const k=String(it.description||'').trim().toLowerCase(); if(_al[k]) return false; return invoicedMap[k] && invoicedMap[k].amt>0; });
     let changed=(u.data._invoiceActive.length!==before);
     const have=new Set(u.data._invoiceActive.map(it=>String(it.description||'').trim().toLowerCase()).filter(Boolean));
-    Object.keys(invoicedMap).forEach(k=>{ if(!k||have.has(k)) return; const m=invoicedMap[k]; if(!m||!(m.amt>0)) return; u.data._invoiceActive.push({ id:'frominv-'+k, room:m.room||'', description:m.desc||k, added:true, fromInvoice:true }); have.add(k); changed=true; });
+    Object.keys(invoicedMap).forEach(k=>{ if(!k||have.has(k)||_al[k]) return; const m=invoicedMap[k]; if(!m||!(m.amt>0)) return; u.data._invoiceActive.push({ id:'frominv-'+k, room:m.room||'', description:m.desc||k, added:true, fromInvoice:true }); have.add(k); changed=true; });
     if(changed){ _invSave(); if(typeof _invSyncFormSoon==='function') _invSyncFormSoon(); }
     items=u.data._invoiceActive;
   })();

@@ -25915,6 +25915,20 @@ window._uwGetRehabFinal = function() {
   if (ov > 0) return ov;
   return (typeof _uwRehabLastActual === 'number') ? _uwRehabLastActual : 0;
 };
+// Budget figure for Expected / LABB Estimate banners: your manual rehab override
+// if set, otherwise the Project Total (before contingency).
+window._uwBudgetFigure = function() {
+  const ovEl = document.getElementById('uw-rehab-override');
+  const ov = ovEl ? (parseFloat(String(ovEl.value).replace(/,/g, '')) || 0) : 0;
+  if (ov > 0) return ov;
+  let g = 0;
+  try {
+    const _D = (typeof _uwCollect === 'function') ? (_uwCollect().data || {}) : {};
+    const _sf = parseFloat(String((_D['uw-sqft'] || '')).replace(/[^0-9.]/g, '')) || 0;
+    if (typeof window._rcGetGrandTotal === 'function') g = window._rcGetGrandTotal(_sf) || 0;
+  } catch (_) {}
+  return g;
+};
 
 function uwScopeAutoFillFromRehab(silent) {
   // silent=true: skip the toast notification (used by automatic re-runs
@@ -28958,7 +28972,7 @@ function renderInvActive(){
   // Expected = the Budgeted total (rehab w/ contingency, or your manual override),
   // the same figure as the Budget bar — not the per-line sum.
   let grand=0;
-  try { if(typeof window._uwGetRehabFinal==='function') grand=window._uwGetRehabFinal()||0; } catch(_){}
+  try { if(typeof window._uwBudgetFigure==='function') grand=window._uwBudgetFigure()||0; } catch(_){}
   if(!grand) grand=items.reduce((s,it)=>s+(it.fromContractor?0:_invLineTotal(it)),0);
   // Invoiced counts only amounts that match a line on this active list (so it stays
   // consistent with the per-line Invoiced column); unmatched invoice lines are ignored.
@@ -29020,7 +29034,7 @@ function _invActiveOnEdit(e){
   const gc=document.getElementById('inv-a-count'); if(gc) gc.textContent=items.length;
   // Expected stays pinned to the Budgeted total (rehab w/ contingency or override).
   const gg=document.getElementById('inv-a-grand');
-  if(gg){ let _g=0; try{ if(typeof window._uwGetRehabFinal==='function') _g=window._uwGetRehabFinal()||0; }catch(_){} if(!_g) _g=items.reduce((s,it)=>s+_invLineTotal(it),0); gg.textContent=_invMoney(_g); }
+  if(gg){ let _g=0; try{ if(typeof window._uwBudgetFigure==='function') _g=window._uwBudgetFigure()||0; }catch(_){} if(!_g) _g=items.reduce((s,it)=>s+_invLineTotal(it),0); gg.textContent=_invMoney(_g); }
   const u=_invGetDeal(); if(u){ if(!u.data)u.data={}; u.data._invoiceActive=items; }
   _invSave(); _invSyncFormSoon();
 }
@@ -29263,7 +29277,7 @@ function _uwRenderBidList(req, responses){
   // where bids should land.
   const _blD=(typeof _uwCollect==='function')?(_uwCollect().data||{}):{};
   let _blBudget=0;
-  try{ if(typeof window._uwGetRehabFinal==='function') _blBudget=window._uwGetRehabFinal()||0; }catch(_){}
+  try{ if(typeof window._uwBudgetFigure==='function') _blBudget=window._uwBudgetFigure()||0; }catch(_){}
   if(!_blBudget && typeof window._rcGetGrandTotal==='function'){ try{ _blBudget=window._rcGetGrandTotal(_invNum(_blD['uw-sqft']))||0; }catch(_){} }
   let _blDays=(typeof _invRenoTimelineDays==='function')?_invRenoTimelineDays(_blD):0; if(!_blDays && _blBudget>0) _blDays=Math.ceil(_blBudget/750);
   const _blBanner='<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px"><span style="font-weight:800;color:#10b981">🏷️ LABB Estimate</span><span>Est. Budget <b style="color:#10b981">'+_invMoney(_blBudget)+'</b></span><span>Est. Timeline <b style="color:#a5b4fc">'+(_blDays?_blDays+' days':'—')+'</b></span><span style="color:var(--text-dim);font-size:11px">— where bids should land (excludes rent/sell/repossess)</span></div>';

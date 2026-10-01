@@ -19642,7 +19642,7 @@ function _uwCollect() {
       //                    via the keystroke handler — preserve here too so
       //                    autosave doesn't strip any unsaved keystrokes.
       if (k.indexOf('_source') === 0 || k === '_priorityHandled' || k === '_holdingStatus' || k === '_leadType' || k === '_leadTypes' ||
-          k === '_budgetActuals' || k === '_budgetSpentCache' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
+          k === '_budgetActuals' || k === '_budgetSpentCache' || k === '_budgetTotalCache' || k === '_scope_phases' || k === '_scopeItemsDone' || k === 'uw-scope-notes' ||
           k === '_reno_phase_override' || k === '_compsMode' ||
           k === '_scopePhaseBudgets' || k === '_customRehabPreset' || k === '_customRehabPresets' || k === '_scopeQuotes' || k === '_taggedBuyers' || k === '_sentPacket' || k === '_offerActive' || k === '_offerPacket' || k === '_bigTicket' ||
           k === '_invoiceOriginal' || k === '_invoiceActive' || k === '_invoiceTab' || k === '_invoiceInclContractor' || k === '_invoicePaidDeposits' || k === '_invoiceAliases' || k === '_externalInvoices' || k === '_constructionAgreements' ||
@@ -20908,8 +20908,10 @@ function _uwBudgetUpdateBar() {
   // Budgeted total = the SAME "real" grand total the Phase Timelines burn down
   // against (_uwGetRehabFinal: override when set, else the calc actual). Falls
   // back to the locally recomputed subtotal only if that's unavailable.
-  const rehabFinal = (typeof window._uwGetRehabFinal === 'function') ? (window._uwGetRehabFinal() || 0) : 0;
-  const budgeted = rehabFinal > 0 ? rehabFinal : (override > 0 ? override : subtotal);
+  // Budget = the Project Total BEFORE contingency (or your manual override), per
+  // _uwBudgetFigure — same figure as the Expected / LABB Estimate banners.
+  const _bFig = (typeof window._uwBudgetFigure === 'function') ? (window._uwBudgetFigure() || 0) : 0;
+  const budgeted = _bFig > 0 ? _bFig : (override > 0 ? override : subtotal);
   // Final Budget Paid: once entered, it locks the Spent figure (project done).
   const finalPaid = parseFloat(String(document.getElementById('uw-budget-final')?.value || '').replace(/[^\d.]/g, '')) || 0;
   if (finalPaid > 0) spent = finalPaid;
@@ -20939,7 +20941,7 @@ function _uwBudgetUpdateBar() {
   }
   // Cache this Paid-based Spent on the deal so the Renovation/Holdings list rows
   // show the SAME budget figure as this bar (the list can't recompute Paid itself).
-  try { const _bu = cache.underwrites && cache.underwrites[_uwCurrentId]; if (_bu && _bu.data) _bu.data._budgetSpentCache = Math.round(spent); } catch (_) {}
+  try { const _bu = cache.underwrites && cache.underwrites[_uwCurrentId]; if (_bu && _bu.data) { _bu.data._budgetSpentCache = Math.round(spent); _bu.data._budgetTotalCache = Math.round(budgeted); } } catch (_) {}
   // 90% marker caption: the $ at the 90% line, distance to it, and the final 10%.
   const info90 = document.getElementById('uw-budget-90info');
   if (info90) {
@@ -25948,8 +25950,8 @@ function uwScopeAutoFillFromRehab(silent) {
   // in proportion to those counts; each phase's days = ceil(budget / 750).
   // Use the override-aware rehab total — _uwGetRehabFinal returns the
   // manual override when set, otherwise the calc subtotal.
-  const grandTotal = (typeof window._uwGetRehabFinal === 'function')
-    ? window._uwGetRehabFinal()
+  const grandTotal = (typeof window._uwBudgetFigure === 'function')
+    ? window._uwBudgetFigure()
     : ((typeof _uwRehabLastActual === 'number' && _uwRehabLastActual > 0) ? _uwRehabLastActual : 0);
   // Phase counters — every phase ID the renderer uses must be represented.
   const phaseItems = { demo: 0, restructure: 0, mechanicals: 0, cosmetics: 0, cabinetry: 0, 'punch-list': 0 };
@@ -26373,8 +26375,8 @@ window.uwScopeToggleItemDone = uwScopeToggleItemDone;
 function _uwRefreshScopeRealBudget() {
   const phases = (typeof _uwGetScopePhases === 'function') ? _uwGetScopePhases() : null;
   if (!phases || !phases.length) return;
-  const grandTotal = (typeof window._uwGetRehabFinal === 'function')
-    ? window._uwGetRehabFinal()
+  const grandTotal = (typeof window._uwBudgetFigure === 'function')
+    ? window._uwBudgetFigure()
     : 0;
   if (!(grandTotal > 0)) return;
   let runningRealSpent = 0;
@@ -26762,8 +26764,8 @@ function uwRenderScopeOfWork() {
     // a clean "at this stage you'll have X left in the kitty" view.
     // Override-aware rehab total — same source as the renovation timeline
     // and SOW auto-fill so all three stay in lockstep.
-    const _grandTotal = (typeof window._uwGetRehabFinal === 'function')
-      ? window._uwGetRehabFinal()
+    const _grandTotal = (typeof window._uwBudgetFigure === 'function')
+      ? window._uwBudgetFigure()
       : ((typeof _uwRehabLastActual === 'number' && _uwRehabLastActual > 0) ? _uwRehabLastActual : 0);
     const _phaseBudgetsSaved = (u2 && u2.data && u2.data._scopePhaseBudgets) || {};
     const remainingAtStart = {};
@@ -30282,10 +30284,14 @@ function _hrComputeBudget(u) {
   }
   // Mirror the rehab calculator's rehabFinal logic so the preview matches
   // what the user sees inside the calculator.
-  const contPct  = parseFloat(String(data['uw-rehab-contingency-pct'] || '10').replace(/,/g, '')) || 0;
-  const subtotal = baseRehab * (1 + contPct / 100);
+  // Budget = Project Total BEFORE contingency. Prefer the cached figure saved by the
+  // in-deal Budget bar (uses the live calculator, which can differ from legacy _rehab);
+  // else the manual override; else the locally summed baseRehab.
   const override = parseFloat(String(data['uw-rehab-override'] || '').replace(/,/g, '')) || 0;
-  const budgeted = override > 0 ? override : subtotal;
+  let budgeted;
+  if (override > 0) budgeted = override;                                                   // manual override always wins
+  else if (typeof data._budgetTotalCache === 'number' && data._budgetTotalCache > 0) budgeted = data._budgetTotalCache;
+  else budgeted = baseRehab;
   return {
     budgeted,
     spent,

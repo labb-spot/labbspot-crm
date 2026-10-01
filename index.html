@@ -28955,14 +28955,10 @@ function renderInvActive(){
   rows += secHead('➕ Additional Items ('+addedRows.length+')','#a855f7','rgba(168,85,247,0.12)');
   rows += addedRows.length ? addedRows.map(mkRow).join('') : '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:2px 4px 6px">Nothing added yet — click <b>+ Add item</b>, or turn on 👷 Include Contractor Quotes to pull in items a contractor quoted.</div>';
   if(mismRows.length){ rows += secHead('⚠ Mismatch in Updated Scope ('+mismRows.length+')','#d97706','rgba(245,158,11,0.14)'); rows += '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:0 4px 6px">Invoiced by a contractor but no longer on your current list — the scope changed since these were invoiced.</div>'; rows += mismRows.map(mkRow).join(''); }
-  // Expected = the LABB Estimate budget (same figure as the banner above), so it
-  // always matches your Estimated Budget rather than drifting with per-line edits.
+  // Expected = the Budgeted total (rehab w/ contingency, or your manual override),
+  // the same figure as the Budget bar — not the per-line sum.
   let grand=0;
-  try {
-    const _D=(typeof _uwCollect==='function')?(_uwCollect().data||{}):{};
-    if(typeof window._rcGetGrandTotal==='function') grand=window._rcGetGrandTotal(_invNum(_D['uw-sqft']))||0;
-    if(!grand && typeof _hrComputeBudget==='function') grand=_hrComputeBudget({data:_D}).budgeted||0;
-  } catch(_){}
+  try { if(typeof window._uwGetRehabFinal==='function') grand=window._uwGetRehabFinal()||0; } catch(_){}
   if(!grand) grand=items.reduce((s,it)=>s+(it.fromContractor?0:_invLineTotal(it)),0);
   // Invoiced counts only amounts that match a line on this active list (so it stays
   // consistent with the per-line Invoiced column); unmatched invoice lines are ignored.
@@ -29022,9 +29018,9 @@ function _invActiveOnEdit(e){
   // saves. Expected totals are preserved via the merge in _invCollectActive.
   const items=_invCollectActive();
   const gc=document.getElementById('inv-a-count'); if(gc) gc.textContent=items.length;
-  // Expected stays pinned to the LABB Estimate budget (not the per-line sum).
+  // Expected stays pinned to the Budgeted total (rehab w/ contingency or override).
   const gg=document.getElementById('inv-a-grand');
-  if(gg){ let _g=0; try{ const _D=(typeof _uwCollect==='function')?(_uwCollect().data||{}):{}; if(typeof window._rcGetGrandTotal==='function') _g=window._rcGetGrandTotal(_invNum(_D['uw-sqft']))||0; if(!_g && typeof _hrComputeBudget==='function') _g=_hrComputeBudget({data:_D}).budgeted||0; }catch(_){} if(!_g) _g=items.reduce((s,it)=>s+_invLineTotal(it),0); gg.textContent=_invMoney(_g); }
+  if(gg){ let _g=0; try{ if(typeof window._uwGetRehabFinal==='function') _g=window._uwGetRehabFinal()||0; }catch(_){} if(!_g) _g=items.reduce((s,it)=>s+_invLineTotal(it),0); gg.textContent=_invMoney(_g); }
   const u=_invGetDeal(); if(u){ if(!u.data)u.data={}; u.data._invoiceActive=items; }
   _invSave(); _invSyncFormSoon();
 }
@@ -29267,8 +29263,8 @@ function _uwRenderBidList(req, responses){
   // where bids should land.
   const _blD=(typeof _uwCollect==='function')?(_uwCollect().data||{}):{};
   let _blBudget=0;
-  if(typeof window._rcGetGrandTotal==='function'){ try{ _blBudget=window._rcGetGrandTotal(_invNum(_blD['uw-sqft']))||0; }catch(_){} }
-  if(!_blBudget){ try{ if(typeof _hrComputeBudget==='function') _blBudget=_hrComputeBudget({ data:_blD }).budgeted||0; }catch(_){} }
+  try{ if(typeof window._uwGetRehabFinal==='function') _blBudget=window._uwGetRehabFinal()||0; }catch(_){}
+  if(!_blBudget && typeof window._rcGetGrandTotal==='function'){ try{ _blBudget=window._rcGetGrandTotal(_invNum(_blD['uw-sqft']))||0; }catch(_){} }
   let _blDays=(typeof _invRenoTimelineDays==='function')?_invRenoTimelineDays(_blD):0; if(!_blDays && _blBudget>0) _blDays=Math.ceil(_blBudget/750);
   const _blBanner='<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px"><span style="font-weight:800;color:#10b981">🏷️ LABB Estimate</span><span>Est. Budget <b style="color:#10b981">'+_invMoney(_blBudget)+'</b></span><span>Est. Timeline <b style="color:#a5b4fc">'+(_blDays?_blDays+' days':'—')+'</b></span><span style="color:var(--text-dim);font-size:11px">— where bids should land (excludes rent/sell/repossess)</span></div>';
   if (!responses.length){ el.innerHTML = _blBanner + '<div class="text-xs" style="color:var(--text-dim);padding:8px 0">No contractor quotes submitted for this property yet.</div>'; return; }

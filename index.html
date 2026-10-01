@@ -5021,12 +5021,11 @@
     </div><!-- /Budget & Timeline panel -->
 
     <!-- Scope of Work — its own section panel (Budget tab) -->
-    <div class="panel p-5 mb-4" data-uw-section="scope-of-work" data-uw-section-label="🛠 Scope of Work">
+    <div class="panel p-5 mb-4" data-uw-section="scope-of-work" data-uw-section-label="🛠 Phase Timelines">
         <div class="font-semibold text-lg mb-2" onclick="toggleSection('uw-scope-body','uw-scope-arrow')" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between">
-          <span>🛠 Scope of Work</span>
+          <span>🛠 Phase Timelines</span>
           <span id="uw-scope-arrow" style="color:var(--text-dim);transition:transform 0.15s;font-size:14px;display:inline-block">▶</span>
         </div>
-        <div class="text-xs mb-4" style="color:var(--text-dim)">Itemized list of every task checked in the Rehab Calculator, plus a free-form notes field for anything not covered above (contractor names, permit numbers, special instructions).</div>
 
       <div id="uw-scope-body" style="display:none">
         <!-- Auto-generated list of needed rehab items -->
@@ -5071,7 +5070,6 @@
         <span>📐 Property Measurements, Materials &amp; Quantities</span>
         <span id="uw-specs-arrow" style="color:var(--text-dim);transition:transform 0.15s;font-size:14px;display:inline-block">▶</span>
       </div>
-      <div class="text-xs mb-4" style="color:var(--text-dim)">Measurements, finish specs, and counts shown to contractors on the bid form so they can bid accurately. Fill in what you've measured — leave the rest blank.</div>
       <div id="uw-specs-body" style="display:none">
         <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
           <button type="button" class="btn btn-ghost text-xs" onclick="uwSpecsRestoreDefaults()" style="border:1px solid var(--border);padding:6px 12px" title="Reset every field back to your standard defaults (Luxury Vinyl Plank · 8mm · 22mil · Architectural, etc.)">↺ Restore Defaults</button>
@@ -5126,55 +5124,52 @@
 
     <!-- Contractor Quotes & Bids — own section panel (Budget tab), sibling of Budget & Scope -->
     <div class="panel p-5 mb-4" data-uw-section="contractor-bids" data-uw-section-label="🔨 Contractor Quotes &amp; Bids">
-      <div class="font-semibold text-lg" style="display:flex;align-items:center;gap:8px">🔨 Contractor Quotes &amp; Bids</div>
-      <div class="text-xs" style="color:var(--text-dim);margin-top:2px;margin-bottom:6px">Upload external quotes and send per-property bid sheets to contractors.</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+        <div>
+          <div class="font-semibold text-lg" style="display:flex;align-items:center;gap:8px">🔨 Contractor Quotes &amp; Bids</div>
+          <div class="text-xs" style="color:var(--text-dim);margin-top:2px;margin-bottom:6px">Upload external quotes and send per-property bid sheets to contractors.</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto">
+          <span id="uw-cq-listbtns" style="display:none;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+            <button class="btn btn-ghost text-sm" id="uw-bid-fill-lines-btn" onclick="uwBidFillLineItems()" title="Rebuild this property's bid sheet from the Rehab Calculator scope — checked items come in selected, everything else drops under Additional Line Items. Your custom lines are kept.">⚙️ Build from Calculator</button>
+            <button class="btn btn-ghost text-sm" id="uw-bid-status-btn" onclick="uwBidToggleStatus()" style="display:none;min-width:150px;justify-content:center" title="Push this bid sheet live for contractors, or take it down.">🚀 Push to Bid</button>
+            <button class="btn btn-ghost text-sm" id="uw-bid-copy-link" onclick="uwBidCopyLink()" style="opacity:0.45;pointer-events:none;cursor:not-allowed" title="Push the bid sheet live first to get a shareable link.">🔗 Copy Link</button>
+            <button class="btn btn-primary text-sm" id="uw-bid-save-top" onclick="uwBidSave()" style="background:#16a34a;border-color:#16a34a" title="Save this property's selected lines and generate the contractor link.">💾 Save</button>
+          </span>
+          <button id="uw-cq-refresh-btn" class="btn btn-ghost text-sm" style="display:none;white-space:nowrap" onclick="_uwRefreshWithFeedback(this,'bids')" title="Refresh contractor responses.">🔁 Refresh Bids</button>
+          <button id="uw-cq-upload-btn" class="btn btn-primary text-sm" style="display:none;white-space:nowrap" onclick="(window._uwCqTab==='agreements')?document.getElementById('uw-agreement-file').click():document.getElementById('uw-scope-quote-file').click()">⬆ Upload</button>
+        </div>
+      </div>
 
         <!-- 3-view toggle: Contractor Quote List (default) / Quote Comparisons / External Quotes -->
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 14px">
-          <button class="btn text-sm" id="uw-cq-tab-list" onclick="uwCqSetTab('list')" title="List of contractor quotes submitted for this property.">📋 Contractor Quote List</button>
-          <button class="btn btn-ghost text-sm" id="uw-cq-tab-compare" onclick="uwCqSetTab('compare')" title="Side-by-side comparison of the quotes, line by line.">📊 Quote Comparisons</button>
+          <button class="btn text-sm" id="uw-cq-tab-list" onclick="uwCqSetTab('list')" title="Build this property's bid sheet — tick the lines that apply and generate the contractor link.">📋 Quote List</button>
+          <button class="btn btn-ghost text-sm" id="uw-cq-tab-internal" onclick="uwCqSetTab('internal')" title="Quotes contractors submitted through your bid sheet link.">🏷️ Internal Quotes</button>
           <button class="btn btn-ghost text-sm" id="uw-cq-tab-external" onclick="uwCqSetTab('external')" title="Upload external quote files saved to this deal.">📎 External Quotes</button>
+          <button class="btn btn-ghost text-sm" id="uw-cq-tab-compare" onclick="uwCqSetTab('compare')" title="Side-by-side comparison of the quotes, line by line.">📊 Quote Comparisons</button>
           <button class="btn btn-ghost text-sm" id="uw-cq-tab-agreements" onclick="uwCqSetTab('agreements')" title="Drop signed construction agreements / contracts for this deal.">📝 Construction Agreements</button>
         </div>
 
         <!-- Bid-sheet controls — used by the List + Comparison views (hidden on External). -->
         <div id="uw-cq-bidcontrols">
           <div id="uw-bid-hint" class="text-xs" style="color:var(--text-dim);margin-bottom:10px">Build a bid sheet from this property's rehab scope, then share a link so contractors can quote each line. Their quotes come back here.</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-            <button class="btn btn-ghost text-sm" id="uw-bid-template-btn" onclick="uwBidManageTemplate()" title="Edit the standard line list that applies to every property (seeded from the Rehab catalog).">📋 Standard List</button>
-            <button class="btn btn-ghost text-sm" id="uw-bid-fill-lines-btn" onclick="uwBidFillLineItems()" title="Rebuild this property's bid sheet lines from your standard list &amp; Rehab scope. Restore / start over — custom lines are kept.">📝 Fill Line Items</button>
-            <button class="btn btn-ghost text-sm" id="uw-bid-fill-budget-btn" onclick="uwBidFillBudget()" title="Stamp the LABB estimate $ from your Rehab Calculator onto the saved bid lines. Keeps every line; removes nothing.">💲 Fill Budget</button>
-            <button class="btn btn-ghost text-sm" id="uw-bid-status-btn" onclick="uwBidToggleStatus()" style="display:none" title="Push this bid sheet live for contractors, or take it down.">🚀 Push to Bid</button>
-            <button class="btn btn-ghost text-sm" id="uw-bid-refresh" onclick="_uwRefreshWithFeedback(this,'bids')" style="display:none" title="Refresh contractor responses.">🔁 Refresh Bids</button>
-            <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn btn-ghost text-sm" id="uw-bid-copy-link" onclick="uwBidCopyLink()" style="display:none" title="Copy the contractor link for this property's bid sheet.">🔗 Copy Contractor Link</button>
-              <button class="btn btn-primary text-sm" id="uw-bid-build-btn" onclick="uwBidBuildFromScope()" title="Open this property's bid sheet from the standard list and tick which lines apply. Click again to close.">✨ Build / Edit Bid Sheet</button>
-              <button class="btn btn-primary text-sm" id="uw-bid-save-top" onclick="uwBidSave()" style="background:#16a34a;border-color:#16a34a" title="Save this property's selected lines and generate the contractor link.">💾 Save &amp; Generate Link</button>
-            </div>
-          </div>
           <div id="uw-bid-editor" style="display:none"></div>
         </div>
 
-        <!-- View 1: Contractor Quote List (default) -->
-        <div id="uw-cq-list-view" style="margin-top:6px"><div id="uw-bid-list"></div></div>
+        <!-- View 1: Quote List (bid-sheet builder lives in the controls above) -->
+        <div id="uw-cq-list-view" style="margin-top:6px"></div>
+        <!-- View: Internal Quotes — contractor quotes submitted through the bid sheet -->
+        <div id="uw-cq-internal-view" style="display:none;margin-top:6px"><div id="uw-bid-list"></div></div>
         <!-- View 2: Quote Comparisons -->
         <div id="uw-cq-compare-view" style="display:none"><div id="uw-bid-compare" style="margin-top:6px"></div></div>
         <!-- View 3: External Quotes -->
         <div id="uw-cq-external-view" style="display:none;margin-top:6px">
           <input id="uw-scope-quote-file" type="file" style="display:none" onchange="uwScopeUploadQuote()">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.35);border-left:4px solid #6366f1;border-radius:8px;padding:11px 14px;margin-bottom:10px">
-            <span style="font-size:12px;color:#a5b4fc;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">📎 External Contractor Quotes</span>
-            <button class="btn btn-primary text-sm" id="uw-scope-quote-btn" onclick="document.getElementById('uw-scope-quote-file').click()" title="Upload a contractor quote — you'll be asked to name it.">⬆ Upload Quote</button>
-          </div>
           <div id="uw-scope-quotes-list" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
         <!-- View 4: Construction Agreements -->
         <div id="uw-cq-agreements-view" style="display:none;margin-top:6px">
           <input id="uw-agreement-file" type="file" style="display:none" onchange="uwAgreementUpload()">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.35);border-left:4px solid #10b981;border-radius:8px;padding:11px 14px;margin-bottom:10px">
-            <span style="font-size:12px;color:#6ee7b7;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">📝 Signed Construction Agreements</span>
-            <button class="btn btn-primary text-sm" id="uw-agreement-btn" onclick="document.getElementById('uw-agreement-file').click()" title="Upload a signed construction agreement — you'll be asked to name it.">⬆ Upload Agreement</button>
-          </div>
           <div id="uw-agreements-list" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
 
@@ -5182,26 +5177,33 @@
 
     <!-- Contractor Invoices — its OWN panel (Scope/Budget tab), a sibling of the
          Contractor Quotes & Bids panel above. -->
-    <div class="panel p-5 mb-4" data-uw-section="contractor-invoices" data-uw-section-label="🧾 Contractor Invoices">
-      <div class="font-semibold text-lg" style="display:flex;align-items:center;gap:8px">🧾 Contractor Invoices</div>
-      <div class="text-xs" style="color:var(--text-dim);margin-top:2px;margin-bottom:6px">Build your invoice list from this property's quote selections, then collect contractor invoices.</div>
+    <div class="panel p-5 mb-4" data-uw-section="contractor-invoices" data-uw-section-label="🧾 Internal Invoices">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+        <div>
+          <div class="font-semibold text-lg" style="display:flex;align-items:center;gap:8px">🧾 Internal Invoices</div>
+          <div class="text-xs" style="color:var(--text-dim);margin-top:2px;margin-bottom:6px">Build your invoice list from this property's quote selections, then collect contractor invoices.</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto">
+          <span id="uw-inv-listbtns" style="display:none;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+            <button class="btn btn-ghost text-sm" id="uw-inv-build-btn" onclick="uwInvFillFromLabb()" title="Build this invoice list from the selected lines in the Contractor Quotes &amp; Bids comparison, each stamped with its LABB Estimate $.">⚙️ Build from Quote List</button>
+            <button class="btn btn-ghost text-sm" id="uw-inv-status-btn" onclick="uwInvPushToggle()" style="min-width:170px;justify-content:center" title="Push this invoice sheet live for contractors, or take it down.">🚀 Push Invoice Live</button>
+            <button class="btn btn-ghost text-sm" id="uw-inv-copy-link" onclick="uwInvCopyLink()" style="opacity:0.45;pointer-events:none;cursor:not-allowed" title="Push the invoice live first to get a shareable link.">🔗 Copy Link</button>
+          </span>
+          <button class="btn btn-ghost text-sm" id="uw-inv-refresh" onclick="_uwRefreshWithFeedback(this,'invoices')" style="display:none;white-space:nowrap" title="Refresh contractor invoices.">🔁 Refresh Invoices</button>
+          <button class="btn btn-primary text-sm" id="uw-inv-upload-btn" onclick="document.getElementById('uw-inv-external-file').click()" style="display:none;white-space:nowrap" title="Upload an external invoice file — you'll be asked to name it.">⬆ Upload External Invoice</button>
+        </div>
+      </div>
 
       <!-- 3-view toggle: Original Invoice List (default) / Active Invoice List / Invoices -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 14px">
-        <button class="btn text-sm" id="uw-inv-tab-original" onclick="uwInvSetTab('original')" title="Your base invoice list, filled from this property's selected quote items.">📋 Original Invoice List</button>
-        <button class="btn btn-ghost text-sm" id="uw-inv-tab-contractor" onclick="uwInvSetTab('contractor')" title="Line items and amounts from the contractor bids you marked Accepted.">👷 Contractor Invoice List</button>
-        <button class="btn btn-ghost text-sm" id="uw-inv-tab-active" onclick="uwInvSetTab('active')" title="Working invoice list — edit amounts and add items without changing the original.">✏️ Active Invoice List</button>
-        <button class="btn btn-ghost text-sm" id="uw-inv-tab-invoices" onclick="uwInvSetTab('invoices')" title="Live invoice link + contractor-submitted invoices.">🧾 Invoices</button>
+        <button class="btn btn-ghost text-sm" id="uw-inv-tab-active" onclick="uwInvSetTab('active')" title="Working invoice list — edit amounts and add items without changing the original.">✏️ Invoice List</button>
+        <button class="btn text-sm" id="uw-inv-tab-invoices" onclick="uwInvSetTab('invoices')" title="Live invoice link + contractor-submitted invoices.">🧾 Internal Invoices</button>
         <button class="btn btn-ghost text-sm" id="uw-inv-tab-external" onclick="uwInvSetTab('external')" title="Upload external invoice files (PDFs/images) saved to this deal.">📎 External Invoices</button>
       </div>
 
       <!-- View: External Invoices — upload invoice files received outside the system -->
       <div id="uw-inv-view-external" style="display:none">
         <input id="uw-inv-external-file" type="file" style="display:none" onchange="uwInvUploadExternal()">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.35);border-left:4px solid #6366f1;border-radius:8px;padding:11px 14px;margin-bottom:10px">
-          <span style="font-size:12px;color:#a5b4fc;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">📎 External Contractor Invoices</span>
-          <button class="btn btn-primary text-sm" id="uw-inv-external-btn" onclick="document.getElementById('uw-inv-external-file').click()" title="Upload an invoice file — you'll be asked to name it.">⬆ Upload Invoice</button>
-        </div>
         <div id="uw-inv-external-list" style="display:flex;flex-direction:column;gap:6px"></div>
       </div>
 
@@ -5211,21 +5213,14 @@
         <div id="uw-inv-contractor-list"></div>
       </div>
 
-      <!-- View 1: Original Invoice List -->
-      <div id="uw-inv-view-original">
-        <div class="text-xs" style="color:var(--text-dim);margin-bottom:10px">Press <b>Fill from Bid Comparison</b> to load this property's selected lines from the Contractor Quotes &amp; Bids comparison, each stamped with its LABB Estimate $. This is your base list — editing the Active list won't change it.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <button class="btn btn-primary text-sm" onclick="uwInvFillFromLabb()" title="Fill line items from the selected lines in the Contractor Quotes &amp; Bids comparison, each stamped with its LABB Estimate $ (same numbers as the comparison).">🏷️ Fill from Bid Comparison (LABB Estimate)</button>
-        </div>
-        <div id="uw-inv-original-list"></div>
-      </div>
+      <!-- Hidden holder for the Original list data (its tab was removed; data still used) -->
+      <div id="uw-inv-view-original" style="display:none"><div id="uw-inv-original-list"></div></div>
 
-      <!-- View 2: Active Invoice List -->
+      <!-- View: Invoice List (the working list) -->
       <div id="uw-inv-view-active" style="display:none">
-        <div class="text-xs" style="color:var(--text-dim);margin-bottom:10px">This list mirrors your <b>Original Invoice List</b> plus anything you add here. Edit amounts freely — your edits and added items are kept.</div>
+        <div id="uw-inv-hint" class="text-xs" style="color:var(--text-dim);margin-bottom:10px">Push a live invoice link (built from this property's bid line items, or the standard list) so contractors can submit their invoice. Submitted invoices come back here.</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-          <button class="btn btn-ghost text-sm" onclick="uwInvActiveAddRow()" title="Add a blank line item to the Active list (on top of the Original items).">+ Add item</button>
-          <button class="btn btn-ghost text-sm" id="uw-inv-reapply-btn" onclick="uwInvReapplyInvoices()" title="Re-pull the contractor-submitted invoices from the server and refresh the invoiced amounts, Paid totals, and the Mismatch section.">🔄 Refresh Invoices</button>
+          <button class="btn btn-ghost text-sm" onclick="uwInvActiveAddRow()" title="Add a blank line item to the invoice list.">+ Add item</button>
           <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;border:1.5px solid rgba(124,58,237,0.55);background:rgba(124,58,237,0.10);border-radius:8px;padding:7px 12px" title="Merge in the line items from contractor bids you marked Accepted. If you already have an item, it just gets tagged as a contractor's; items only they have are added and tagged."><input type="checkbox" id="uw-inv-incl-contractor" onchange="uwInvActiveToggleContractor(this.checked)" style="width:15px;height:15px;cursor:pointer;accent-color:#7c3aed"> 👷 Include Contractor Quotes</label>
         </div>
         <div id="uw-inv-active-list"></div>
@@ -5233,14 +5228,6 @@
 
       <!-- View 3: Invoices (contractor-submitted — unchanged) -->
       <div id="uw-inv-view-invoices" style="display:none">
-        <div id="uw-inv-hint" class="text-xs" style="color:var(--text-dim);margin-bottom:10px">Push a live invoice link (built from this property's bid line items, or the standard list) so contractors can submit their invoice. Submitted invoices come back here.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-          <button class="btn btn-primary text-sm" id="uw-inv-status-btn" onclick="uwInvPushToggle()" title="Push this invoice sheet live for contractors, or take it down.">🚀 Push Invoice Live</button>
-          <button class="btn btn-ghost text-sm" id="uw-inv-refresh" onclick="_uwRefreshWithFeedback(this,'invoices')" style="display:none" title="Refresh contractor invoices.">🔁 Refresh Invoices</button>
-          <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-ghost text-sm" id="uw-inv-copy-link" onclick="uwInvCopyLink()" style="display:none" title="Copy the contractor invoice link for this property.">🔗 Copy Invoice Link</button>
-          </div>
-        </div>
         <div id="uw-inv-compare" style="display:none;margin-top:12px"></div>
       </div>
     </div><!-- /Contractor Invoices panel -->
@@ -26631,7 +26618,10 @@ function uwRenderScopeOfWork() {
   // restore the last-used sub-tab (Original / Active / Invoices), default Original.
   if (typeof uwInvSetTab === 'function') {
     const _d = (cache.underwrites || {})[_uwCurrentId];
-    uwInvSetTab((_d && _d.data && _d.data._invoiceTab) || 'original');
+    // Default to Internal Invoices each time a deal is opened; keep the user's tab
+    // choice (held in a window var, like the quotes tab) while on the same deal.
+    if (window._uwInvLastDeal !== _uwCurrentId) { window._uwInvLastDeal = _uwCurrentId; window._uwInvTab = 'invoices'; }
+    uwInvSetTab(window._uwInvTab || 'invoices');
   } else if (typeof _uwRenderInvSection === 'function') { _uwRenderInvSection(); }
   // Build item-to-phase map: walk every rehab item the user marked "needed"
   // and classify it into one of the standard phases.
@@ -27199,7 +27189,17 @@ async function _uwRenderBidSection(){
   if (!editor) return;
   const dealId = _uwCurrentId;
   const show = (el,v)=>{ if(el) el.style.display = v?'':'none'; };
-  if (!dealId){ editor.style.display='none'; show(copyBtn,false); show(refBtn,false); show(statusBtn,false); return; }
+  // Copy Link stays visible on the Quote List; grey it out + block clicks when the
+  // sheet isn't live (no shareable link yet).
+  const setCopyEnabled = (on) => {
+    if (!copyBtn) return;
+    copyBtn.style.display = '';
+    copyBtn.style.opacity = on ? '1' : '0.45';
+    copyBtn.style.pointerEvents = on ? '' : 'none';
+    copyBtn.style.cursor = on ? 'pointer' : 'not-allowed';
+    copyBtn.title = on ? "Copy the contractor link for this property's bid sheet." : 'Push the bid sheet live first to get a shareable link.';
+  };
+  if (!dealId){ editor.style.display='none'; setCopyEnabled(false); show(refBtn,false); show(statusBtn,false); return; }
   editor.style.display='none';
   const compare = document.getElementById('uw-bid-compare'); if (compare) compare.style.display='none';
   const req = await _uwBidFetchForDeal(dealId);
@@ -27207,19 +27207,24 @@ async function _uwRenderBidSection(){
     const live = (req.status||'open') === 'open';
     show(statusBtn,true);
     if (statusBtn) statusBtn.textContent = live ? '⬇ Take Down' : '🚀 Push to Bid';
-    show(copyBtn, live);
+    setCopyEnabled(live);
     show(refBtn,true);
     if (hint) hint.innerHTML = live
       ? '<span style="color:#16a34a;font-weight:700">● Live</span> — accepting bids. Copy the contractor link to share, or take it down to stop.'
       : '<span style="color:var(--text-dim);font-weight:700">○ Down</span> — not accepting bids yet. Click 🚀 Push to Bid to make the link live.';
   } else {
-    show(copyBtn,false); show(refBtn,false); show(statusBtn,false);
+    setCopyEnabled(false); show(refBtn,false); show(statusBtn,false);
     if (hint) hint.textContent = "Build a bid sheet from the standard list, then push it live to share with contractors.";
   }
   // Load responses once (renders both the List + Comparison into their
   // containers), then apply the current view tab (default: Contractor Quote List).
   if (typeof uwBidLoadResponses === 'function') uwBidLoadResponses(false);
-  if (typeof uwCqSetTab === 'function') uwCqSetTab(window._uwCqTab || 'list');
+  if (typeof uwCqSetTab === 'function') {
+    // Default to Internal Quotes each time a deal is opened; keep the user's tab
+    // choice while they stay on the same deal.
+    if (window._uwCqLastDeal !== dealId) { window._uwCqTab = 'internal'; window._uwCqLastDeal = dealId; }
+    uwCqSetTab(window._uwCqTab || 'internal');
+  }
 }
 window._uwRenderBidSection = _uwRenderBidSection;
 
@@ -27354,7 +27359,12 @@ window._uwRefreshWithFeedback = async function (btn, kind) {
   btn.innerHTML = '<span style="display:inline-block;animation:lazy-spin 0.8s linear infinite">🔁</span> Refreshing…';
   try {
     if (kind === 'bids' && typeof uwBidLoadResponses === 'function') await uwBidLoadResponses(true);
-    else if (kind === 'invoices' && typeof uwInvLoadResponses === 'function') await uwInvLoadResponses(true);
+    else if (kind === 'invoices') {
+      if (typeof uwInvLoadResponses === 'function') await uwInvLoadResponses(true);
+      // Also refresh the Invoice List amounts (invoiced/paid/mismatch) + budget bar.
+      if (typeof renderInvActive === 'function') renderInvActive();
+      if (typeof _uwBudgetUpdateBar === 'function') _uwBudgetUpdateBar();
+    }
   } catch (e) { console.warn('refresh:', e); }
   btn.innerHTML = '<span style="color:#10b981">✓ Refreshed</span>';
   setTimeout(function () { btn.innerHTML = orig; btn.disabled = false; btn.dataset.busy = '0'; }, 1200);
@@ -27370,6 +27380,13 @@ function _uwRenderInvCompare(req, responses){
   cmp.style.display='';
   if (!responses.length){ cmp.innerHTML='<div class="text-xs" style="color:var(--text-dim);padding:8px 0">No invoices submitted for this property yet.</div>'; return; }
   const lineById={}; (Array.isArray(req.line_items)?req.line_items:[]).forEach(l=>{ if(l&&l.id) lineById[l.id]=l; });
+  // ---- "Actual Result" banner: Spend = paid invoices total; Timeline = first→last submit date ----
+  const _respTotal = (resp) => { let t=resp.total; if (t==null){ t=0; const lq=resp.line_quotes||{}; Object.keys(lq).forEach(k=>{const q=lq[k]; if(q&&q.interested){const u=parseFloat(q.units)||0,la=parseFloat(q.labor)||0,m=parseFloat(q.material)||0,qy=u>0?u:1; t+=parseFloat(q.total!=null?q.total:q.price)||(qy*(la+m));}}); } return parseFloat(t)||0; };
+  let _paidSpend=0; const _dates=[];
+  responses.forEach(r=>{ if(r.paid) _paidSpend += _respTotal(r); if(r.submitted_at){ const d=new Date(r.submitted_at); if(!isNaN(d)) _dates.push(d); } });
+  let _tlTxt='—';
+  if (_dates.length){ const _min=new Date(Math.min.apply(null,_dates)), _max=new Date(Math.max.apply(null,_dates)); const _days=Math.round((_max-_min)/86400000); _tlTxt = _days + ' day' + (_days===1?'':'s') + ' <span style="color:var(--text-dim);font-size:11px">('+_min.toLocaleDateString()+' → '+_max.toLocaleDateString()+')</span>'; }
+  const _actualBanner='<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;background:rgba(20,184,166,0.08);border:1px solid rgba(20,184,166,0.3);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px"><span style="font-weight:800;color:#14b8a6">📊 Actual Result</span><span>Spend <b style="color:#14b8a6">'+money(_paidSpend)+'</b></span><span>Timeline <b style="color:#a5b4fc">'+_tlTxt+'</b></span><span style="color:var(--text-dim);font-size:11px">— paid invoices &amp; first-to-last submission</span></div>';
   const rows = responses.map(resp => {
     let tot = resp.total;
     if (tot == null){ tot=0; const lq=resp.line_quotes||{}; Object.keys(lq).forEach(k=>{const q=lq[k]; if(q&&q.interested){const u=parseFloat(q.units)||0,la=parseFloat(q.labor)||0,m=parseFloat(q.material)||0,qy=u>0?u:1; tot+=parseFloat(q.total!=null?q.total:q.price)||(qy*(la+m));}}); }
@@ -27392,7 +27409,7 @@ function _uwRenderInvCompare(req, responses){
       + '</tr>'
       + '<tr id="invdetail-'+esc(resp.id)+'" style="display:none"><td colspan="8" style="padding:8px 16px;background:var(--panel-2)"><div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin-bottom:5px">Line items on this invoice</div>'+detHtml+'</td></tr>';
   }).join('');
-  cmp.innerHTML = '<div style="overflow:auto"><table style="width:100%;font-size:12px"><thead><tr style="color:var(--text-dim);text-transform:uppercase;font-size:10px;border-bottom:1px solid var(--border)">'
+  cmp.innerHTML = _actualBanner + '<div style="overflow:auto"><table style="width:100%;font-size:12px"><thead><tr style="color:var(--text-dim);text-transform:uppercase;font-size:10px;border-bottom:1px solid var(--border)">'
     + '<th style="padding:6px 8px;text-align:left">Name</th><th style="padding:6px 8px;text-align:left">Company</th><th style="padding:6px 8px;text-align:center">Status</th><th style="padding:6px 8px;text-align:right">Total</th><th style="padding:6px 8px;text-align:center">Submitted</th><th style="padding:6px 8px;text-align:center">Paid</th><th style="padding:6px 8px;text-align:center">PDF</th><th style="padding:6px 8px;text-align:center"></th>'
     + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
@@ -27480,8 +27497,16 @@ async function _uwRenderInvSection(){
   if (!statusBtn) return;
   const dealId = _uwCurrentId;
   const show = (el,v)=>{ if(el) el.style.display = v?'':'none'; };
+  // Copy Link stays visible on the Invoice List; grey it + block clicks when down.
+  const setCopyEnabled = (on) => {
+    if (!copyBtn) return;
+    copyBtn.style.opacity = on ? '1' : '0.45';
+    copyBtn.style.pointerEvents = on ? '' : 'none';
+    copyBtn.style.cursor = on ? 'pointer' : 'not-allowed';
+    copyBtn.title = on ? 'Copy the contractor invoice link for this property.' : 'Push the invoice live first to get a shareable link.';
+  };
   const cmp = document.getElementById('uw-inv-compare'); if (cmp) cmp.style.display='none';
-  if (!dealId){ show(copyBtn,false); show(refBtn,false); statusBtn.textContent='🚀 Push Invoice Live'; return; }
+  if (!dealId){ setCopyEnabled(false); statusBtn.textContent='🚀 Push Invoice Live'; return; }
   const req = await _uwInvFetchForDeal(dealId);
   if (req){
     // Self-heal: upgrade a stored short address (street only) to the full one.
@@ -27494,13 +27519,13 @@ async function _uwRenderInvSection(){
     } catch(_){}
     const live = (req.status||'open') === 'open';
     statusBtn.textContent = live ? '⬇ Take Down Invoice' : '🚀 Push Invoice Live';
-    show(copyBtn, live); show(refBtn, true);
+    setCopyEnabled(live);
     if (hint) hint.innerHTML = live
       ? '<span style="color:#16a34a;font-weight:700">● Live</span> — accepting invoices. Copy the contractor link to share, or take it down.'
       : '<span style="color:var(--text-dim);font-weight:700">○ Down</span> — click 🚀 Push Invoice Live to share the link.';
     uwInvLoadResponses(false);
   } else {
-    show(copyBtn,false); show(refBtn,false);
+    setCopyEnabled(false);
     statusBtn.textContent = '🚀 Push Invoice Live';
     if (hint) hint.textContent = 'Push a live invoice link so contractors can submit their invoice for this property.';
   }
@@ -28117,7 +28142,7 @@ function _uwRenderBidEditor(){
     : 'Tick the lines that apply to THIS property — they group to the top, highlight here, and lead the contractor form. Add custom lines if needed.';
   const seedBtn = isTpl ? '<button class="btn btn-ghost text-xs" onclick="uwBidSeedTemplate()" title="Replace with the full Rehab catalog">↻ Re-seed from Rehab</button>' : '';
   const addBtn = isTpl ? '<button class="btn btn-ghost text-xs" onclick="uwBidAddLine()">+ Add line</button>' : '';
-  const ovBlock = isTpl ? '' : '<div style="margin-bottom:10px"><div style="font-size:11px;color:var(--text-dim);font-weight:700;margin-bottom:4px">📝 Property Overview Notes <span style="font-weight:400">(shown to contractors at the top of the form)</span></div><textarea id="uw-bid-overview" rows="3" placeholder="e.g. Vacant, lockbox on door. Whole-house gut. Quotes needed within a week." style="width:100%;padding:8px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit;resize:vertical">'+escapeHtml(_uwBid.draftOverview||'')+'</textarea></div>';
+  const ovBlock = isTpl ? '' : '<div style="margin-bottom:10px"><div style="font-size:11px;color:var(--text-dim);font-weight:700;margin-bottom:4px">📝 Property Overview Notes <span style="font-weight:400">(shown to contractors at the top of the form)</span></div><textarea id="uw-bid-overview" rows="6" placeholder="e.g. Vacant, lockbox on door. Whole-house gut. Quotes needed within a week." style="width:100%;padding:8px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit;resize:vertical;min-height:150px">'+escapeHtml(_uwBid.draftOverview||'')+'</textarea></div>';
   // Deal-mode Save & Generate Link now lives at the TOP (next to Build/Edit),
   // so the bottom bar only carries the template-mode Save Standard List.
   const saveBtn = isTpl
@@ -28276,7 +28301,7 @@ async function uwBidToggleStatus(){
     const copyBtn = document.getElementById('uw-bid-copy-link');
     const hint = document.getElementById('uw-bid-hint');
     if (statusBtn) statusBtn.textContent = nowLive ? '⬇ Take Down' : '🚀 Push to Bid';
-    if (copyBtn) copyBtn.style.display = nowLive ? '' : 'none';
+    if (copyBtn) { copyBtn.style.display=''; copyBtn.style.opacity = nowLive ? '1' : '0.45'; copyBtn.style.pointerEvents = nowLive ? '' : 'none'; copyBtn.style.cursor = nowLive ? 'pointer' : 'not-allowed'; copyBtn.title = nowLive ? "Copy the contractor link for this property's bid sheet." : 'Push the bid sheet live first to get a shareable link.'; }
     if (hint) hint.innerHTML = nowLive
       ? '<span style="color:#16a34a;font-weight:700">● Live</span> — accepting bids. Copy the contractor link to share, or take it down to stop.'
       : '<span style="color:var(--text-dim);font-weight:700">○ Down</span> — not accepting bids yet. Click 🚀 Push to Bid to make the link live.';
@@ -28306,7 +28331,7 @@ window.uwBidLoadResponses = uwBidLoadResponses;
 
 // Switch the Contractor Quotes & Bids panel between its three views.
 function uwCqSetTab(tab){
-  window._uwCqTab = (tab === 'compare' || tab === 'external' || tab === 'agreements') ? tab : 'list';
+  window._uwCqTab = (tab === 'internal' || tab === 'compare' || tab === 'external' || tab === 'agreements') ? tab : 'list';
   tab = window._uwCqTab;
   const setBtn = (id, on) => {
     const b = document.getElementById(id);
@@ -28319,12 +28344,39 @@ function uwCqSetTab(tab){
     b.style.boxShadow = on ? '0 0 0 3px rgba(99,102,241,0.15)' : 'none';
   };
   setBtn('uw-cq-tab-list', tab === 'list');
+  setBtn('uw-cq-tab-internal', tab === 'internal');
   setBtn('uw-cq-tab-compare', tab === 'compare');
   setBtn('uw-cq-tab-external', tab === 'external');
   setBtn('uw-cq-tab-agreements', tab === 'agreements');
   const show = (id, v) => { const e = document.getElementById(id); if (e) e.style.display = v ? '' : 'none'; };
-  show('uw-cq-bidcontrols', tab !== 'external' && tab !== 'agreements');
+  show('uw-cq-bidcontrols', tab === 'list');
+  // The bid-sheet editor (checklist) is the Quote List view — open it by default,
+  // building it from the saved sheet if it isn't rendered yet. Hidden on other tabs.
+  (function(){
+    const ed = document.getElementById('uw-bid-editor'); if (!ed) return;
+    if (tab === 'list') {
+      const needBuild = !ed.innerHTML.trim() || _uwBid.mode !== 'deal';
+      if (needBuild && typeof uwBidBuildFromScope === 'function') { uwBidBuildFromScope(); }
+      else ed.style.display = '';
+    } else {
+      ed.style.display = 'none';
+    }
+  })();
+  // Top-right header buttons: upload (External / Agreements) and Refresh Bids (Internal).
+  (function(){
+    const b = document.getElementById('uw-cq-upload-btn');
+    if (b) {
+      if (tab === 'external') { b.style.display = ''; b.textContent = '⬆ Upload External Quote'; }
+      else if (tab === 'agreements') { b.style.display = ''; b.textContent = '⬆ Upload Construction Agreement'; }
+      else { b.style.display = 'none'; }
+    }
+    const r = document.getElementById('uw-cq-refresh-btn');
+    if (r) r.style.display = (tab === 'internal') ? '' : 'none';
+    const lb = document.getElementById('uw-cq-listbtns');
+    if (lb) lb.style.display = (tab === 'list') ? 'inline-flex' : 'none';
+  })();
   show('uw-cq-list-view', tab === 'list');
+  show('uw-cq-internal-view', tab === 'internal');
   show('uw-cq-compare-view', tab === 'compare');
   show('uw-cq-external-view', tab === 'external');
   show('uw-cq-agreements-view', tab === 'agreements');
@@ -28374,6 +28426,7 @@ function _invRenoTimelineDays(data){
 function uwInvSetTab(tab){
   const valid=['original','contractor','active','invoices','external'];
   tab = valid.indexOf(tab)>=0 ? tab : 'original';
+  window._uwInvTab = tab;  // remember the choice for this session (survives deal-data reloads)
   const u=_invGetDeal(); if(u){ if(!u.data)u.data={}; u.data._invoiceTab=tab; }
   const setBtn=(id,on)=>{ const b=document.getElementById(id); if(!b)return; b.className='btn text-sm'; b.style.border=on?'2px solid #6366f1':'2px solid var(--border)'; b.style.background=on?'rgba(99,102,241,0.20)':'transparent'; b.style.color=on?'#c7d2fe':'var(--text-dim)'; b.style.fontWeight='700'; b.style.boxShadow=on?'0 0 0 3px rgba(99,102,241,0.15)':'none'; };
   setBtn('uw-inv-tab-original', tab==='original');
@@ -28387,9 +28440,14 @@ function uwInvSetTab(tab){
   show('uw-inv-view-active', tab==='active');
   show('uw-inv-view-invoices', tab==='invoices');
   show('uw-inv-view-external', tab==='external');
+  // Top-right header buttons: live-link controls on Invoice List, Refresh on Internal
+  // Invoices, Upload on External Invoices.
+  const _lb=document.getElementById('uw-inv-listbtns'); if(_lb) _lb.style.display = (tab==='active') ? 'inline-flex' : 'none';
+  const _rf=document.getElementById('uw-inv-refresh'); if(_rf) _rf.style.display = (tab==='invoices') ? '' : 'none';
+  const _ub=document.getElementById('uw-inv-upload-btn'); if(_ub) _ub.style.display = (tab==='external') ? '' : 'none';
   if(tab==='original') renderInvOriginal();
   else if(tab==='contractor') renderInvContractor();
-  else if(tab==='active') renderInvActive();
+  else if(tab==='active'){ renderInvActive(); if(typeof _uwRenderInvSection==='function') _uwRenderInvSection(); }
   else if(tab==='invoices' && typeof _uwRenderInvSection==='function') _uwRenderInvSection();
   else if(tab==='external' && typeof renderInvExternal==='function') renderInvExternal();
 }
@@ -28549,8 +28607,8 @@ async function uwInvFillFromLabb(){
   u.data._invoiceOriginal = items;
   _invSyncActiveFromOriginal(); // Active = these Original items + anything you added
   _invSave();
-  renderInvOriginal();
-  if(typeof toast==='function') toast('Filled ' + items.length + ' item' + (items.length===1?'':'s') + ' from your Bid Comparison (LABB Estimate).','ok');
+  if(typeof renderInvActive==='function') renderInvActive();
+  if(typeof toast==='function') toast('Built ' + items.length + ' item' + (items.length===1?'':'s') + ' from your Bid Comparison (LABB Estimate).','ok');
 }
 window.uwInvFillFromLabb = uwInvFillFromLabb;
 
@@ -28672,9 +28730,12 @@ function _invInvoicedByDesc(){
       const toDesc=aliases[fromKey]; if(!toDesc) return;
       const fk=String(fromKey).trim().toLowerCase(); const tk=String(toDesc).trim().toLowerCase();
       if(fk===tk || !map[fk]) return;
-      if(!map[tk]) map[tk]={amt:0, companies:[], desc:String(toDesc).trim(), room:map[fk].room||''};
-      map[tk].amt += map[fk].amt||0;
-      (map[fk].companies||[]).forEach(c=>{ if(map[tk].companies.indexOf(c)<0) map[tk].companies.push(c); });
+      // Only connect the invoiced amount when the target has none of its own.
+      if(!map[tk] || !(map[tk].amt>0)){
+        if(!map[tk]) map[tk]={amt:0, companies:[], desc:String(toDesc).trim(), room:map[fk].room||''};
+        map[tk].amt += map[fk].amt||0;
+        (map[fk].companies||[]).forEach(c=>{ if(map[tk].companies.indexOf(c)<0) map[tk].companies.push(c); });
+      }
       delete map[fk];
     });
   } catch(_){}
@@ -28742,6 +28803,22 @@ function _invBidByDesc(){
         map[key].amt += (amt||0);
         if(company && map[key].companies.indexOf(company)<0) map[key].companies.push(company);
       });
+    });
+    // Apply user ASSIGNMENTS (same aliases as the invoiced map): a quoted line the
+    // user tied to an existing item is credited to that item — but ONLY when the
+    // target has no quote of its own (we don't overwrite an existing quote).
+    const u=(typeof _invGetDeal==='function')?_invGetDeal():null;
+    const aliases=(u&&u.data&&u.data._invoiceAliases)||{};
+    Object.keys(aliases).forEach(fromKey=>{
+      const toDesc=aliases[fromKey]; if(!toDesc) return;
+      const fk=String(fromKey).trim().toLowerCase(); const tk=String(toDesc).trim().toLowerCase();
+      if(fk===tk || !map[fk]) return;
+      if(!map[tk] || !(map[tk].amt>0)){
+        if(!map[tk]) map[tk]={amt:0, companies:[]};
+        map[tk].amt += map[fk].amt||0;
+        (map[fk].companies||[]).forEach(c=>{ if(map[tk].companies.indexOf(c)<0) map[tk].companies.push(c); });
+      }
+      delete map[fk];
     });
   } catch(_){}
   return map; // desc -> { amt, companies:[] }
@@ -28878,7 +28955,15 @@ function renderInvActive(){
   rows += secHead('➕ Additional Items ('+addedRows.length+')','#a855f7','rgba(168,85,247,0.12)');
   rows += addedRows.length ? addedRows.map(mkRow).join('') : '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:2px 4px 6px">Nothing added yet — click <b>+ Add item</b>, or turn on 👷 Include Contractor Quotes to pull in items a contractor quoted.</div>';
   if(mismRows.length){ rows += secHead('⚠ Mismatch in Updated Scope ('+mismRows.length+')','#d97706','rgba(245,158,11,0.14)'); rows += '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:0 4px 6px">Invoiced by a contractor but no longer on your current list — the scope changed since these were invoiced.</div>'; rows += mismRows.map(mkRow).join(''); }
-  const grand=items.reduce((s,it)=>s+(it.fromContractor?0:_invLineTotal(it)),0);
+  // Expected = the LABB Estimate budget (same figure as the banner above), so it
+  // always matches your Estimated Budget rather than drifting with per-line edits.
+  let grand=0;
+  try {
+    const _D=(typeof _uwCollect==='function')?(_uwCollect().data||{}):{};
+    if(typeof window._rcGetGrandTotal==='function') grand=window._rcGetGrandTotal(_invNum(_D['uw-sqft']))||0;
+    if(!grand && typeof _hrComputeBudget==='function') grand=_hrComputeBudget({data:_D}).budgeted||0;
+  } catch(_){}
+  if(!grand) grand=items.reduce((s,it)=>s+(it.fromContractor?0:_invLineTotal(it)),0);
   // Invoiced counts only amounts that match a line on this active list (so it stays
   // consistent with the per-line Invoiced column); unmatched invoice lines are ignored.
   const _actInvDescSet=new Set(items.map(it=>String(it.description||'').trim().toLowerCase()).filter(Boolean));
@@ -28937,7 +29022,9 @@ function _invActiveOnEdit(e){
   // saves. Expected totals are preserved via the merge in _invCollectActive.
   const items=_invCollectActive();
   const gc=document.getElementById('inv-a-count'); if(gc) gc.textContent=items.length;
-  const gg=document.getElementById('inv-a-grand'); if(gg) gg.textContent=_invMoney(items.reduce((s,it)=>s+_invLineTotal(it),0));
+  // Expected stays pinned to the LABB Estimate budget (not the per-line sum).
+  const gg=document.getElementById('inv-a-grand');
+  if(gg){ let _g=0; try{ const _D=(typeof _uwCollect==='function')?(_uwCollect().data||{}):{}; if(typeof window._rcGetGrandTotal==='function') _g=window._rcGetGrandTotal(_invNum(_D['uw-sqft']))||0; if(!_g && typeof _hrComputeBudget==='function') _g=_hrComputeBudget({data:_D}).budgeted||0; }catch(_){} if(!_g) _g=items.reduce((s,it)=>s+_invLineTotal(it),0); gg.textContent=_invMoney(_g); }
   const u=_invGetDeal(); if(u){ if(!u.data)u.data={}; u.data._invoiceActive=items; }
   _invSave(); _invSyncFormSoon();
 }
@@ -29002,15 +29089,17 @@ function uwInvAssignToOriginal(id, originalDesc){
   const u=(typeof _invGetDeal==='function')?_invGetDeal():null; if(!u||!u.data) return;
   const arr=Array.isArray(u.data._invoiceActive)?u.data._invoiceActive:[];
   const it=arr.find(x=>String(x.id)===String(id)); if(!it) return;
-  if(it.fromInvoice){
-    u.data._invoiceAliases=u.data._invoiceAliases||{};
-    u.data._invoiceAliases[String(it.description||'').trim().toLowerCase()]=originalDesc;
-  } else {
-    it.description=originalDesc; it.added=false; delete it.fromInvoice;
-  }
+  const _srcName=String(it.description||'this item').trim();
+  if(!window.confirm('Are you sure you want to match "'+_srcName+'" to "'+originalDesc+'"?')) return;
+  // Store an alias so this row's Quoted + Invoiced amounts credit the target item
+  // (only where the target is empty — handled in the amount maps), then REMOVE the
+  // additional/mismatch row itself so it merges cleanly into the Original list item.
+  u.data._invoiceAliases=u.data._invoiceAliases||{};
+  u.data._invoiceAliases[_srcName.toLowerCase()]=originalDesc;
+  u.data._invoiceActive=arr.filter(x=>String(x.id)!==String(id));
   _invSaveNow(); if(typeof renderInvActive==='function') renderInvActive();
   if(typeof _invSyncFormSoon==='function') _invSyncFormSoon();
-  if(typeof toast==='function') toast('Assigned to "'+originalDesc+'".','ok');
+  if(typeof toast==='function') toast('Merged "'+_srcName+'" into "'+originalDesc+'".','ok');
 }
 window.uwInvAssignToOriginal = uwInvAssignToOriginal;
 
@@ -29080,8 +29169,9 @@ async function uwInvActiveToggleContractor(checked){
     const clines=await _invAcceptedContractorLines();
     if(!clines.length){ if(typeof toast==='function') toast('No accepted contractor bids yet. Mark a bid Accepted (✓) in Contractor Quotes & Bids first.','warn'); const cb=document.getElementById('uw-inv-incl-contractor'); if(cb) cb.checked=false; return; }
     const byDesc={}; arr.forEach(it=>{ if(it&&it.description) byDesc[String(it.description).trim().toLowerCase()]=it; });
+    const _aliased=u.data._invoiceAliases||{};  // items already merged into an original line — don't re-pull them
     let added=0, tagged=0;
-    clines.forEach(cl=>{ const key=String(cl.description||'').trim().toLowerCase(); if(!key) return; const ex=byDesc[key];
+    clines.forEach(cl=>{ const key=String(cl.description||'').trim().toLowerCase(); if(!key || _aliased[key]) return; const ex=byDesc[key];
       if(ex){ if(!ex.contractor){ ex.contractor=cl.contractor; tagged++; } }
       else { const it={ id:_invGenId(), room:cl.room||'Other', description:cl.description, units:cl.units||'', hours:cl.hours||'', labor:(cl.labor!=null&&cl.labor!=='')?String(cl.labor):(cl.price?String(Math.round(cl.price)):''), material:(cl.material!=null)?String(cl.material):'', contractor:cl.contractor, fromContractor:true, added:true }; arr.push(it); byDesc[key]=it; added++; }
     });
@@ -29183,9 +29273,22 @@ function _uwRenderBidList(req, responses){
   const _blBanner='<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px"><span style="font-weight:800;color:#10b981">🏷️ LABB Estimate</span><span>Est. Budget <b style="color:#10b981">'+_invMoney(_blBudget)+'</b></span><span>Est. Timeline <b style="color:#a5b4fc">'+(_blDays?_blDays+' days':'—')+'</b></span><span style="color:var(--text-dim);font-size:11px">— where bids should land (excludes rent/sell/repossess)</span></div>';
   if (!responses.length){ el.innerHTML = _blBanner + '<div class="text-xs" style="color:var(--text-dim);padding:8px 0">No contractor quotes submitted for this property yet.</div>'; return; }
   const compTot = (resp)=>{ let t=resp.total; if(t==null){ t=0; const lq=resp.line_quotes||{}; Object.keys(lq).forEach(k=>{const q=lq[k]; if(q&&q.interested){const u=parseFloat(q.units)||0,la=parseFloat(q.labor)||0,m=parseFloat(q.material)||0,qy=u>0?u:1; t+=parseFloat(q.total!=null?q.total:q.price)||(qy*(la+m));}}); } return t; };
+  const lineById={}; (Array.isArray(req&&req.line_items)?req.line_items:[]).forEach(l=>{ if(l&&l.id) lineById[l.id]=l; });
   const rows = responses.map(resp => {
     let dt='—'; try { if (resp.submitted_at) dt=new Date(resp.submitted_at).toLocaleDateString(); } catch(_){}
-    return '<tr style="border-bottom:1px solid var(--border)">'
+    // Build the itemized detail (line-by-line) for the expandable drawer.
+    const lq=resp.line_quotes||{};
+    const items=Object.keys(lq).filter(k=>{ const q=lq[k]; return q&&q.interested; }).map(k=>{
+      const q=lq[k]; const base=lineById[k]||{};
+      const desc=q.custom?(q.description||k):(base.description||q.description||k);
+      const amt=(q.total!=null&&q.total!=='')?(parseFloat(q.total)||0):((q.price!=null)?(parseFloat(q.price)||0):((parseFloat(q.units)||1)*((parseFloat(q.labor)||0)+(parseFloat(q.material)||0))));
+      const note=(q.note||'').trim(); const ms=(q.matspec||'').trim();
+      return '<div style="display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px dashed var(--border)"><span>'+esc(desc)+(ms?' <span style="color:var(--text-dim);font-size:11px">· '+esc(ms)+'</span>':'')+(note?'<br><span style="color:var(--text-dim);font-size:11px">📝 '+esc(note)+'</span>':'')+'</span><span style="font-weight:600;white-space:nowrap">'+money(amt)+'</span></div>';
+    }).join('');
+    const detail = items || '<div style="color:var(--text-dim);padding:4px 0">No itemized lines on this quote.</div>';
+    const rid='bidrow-'+esc(resp.id);
+    const mainRow = '<tr style="border-bottom:1px solid var(--border)">'
+      + '<td style="padding:6px 4px;text-align:center;cursor:pointer;color:var(--text-dim);user-select:none" onclick="_uwBidToggleDetail(\''+rid+'\',this)" title="Show itemized lines">▸</td>'
       + '<td style="padding:6px 8px">' + esc(resp.contractor_name||'—') + '</td>'
       + '<td style="padding:6px 8px;font-weight:600">' + esc(resp.contractor_company||resp.contractor_name||'—') + '</td>'
       + '<td style="padding:6px 8px;text-align:center">' + (resp.contractor_start?esc(resp.contractor_start):'—') + '</td>'
@@ -29198,12 +29301,21 @@ function _uwRenderBidList(req, responses){
       + '<td style="padding:6px 8px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ea580c;padding:2px 7px" onclick="uwBidPrintResponse(\'' + esc(resp.id) + '\')" title="PDF">📄</button></td>'
       + '<td style="padding:6px 8px;text-align:center"><button class="btn btn-ghost text-xs" style="color:#ef4444;padding:2px 7px" onclick="uwBidDeleteResponse(\'' + esc(resp.id) + '\')" title="Remove">✕</button></td>'
       + '</tr>';
+    const detailRow = '<tr id="'+rid+'" style="display:none"><td colspan="12" style="padding:10px 16px 12px;background:var(--panel-2)"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-dim);font-weight:700;margin-bottom:6px">Itemized lines</div>'+detail+'</td></tr>';
+    return mainRow + detailRow;
   }).join('');
   el.innerHTML = _blBanner + '<div style="overflow:auto"><table style="width:100%;font-size:12px"><thead><tr style="color:var(--text-dim);text-transform:uppercase;font-size:10px;border-bottom:1px solid var(--border)">'
-    + '<th style="padding:6px 8px;text-align:left">Name</th><th style="padding:6px 8px;text-align:left">Company</th><th style="padding:6px 8px;text-align:center">Start</th><th style="padding:6px 8px;text-align:right">Total</th><th style="padding:6px 8px;text-align:center">Timeline</th><th style="padding:6px 8px;text-align:center">Ins</th><th style="padding:6px 8px;text-align:center">Lic</th><th style="padding:6px 8px;text-align:center">Submitted</th><th style="padding:6px 8px;text-align:center">Accepted</th><th style="padding:6px 8px;text-align:center">PDF</th><th style="padding:6px 8px;text-align:center"></th>'
+    + '<th style="padding:6px 4px"></th><th style="padding:6px 8px;text-align:left">Name</th><th style="padding:6px 8px;text-align:left">Company</th><th style="padding:6px 8px;text-align:center">Start</th><th style="padding:6px 8px;text-align:right">Total</th><th style="padding:6px 8px;text-align:center">Timeline</th><th style="padding:6px 8px;text-align:center">Ins</th><th style="padding:6px 8px;text-align:center">Lic</th><th style="padding:6px 8px;text-align:center">Submitted</th><th style="padding:6px 8px;text-align:center">Accepted</th><th style="padding:6px 8px;text-align:center">PDF</th><th style="padding:6px 8px;text-align:center"></th>'
     + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 window._uwRenderBidList = _uwRenderBidList;
+function _uwBidToggleDetail(rowId, caret){
+  const r = document.getElementById(rowId); if (!r) return;
+  const open = r.style.display === 'none';
+  r.style.display = open ? '' : 'none';
+  if (caret) caret.textContent = open ? '▾' : '▸';
+}
+window._uwBidToggleDetail = _uwBidToggleDetail;
 
 async function uwBidListToggleAccepted(id, val){
   const req = _uwBid.byDeal[_uwCurrentId];

@@ -28957,7 +28957,8 @@ function renderInvActive(){
       + '</div>'
       + '</div>';
   };
-  const secHead=(txt,color,bg)=>'<div style="margin:10px 0 6px;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:'+color+';background:'+bg+'">'+txt+'</div>';
+  const secHead=(txt,color,bg,invTot)=>'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 6px;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:'+color+';background:'+bg+'"><span>'+txt+'</span>'+((invTot===undefined)?'':('<span style="white-space:nowrap">Invoiced '+_invMoney(invTot||0)+'</span>'))+'</div>';
+  const _secInvTotal=(arr)=>arr.reduce((s,it)=>s+(_invForRow(it)||0),0);
   const origRows = items.filter(it=>!it.added);
   // "Mismatch" = items a contractor invoiced that AREN'T on the current list
   // (the scope changed since they were invoiced). Split them out from the
@@ -28983,10 +28984,10 @@ function renderInvActive(){
   } else {
     rows += '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:2px 4px 8px">No deposit requests submitted yet.</div>';
   }
-  if(origRows.length){ rows += secHead('✓ From Original Invoice List ('+origRows.length+')','#15803d','rgba(34,197,94,0.12)'); rows += origRows.map(mkRow).join(''); }
-  rows += secHead('➕ Additional Items ('+addedRows.length+')','#a855f7','rgba(168,85,247,0.12)');
+  if(origRows.length){ rows += secHead('✓ From Original Invoice List ('+origRows.length+')','#15803d','rgba(34,197,94,0.12)', _secInvTotal(origRows)); rows += origRows.map(mkRow).join(''); }
+  rows += secHead('➕ Additional Items ('+addedRows.length+')','#a855f7','rgba(168,85,247,0.12)', _secInvTotal(addedRows));
   rows += addedRows.length ? addedRows.map(mkRow).join('') : '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:2px 4px 6px">Nothing added yet — click <b>+ Add item</b>, or turn on 👷 Include Contractor Quotes to pull in items a contractor quoted.</div>';
-  if(mismRows.length){ rows += secHead('⚠ Mismatch in Updated Scope ('+mismRows.length+')','#d97706','rgba(245,158,11,0.14)'); rows += '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:0 4px 6px">Invoiced by a contractor but no longer on your current list — the scope changed since these were invoiced.</div>'; rows += mismRows.map(mkRow).join(''); }
+  if(mismRows.length){ rows += secHead('⚠ Mismatch in Updated Scope ('+mismRows.length+')','#d97706','rgba(245,158,11,0.14)', _secInvTotal(mismRows)); rows += '<div class="text-xs" style="color:var(--text-dim);font-style:italic;padding:0 4px 6px">Invoiced by a contractor but no longer on your current list — the scope changed since these were invoiced.</div>'; rows += mismRows.map(mkRow).join(''); }
   // Expected = the Budgeted total (rehab w/ contingency, or your manual override),
   // the same figure as the Budget bar — not the per-line sum.
   let grand=0;

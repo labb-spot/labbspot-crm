@@ -4955,6 +4955,12 @@
          (progress bars, items list, actual spending) with the Scope of Work
          (items list, phase timelines, notes) — previously two separate
          panels, merged into one for less scrolling and a tighter workflow. -->
+    <!-- Additional Notes — its own section, above Budget & Timeline -->
+    <div class="panel p-5 mb-4" data-uw-section="additional-notes" data-uw-section-label="📝 Additional Notes">
+      <div class="font-semibold text-lg mb-3">📝 Additional Notes</div>
+      <textarea id="uw-scope-notes" rows="7" placeholder="Contractor name, permit numbers, materials notes, sequencing, purchase/closing details, anything else worth tracking…" style="width:100%;padding:10px 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;line-height:1.5;resize:vertical;font-family:inherit;box-sizing:border-box"></textarea>
+    </div>
+
     <div class="panel p-5 mb-4" data-uw-section="budget-overview" data-uw-section-label="💰 Budget &amp; Timeline">
       <div class="font-semibold text-lg mb-3">💰 Budget &amp; Timeline</div>
 
@@ -5028,8 +5034,8 @@
         </div>
 
       <div id="uw-scope-body" style="display:none">
-        <!-- Auto-generated list of needed rehab items -->
-        <div class="mb-4">
+        <!-- Auto-generated list of needed rehab items (hidden — kept for JS refs) -->
+        <div class="mb-4" style="display:none">
           <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:8px">
             <span style="color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Items from Rehab Calculator</span>
             <span id="uw-scope-count" style="font-size:11px;color:var(--text-dim)">0 items</span>
@@ -5041,11 +5047,9 @@
 
         <!-- Phase timelines -->
         <div class="mb-4" style="padding-top:14px;border-top:1px solid var(--border)">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:8px">
-            <span style="color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Phase Timelines</span>
+          <div style="display:flex;justify-content:flex-end;align-items:baseline;font-size:12px;margin-bottom:8px">
             <span id="uw-scope-phase-summary" style="font-size:11px;color:var(--text-dim)">—</span>
           </div>
-          <div class="text-xs mb-3" style="color:var(--text-dim)">Each phase has its own duration. Sequential phases run one after another. Parallel phases (e.g., exterior work) run alongside the sequential timeline — total project time = max(sequential, parallel).</div>
           <div id="uw-scope-phase-gantt" style="margin-bottom:14px"></div>
           <div id="uw-scope-phase-list" style="display:flex;flex-direction:column;gap:6px"></div>
           <button class="btn btn-primary text-sm" onclick="uwScopeAutoFillFromRehab()" style="margin-top:10px" title="Read your checked rehab items and auto-set each phase's days. Planning + Restructure go to 0 if no drain lines, supply lines, electrical wiring, or septic items are checked. Roof / siding / fascia / gutters roll into Mechanicals.">✨ Auto-fill from Rehab</button>
@@ -5054,13 +5058,6 @@
           <button class="btn btn-ghost text-sm" onclick="uwScopeResetPhases()" style="margin-top:10px;margin-left:6px;color:var(--text-dim)" title="Reset to the default 6-phase list (Demo → Planning → Restructure → Mechanicals → Cosmetics → Punch List).">↺ Reset to defaults</button>
         </div>
 
-        <!-- Free-form notes -->
-        <div style="padding-top:14px;border-top:1px solid var(--border)">
-          <label style="display:block">
-            <span style="display:block;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px">Additional Notes</span>
-            <textarea id="uw-scope-notes" rows="6" placeholder="Contractor name, permit numbers, materials notes, sequencing, anything else worth tracking…" style="width:100%;padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;resize:vertical;font-family:inherit"></textarea>
-          </label>
-        </div>
       </div><!-- /#uw-scope-body -->
     </div><!-- /Scope of Work panel -->
 
@@ -21293,6 +21290,7 @@ const _UW_SECTION_TAB = {
   // Project Schedule Estimate. The DOM element stays (Budget & Schedule anchors
   // to it); leaving it out of this map keeps it hidden on every tab.
   'exit-strategy':        'strategy',
+  'additional-notes':     'budget',
   'budget-overview':      'budget',
   'scope-of-work':        'budget',
   'property-specs':       'budget',

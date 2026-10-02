@@ -28759,7 +28759,8 @@ function _invInvoicedByDesc(){
       const toDesc=aliases[fromKey]; if(!toDesc) return;
       const fk=String(fromKey).trim().toLowerCase(); const tk=String(toDesc).trim().toLowerCase();
       if(fk===tk || !map[fk]) return;
-      // Only connect the invoiced amount when the target has none of its own.
+      // Only connect the invoiced amount when the target has none of its own
+      // (merging into a line that's already invoiced is blocked at assign time).
       if(!map[tk] || !(map[tk].amt>0)){
         if(!map[tk]) map[tk]={amt:0, companies:[], desc:String(toDesc).trim(), room:map[fk].room||''};
         map[tk].amt += map[fk].amt||0;
@@ -29149,6 +29150,16 @@ function uwInvAssignToOriginal(id, originalDesc){
   const arr=Array.isArray(u.data._invoiceActive)?u.data._invoiceActive:[];
   const it=arr.find(x=>String(x.id)===String(id)); if(!it) return;
   const _srcName=String(it.description||'this item').trim();
+  // Block merging into a line that already has an invoiced amount — otherwise the
+  // merged invoice would be dropped (we only credit empty targets).
+  try {
+    const _im=(typeof _invInvoicedByDesc==='function')?_invInvoicedByDesc():{};
+    const _t=_im[String(originalDesc||'').trim().toLowerCase()];
+    if(_t && (_t.amt>0)){
+      window.alert('Can’t merge into "'+originalDesc+'" — it already has an invoiced amount ('+_invMoney(_t.amt)+'). Merging would drop this invoice. Pick a line that hasn’t been invoiced yet, or leave this as its own line.');
+      return;
+    }
+  } catch(_){}
   if(!window.confirm('Are you sure you want to match "'+_srcName+'" to "'+originalDesc+'"?')) return;
   // Store an alias so this row's Quoted + Invoiced amounts credit the target item
   // (only where the target is empty — handled in the amount maps), then REMOVE the

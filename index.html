@@ -5229,6 +5229,7 @@
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
           <button class="btn btn-ghost text-sm" onclick="uwInvActiveAddRow()" title="Add a blank line item to the invoice list.">+ Add item</button>
           <label style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;border:1.5px solid rgba(124,58,237,0.55);background:rgba(124,58,237,0.10);border-radius:8px;padding:7px 12px" title="Merge in the line items from contractor bids you marked Accepted. If you already have an item, it just gets tagged as a contractor's; items only they have are added and tagged."><input type="checkbox" id="uw-inv-incl-contractor" onchange="uwInvActiveToggleContractor(this.checked)" style="width:15px;height:15px;cursor:pointer;accent-color:#7c3aed"> 👷 Include Contractor Quotes</label>
+          <button class="btn btn-ghost text-sm" onclick="uwInvResetInvoices()" style="border:1px solid rgba(239,68,68,0.5);color:#f87171" title="Rebuild the invoice list from your Build-from-Quote-List selections and re-apply contractor invoices from scratch — matches auto-apply, unmatched invoices fall into Mismatch / Additional. Clears manual row drift.">↺ Reset Invoices</button>
           <button class="btn btn-ghost text-sm" onclick="_uwRefreshWithFeedback(this,'invoices')" title="Refresh contractor invoices + the invoiced/paid amounts on this list.">🔁 Refresh</button>
         </div>
         <div id="uw-inv-active-list"></div>
@@ -29115,6 +29116,30 @@ async function uwInvReapplyInvoices(){
 }
 window.uwInvReapplyInvoices = uwInvReapplyInvoices;
 
+// Reset ONLY the contractor-invoice reconciliation — re-pull the submitted
+// invoices and rebuild the Mismatch / Additional invoice rows from scratch.
+// Does NOT touch your quotes, pulled bid line items, original list, or the line
+// items themselves — only the invoice side (invoiced rows + invoice merges).
+async function uwInvResetInvoices(){
+  const u=_invGetDeal(); if(!u||!u.data){ if(typeof toast==='function') toast('Open a deal first.','warn'); return; }
+  if(!confirm('Reset contractor invoices?\n\nThis re-pulls the submitted invoices and rebuilds the Mismatch / Additional invoice rows from scratch — matching lines auto-apply, unmatched invoices fall into Mismatch (or Additional if a contractor invoiced an extra). \n\nYour quotes, pulled bids, original list, and line items are NOT changed. Invoice merges you made will be cleared so they re-evaluate.')) return;
+  // Drop auto-pulled invoice (mismatch) rows and clear invoice-merge aliases so
+  // everything re-reconciles cleanly. Keep original rows, added rows, and bids.
+  u.data._invoiceActive = (Array.isArray(u.data._invoiceActive)?u.data._invoiceActive:[]).filter(it => !(it && it.fromInvoice));
+  u.data._invoiceAliases = {};
+  _invSaveNow();
+  try {
+    const dealId=_uwCurrentId;
+    let req=(typeof _uwInv!=='undefined'&&_uwInv.byDeal)?_uwInv.byDeal[dealId]:undefined;
+    if(!req && typeof _uwInvFetchForDeal==='function') req=await _uwInvFetchForDeal(dealId);
+    if(req && req.id && typeof uwInvLoadResponses==='function') await uwInvLoadResponses(true);
+  } catch(e){ console.warn('reset invoices', e); }
+  if(typeof renderInvActive==='function') renderInvActive();        // re-adds mismatch/additional + credits matches
+  if(typeof _uwBudgetUpdateBar==='function') _uwBudgetUpdateBar();
+  if(typeof toast==='function') toast('Invoices reset — re-matched from the submitted invoices.','ok');
+}
+window.uwInvResetInvoices = uwInvResetInvoices;
+
 // Assign an Additional / Mismatch row to an item on the Original Invoice List.
 // For an invoiced (Mismatch) row we store an alias so the invoiced amount is
 // credited to that original item; for a manually-added row we re-point it.
@@ -42915,6 +42940,29 @@ async function _buyerMergeLocationIntoBuyer(buyerId, loc) {
   }
 }
 window._buyerMergeLocationIntoBuyer = _buyerMergeLocationIntoBuyer;
+
+// ---- Panic "unstick": if an invisible overlay ever traps clicks, pressing
+// Escape clears any stray full-screen modal/popover (high-z fixed elements that
+// didn't get dismissed) so the page is usable again.
+if (!window._uwUnstickGuard) {
+  window._uwUnstickGuard = true;
+  window._uwUnstick = function () {
+    let n = 0;
+    document.querySelectorAll('#inv-assign-pop, #uw-packet-price-popover, #uw-appraisal-notes-popover').forEach(function (el) {
+      if (el && (el.id === 'inv-assign-pop')) { el.remove(); n++; }
+      else if (el && el.style.display !== 'none') { el.style.display = 'none'; n++; }
+    });
+    // Any JS-built modal with an extreme z-index that's still on screen.
+    document.querySelectorAll('div[style]').forEach(function (el) {
+      try {
+        const z = parseInt(el.style.zIndex || '0', 10);
+        if (z >= 2000000000 && el.style.position === 'fixed') { el.remove(); n++; }
+      } catch (_) {}
+    });
+    return n;
+  };
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') window._uwUnstick(); });
+}
 
 // ---- Reusable floating progress bar (geocoding, imports, etc.) ----
 // Fixed to the bottom of the screen; shows a live bar + "X / N" + rough ETA.

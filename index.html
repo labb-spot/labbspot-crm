@@ -6843,6 +6843,7 @@
           <select id="managers-specialty-filter" onchange="renderManagersList()" title="Filter by service offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;width:190px">
             <option value="">All services</option>
           </select>
+          <button type="button" id="managers-style-filter" data-val="" onclick="_mgrCycleStyleFilter()" title="Filter by management style — click to cycle All / Full / Selective / Leasing" style="height:38px;padding:0 14px;min-width:96px;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">All Styles</button>
           <button type="button" id="managers-verified-filter" data-active="false" onclick="toggleVerifiedFilter('managers-verified-filter', 'renderManagersList')" title="Click to show only verified managers. Click again to show all." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
           <button class="btn btn-primary text-sm" onclick="managerOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new property manager to your rolodex.">+ Add Manager</button>
           <input id="managers-search" type="text" placeholder="🔍 Search by name, company, or service..." oninput="renderManagersList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 330px;min-width:270px;max-width:420px;box-sizing:border-box" title="Filter by name, company, services, city, state, or notes. Matches anywhere." />
@@ -6855,12 +6856,10 @@
           <thead style="position:sticky;top:0;background:var(--panel);z-index:1">
             <tr style="border-bottom:1px solid var(--border)">
               <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Name</th>
-              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:110px">Rating</th>
-              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Services</th>
-              <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Fees</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:90px">Fees</th>
+              <th style="padding:10px 12px;text-align:center;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Services</th>
               <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Contact</th>
               <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:140px">Location</th>
-              <th style="padding:10px 12px;text-align:right;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:100px">Actions</th>
             </tr>
           </thead>
           <tbody id="managers-tbody"></tbody>
@@ -6872,13 +6871,14 @@
   <!-- Add / Edit Property Manager modal — clone of the Agent modal. -->
   <div id="manager-add-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
     <div class="panel" style="max-width:820px;width:100%;padding:32px;box-shadow:0 14px 50px rgba(0,0,0,0.6);max-height:92vh;overflow-y:auto">
-      <div class="flex items-center justify-between" style="margin-bottom:18px;gap:12px;flex-wrap:wrap">
-        <div style="font-weight:700;font-size:24px" id="manager-modal-title">🏠 Add Manager</div>
-        <div class="flex items-center" style="gap:10px;flex-wrap:wrap">
+      <div class="flex items-center justify-between" style="margin-bottom:18px;gap:12px;flex-wrap:nowrap">
+        <div style="font-weight:700;font-size:22px;flex-shrink:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="manager-modal-title">🏠 Add Manager</div>
+        <div class="flex items-center" style="gap:8px;flex-wrap:nowrap;flex-shrink:0">
+          <button type="button" id="manager-style-btn" data-val="" onclick="_mgrCycleStyle()" style="height:34px;padding:0 12px;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-dim);box-sizing:border-box;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease" title="Management style — click to cycle Full / Selective / Leasing">Style: —</button>
           <button type="button" id="manager-verified-btn" onclick="_toggleVerifiedHeaderBtn('manager')" style="height:34px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-dim);box-sizing:border-box;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease" title="Toggle Verified status">○ Unverified</button>
           <button class="btn btn-ghost" onclick="managerDeleteFromModal()" id="manager-delete-btn" style="height:34px;padding:0 14px;font-size:13px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none;box-sizing:border-box;line-height:1" title="Delete this entry">🗑 Delete</button>
           <button class="btn btn-ghost" onclick="managerCloseAddModal()" style="height:34px;padding:0 14px;font-size:13px;box-sizing:border-box;line-height:1" title="Discard changes and close">Cancel</button>
-          <button class="btn btn-primary" onclick="managerSaveNew()" id="manager-add-save-btn" style="height:34px;padding:0 18px;font-size:13px;font-weight:600;box-sizing:border-box;line-height:1" title="Save">💾 Save Manager</button>
+          <button class="btn btn-primary" onclick="managerSaveNew()" id="manager-add-save-btn" style="height:34px;padding:0 16px;font-size:13px;font-weight:600;box-sizing:border-box;line-height:1" title="Save">💾 Save</button>
         </div>
       </div>
       <div style="font-size:14px;color:var(--text-dim);margin-bottom:22px;line-height:1.5">Fill in whatever info you have. Only Contact Name is required — everything else is optional.</div>
@@ -6890,17 +6890,11 @@
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Contact Name *
           <input type="text" id="manager-add-name" placeholder="e.g. Jane Smith" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Rating <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(0 – 5)</span>
-          <input type="number" id="manager-add-rating" min="0" max="5" step="0.5" placeholder="e.g. 4.5" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
-        </label>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">License # <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
-          <input type="text" id="manager-add-license" placeholder="e.g. RB14000123" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Email
+          <input type="email" id="manager-add-email" placeholder="e.g. jane@tristate.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Phone
           <input type="tel" id="manager-add-phone" placeholder="e.g. (812) 555-1234" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
-        </label>
-        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Email
-          <input type="email" id="manager-add-email" placeholder="e.g. jane@tristate.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">City
           <input type="text" id="manager-add-city" placeholder="e.g. Evansville" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
@@ -6908,15 +6902,38 @@
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">State
           <input type="text" id="manager-add-state" placeholder="e.g. IN" maxlength="2" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase;letter-spacing:1px">
         </label>
-        <label class="col-span-2" style="font-size:14px;font-weight:600">Services <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
-          <input type="text" id="manager-add-specialties" placeholder="e.g. Full-Service, Tenant Placement, Leasing, Maintenance, Section 8" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Management Fee <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(% of rent)</span>
+          <input type="number" id="manager-add-mgmt-fee" min="0" step="0.5" placeholder="e.g. 8" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
-        <label class="col-span-2" style="font-size:14px;font-weight:600">Fee Structure / Terms <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(free text)</span>
-          <textarea id="manager-add-fees" rows="3" placeholder="e.g. 8% of monthly rent • 1 month rent leasing fee • $75 maintenance coordination • No markup on repairs" style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Leasing Fee <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(on top of mgmt %)</span>
+          <input type="text" id="manager-add-leasing-fee" placeholder="e.g. 1 month rent, or $500" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
+        <div class="col-span-2" style="font-size:14px;font-weight:600">Services <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(click to toggle)</span>
+          <input type="hidden" id="manager-add-specialties" value="">
+          <div id="manager-svc-toggles" style="margin-top:8px">
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <button type="button" class="mgr-svc-btn" data-svc="Placement"   data-on="0" onclick="_mgrToggleSvc(this)" style="height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s ease">Placement</button>
+            <button type="button" class="mgr-svc-btn" data-svc="Financials"  data-on="0" onclick="_mgrToggleSvc(this)" style="height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s ease">Financials</button>
+            <button type="button" class="mgr-svc-btn" data-svc="Maintenance" data-on="0" onclick="_mgrToggleSvc(this)" style="height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s ease">Maintenance</button>
+            <button type="button" class="mgr-svc-btn" data-svc="Management"  data-on="0" onclick="_mgrToggleSvc(this)" style="height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s ease">Management</button>
+            <button type="button" class="mgr-svc-btn" data-svc="Compliance"  data-on="0" onclick="_mgrToggleSvc(this)" style="height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s ease">Compliance</button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+            <button type="button" class="mgr-svc-btn" data-svc="Removal"        data-on="0" onclick="_mgrToggleSvc(this)" style="height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s ease">Removal</button>
+            <button type="button" class="mgr-svc-btn" data-svc="Documentation"  data-on="0" onclick="_mgrToggleSvc(this)" style="height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s ease">Documentation</button>
+            <button type="button" class="mgr-svc-btn" data-svc="Inspections"    data-on="0" onclick="_mgrToggleSvc(this)" style="height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s ease">Inspections</button>
+            <button type="button" class="mgr-svc-btn" data-svc="Media"          data-on="0" onclick="_mgrToggleSvc(this)" style="height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s ease">Media</button>
+            <button type="button" class="mgr-svc-btn" data-svc="Emergency"      data-on="0" onclick="_mgrToggleSvc(this)" style="height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s ease">Emergency</button>
+            </div>
+          </div>
+        </div>
         <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
           <textarea id="manager-add-notes" rows="3" placeholder="e.g. Manages 200+ doors on the south side. Responsive. Good tenant screening." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
         </label>
+        <details class="col-span-2" style="border:1px solid var(--border);border-radius:8px;background:var(--panel-2);padding:0">
+          <summary style="cursor:pointer;list-style:none;padding:14px 16px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;user-select:none">📋 Interview Questions <span style="color:var(--text-dim);font-weight:normal;font-size:12px">(optional — click to expand)</span></summary>
+          <div id="manager-iv-body" style="padding:4px 16px 16px"></div>
+        </details>
         <label class="col-span-2" style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;display:none">
           <input type="checkbox" id="manager-add-verified" style="width:18px;height:18px;cursor:pointer;accent-color:#10b981">
           <span>✓ Mark as Verified</span>
@@ -39290,15 +39307,208 @@ async function loadManagers() {
 }
 window.loadManagers = loadManagers;
 
+// Service toggle buttons in the Manager modal (Placement / Financials /
+// Maintenance / Management / Compliance). Stored as a comma-joined string in
+// the hidden #manager-add-specialties input (reuses the `specialties` column).
+function _mgrSetSvcBtn(btn, on) {
+  btn.setAttribute('data-on', on ? '1' : '0');
+  if (on) { btn.style.background = '#10b981'; btn.style.borderColor = '#10b981'; btn.style.color = '#fff'; }
+  else    { btn.style.background = 'var(--panel-2)'; btn.style.borderColor = 'var(--border)'; btn.style.color = 'var(--text-dim)'; }
+}
+function _mgrToggleSvc(btn) { _mgrSetSvcBtn(btn, btn.getAttribute('data-on') !== '1'); }
+function _mgrSetSvcToggles(csv) {
+  const set = String(csv || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  document.querySelectorAll('#manager-svc-toggles .mgr-svc-btn').forEach(b => {
+    _mgrSetSvcBtn(b, set.indexOf(String(b.getAttribute('data-svc')).toLowerCase()) >= 0);
+  });
+}
+function _mgrReadSvcToggles() {
+  const out = [];
+  document.querySelectorAll('#manager-svc-toggles .mgr-svc-btn').forEach(b => {
+    if (b.getAttribute('data-on') === '1') out.push(b.getAttribute('data-svc'));
+  });
+  return out.join(', ');
+}
+window._mgrToggleSvc = _mgrToggleSvc;
+
+// Management style cycle button at the top of the Manager modal.
+// Cycles — → Full → Selective → Leasing. Saved to the `style` column.
+const _MGR_STYLES = ['', 'Full', 'Selective', 'Leasing'];
+function _mgrStyleColor(s) { return s === 'Full' ? '#10b981' : s === 'Selective' ? '#3b82f6' : s === 'Leasing' ? '#eab308' : ''; }
+function _mgrSetStyleBtn(val) {
+  const btn = document.getElementById('manager-style-btn');
+  if (!btn) return;
+  val = _MGR_STYLES.indexOf(val) >= 0 ? val : '';
+  btn.setAttribute('data-val', val);
+  btn.textContent = 'Style: ' + (val || '—');
+  const col = _mgrStyleColor(val);
+  if (col) { btn.style.background = col + '26'; btn.style.borderColor = col; btn.style.color = col; }
+  else     { btn.style.background = 'var(--panel-2)'; btn.style.borderColor = 'var(--border)'; btn.style.color = 'var(--text-dim)'; }
+}
+function _mgrCycleStyle() {
+  const btn = document.getElementById('manager-style-btn');
+  if (!btn) return;
+  const cur = btn.getAttribute('data-val') || '';
+  _mgrSetStyleBtn(_MGR_STYLES[(_MGR_STYLES.indexOf(cur) + 1) % _MGR_STYLES.length]);
+}
+window._mgrCycleStyle = _mgrCycleStyle;
+
+// Style filter button in the Managers section header — cycles
+// All → Full → Selective → Leasing and re-renders the list.
+function _mgrCycleStyleFilter() {
+  const btn = document.getElementById('managers-style-filter');
+  if (!btn) return;
+  const cur = btn.getAttribute('data-val') || '';
+  const next = _MGR_STYLES[(_MGR_STYLES.indexOf(cur) + 1) % _MGR_STYLES.length];
+  btn.setAttribute('data-val', next);
+  btn.textContent = next || 'All Styles';
+  const col = _mgrStyleColor(next);
+  if (col) { btn.style.background = col + '26'; btn.style.borderColor = col; btn.style.color = col; }
+  else     { btn.style.background = 'var(--panel-2)'; btn.style.borderColor = 'var(--border)'; btn.style.color = 'var(--text)'; }
+  renderManagersList();
+}
+window._mgrCycleStyleFilter = _mgrCycleStyleFilter;
+
+// Interview questionnaire shown in a collapsed dropdown inside the Manager
+// modal. Answers are keyed by "<catIdx>_<qIdx>" and saved to the `interview`
+// JSONB column. Built once into #manager-iv-body.
+const _MGR_INTERVIEW = [
+  ['General', [
+    'How many properties do you manage?',
+    'Who will be my main contact?',
+    'How quickly do you respond to owners and tenants?',
+    'Do you cover the areas where I may buy more rentals?',
+    'Do you own rental properties yourself?',
+    'What percentage of your properties are rented right now?',
+    'What percentage of your tenants stay longer than 3 years?'
+  ]],
+  ['Fees & Contract', [
+    'What is your monthly management fee?',
+    'What do you charge to place a new tenant?',
+    'What other fees do you charge (renewal, vacancy, setup, inspection, eviction)?',
+    'Do you add a markup to repair bills?',
+    'Who keeps the application fees and late fees?',
+    'Do you offer a discount for more properties?',
+    'Can I review your management agreement before signing?',
+    'How long is the contract, and is there a fee to cancel?',
+    'If I cancel, how fast do I get the deposits, keys, leases, and tenant records?',
+    'What happens if your company is sold or my manager leaves?'
+  ]],
+  ['Onboarding', [
+    'What condition does the property need to be in before you take it on?',
+    'Do I need to keep a repair reserve with you? How much?',
+    'Do you need to be added to my insurance policy?'
+  ]],
+  ['Placement', [
+    'How do you decide how much to charge for rent?',
+    'Where do you advertise, and who does the showings?',
+    'What do tenants need to qualify (credit, income, background, eviction history)?',
+    'On average, how long does it take you to rent a property?',
+    'What is your pet policy, and do you charge pet fees or pet rent?',
+    'Do you accept Section 8?',
+    "Do you require tenants to have renter's insurance?",
+    'What lease length do you usually use?',
+    'Can I see the lease you use?',
+    "Do you document the property's condition at move-in with photos or video?",
+    'If a tenant leaves early or gets evicted, will you find a new one for free?'
+  ]],
+  ['Financials', [
+    'How do tenants pay rent?',
+    'When and how do I get paid each month?',
+    'Can I see a sample owner statement?',
+    'Do you keep security deposits in a separate account?',
+    'Do you send year-end tax documents?',
+    'Do you have an online owner portal?'
+  ]],
+  ['Maintenance', [
+    'Do you have a 24/7 emergency line?',
+    'How do tenants submit repair requests, and how do you keep me updated?',
+    'Do you use your own maintenance staff or outside contractors? Are they licensed and insured?',
+    'What dollar amount can you spend on repairs without asking me first?',
+    'Can I use my own contractors for big jobs?',
+    'How often do you inspect the property, and do you send photos?',
+    'Who handles cleanup and repairs between tenants, and what does it usually cost?',
+    'Who takes care of utilities, lawn care, and check-ins while the property is vacant?'
+  ]],
+  ['Management', [
+    'How do you handle late rent, and when do late fees start?',
+    'How do you handle lease violations?',
+    'How do you handle lease renewals and rent increases?',
+    'How do you handle security deposit deductions and disputes at move-out?',
+    'Who goes after unpaid rent or damages once a tenant moves out?',
+    'If I have a problem with your service, how do we resolve it?'
+  ]],
+  ['Evictions', [
+    'How many days late before you start an eviction?',
+    'What does your eviction process look like, and how long does it take?',
+    'What does an eviction cost me?',
+    'Do you use an attorney, and who pays for it?',
+    'Do I ever need to go to court, or do you handle it?',
+    'Do you handle the lockout and removing belongings?',
+    'Do you ever offer tenants money to leave before filing (cash for keys)?',
+    'Do you offer eviction protection or insurance?',
+    'What percentage of your tenants end up evicted?'
+  ]],
+  ['Compliance', [
+    'Are you licensed in Indiana?',
+    'How do you stay up to date on landlord-tenant and fair housing laws?',
+    'Do you handle local rental registration and inspections?',
+    'Do you carry liability insurance and Errors and Omissions insurance?'
+  ]],
+  ['References', [
+    'Can I talk to two or three owners you currently work with?'
+  ]]
+];
+let _mgrIvBuilt = false;
+function _mgrBuildInterview() {
+  if (_mgrIvBuilt) return;
+  const body = document.getElementById('manager-iv-body');
+  if (!body) return;
+  const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  let html = '';
+  _MGR_INTERVIEW.forEach((grp, ci) => {
+    html += '<div style="font-size:12px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#10b981;margin:16px 0 8px;border-bottom:1px solid var(--border);padding-bottom:4px">' + esc(grp[0]) + '</div>';
+    grp[1].forEach((q, qi) => {
+      html += '<div style="margin-bottom:10px">'
+            + '<div style="font-size:13px;color:var(--text);margin-bottom:4px">' + esc(q) + '</div>'
+            + '<textarea id="mgr-iv-' + ci + '_' + qi + '" rows="2" style="width:100%;font-size:13px;padding:8px 10px;resize:vertical;min-height:48px;line-height:1.4;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text)"></textarea>'
+            + '</div>';
+    });
+  });
+  body.innerHTML = html;
+  _mgrIvBuilt = true;
+}
+function _mgrSetInterview(obj) {
+  _mgrBuildInterview();
+  obj = obj || {};
+  _MGR_INTERVIEW.forEach((grp, ci) => grp[1].forEach((q, qi) => {
+    const el = document.getElementById('mgr-iv-' + ci + '_' + qi);
+    if (el) el.value = (obj[ci + '_' + qi] == null ? '' : String(obj[ci + '_' + qi]));
+  }));
+}
+function _mgrReadInterview() {
+  const out = {};
+  _MGR_INTERVIEW.forEach((grp, ci) => grp[1].forEach((q, qi) => {
+    const el = document.getElementById('mgr-iv-' + ci + '_' + qi);
+    const v = el ? el.value.trim() : '';
+    if (v) out[ci + '_' + qi] = v;
+  }));
+  return out;
+}
+
 function managerOpenAddModal(editId) {
   const modal = document.getElementById('manager-add-modal');
   if (!modal) return;
   const ids = [
     'manager-add-company','manager-add-name','manager-add-phone','manager-add-email',
     'manager-add-specialties','manager-add-city','manager-add-state',
-    'manager-add-rating','manager-add-license','manager-add-fees','manager-add-notes'
+    'manager-add-notes','manager-add-mgmt-fee','manager-add-leasing-fee'
   ];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  _mgrSetSvcToggles('');
+  _mgrSetStyleBtn('');
+  _mgrSetInterview({});
+  const _ivd = document.querySelector('#manager-add-modal details'); if (_ivd) _ivd.open = false;
   const verResetEl = document.getElementById('manager-add-verified');
   if (verResetEl) verResetEl.checked = false;
   if (typeof _setVerifiedHeaderBtnState === 'function') _setVerifiedHeaderBtnState('manager', false);
@@ -39315,12 +39525,13 @@ function managerOpenAddModal(editId) {
     setVal('manager-add-name',        r.name);
     setVal('manager-add-phone',       r.phone);
     setVal('manager-add-email',       r.email);
-    setVal('manager-add-specialties', r.specialties);
+    _mgrSetSvcToggles(r.specialties);
+    _mgrSetStyleBtn(r.style);
+    _mgrSetInterview(r.interview);
     setVal('manager-add-city',        r.city);
     setVal('manager-add-state',       r.state);
-    setVal('manager-add-rating',      r.rating);
-    setVal('manager-add-license',     r.license_number);
-    setVal('manager-add-fees',        r.fee_notes);
+    setVal('manager-add-mgmt-fee',    r.mgmt_fee_pct);
+    setVal('manager-add-leasing-fee', r.leasing_fee);
     setVal('manager-add-notes',       r.notes);
     if (verResetEl) verResetEl.checked = !!r.verified;
     if (typeof _setVerifiedHeaderBtnState === 'function') _setVerifiedHeaderBtnState('manager', !!r.verified);
@@ -39350,13 +39561,14 @@ async function managerSaveNew() {
   const name      = ($('manager-add-name')?.value       || '').trim();
   const phone     = ($('manager-add-phone')?.value      || '').trim();
   const email     = ($('manager-add-email')?.value      || '').trim();
-  const specs     = ($('manager-add-specialties')?.value|| '').trim();
+  const specs     = _mgrReadSvcToggles();
   const city      = ($('manager-add-city')?.value       || '').trim();
   const state     = ($('manager-add-state')?.value      || '').trim().toUpperCase();
-  const ratingS   = ($('manager-add-rating')?.value     || '').trim();
-  const license   = ($('manager-add-license')?.value    || '').trim();
-  const fees      = ($('manager-add-fees')?.value       || '').trim();
   const notes     = ($('manager-add-notes')?.value      || '').trim();
+  const mgmtFeeS  = ($('manager-add-mgmt-fee')?.value   || '').trim();
+  const mgmtFee   = mgmtFeeS === '' ? null : parseFloat(mgmtFeeS);
+  const leasingFee= ($('manager-add-leasing-fee')?.value|| '').trim();
+  const style     = (document.getElementById('manager-style-btn')?.getAttribute('data-val') || '').trim();
   const verified  = !!($('manager-add-verified')?.checked);
   if (!name) {
     if (typeof toast === 'function') toast('Contact Name is required.', 'warn');
@@ -39368,22 +39580,12 @@ async function managerSaveNew() {
     const s = $('manager-add-state'); if (s) s.focus();
     return;
   }
-  let rating = null;
-  if (ratingS !== '') {
-    const r = parseFloat(ratingS);
-    if (isNaN(r) || r < 0 || r > 5) {
-      if (typeof toast === 'function') toast('Rating must be between 0 and 5.', 'warn');
-      const rEl = $('manager-add-rating'); if (rEl) rEl.focus();
-      return;
-    }
-    rating = r;
-  }
   const btn = $('manager-add-save-btn');
   let prevLabel = '';
   if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
   try {
     if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
-    const payload = { name, company, phone, email, specialties: specs, city, state, rating, fee_notes: fees, license_number: license, notes, verified };
+    const payload = { name, company, phone, email, specialties: specs, city, state, notes, verified, mgmt_fee_pct: mgmtFee, leasing_fee: leasingFee, style, interview: _mgrReadInterview() };
     let data, error;
     if (editId) {
       ({ data, error } = await sb.from('managers').update(payload).eq('id', editId).select().single());
@@ -39470,6 +39672,10 @@ function renderManagersList() {
   const verFilter = !!(verBtn && verBtn.getAttribute('data-active') === 'true');
   if (verFilter) rows = rows.filter(r => r.verified === true);
 
+  const styBtn = document.getElementById('managers-style-filter');
+  const styFilter = styBtn ? (styBtn.getAttribute('data-val') || '') : '';
+  if (styFilter) rows = rows.filter(r => String(r.style || '') === styFilter);
+
   const searchEl = document.getElementById('managers-search');
   const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
   if (q) {
@@ -39520,41 +39726,49 @@ function renderManagersList() {
     const name      = esc(r.name || '');
     const company   = esc(r.company || '');
     const stars     = renderStars(r.rating);
-    const specs     = r.specialties
-      ? String(r.specialties).split(',').map(s => s.trim()).filter(Boolean).map(s => `<span style="display:inline-block;padding:2px 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;font-size:11px;margin:1px 3px 1px 0;color:var(--text)">${esc(s)}</span>`).join('')
-      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
-    const fees      = r.fee_notes
-      ? `<div style="font-size:12px;max-width:280px;color:var(--text);white-space:pre-wrap;line-height:1.4">${esc(r.fee_notes)}</div>`
-      : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const _svcSet = new Set(String(r.specialties || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+    const _svcChip = (sv) => {
+      const on = _svcSet.has(sv.toLowerCase());
+      const style = on
+        ? 'background:rgba(16,185,129,0.15);border:1px solid #10b981;color:#10b981'
+        : 'background:var(--panel-2);border:1px solid var(--border);color:var(--text-dim)';
+      return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;margin:2px 3px;font-weight:600;${style}">${esc(sv)}</span>`;
+    };
+    const _svcRow1 = ['Placement','Financials','Maintenance','Management','Compliance'].map(_svcChip).join('');
+    const _svcRow2 = ['Removal','Documentation','Inspections','Media','Emergency'].map(_svcChip).join('');
+    const specs = `<div>${_svcRow1}</div><div style="margin-top:2px">${_svcRow2}</div>`;
+    const _mgmtFee = (r.mgmt_fee_pct != null && r.mgmt_fee_pct !== '') ? esc(r.mgmt_fee_pct) + '%' : '—';
+    const _lfRaw = String(r.leasing_fee || '').trim();
+    const _leaseFee = _lfRaw ? (/^[\d,.]+$/.test(_lfRaw) ? '$' + esc(_lfRaw) : esc(_lfRaw)) : '—';
+    const feesCell = `<div style="font-weight:700;color:var(--text);font-size:13px">${_mgmtFee}</div><div style="color:var(--text-dim);font-size:12px;margin-top:2px">${_leaseFee}</div>`;
     const contactParts = [];
-    if (r.phone) contactParts.push(renderPhone(r.phone));
-    if (r.email) contactParts.push(renderEmail(r.email));
-    const contact = contactParts.length ? contactParts.map(p => `<div style="margin:2px 0">${p}</div>`).join('') : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    contactParts.push(r.phone ? renderPhone(r.phone) : '<span style="color:var(--text-dim);font-size:12px">📞 —</span>');
+    contactParts.push(r.email ? renderEmail(r.email) : '<span style="color:var(--text-dim);font-size:12px">✉️ —</span>');
+    const contact = contactParts.map(p => `<div style="margin:2px 0">${p}</div>`).join('');
     const loc = [r.city, r.state].filter(Boolean).map(esc).join(', ') || '<span style="color:var(--text-dim);font-size:11px">—</span>';
 
     const verBadge = r.verified
       ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;vertical-align:middle;margin-left:6px" title="Verified — you\'ve worked with them and they\'re proven reliable">✓ Verified</span>'
       : '';
+    const _styCol = _mgrStyleColor(r.style);
+    const styleBadge = r.style
+      ? `<span style="display:inline-flex;align-items:center;padding:2px 7px;background:${_styCol}26;color:${_styCol};border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;vertical-align:middle;margin-left:6px" title="Management style">${esc(r.style)}</span>`
+      : '';
     const nameBlock = company
-      ? `<div style="font-weight:600">${company}${verBadge}</div>
+      ? `<div style="font-weight:600">${company}${verBadge}${styleBadge}</div>
          <div style="color:var(--text-dim);font-size:11px;margin-top:2px">${name}</div>`
-      : `<div style="font-weight:600">${name}${verBadge}</div>`;
+      : `<div style="font-weight:600">${name}${verBadge}${styleBadge}</div>`;
 
     return `
-      <tr style="border-bottom:1px solid var(--border)" data-manager-id="${esc(r.id)}">
+      <tr style="border-bottom:1px solid var(--border);cursor:pointer" data-manager-id="${esc(r.id)}" onclick="managerOpenAddModal('${esc(r.id)}')" onmouseover="this.style.background='var(--panel-2)'" onmouseout="this.style.background=''" title="Click to edit this manager">
         <td style="padding:10px 12px;font-size:13px;vertical-align:top">
           ${nameBlock}
-          ${r.license_number ? `<div style="color:var(--text-dim);font-size:10px;margin-top:3px">Lic # ${esc(r.license_number)}</div>` : ''}
           ${r.notes ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px;max-width:240px;line-height:1.4">${esc(r.notes)}</div>` : ''}
         </td>
-        <td style="padding:10px 12px;vertical-align:top">${stars}</td>
-        <td style="padding:10px 12px;vertical-align:top;max-width:260px">${specs}</td>
-        <td style="padding:10px 12px;vertical-align:top">${fees}</td>
-        <td style="padding:10px 12px;vertical-align:top">${contact}</td>
+        <td style="padding:10px 12px;vertical-align:top;text-align:center;white-space:nowrap">${feesCell}</td>
+        <td style="padding:10px 12px;vertical-align:top;max-width:260px;text-align:center">${specs}</td>
+        <td style="padding:10px 12px;vertical-align:top" onclick="event.stopPropagation()">${contact}</td>
         <td style="padding:10px 12px;vertical-align:top;font-size:12px">${loc}</td>
-        <td style="padding:10px 12px;vertical-align:top;text-align:right">
-          <button class="btn btn-ghost text-xs" onclick="managerOpenAddModal('${esc(r.id)}')" style="padding:5px 10px;white-space:nowrap" title="Edit this manager">✏ Edit</button>
-        </td>
       </tr>`;
   }).join('');
 }

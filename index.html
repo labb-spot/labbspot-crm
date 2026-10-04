@@ -3668,17 +3668,24 @@
            Main Picture Upload field. The uploaded picture lives on the
            hidden #uw-main-pic input as a base64 data URL and is used by the
            Wholesale Packet generator as the cover photo. -->
-      <div class="grid grid-cols-2 md:grid-cols-10 gap-2 mt-2">
-        <label class="text-xs col-span-2 md:col-span-5">Picture Folder Link
-          <span style="display:flex;gap:4px;align-items:stretch;margin-top:4px">
-            <input id="uw-pics" placeholder="https://..." oninput="_uwUpdatePicLinkIcon()" style="flex:1;min-width:0;margin:0">
-            <button type="button" id="uw-pics-open" onclick="_uwOpenPicLink()" title="Open picture folder in a new tab" style="display:inline-flex;align-items:center;justify-content:center;width:32px;border-radius:5px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);text-decoration:none;font-size:14px;line-height:1;flex-shrink:0;box-sizing:border-box;padding:0;cursor:pointer"><span style="display:inline-block;transform:translateY(-2px)">📷</span></button>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
+        <label class="text-xs col-span-1">Picture Folder Link
+          <span style="display:flex;gap:0;align-items:stretch;margin-top:4px">
+            <input id="uw-pics" placeholder="https://..." oninput="_uwUpdatePicLinkIcon()" style="flex:1;min-width:0;margin:0;border-top-right-radius:0;border-bottom-right-radius:0">
+            <button type="button" id="uw-pics-open" onclick="_uwOpenPicLink()" title="Open picture folder in a new tab" style="display:inline-flex;align-items:center;justify-content:center;width:34px;border-radius:0 6px 6px 0;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);text-decoration:none;font-size:14px;line-height:1;flex-shrink:0;box-sizing:border-box;padding:0;cursor:pointer"><span style="display:inline-block;transform:translateY(-2px)">📷</span></button>
           </span>
           <!-- Spacer/status caption — mirrors the height reserved by the
                Main Picture Upload's status span so both fields stay flush. -->
           <span id="uw-pics-status" style="display:block;margin-top:2px;font-size:10px;color:var(--text-dim);min-height:12px">&nbsp;</span>
         </label>
-        <label class="text-xs col-span-2 md:col-span-5" title="Upload a photo of the front of the house (or any screenshot) to display on page 1 of the wholesale packet.">Main Picture Upload
+        <label class="text-xs col-span-1">Video Folder Link
+          <span style="display:flex;gap:0;align-items:stretch;margin-top:4px">
+            <input id="uw-videos" placeholder="https://..." oninput="if(typeof _uwQueueAutosave==='function')_uwQueueAutosave()" style="flex:1;min-width:0;margin:0;border-top-right-radius:0;border-bottom-right-radius:0">
+            <button type="button" onclick="var v=(document.getElementById('uw-videos').value||'').trim(); if(v) window.open(/^https?:/i.test(v)?v:'https://'+v,'_blank','noopener')" title="Open video folder in a new tab" style="display:inline-flex;align-items:center;justify-content:center;width:34px;border-radius:0 6px 6px 0;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);text-decoration:none;font-size:14px;line-height:1;flex-shrink:0;box-sizing:border-box;padding:0;cursor:pointer"><span style="display:inline-block;transform:translateY(-2px)">🎥</span></button>
+          </span>
+          <span style="display:block;margin-top:2px;font-size:10px;color:var(--text-dim);min-height:12px">&nbsp;</span>
+        </label>
+        <label class="text-xs col-span-1" title="Upload a photo of the front of the house (or any screenshot) to display on page 1 of the wholesale packet.">Main Picture Upload
           <span style="display:flex;gap:4px;align-items:stretch;margin-top:4px">
             <input type="hidden" id="uw-main-pic">
             <!-- Wrapper holds the file input AND a same-sized text overlay.
@@ -18313,7 +18320,7 @@ const UW_FIELDS = [
   'uw-rt-rf-hm-ltv','uw-rt-rf-hm-rate','uw-rt-rf-hm-orig','uw-rt-rf-stab-mo','uw-rt-rf-close-pct','uw-rt-rf-purch-fin-pct','uw-rt-rf-reno-fin-pct',
   'uw-rt-dscr-orig-pct','uw-rt-uw-appraisal-fee','uw-rt-dscr-ltv-cap',
   'uw-rt-reno-mo','uw-rt-rent-mo',
-  'uw-prop-type','uw-units','uw-pics','uw-main-pic','uw-offer-status','uw-deal-notes',
+  'uw-prop-type','uw-units','uw-pics','uw-videos','uw-main-pic','uw-offer-status','uw-deal-notes',
   'uw-ifp-slider', // Ideal Flip Profit slider position (0–120)
   'uw-tl-slider',  // Timeline (rehab scope) slider position (0–120)
   'uw-reno-start',  // Renovation start date (Budget tab — Holdings/Reno only)
@@ -35329,7 +35336,7 @@ async function _uwBuildOfferPacket(u){
     lot:g('uw-lot-size'), propType:g('uw-prop-type'), parking:g('uw-prop-parking'),
     material:g('uw-prop-material'), foundation:g('uw-prop-foundation'),
     crime:g('uw-crime'), flood:g('uw-flood'),
-    pics:g('uw-pics'), assessor:g('uw-assessor-url'), mainPic:mainPic,
+    pics:g('uw-pics'), videos:g('uw-videos'), assessor:g('uw-assessor-url'), mainPic:mainPic,
     arv:arv, asking:asking, rent:rent,
     comps:comps, listedComps:listedComps, rentalComps:rentalComps, scope:scope, proforma:proforma,
     notes:g('uw-deal-notes'), snappedAt:new Date().toISOString()

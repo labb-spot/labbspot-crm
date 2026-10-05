@@ -7049,40 +7049,26 @@
        Panel 1: status filters (Recently Added / Vetting / Unknown / Qualified / Unqualified)
        Panel 2: Per Deal (separated — uses a different lookup model, namely zip-match) -->
   <div class="flex items-center gap-2 mb-4" style="flex-wrap:nowrap;min-width:0" id="dispo-subtabs">
-    <!-- Properties / Connections toggle -->
+    <!-- Contracts -->
     <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
-      <div class="subtab subtab-compact" id="dispo-properties-pill" onclick="dispoOpenProperties()" title="Properties — contracts you're dispositioning (New / Assigning / Hot / Assigned / Dead / Per Deal / Offers / Sold).">🏠 Properties</div>
-      <div class="subtab subtab-compact active" id="dispo-connections-pill" onclick="dispoOpenConnections()" title="Connections — your buyers.">🔗 Connections</div>
+      <div class="subtab subtab-compact" data-dispoview="new-contract"      onclick="setDispoView('new-contract')"      title="Brand-new contracts that just got signed.">📜 New <span id="dispo-count-new-contract" data-dispo-count="new-contract" class="dispo-count badge brand" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-dispoview="assigning-contract" onclick="setDispoView('assigning-contract')" title="Contracts in the middle of being assigned to an end-buyer.">🔁 Assigning <span id="dispo-count-assigning-contract" data-dispo-count="assigning-contract" class="dispo-count badge warn" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-dispoview="hot-contract"      onclick="setDispoView('hot-contract')"      title="Contracts getting heavy buyer interest right now — top priority to push.">🔥 Hot <span id="dispo-count-hot-contract" data-dispo-count="hot-contract" class="dispo-count badge bad" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-dispoview="assigned-contract"  onclick="setDispoView('assigned-contract')"  title="Contracts already assigned to an end-buyer — waiting on the final closing.">✅ Assigned <span id="dispo-count-assigned-contract" data-dispo-count="assigned-contract" class="dispo-count badge ok" style="margin-left:3px;font-size:9px">—</span></div>
+      <div class="subtab subtab-compact" data-dispoview="dead-contract"     onclick="setDispoView('dead-contract')"     title="Contracts that fell through.">💀 Dead <span id="dispo-count-dead-contract" data-dispo-count="dead-contract" class="dispo-count badge" style="margin-left:3px;font-size:9px;background:rgba(156,163,175,0.2);color:#9ca3af">—</span></div>
     </div>
-    <!-- PROPERTIES group: contracts + per-deal/offers + sold -->
-    <div id="dispo-props-group" class="flex items-center gap-2" style="display:none;flex-wrap:nowrap;min-width:0">
-      <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
-        <div class="subtab subtab-compact" data-dispoview="new-contract"      onclick="setDispoView('new-contract')"      title="Brand-new contracts that just got signed.">📜 New <span id="dispo-count-new-contract" data-dispo-count="new-contract" class="dispo-count badge brand" style="margin-left:3px;font-size:9px">—</span></div>
-        <div class="subtab subtab-compact" data-dispoview="assigning-contract" onclick="setDispoView('assigning-contract')" title="Contracts in the middle of being assigned to an end-buyer.">🔁 Assigning <span id="dispo-count-assigning-contract" data-dispo-count="assigning-contract" class="dispo-count badge warn" style="margin-left:3px;font-size:9px">—</span></div>
-        <div class="subtab subtab-compact" data-dispoview="hot-contract"      onclick="setDispoView('hot-contract')"      title="Contracts getting heavy buyer interest right now — top priority to push.">🔥 Hot <span id="dispo-count-hot-contract" data-dispo-count="hot-contract" class="dispo-count badge bad" style="margin-left:3px;font-size:9px">—</span></div>
-        <div class="subtab subtab-compact" data-dispoview="assigned-contract"  onclick="setDispoView('assigned-contract')"  title="Contracts already assigned to an end-buyer — waiting on the final closing.">✅ Assigned <span id="dispo-count-assigned-contract" data-dispo-count="assigned-contract" class="dispo-count badge ok" style="margin-left:3px;font-size:9px">—</span></div>
-        <div class="subtab subtab-compact" data-dispoview="dead-contract"     onclick="setDispoView('dead-contract')"     title="Contracts that fell through.">💀 Dead <span id="dispo-count-dead-contract" data-dispo-count="dead-contract" class="dispo-count badge" style="margin-left:3px;font-size:9px;background:rgba(156,163,175,0.2);color:#9ca3af">—</span></div>
-      </div>
-      <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
-        <div class="subtab subtab-compact" data-dispoview="per-deal" onclick="setDispoView('per-deal')" title="Show buyers whose Cities / Counties / Zips list overlaps with a deal's zip code.">🎯 Per Deal</div>
-        <div class="subtab subtab-compact" data-dispoview="offers" onclick="setDispoView('offers')" title="Offers — coming soon.">💵 Offers</div>
-      </div>
-      <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
-        <div class="subtab subtab-compact" data-dispoview="sold" onclick="setDispoView('sold')" title="Sold Tracker — totals, months, tags, ZIPs & cities across every sold property.">💰 Sold</div>
-      </div>
+    <!-- Buyers List -->
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact active" id="dispo-buyers-pill" data-dispoview="buyers" onclick="setDispoView('buyers')" title="Your buyers list.">🤝 Buyers List</div>
     </div>
-    <!-- CONNECTIONS group: a single Buyers pill + status filter dropdown -->
-    <div id="dispo-conn-group" class="flex items-center gap-2" style="flex-wrap:nowrap;min-width:0">
-      <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
-        <div class="subtab subtab-compact active" id="dispo-buyers-pill" onclick="dispoOpenConnections()" title="Your buyers rolodex.">👥 Buyers</div>
-      </div>
-      <select id="dispo-buyer-status" onchange="setDispoView(this.value)" title="Filter buyers by status." style="height:34px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;box-sizing:border-box;cursor:pointer;flex-shrink:0">
-        <option value="recent">🌱 Recent</option>
-        <option value="vetting">🔎 Vetting</option>
-        <option value="unknown">❓ Unknown</option>
-        <option value="qualified">✓ Qualified</option>
-        <option value="unqualified">✗ Unqualified</option>
-      </select>
+    <!-- Per Deal / Offers -->
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact" data-dispoview="per-deal" onclick="setDispoView('per-deal')" title="Show buyers whose Cities / Counties / Zips list overlaps with a deal's zip code.">🎯 Per Deal</div>
+      <div class="subtab subtab-compact" data-dispoview="offers" onclick="setDispoView('offers')" title="Offers — coming soon.">💵 Offers</div>
+    </div>
+    <!-- Sold -->
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact" data-dispoview="sold" onclick="setDispoView('sold')" title="Sold Tracker — totals, months, tags, ZIPs & cities across every sold property.">💰 Sold</div>
     </div>
   </div>
   <!-- Per Deal panel — shown only when the 'per-deal' subview is active.
@@ -7171,16 +7157,9 @@
       <!-- Single-row header: title + action buttons + filters + search. -->
       <div class="flex items-center mb-3" style="flex-wrap:nowrap;gap:6px">
         <div class="font-semibold" style="flex:0 0 auto;margin-right:4px;white-space:nowrap;font-size:16px">💰 Buyers</div>
-        <button class="btn btn-primary text-xs" onclick="buyerOpenAddModal()" style="height:36px;padding:0 10px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new buyer to your rolodex.">+ Add</button>
-        <button id="buyers-signups-btn" class="btn btn-ghost text-xs" onclick="buyerOpenSignups()" style="height:36px;padding:0 10px;white-space:nowrap;flex-shrink:0;line-height:1;border:1px solid #a78bfa;color:#7c3aed" title="Review buyers who signed up through your public Become a Buyer form.">📥 Signups <span id="buyers-signups-count" style="font-weight:800">(0)</span></button>
-        <button class="btn btn-ghost text-xs" onclick="buyerOpenImportModal()" style="height:36px;padding:0 10px;white-space:nowrap;flex-shrink:0;line-height:1;border:1px solid var(--border)" title="Bulk-import buyers from a CSV / XLSX. You'll get to map columns + tag with a county / city / zip before importing.">📤 Import</button>
-        <button id="buyers-undo-import-btn" class="btn btn-ghost text-xs" onclick="buyerUndoLastImport()" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0;display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4)" title="Delete every buyer that was NEWLY ADDED by the most recent import. Merged rows (rows that already existed) are NOT touched.">↶ Undo</button>
-        <button id="buyers-retry-failed-btn" class="btn btn-ghost text-xs" onclick="_buyerRetryFailedGeocodes()" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0;color:#fbbf24;border:1px solid rgba(251,191,36,0.4)" title="Retry geocoding for purchase addresses that previously FAILED at Google. Uses your Google API — each call costs ~$0.005.">↻ Retry Failed</button>
-        <button id="buyers-resume-paused-btn" class="btn btn-ghost text-xs" onclick="_buyerResumePausedGeocodes()" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0;color:#60a5fa;border:1px solid rgba(96,165,250,0.4)" title="Geocode purchase addresses that were never attempted (paused/pending — e.g. a page reload stopped the queue). These were NOT charged before. Uses your Google API — each call costs ~$0.005.">▶ Resume Paused</button>
+        <input id="buyers-search" type="text" placeholder="🔍 Search name, city, zip, lender…" oninput="renderBuyersList()" style="height:36px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;flex:1 1 40px;min-width:0;box-sizing:border-box" title="Filter by name, company, criteria, funding, city, state, county, zip, lender, channel, or notes. Matches anywhere." />
         <button type="button" id="buyers-qualified-filter" data-state="" onclick="buyerCycleQualifiedFilter()" title="Click to cycle the qualification filter: All → Qualified → Unqualified → Unknown" style="height:36px;padding:0 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex:0 0 auto;width:118px;display:inline-flex;align-items:center;justify-content:center;gap:4px;transition:all 0.15s ease">All Statuses</button>
-        <select id="buyers-criteria-filter" onchange="renderBuyersList()" title="Filter by acquisitions range." style="height:36px;padding:0 6px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;width:140px">
-          <option value="">All Acquisitions</option>
-        </select>
+        <button type="button" id="buyers-criteria-filter" value="" onclick="buyerCycleCriteria(this)" title="Click to cycle acquisition ranges: 0–10 / 10–20 / 20–50 / 50–100 / 100–300 / 300–1,000 / 1,000+" style="height:36px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex:0 0 auto;width:140px;text-align:center;box-sizing:border-box">All Acquisitions</button>
         <select id="buyers-uploaded-filter" onchange="renderBuyersList()" title="Filter by when the buyer was last uploaded / imported (catches recent re-uploads too)." style="height:36px;padding:0 6px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;width:132px">
           <option value="">🕓 Any time</option>
           <option value="6h">Last 6 Hours</option>
@@ -7192,8 +7171,12 @@
           <option value="6mo">Last 6 Months</option>
           <option value="12mo">Last 12 Months</option>
         </select>
-        <input id="buyers-search" type="text" placeholder="🔍 Search name, city, zip, lender…" oninput="renderBuyersList()" style="height:36px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;flex:1 1 40px;min-width:0;box-sizing:border-box" title="Filter by name, company, criteria, funding, city, state, county, zip, lender, channel, or notes. Matches anywhere." />
-        <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('buyers-search');if(i){i.value='';renderBuyersList();i.focus();}})();" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
+        <button id="buyers-retry-failed-btn" class="btn btn-ghost text-xs" onclick="_buyerRetryFailedGeocodes()" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0;color:#fbbf24;border:1px solid rgba(251,191,36,0.4)" title="Retry geocoding for purchase addresses that previously FAILED at Google. Uses your Google API — each call costs ~$0.005.">↻ Retry</button>
+        <button id="buyers-resume-paused-btn" class="btn btn-ghost text-xs" onclick="_buyerResumePausedGeocodes()" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0;color:#60a5fa;border:1px solid rgba(96,165,250,0.4)" title="Geocode purchase addresses that were never attempted (paused/pending — e.g. a page reload stopped the queue). These were NOT charged before. Uses your Google API — each call costs ~$0.005.">▶ Resume</button>
+        <button class="btn btn-primary text-xs" onclick="buyerOpenAddModal()" style="height:36px;padding:0 10px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new buyer to your rolodex.">+ Add</button>
+        <button id="buyers-signups-btn" class="btn btn-ghost text-xs" onclick="buyerOpenSignups()" style="height:36px;padding:0 10px;white-space:nowrap;flex-shrink:0;line-height:1;border:1px solid #a78bfa;color:#7c3aed" title="Review buyers who signed up through your public Become a Buyer form.">📥 Signups <span id="buyers-signups-count" style="font-weight:800">(0)</span></button>
+        <button class="btn btn-ghost text-xs" onclick="buyerOpenImportModal()" style="height:36px;padding:0 10px;white-space:nowrap;flex-shrink:0;line-height:1;border:1px solid var(--border)" title="Bulk-import buyers from a CSV / XLSX. You'll get to map columns + tag with a county / city / zip before importing.">📤 Import</button>
+        <button id="buyers-undo-import-btn" class="btn btn-ghost text-xs" onclick="buyerUndoLastImport()" style="height:36px;padding:0 8px;white-space:nowrap;flex-shrink:0;display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4)" title="Delete every buyer that was NEWLY ADDED by the most recent import. Merged rows (rows that already existed) are NOT touched.">↶ Undo</button>
       </div>
       <div id="buyers-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No buyers saved yet — click <b>+ Add Buyer</b> to start building your rolodex.</div>
       <div class="overflow-auto" style="max-height:140vh">
@@ -31231,7 +31214,19 @@ function renderHoldingsList() {
   const rows = _hrFilteredRows('holding', 'hold-search');
   if (!rows.length) {
     tbody.innerHTML = '';
-    if (empty) empty.style.display = '';
+    if (empty) {
+      empty.style.display = '';
+      // Stage-aware message: only show the "add from Underwriting" hint when
+      // there are truly no holdings at all (the All tab). Otherwise this stage
+      // is just empty.
+      const _hasAnyHold = Object.values(cache.underwrites || {}).some(u => u && u.data && u.data._holdingStatus === 'holding');
+      if (_holdSubtab && _holdSubtab !== 'all' && _hasAnyHold) {
+        const _lbl = (_HOLD_STAGES.find(s => s[0] === _holdSubtab) || [null, _holdSubtab])[1];
+        empty.innerHTML = 'No properties in <b>' + _lbl + '</b> right now.';
+      } else {
+        empty.innerHTML = 'No properties in Holdings yet. Open the <b>Underwriting → 🏁 Finalized</b> tab and click <b>🏘️ Hold</b> on a deal to add it here.';
+      }
+    }
   } else {
     if (empty) empty.style.display = 'none';
     tbody.innerHTML = rows.map(u => _hrRenderRow(u, 'holdings')).join('');
@@ -33366,7 +33361,7 @@ window.inspectorDelete = inspectorDelete;
 // All views render the SAME Buyers panel but with different filtering applied
 // inside renderBuyersList (see _dispoFilter usage there).
 let _dispoActiveView = 'new-contract';
-const _DISPO_VIEWS = ['recent','vetting','unknown','qualified','unqualified','per-deal','offers','sold','new-contract','assigning-contract','hot-contract','assigned-contract','dead-contract'];
+const _DISPO_VIEWS = ['buyers','recent','vetting','unknown','qualified','unqualified','per-deal','offers','sold','new-contract','assigning-contract','hot-contract','assigned-contract','dead-contract'];
 
 function setDispoView(view) {
   _dispoActiveView = _DISPO_VIEWS.indexOf(view) >= 0 ? view : 'recent';
@@ -33460,9 +33455,7 @@ function dispoOpenConnections() {
   const cg = document.getElementById('dispo-conn-group'); if (cg) cg.style.display = '';
   document.getElementById('dispo-properties-pill')?.classList.remove('active');
   document.getElementById('dispo-connections-pill')?.classList.add('active');
-  const s = window._dispoLastBuyer || 'recent';
-  const sel = document.getElementById('dispo-buyer-status'); if (sel) sel.value = s;
-  setDispoView(s);
+  setDispoView('buyers');
 }
 window.dispoOpenProperties = dispoOpenProperties;
 window.dispoOpenConnections = dispoOpenConnections;
@@ -42237,9 +42230,8 @@ function renderBuyersList() {
     { v: 'acq:300-1000', l: '🏠 300 – 1,000 Acquisitions' },
     { v: 'acq:1000+',    l: '🏠 1,000+ Acquisitions' }
   ];
-  if (critSel) {
-    // Acquisition-count ranges are the ONLY options in this dropdown
-    // (the old buy-criteria text tags were removed by request).
+  if (critSel && critSel.tagName === 'SELECT') {
+    // Legacy <select> path (kept for safety). The live UI uses a cycle button.
     const rangeOpts = ACQ_RANGES.map(r => `<option value="${r.v}">${r.l}</option>`);
     const options = ['<option value="">All Acquisitions</option>'].concat(rangeOpts).join('');
     if (critSel.innerHTML !== options) critSel.innerHTML = options;
@@ -42286,7 +42278,16 @@ function renderBuyersList() {
   // rows are treated as Unknown (not Unqualified) for display purposes.
   const qualSel = document.getElementById('buyers-qualified-filter');
   const qualVal = qualSel ? (qualSel.getAttribute('data-state') || '') : '';
-  if (qualVal) rows = rows.filter(b => buyerQualState(b) === qualVal);
+  if (qualVal === 'recent') {
+    // Recent = newest-first by last-uploaded, default last 30 days (or the
+    // Uploaded time-range if one is set).
+    const _upc = (typeof _buyerUploadedCutoff === 'function') ? _buyerUploadedCutoff() : null;
+    const cutoff = (_upc != null) ? _upc : (Date.now() - 30 * 24 * 60 * 60 * 1000);
+    rows = rows.filter(b => { const t = _buyerLastUploadedTs(b); if (!Number.isFinite(t)) return _upc == null; return t >= cutoff; })
+               .sort((a, b) => _buyerLastUploadedTs(b) - _buyerLastUploadedTs(a));
+  } else if (qualVal) {
+    rows = rows.filter(b => buyerQualState(b) === qualVal);
+  }
 
   // Dispositions subview scope — narrows the buyer list based on which subtab
   // is active in the Dispositions section. No-op when called from anywhere else.
@@ -42731,12 +42732,24 @@ function buyerCycleQualifiedFilter() {
   const btn = document.getElementById('buyers-qualified-filter');
   if (!btn) return;
   const cur = btn.getAttribute('data-state') || '';
-  const next = cur === '' ? 'qualified'
+  const next = cur === '' ? 'recent'
+            : cur === 'recent' ? 'vetting'
+            : cur === 'vetting' ? 'qualified'
             : cur === 'qualified' ? 'unqualified'
             : cur === 'unqualified' ? 'unknown'
             : '';
   btn.setAttribute('data-state', next);
-  if (next === 'qualified') {
+  if (next === 'recent') {
+    btn.style.background  = 'rgba(16,185,129,0.15)';
+    btn.style.borderColor = 'rgba(16,185,129,0.5)';
+    btn.style.color       = '#34d399';
+    btn.textContent       = '🌱 Recent';
+  } else if (next === 'vetting') {
+    btn.style.background  = 'rgba(245,158,11,0.15)';
+    btn.style.borderColor = 'rgba(245,158,11,0.5)';
+    btn.style.color       = '#f59e0b';
+    btn.textContent       = '🔎 Vetting';
+  } else if (next === 'qualified') {
     btn.style.background  = 'rgba(16,185,129,0.15)';
     btn.style.borderColor = 'rgba(16,185,129,0.5)';
     btn.style.color       = '#10b981';
@@ -42760,6 +42773,24 @@ function buyerCycleQualifiedFilter() {
   if (typeof renderBuyersList === 'function') renderBuyersList();
 }
 window.buyerCycleQualifiedFilter = buyerCycleQualifiedFilter;
+// Acquisitions range cycle button (replaces the old dropdown). .value holds the
+// 'acq:…' key renderBuyersList reads; blank value → "All Acquisitions".
+function buyerCycleCriteria(btn) {
+  const opts = [
+    ['', 'All Acquisitions'],
+    ['acq:0-10',     '🏠 0 – 10'],
+    ['acq:10-20',    '🏠 10 – 20'],
+    ['acq:20-50',    '🏠 20 – 50'],
+    ['acq:50-100',   '🏠 50 – 100'],
+    ['acq:100-300',  '🏠 100 – 300'],
+    ['acq:300-1000', '🏠 300 – 1,000'],
+    ['acq:1000+',    '🏠 1,000+']
+  ];
+  let i = opts.findIndex(o => o[0] === btn.value); i = (i + 1) % opts.length;
+  btn.value = opts[i][0]; btn.textContent = opts[i][1];
+  if (typeof renderBuyersList === 'function') renderBuyersList();
+}
+window.buyerCycleCriteria = buyerCycleCriteria;
 
 // One-click escape hatch shown in the empty-state message when filters hide
 // every row. Resets the search box, the acquisitions dropdown, and the
@@ -42768,7 +42799,7 @@ function buyerClearAllFilters() {
   const searchEl = document.getElementById('buyers-search');
   if (searchEl) searchEl.value = '';
   const critSel = document.getElementById('buyers-criteria-filter');
-  if (critSel) critSel.value = '';
+  if (critSel) { critSel.value = ''; if (critSel.tagName === 'BUTTON') critSel.textContent = 'All Acquisitions'; }
   const qualBtn = document.getElementById('buyers-qualified-filter');
   if (qualBtn) {
     qualBtn.setAttribute('data-state', '');
@@ -44229,11 +44260,11 @@ async function _buyerRetryFailedGeocodes() {
     if (error) throw error;
     if (!data || data.length === 0) {
       if (typeof toast === 'function') toast('No failed addresses to retry.', 'ok');
-      if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '\u21BB Retry Failed'; }
+      if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '\u21BB Retry'; }
       return;
     }
     const queue = data.map(r => ({ id: r.id, address: r.address, city: r.city || '', state: r.state || '', zip: r.zip || '' }));
-    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '\u21BB Retry Failed'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '\u21BB Retry'; }
     // Hand off to the throttled queue — it owns its own approval prompt.
     await _buyerGeocodePurchaseQueue(queue);
     // Refresh cache + button count.
@@ -44243,7 +44274,7 @@ async function _buyerRetryFailedGeocodes() {
   } catch (e) {
     console.warn('[_buyerRetryFailedGeocodes]', e);
     if (typeof toast === 'function') toast('Retry failed: ' + (e.message || e), 'err');
-    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '\u21BB Retry Failed'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '\u21BB Retry'; }
   }
 }
 window._buyerRetryFailedGeocodes = _buyerRetryFailedGeocodes;
@@ -44282,7 +44313,7 @@ async function _buyerResumePausedGeocodes() {
       .filter(r => r && String(r.geocode_status || '').toLowerCase() !== 'failed')
       .map(r => ({ id: r.id, address: r.address, city: r.city || '', state: r.state || '', zip: r.zip || '' }))
       .filter(j => j.address && String(j.address).trim());
-    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '▶ Resume Paused'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '▶ Resume'; }
     if (!queue.length) {
       if (typeof toast === 'function') toast('No paused addresses to geocode — everything unmapped has already been attempted (use Retry Failed for those).', 'ok');
       return;
@@ -44296,7 +44327,7 @@ async function _buyerResumePausedGeocodes() {
   } catch (e) {
     console.warn('[_buyerResumePausedGeocodes]', e);
     if (typeof toast === 'function') toast('Resume failed: ' + (e.message || e), 'err');
-    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '▶ Resume Paused'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = prevLabel || '▶ Resume'; }
   }
 }
 window._buyerResumePausedGeocodes = _buyerResumePausedGeocodes;
@@ -44318,7 +44349,7 @@ function _buyerUpdateResumeButtonCount() {
   } catch (e) {}
   // Always visible, even at 0, so the button row stays stable.
   btn.style.display = '';
-  btn.innerHTML = '▶ Resume Paused (' + count.toLocaleString() + ')';
+  btn.innerHTML = '▶ Resume (' + count.toLocaleString() + ')';
 }
 window._buyerUpdateResumeButtonCount = _buyerUpdateResumeButtonCount;
 
@@ -44338,7 +44369,7 @@ function _buyerUpdateRetryButtonCount() {
   } catch (e) {}
   // Always visible, even at 0, so the button row stays stable.
   btn.style.display = '';
-  btn.innerHTML = '\u21BB Retry Failed (' + count.toLocaleString() + ')';
+  btn.innerHTML = '\u21BB Retry (' + count.toLocaleString() + ')';
 }
 window._buyerUpdateRetryButtonCount = _buyerUpdateRetryButtonCount;
 
@@ -46477,15 +46508,8 @@ function goSection(s, _opts) {
     if (typeof renderEmployees === "function") renderEmployees();
   }
   if (s === "dispositions") {
-    // Default to Connections → Buyers (Recent) on first land, or restore the
-    // last view + open the matching Properties/Connections group.
-    if (typeof setDispoView === 'function') {
-      const _dv = _dispoActiveView || 'recent';
-      const _isBuyer = ['recent','vetting','unknown','qualified','unqualified'].indexOf(_dv) >= 0;
-      if (_isBuyer && typeof dispoOpenConnections === 'function') dispoOpenConnections();
-      else if (!_isBuyer && typeof dispoOpenProperties === 'function') dispoOpenProperties();
-      else setDispoView(_dv);
-    }
+    // Default to the Buyers List on first land, or restore the last view.
+    if (typeof setDispoView === 'function') setDispoView(_dispoActiveView || 'buyers');
     // Eagerly load the data the subtab badges + Per Deal panel depend on so
     // they populate without waiting for the user to click each subtab. Each
     // load resolves into a count refresh AND a Per Deal re-render (when that

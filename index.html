@@ -1125,6 +1125,9 @@
     <!-- Results views (moved here from the old top-nav Results tab). -->
     <div class="flex items-center gap-1 panel p-1 w-fit">
       <div class="subtab" id="mkt-pill-logs" onclick="goSection('reports')" title="Call logs &amp; notebook.">📝 Logs</div>
+    </div>
+    <span style="color:#ffffff;font-size:28px;font-weight:800;opacity:0.9;user-select:none;display:inline-flex;align-items:center;justify-content:center;align-self:stretch;line-height:0;transform:translateY(-2px)">→</span>
+    <div class="flex items-center gap-1 panel p-1 w-fit">
       <div class="subtab" id="mkt-pill-records" onclick="goResView('records')" title="Call results records.">📋 Records</div>
       <div class="subtab" id="mkt-pill-overview" onclick="goResView('overview')" title="Results overview & analytics.">📊 Overview</div>
     </div>
@@ -3428,7 +3431,6 @@
         <!-- Phase mover — only visible when the calculator is opened from Renovation. Lets the user manually move this deal between renovation phases (overrides auto-detection). -->
         <div id="uw-reno-phase-selector" style="display:none;align-items:center;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:11px;flex-shrink:0" title="Manually move this deal to a different renovation phase. Overrides auto-detection until you click Auto.">
           <button type="button" data-reno-phase-btn="auto"         onclick="uwSetRenoPhase('auto')"         style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0" title="Use auto-detection from closing date + phase durations.">Auto</button>
-          <button type="button" data-reno-phase-btn="funding"      onclick="uwSetRenoPhase('funding')"      style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">💰 Funding</button>
           <button type="button" data-reno-phase-btn="repossession" onclick="uwSetRenoPhase('repossession')" style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🚪 Repossession</button>
           <button type="button" data-reno-phase-btn="demo"         onclick="uwSetRenoPhase('demo')"         style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">💥 Demolition &amp; Clean Out</button>
           <button type="button" data-reno-phase-btn="planning"     onclick="uwSetRenoPhase('planning')"     style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">📋 Planning &amp; Permits</button>
@@ -6282,9 +6284,8 @@
     <style>[id^="reno-count-"]{display:inline-block;min-width:16px;text-align:center;box-sizing:border-box;padding:1px 4px}</style>
     <div class="flex items-center gap-0 panel p-1" id="reno-subtabs" style="flex-shrink:1;min-width:0;width:fit-content;font-size:12px">
       <div class="subtab subtab-compact active" data-reno-subtab="all"          onclick="setRenoSubtab('all')">All <span id="reno-count-all" class="badge ok" style="margin-left:4px;font-size:10px">–</span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="funding" onclick="setRenoSubtab('funding')" title="Deals that just entered renovation — finding / securing funding before work starts.">💰 Funding <span id="reno-count-funding" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
       <div class="subtab subtab-compact" data-reno-subtab="repossession" onclick="setRenoSubtab('repossession')" title="Deals currently in eviction / getting a tenant out.">🚪 Repossession <span id="reno-count-repossession" class="badge bad" style="margin-left:4px;font-size:10px">–</span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="demo"         onclick="setRenoSubtab('demo')" title="Deals currently in demolition + clean out (tear-out work, trash haul-out, odor remediation).">💥 Demo <span id="reno-count-demo" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="demo"         onclick="setRenoSubtab('demo')" title="Deals currently in demolition + clean out (tear-out work, trash haul-out, odor remediation).">💥 Demolition <span id="reno-count-demo" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
       <div class="subtab subtab-compact" data-reno-subtab="planning"     onclick="setRenoSubtab('planning')" title="Deals currently in the planning + permits phase (or restructure work).">📋 Planning <span id="reno-count-planning" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
       <div class="subtab subtab-compact" data-reno-subtab="mechanicals"  onclick="setRenoSubtab('mechanicals')" title="Deals currently in mechanicals + exterior shell work (drain/supply/electrical, HVAC, roof, siding, windows, gutters).">⚙️ Mechanicals <span id="reno-count-mechanicals" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
       <div class="subtab subtab-compact" data-reno-subtab="cosmetics"    onclick="setRenoSubtab('cosmetics')" title="Deals currently in cosmetics (paint, flooring, fixtures, cabinets).">🎨 Cosmetics <span id="reno-count-cosmetics" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
@@ -6304,7 +6305,6 @@
       <div class="subtab subtab-compact" data-renoview="contractors" onclick="setRenoView('contractors')" title="Contractors — your rolodex of trade vendors with ratings, prices, and contact info, organized in one place.">👷 Contractors <span id="reno-count-contractors" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
       <div class="subtab subtab-compact" data-renoview="lenders"     onclick="setRenoView('lenders')"     title="Lenders — your rolodex of banks, hard money sources, and private lenders with ratings, rates, and contact info.">🏦 Lenders <span id="reno-count-lenders" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
       <div class="subtab subtab-compact" data-renoview="realtors"    onclick="setRenoView('realtors')"    title="Agents — your rolodex of real estate agents with ratings, brokerages, specialties, commission terms, and contact info.">🤝 Agents <span id="reno-count-realtors" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
-      <div class="subtab subtab-compact" data-renoview="managers"    onclick="setRenoView('managers')"    title="Property Managers — your rolodex of property management companies with ratings, services, fee structures, and contact info.">🏠 Managers <span id="reno-count-managers" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
       <div class="subtab subtab-compact" data-renoview="attorneys"   onclick="setRenoView('attorneys')"   title="Attorneys — your rolodex of closing / eviction / contract attorneys with ratings, practice areas, fees, and contact info.">⚖️ Attorneys <span id="reno-count-attorneys" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
     </div>
   </div>
@@ -6323,6 +6323,7 @@
         <input id="reno-search" placeholder="Search by Street Address, City, or Contact Name" oninput="_hrOnSearch('renovation')">
       </div>
       <div class="flex items-center gap-2 flex-wrap">
+        <button id="reno-renovated-holdings-filter" data-val="" onclick="_renoCycleRenovatedFilter()" class="btn btn-ghost text-sm" style="display:none" title="Filter renovated deals — All / In Holdings / Non-Holdings">🏁 All Renovated</button>
         <button id="reno-cal-btn" class="btn btn-ghost text-sm" onclick="_hrToggleCalendar('renovation')" title="Toggle calendar view">📅 Calendar</button>
         <button class="btn btn-ghost text-sm" onclick="renderRenovationList()" title="Refresh from cache">🔁 Refresh</button>
       </div>
@@ -6336,7 +6337,8 @@
         <thead>
           <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
             <th style="padding:8px 10px;text-align:left">Address</th>
-            <th style="padding:8px 10px;text-align:center" title="After Repair Value over projected monthly rent">ARV / Rent</th>
+            <th style="padding:8px 10px;text-align:center">Accepted</th>
+            <th style="padding:8px 10px;text-align:center">ARV</th>
             <th style="padding:8px 10px;text-align:center">Exit Margins</th>
             <th style="padding:8px 10px;text-align:center">Closed On</th>
             <th style="padding:8px 10px;text-align:center">Timeline</th>
@@ -7047,34 +7049,40 @@
        Panel 1: status filters (Recently Added / Vetting / Unknown / Qualified / Unqualified)
        Panel 2: Per Deal (separated — uses a different lookup model, namely zip-match) -->
   <div class="flex items-center gap-2 mb-4" style="flex-wrap:nowrap;min-width:0" id="dispo-subtabs">
-    <!-- Panel 0: Contracts. Separated pill on the left for contract-state views
-         that DON'T live in the buyer list — they list contracts/deals instead.
-         Labels dropped "Contract" suffix — the whole pill group IS contracts. -->
+    <!-- Properties / Connections toggle -->
     <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
-      <div class="subtab subtab-compact" data-dispoview="new-contract"      onclick="setDispoView('new-contract')"      title="Brand-new contracts that just got signed.">📜 New <span id="dispo-count-new-contract" data-dispo-count="new-contract" class="dispo-count badge brand" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact" data-dispoview="assigning-contract" onclick="setDispoView('assigning-contract')" title="Contracts in the middle of being assigned to an end-buyer.">🔁 Assigning <span id="dispo-count-assigning-contract" data-dispo-count="assigning-contract" class="dispo-count badge warn" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact" data-dispoview="hot-contract"      onclick="setDispoView('hot-contract')"      title="Contracts getting heavy buyer interest right now — top priority to push.">🔥 Hot <span id="dispo-count-hot-contract" data-dispo-count="hot-contract" class="dispo-count badge bad" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact" data-dispoview="assigned-contract"  onclick="setDispoView('assigned-contract')"  title="Contracts already assigned to an end-buyer — waiting on the final closing.">✅ Assigned <span id="dispo-count-assigned-contract" data-dispo-count="assigned-contract" class="dispo-count badge ok" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact" data-dispoview="dead-contract"     onclick="setDispoView('dead-contract')"     title="Contracts that fell through.">💀 Dead <span id="dispo-count-dead-contract" data-dispo-count="dead-contract" class="dispo-count badge" style="margin-left:3px;font-size:9px;background:rgba(156,163,175,0.2);color:#9ca3af">—</span></div>
+      <div class="subtab subtab-compact" id="dispo-properties-pill" onclick="dispoOpenProperties()" title="Properties — contracts you're dispositioning (New / Assigning / Hot / Assigned / Dead / Per Deal / Offers / Sold).">🏠 Properties</div>
+      <div class="subtab subtab-compact active" id="dispo-connections-pill" onclick="dispoOpenConnections()" title="Connections — your buyers.">🔗 Connections</div>
     </div>
-    <!-- Panel 1: status filters. Click any one to scope the buyer list.
-         Labels dropped "Buyers" suffix — the whole pill group IS buyer status. -->
-    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
-      <div class="subtab subtab-compact active" data-dispoview="recent"      onclick="setDispoView('recent')"      title="Buyers added in the last 30 days, newest first.">🌱 Recent <span id="dispo-count-recent" data-dispo-count="recent" class="dispo-count badge brand" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact"        data-dispoview="vetting"     onclick="setDispoView('vetting')"     title="Buyers you've started vetting but haven't finalized as Qualified or Unqualified yet.">🔎 Vetting <span id="dispo-count-vetting" data-dispo-count="vetting" class="dispo-count badge warn" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact"        data-dispoview="unknown"     onclick="setDispoView('unknown')"     title="Buyers with no qualification status set yet.">? Unknown <span id="dispo-count-unknown" data-dispo-count="unknown" class="dispo-count badge" style="margin-left:3px;font-size:9px;background:rgba(156,163,175,0.2);color:#9ca3af">—</span></div>
-      <div class="subtab subtab-compact"        data-dispoview="qualified"   onclick="setDispoView('qualified')"   title="Buyers you've vetted and approved as real / reliable."><span style="color:#10b981">✓</span> Qualified <span id="dispo-count-qualified" data-dispo-count="qualified" class="dispo-count badge ok" style="margin-left:3px;font-size:9px">—</span></div>
-      <div class="subtab subtab-compact"        data-dispoview="unqualified" onclick="setDispoView('unqualified')" title="Buyers you've ruled out."><span style="color:#f87171">✗</span> Unqualified <span id="dispo-count-unqualified" data-dispo-count="unqualified" class="dispo-count badge bad" style="margin-left:3px;font-size:9px">—</span></div>
+    <!-- PROPERTIES group: contracts + per-deal/offers + sold -->
+    <div id="dispo-props-group" class="flex items-center gap-2" style="display:none;flex-wrap:nowrap;min-width:0">
+      <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+        <div class="subtab subtab-compact" data-dispoview="new-contract"      onclick="setDispoView('new-contract')"      title="Brand-new contracts that just got signed.">📜 New <span id="dispo-count-new-contract" data-dispo-count="new-contract" class="dispo-count badge brand" style="margin-left:3px;font-size:9px">—</span></div>
+        <div class="subtab subtab-compact" data-dispoview="assigning-contract" onclick="setDispoView('assigning-contract')" title="Contracts in the middle of being assigned to an end-buyer.">🔁 Assigning <span id="dispo-count-assigning-contract" data-dispo-count="assigning-contract" class="dispo-count badge warn" style="margin-left:3px;font-size:9px">—</span></div>
+        <div class="subtab subtab-compact" data-dispoview="hot-contract"      onclick="setDispoView('hot-contract')"      title="Contracts getting heavy buyer interest right now — top priority to push.">🔥 Hot <span id="dispo-count-hot-contract" data-dispo-count="hot-contract" class="dispo-count badge bad" style="margin-left:3px;font-size:9px">—</span></div>
+        <div class="subtab subtab-compact" data-dispoview="assigned-contract"  onclick="setDispoView('assigned-contract')"  title="Contracts already assigned to an end-buyer — waiting on the final closing.">✅ Assigned <span id="dispo-count-assigned-contract" data-dispo-count="assigned-contract" class="dispo-count badge ok" style="margin-left:3px;font-size:9px">—</span></div>
+        <div class="subtab subtab-compact" data-dispoview="dead-contract"     onclick="setDispoView('dead-contract')"     title="Contracts that fell through.">💀 Dead <span id="dispo-count-dead-contract" data-dispo-count="dead-contract" class="dispo-count badge" style="margin-left:3px;font-size:9px;background:rgba(156,163,175,0.2);color:#9ca3af">—</span></div>
+      </div>
+      <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+        <div class="subtab subtab-compact" data-dispoview="per-deal" onclick="setDispoView('per-deal')" title="Show buyers whose Cities / Counties / Zips list overlaps with a deal's zip code.">🎯 Per Deal</div>
+        <div class="subtab subtab-compact" data-dispoview="offers" onclick="setDispoView('offers')" title="Offers — coming soon.">💵 Offers</div>
+      </div>
+      <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+        <div class="subtab subtab-compact" data-dispoview="sold" onclick="setDispoView('sold')" title="Sold Tracker — totals, months, tags, ZIPs & cities across every sold property.">💰 Sold</div>
+      </div>
     </div>
-    <!-- Panel 2: Per Deal — separated pill like GIS Maps. Looks up buyers by
-         zip / city / county match against an open deal (or a typed zip). -->
-    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
-      <div class="subtab subtab-compact" data-dispoview="per-deal" onclick="setDispoView('per-deal')" title="Show buyers whose Cities / Counties / Zips list overlaps with a deal's zip code.">🎯 Per Deal</div>
-      <div class="subtab subtab-compact" data-dispoview="offers" onclick="setDispoView('offers')" title="Offers — coming soon.">💵 Offers</div>
-    </div>
-    <!-- Sold — its own separated bubble. Analytics on every sold property. -->
-    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
-      <div class="subtab subtab-compact" data-dispoview="sold" onclick="setDispoView('sold')" title="Sold Tracker — totals, months, tags, ZIPs & cities across every sold property.">💰 Sold</div>
+    <!-- CONNECTIONS group: a single Buyers pill + status filter dropdown -->
+    <div id="dispo-conn-group" class="flex items-center gap-2" style="flex-wrap:nowrap;min-width:0">
+      <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+        <div class="subtab subtab-compact active" id="dispo-buyers-pill" onclick="dispoOpenConnections()" title="Your buyers rolodex.">👥 Buyers</div>
+      </div>
+      <select id="dispo-buyer-status" onchange="setDispoView(this.value)" title="Filter buyers by status." style="height:34px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;box-sizing:border-box;cursor:pointer;flex-shrink:0">
+        <option value="recent">🌱 Recent</option>
+        <option value="vetting">🔎 Vetting</option>
+        <option value="unknown">❓ Unknown</option>
+        <option value="qualified">✓ Qualified</option>
+        <option value="unqualified">✗ Unqualified</option>
+      </select>
     </div>
   </div>
   <!-- Per Deal panel — shown only when the 'per-deal' subview is active.
@@ -7412,6 +7420,129 @@
 <div id="section-holdings" class="section-content p-6" style="display:none">
   <!-- Calculator mount (see Renovation comment above). -->
   <div id="hold-calc-mount"></div>
+
+  <!-- Top nav — Properties / Connections toggle + the Connections rolodex subnav. -->
+  <div id="hold-top-nav" class="flex items-center gap-2 mb-4" style="flex-wrap:nowrap;min-width:0;overflow-x:auto">
+    <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact active" id="hold-properties-pill" onclick="holdOpenProperties()" title="Properties — your holdings by stage.">🏠 Properties</div>
+      <div class="subtab subtab-compact" id="hold-connections-pill" onclick="holdOpenConnections()" title="Connections — your rolodex of Property Managers and Handymen.">🔗 Connections</div>
+    </div>
+    <div class="flex items-center gap-0 panel p-1" id="hold-subtabs" style="flex-shrink:1;min-width:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact active" data-hold-subtab="all"         onclick="setHoldSubtab('all')">All <span id="hold-count-all" class="badge ok" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-hold-subtab="staging"     onclick="setHoldSubtab('staging')" title="Staged and listed for rent.">🪧 Listing <span id="hold-count-staging" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-hold-subtab="listed"      onclick="setHoldSubtab('listed')" title="Screening and qualifying applicants.">🔍 Screening <span id="hold-count-listed" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-hold-subtab="signing"     onclick="setHoldSubtab('signing')" title="Approved — signing the lease and collecting deposit.">✍️ Signing <span id="hold-count-signing" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-hold-subtab="moving-in"   onclick="setHoldSubtab('moving-in')" title="Tenant move-in in progress.">📦 Move-In <span id="hold-count-moving-in" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-hold-subtab="rented"      onclick="setHoldSubtab('rented')" title="Occupied and cash-flowing.">🔑 Rented <span id="hold-count-rented" class="badge ok" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-hold-subtab="moving-out"  onclick="setHoldSubtab('moving-out')" title="Tenant moving out / turnover.">🚚 Move-Out <span id="hold-count-moving-out" class="badge bad" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-hold-subtab="refreshing"  onclick="setHoldSubtab('refreshing')" title="Turning the unit — cleaning and repairs to get it rent-ready again.">🛠 Refreshing <span id="hold-count-refreshing" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
+    </div>
+    <div id="hold-propviews" class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact" id="hold-applications-pill" onclick="holdOpenApplications()" title="Tenant applications across your holdings.">📋 Applications</div>
+      <div class="subtab subtab-compact" id="hold-workorders-pill" onclick="holdOpenWorkOrders()" title="Maintenance work orders across your holdings.">🔧 Work Orders</div>
+    </div>
+    <div class="flex items-center gap-0 panel p-1" id="hold-connections-subnav" style="flex-shrink:0;width:fit-content;font-size:12px;display:none">
+      <div class="subtab subtab-compact" data-holdview="managers" onclick="setHoldView('managers')" title="Property Managers rolodex.">🏠 Managers <span id="hold-conn-count-managers" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-holdview="handyman" onclick="setHoldView('handyman')" title="Handyman rolodex.">🔧 Handyman <span id="hold-conn-count-handyman" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
+    </div>
+  </div>
+
+  <!-- Connections mode (hidden in Properties mode). The Managers rolodex is
+       moved here from Renovation at load; the Handyman rolodex lives below it. -->
+  <div id="hold-applications-wrap" style="display:none">
+    <div class="panel p-5">
+      <div class="font-semibold text-lg mb-2">📋 Applications</div>
+      <div class="text-sm text-[var(--text-dim)]">Tenant applications across your holdings will show here.</div>
+    </div>
+  </div>
+  <div id="hold-workorders-wrap" style="display:none">
+    <div class="panel p-5">
+      <div class="font-semibold text-lg mb-2">🔧 Work Orders</div>
+      <div class="text-sm text-[var(--text-dim)]">Maintenance work orders across your holdings will show here.</div>
+    </div>
+  </div>
+
+  <div id="hold-conn-wrap" style="display:none">
+    <div id="hold-conn-mount"></div>
+
+    <!-- Handyman rolodex -->
+    <div id="hold-handyman-wrap" style="display:none">
+      <div class="panel p-5">
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+          <div><div class="font-semibold text-lg">🔧 Handyman</div></div>
+          <div class="flex items-center gap-2" style="flex-wrap:nowrap;justify-content:flex-end;max-width:100%;min-width:0">
+            <button type="button" id="handyman-verified-filter" data-active="false" onclick="toggleVerifiedFilter('handyman-verified-filter', 'renderHandymanList')" title="Click to show only verified handymen." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">✓ Verified</button>
+            <button class="btn btn-primary text-sm" onclick="handymanOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new handyman to your rolodex.">+ Add Handyman</button>
+            <input id="handyman-search" type="text" placeholder="🔍 Search by name, company, or trade..." oninput="renderHandymanList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 330px;min-width:270px;max-width:420px;box-sizing:border-box" title="Filter by name, company, trades, city, state, or notes." />
+            <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('handyman-search');if(i){i.value='';renderHandymanList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
+          </div>
+        </div>
+        <div id="handyman-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No handymen saved yet — click <b>+ Add Handyman</b> to start building your rolodex.</div>
+        <div class="overflow-auto" style="max-height:140vh">
+          <table id="handyman-table" style="width:100%;border-collapse:collapse">
+            <thead style="position:sticky;top:0;background:var(--panel);z-index:1">
+              <tr style="border-bottom:1px solid var(--border)">
+                <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Name</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Trades</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Rate</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase">Contact</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:0.3px;text-transform:uppercase;width:140px">Location</th>
+              </tr>
+            </thead>
+            <tbody id="handyman-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / Edit Handyman modal -->
+  <div id="handyman-add-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
+    <div class="panel" style="max-width:820px;width:100%;padding:32px;box-shadow:0 14px 50px rgba(0,0,0,0.6);max-height:92vh;overflow-y:auto">
+      <div class="flex items-center justify-between" style="margin-bottom:18px;gap:12px;flex-wrap:nowrap">
+        <div style="font-weight:700;font-size:22px;flex-shrink:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="handyman-modal-title">🔧 Add Handyman</div>
+        <div class="flex items-center" style="gap:8px;flex-wrap:nowrap;flex-shrink:0">
+          <button type="button" id="handyman-verified-btn" onclick="_toggleVerifiedHeaderBtn('handyman')" style="height:34px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-dim);box-sizing:border-box;white-space:nowrap;display:inline-flex;align-items:center;gap:6px" title="Toggle Verified status">○ Unverified</button>
+          <button class="btn btn-ghost" onclick="handymanDeleteFromModal()" id="handyman-delete-btn" style="height:34px;padding:0 12px;font-size:13px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none;box-sizing:border-box;line-height:1" title="Delete this entry">🗑 Delete</button>
+          <button class="btn btn-ghost" onclick="handymanCloseAddModal()" style="height:34px;padding:0 12px;font-size:13px;box-sizing:border-box;line-height:1" title="Discard changes and close">Cancel</button>
+          <button class="btn btn-primary" onclick="handymanSaveNew()" id="handyman-add-save-btn" style="height:34px;padding:0 16px;font-size:13px;font-weight:600;box-sizing:border-box;line-height:1" title="Save">💾 Save</button>
+        </div>
+      </div>
+      <div style="font-size:14px;color:var(--text-dim);margin-bottom:22px;line-height:1.5">Fill in whatever info you have. Only Contact Name is required.</div>
+      <input type="hidden" id="handyman-edit-id" value="">
+      <div class="grid grid-cols-2 gap-4">
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Company <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <input type="text" id="handyman-add-company" placeholder="e.g. Jim's Handyman Services" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Contact Name *
+          <input type="text" id="handyman-add-name" placeholder="e.g. Jim Smith" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Phone
+          <input type="tel" id="handyman-add-phone" placeholder="e.g. (812) 555-1234" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Email
+          <input type="email" id="handyman-add-email" placeholder="e.g. jim@example.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">City
+          <input type="text" id="handyman-add-city" placeholder="e.g. Evansville" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">State
+          <input type="text" id="handyman-add-state" placeholder="e.g. IN" maxlength="2" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase;letter-spacing:1px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Rate <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <input type="text" id="handyman-add-rate" placeholder="e.g. $45/hr or flat bid" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Trades <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(comma-separated)</span>
+          <input type="text" id="handyman-add-trades" placeholder="e.g. Drywall, Paint, Plumbing, Punch-List" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
+          <textarea id="handyman-add-notes" rows="3" placeholder="e.g. Reliable, fast turnaround. Great for turnovers." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
+        </label>
+        <label class="col-span-2" style="display:none"><input type="checkbox" id="handyman-add-verified"></label>
+      </div>
+    </div>
+  </div>
+
   <div id="hold-table-wrap">
   <div class="panel p-5">
     <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
@@ -7434,7 +7565,6 @@
           <tr style="color:var(--text-dim);text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--border)">
             <th style="padding:8px 10px;text-align:left">Address</th>
             <th style="padding:8px 10px;text-align:center">Accepted</th>
-              <th style="padding:8px 10px;text-align:center">Budget</th>
             <th style="padding:8px 10px;text-align:center">ARV</th>
             <th style="padding:8px 10px;text-align:center">Exit Margins</th>
             <th style="padding:8px 10px;text-align:center">Closed On</th>
@@ -22144,6 +22274,8 @@ async function uwSetHoldingStatus(id, status) {
                 String(d.getDate()).padStart(2, '0');
     if (!u.data['uw-closed-on'])  u.data['uw-closed-on']  = iso;
     if (!u.data['uw-reno-start']) u.data['uw-reno-start'] = iso;
+    // First time a deal lands in Holdings, start it at the first stage.
+    if (next === 'holding' && !u.data._holdingStage) u.data._holdingStage = 'staging';
   }
   try {
     // Optimistic locking check — only when this is the currently-loaded
@@ -30633,15 +30765,13 @@ function _hrRenderRow(u, view) {
   }
   return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="_hrOpenInCalculator('${u.id}', '${_hrFrom}')" onmouseover="this.style.background='rgba(99,102,241,0.05)'" onmouseout="this.style.background=''">
     <td style="padding:8px 10px"><div style="font-weight:500">${escapeHtml(u.address || '—')}</div><div class="text-xs" style="color:var(--text-dim)">${escapeHtml([u.city, u.state, u.zip].filter(Boolean).join(', '))}</div></td>
-    ${isReno
-      ? `<td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums;line-height:1.25"><div>${fmt$(arv)}</div><div style="font-size:11px;color:var(--text-dim)" title="Projected monthly rent">${rent ? fmt$(rent) + '/m' : '—'}</div></td>`
-      : `<td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums">${firstColText}</td>
-    <td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums">${fmt$(arv)}</td>`}
+    <td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums">${fmt$(accepted)}</td>
+    <td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums">${fmt$(arv)}</td>
     <td style="padding:8px 4px;vertical-align:middle;text-align:center">${uwThreePlaysHtml(u)}</td>
     <td style="padding:8px 10px;font-size:12px;color:var(--text-dim);text-align:center">${closedOn}</td>
     <td style="padding:8px 10px;min-width:160px;text-align:center">${timelineCell}</td>
     <td style="padding:8px 10px;min-width:160px;text-align:center">${budgetCell}</td>
-    <td style="padding:8px 10px;text-align:right;white-space:nowrap" onclick="event.stopPropagation()">
+    <td style="padding:8px 10px;text-align:center;white-space:nowrap" onclick="event.stopPropagation()">
       <button class="btn text-xs" title="Account info — utilities, insurance, bridge loan" onclick="_uwOpenAccountsModal('${u.id}')" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);margin-right:6px">🧾</button>
       ${(u.data && u.data._holdingStatus === 'renovation') ? `<button class="btn text-xs" style="background:#10b981;color:white;border:1px solid #10b981" onclick="uwSetHoldingStatus('${u.id}', 'holding')" title="Promote this property to the Holdings tab">🏘️ Move to Holdings</button>` : ''}
     </td>
@@ -30651,14 +30781,31 @@ function _hrRenderRow(u, view) {
 function _hrFilteredRows(flag, searchInputId) {
   const all = Object.values(cache.underwrites || {});
   const q = (document.getElementById(searchInputId)?.value || '').toLowerCase().trim();
-  let rows = all
-    .filter(u => u && u.data && u.data._holdingStatus === flag)
-    .filter(u => !q || (u.address || '').toLowerCase().includes(q) ||
-                       (u.city    || '').toLowerCase().includes(q));
-  // Renovation tab — also filter by the active phase subtab (if any).
-  if (flag === 'renovation' && _renoSubtab && _renoSubtab !== 'all') {
-    rows = rows.filter(u => _renoCurrentPhaseId(u) === _renoSubtab);
+  let rows;
+  if (flag === 'renovation' && _renoSubtab === 'renovated') {
+    // Renovated = renovation finished. Includes renovation-status deals that are
+    // past all phases AND every Holdings deal (moving to Holdings means reno is
+    // done). The In-Holdings / Non-Holdings filter narrows it further.
+    rows = all.filter(u => u && u.data && (
+      (u.data._holdingStatus === 'renovation' && _renoCurrentPhaseId(u) === 'renovated') ||
+      u.data._holdingStatus === 'holding'
+    ));
+    const hf = window._renoRenovatedFilter || '';
+    if (hf === 'holding')  rows = rows.filter(u => u.data._holdingStatus === 'holding');
+    else if (hf === 'non') rows = rows.filter(u => u.data._holdingStatus !== 'holding');
+  } else {
+    rows = all.filter(u => u && u.data && u.data._holdingStatus === flag);
+    // Renovation tab — also filter by the active phase subtab (if any).
+    if (flag === 'renovation' && _renoSubtab && _renoSubtab !== 'all') {
+      rows = rows.filter(u => _renoCurrentPhaseId(u) === _renoSubtab);
+    }
+    // Holdings tab — filter by the active stage subtab (if any).
+    if (flag === 'holding' && _holdSubtab && _holdSubtab !== 'all') {
+      rows = rows.filter(u => ((u.data._holdingStage) || 'staging') === _holdSubtab);
+    }
   }
+  rows = rows.filter(u => !q || (u.address || '').toLowerCase().includes(q) ||
+                               (u.city    || '').toLowerCase().includes(q));
   return rows.sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
 }
 
@@ -30674,9 +30821,313 @@ function setRenoSubtab(name) {
   document.querySelectorAll('#reno-subtabs [data-reno-subtab]').forEach(el => {
     el.classList.toggle('active', el.getAttribute('data-reno-subtab') === name);
   });
+  // The In-Holdings / Non-Holdings filter only applies to the Renovated subtab.
+  const _rhf = document.getElementById('reno-renovated-holdings-filter');
+  if (_rhf) _rhf.style.display = (name === 'renovated') ? '' : 'none';
   if (typeof renderRenovationList === 'function') renderRenovationList();
 }
 window.setRenoSubtab = setRenoSubtab;
+function _renoCycleRenovatedFilter() {
+  const order = ['', 'holding', 'non'];
+  const labels = { '': '🏁 All Renovated', 'holding': '🏘️ In Holdings', 'non': '🔨 Non-Holdings' };
+  const cur = window._renoRenovatedFilter || '';
+  const next = order[(order.indexOf(cur) + 1) % order.length];
+  window._renoRenovatedFilter = next;
+  const btn = document.getElementById('reno-renovated-holdings-filter');
+  if (btn) btn.textContent = labels[next];
+  if (typeof renderRenovationList === 'function') renderRenovationList();
+}
+window._renoCycleRenovatedFilter = _renoCycleRenovatedFilter;
+
+// ---------- Holdings stage subtabs ----------
+const _HOLD_STAGES = [
+  ['staging',    '🪧 Listing'],
+  ['listed',     '🔍 Screening'],
+  ['signing',    '✍️ Signing'],
+  ['moving-in',  '📦 Move-In'],
+  ['rented',     '🔑 Rented'],
+  ['moving-out', '🚚 Move-Out'],
+  ['refreshing', '🛠 Refreshing']
+];
+let _holdSubtab = 'all';
+function setHoldSubtab(name) {
+  if (typeof name !== 'string') return;
+  _holdSubtab = name;
+  // Clicking a stage returns to the table view (in case Applications/Work Orders was open).
+  if (typeof _holdHideViews === 'function') _holdHideViews();
+  const tw = document.getElementById('hold-table-wrap'); if (tw) tw.style.display = '';
+  document.getElementById('hold-applications-pill')?.classList.remove('active');
+  document.getElementById('hold-workorders-pill')?.classList.remove('active');
+  document.querySelectorAll('#hold-subtabs [data-hold-subtab]').forEach(el =>
+    el.classList.toggle('active', el.getAttribute('data-hold-subtab') === name));
+  if (typeof renderHoldingsList === 'function') renderHoldingsList();
+}
+window.setHoldSubtab = setHoldSubtab;
+function _holdUpdateSubtabCounts() {
+  const uwReady = (typeof cache !== 'undefined' && cache.underwrites);
+  const counts = { all: null, staging: null, listed: null, signing: null, 'moving-in': null, rented: null, 'moving-out': null, refreshing: null };
+  if (uwReady) {
+    const all = Object.values(cache.underwrites).filter(u => u && u.data && u.data._holdingStatus === 'holding');
+    counts.all = all.length;
+    counts.staging = counts.listed = counts.signing = counts['moving-in'] = counts.rented = counts['moving-out'] = counts.refreshing = 0;
+    all.forEach(u => { const s = (u.data._holdingStage) || 'staging'; if (counts.hasOwnProperty(s)) counts[s]++; });
+  }
+  Object.keys(counts).forEach(k => {
+    const el = document.getElementById('hold-count-' + k);
+    if (!el) return;
+    el.textContent = (counts[k] == null) ? '–' : (counts[k] || 0).toLocaleString();
+  });
+}
+window._holdUpdateSubtabCounts = _holdUpdateSubtabCounts;
+async function uwSetHoldingStage(id, stage) {
+  const u = (cache.underwrites || {})[id];
+  if (!u) return;
+  u.data = u.data || {};
+  u.data._holdingStage = stage;
+  try {
+    let r = await sb.from('underwrites').update({ data: u.data, updated_session: _UW_SESSION_ID }).eq('id', id).select().maybeSingle();
+    if (r.error && /updated_session/i.test(r.error.message || '')) r = await sb.from('underwrites').update({ data: u.data }).eq('id', id).select().maybeSingle();
+    if (r.error) throw r.error;
+    if (typeof toast === 'function') toast('Stage updated', 'ok');
+  } catch (e) {
+    console.warn('uwSetHoldingStage:', e);
+    if (typeof toast === 'function') toast('Save failed: ' + (e.message || e), 'bad');
+  }
+  if (typeof renderHoldingsList === 'function') renderHoldingsList();
+}
+window.uwSetHoldingStage = uwSetHoldingStage;
+
+// Set a renovation deal's phase override from a list-row dropdown (by id).
+async function uwSetRenoPhaseById(id, phaseId) {
+  const u = (cache.underwrites || {})[id];
+  if (!u) return;
+  u.data = u.data || {};
+  if (phaseId === 'auto' || !phaseId) delete u.data._reno_phase_override;
+  else u.data._reno_phase_override = phaseId;
+  try {
+    let r = await sb.from('underwrites').update({ data: u.data, updated_session: _UW_SESSION_ID }).eq('id', id).select().maybeSingle();
+    if (r.error && /updated_session/i.test(r.error.message || '')) r = await sb.from('underwrites').update({ data: u.data }).eq('id', id).select().maybeSingle();
+    if (r.error) throw r.error;
+    if (typeof toast === 'function') toast('Phase updated', 'ok');
+  } catch (e) {
+    console.warn('uwSetRenoPhaseById:', e);
+    if (typeof toast === 'function') toast('Save failed: ' + (e.message || e), 'bad');
+  }
+  if (typeof renderRenovationList === 'function') renderRenovationList();
+}
+window.uwSetRenoPhaseById = uwSetRenoPhaseById;
+const _RENO_PHASE_OPTS = [['auto','Auto'],['repossession','🚪 Repossession'],['demo','💥 Demolition'],['planning','📋 Planning'],['mechanicals','⚙️ Mechanicals'],['cosmetics','🎨 Cosmetics'],['punch-list','✅ Punch List'],['renovated','🏁 Renovated']];
+
+// ---------- Holdings Connections (Managers moved here + Handyman) ----------
+function _holdRelocateManagers() {
+  const mount = document.getElementById('hold-conn-mount');
+  const mgr = document.getElementById('reno-managers-wrap');
+  if (mount && mgr && mgr.parentElement !== mount) mount.appendChild(mgr);
+}
+function _holdConnCounts() {
+  const mgr = (typeof cache !== 'undefined' && cache.managers) ? Object.keys(cache.managers).length : null;
+  const hm  = (typeof cache !== 'undefined' && cache.handyman) ? Object.keys(cache.handyman).length : null;
+  const em = document.getElementById('hold-conn-count-managers'); if (em) em.textContent = (mgr == null) ? '–' : mgr.toLocaleString();
+  const eh = document.getElementById('hold-conn-count-handyman'); if (eh) eh.textContent = (hm == null) ? '–' : hm.toLocaleString();
+}
+window._holdConnCounts = _holdConnCounts;
+let _holdLastConn = 'managers';
+const _HOLD_VIEW_CONFIG = {
+  managers: { wrap: 'reno-managers-wrap',  load: 'loadManagers', render: 'renderManagersList' },
+  handyman: { wrap: 'hold-handyman-wrap',  load: 'loadHandyman', render: 'renderHandymanList' }
+};
+function _holdHideViews() {
+  ['hold-table-wrap','hold-conn-wrap','hold-applications-wrap','hold-workorders-wrap'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+}
+function holdOpenProperties() {
+  _holdHideViews();
+  const tw = document.getElementById('hold-table-wrap'); if (tw) tw.style.display = '';
+  const sn = document.getElementById('hold-connections-subnav'); if (sn) sn.style.display = 'none';
+  const st = document.getElementById('hold-subtabs'); if (st) st.style.display = '';
+  const pv = document.getElementById('hold-propviews'); if (pv) pv.style.display = '';
+  document.getElementById('hold-properties-pill')?.classList.add('active');
+  document.getElementById('hold-connections-pill')?.classList.remove('active');
+  document.getElementById('hold-applications-pill')?.classList.remove('active');
+  document.getElementById('hold-workorders-pill')?.classList.remove('active');
+  if (typeof renderHoldingsList === 'function') renderHoldingsList();
+}
+window.holdOpenProperties = holdOpenProperties;
+function _holdOpenPropView(wrapId, pillId) {
+  _holdHideViews();
+  const w = document.getElementById(wrapId); if (w) w.style.display = '';
+  const sn = document.getElementById('hold-connections-subnav'); if (sn) sn.style.display = 'none';
+  const st = document.getElementById('hold-subtabs'); if (st) st.style.display = '';
+  const pv = document.getElementById('hold-propviews'); if (pv) pv.style.display = '';
+  document.getElementById('hold-properties-pill')?.classList.add('active');
+  document.getElementById('hold-connections-pill')?.classList.remove('active');
+  document.querySelectorAll('#hold-subtabs [data-hold-subtab]').forEach(el => el.classList.remove('active'));
+  document.getElementById('hold-applications-pill')?.classList.toggle('active', pillId === 'hold-applications-pill');
+  document.getElementById('hold-workorders-pill')?.classList.toggle('active', pillId === 'hold-workorders-pill');
+}
+function holdOpenApplications() { _holdOpenPropView('hold-applications-wrap', 'hold-applications-pill'); }
+function holdOpenWorkOrders() { _holdOpenPropView('hold-workorders-wrap', 'hold-workorders-pill'); }
+window.holdOpenApplications = holdOpenApplications;
+window.holdOpenWorkOrders = holdOpenWorkOrders;
+function holdOpenConnections() { setHoldView(_holdLastConn || 'managers'); }
+window.holdOpenConnections = holdOpenConnections;
+function setHoldView(view) {
+  if (!_HOLD_VIEW_CONFIG[view]) return;
+  _holdLastConn = view;
+  _holdRelocateManagers();
+  if (typeof _holdHideViews === 'function') _holdHideViews();
+  const cw = document.getElementById('hold-conn-wrap'); if (cw) cw.style.display = '';
+  const sn = document.getElementById('hold-connections-subnav'); if (sn) sn.style.display = '';
+  const st = document.getElementById('hold-subtabs'); if (st) st.style.display = 'none';
+  const pv = document.getElementById('hold-propviews'); if (pv) pv.style.display = 'none';
+  document.getElementById('hold-applications-pill')?.classList.remove('active');
+  document.getElementById('hold-workorders-pill')?.classList.remove('active');
+  document.getElementById('hold-properties-pill')?.classList.remove('active');
+  document.getElementById('hold-connections-pill')?.classList.add('active');
+  Object.values(_HOLD_VIEW_CONFIG).forEach(cfg => { const w = document.getElementById(cfg.wrap); if (w) w.style.display = 'none'; });
+  document.querySelectorAll('#hold-connections-subnav [data-holdview]').forEach(el =>
+    el.classList.toggle('active', el.getAttribute('data-holdview') === view));
+  const cfg = _HOLD_VIEW_CONFIG[view];
+  const w = document.getElementById(cfg.wrap); if (w) w.style.display = '';
+  if (typeof window[cfg.load] === 'function') window[cfg.load]().then(() => { if (typeof window[cfg.render] === 'function') window[cfg.render](); });
+  if (typeof _connFixHeaders === 'function') _connFixHeaders();
+  _holdConnCounts();
+}
+window.setHoldView = setHoldView;
+
+// ---------- Handyman rolodex ----------
+async function loadHandyman() {
+  if (cache.handyman) return;
+  try {
+    if (typeof fetchAll !== 'function') { cache.handyman = {}; return; }
+    const rows = await fetchAll('handyman', '*');
+    cache.handyman = {};
+    rows.forEach(r => { if (r && r.id) cache.handyman[r.id] = r; });
+  } catch (e) { console.warn('loadHandyman:', e); cache.handyman = {}; }
+}
+window.loadHandyman = loadHandyman;
+function handymanOpenAddModal(editId) {
+  const modal = document.getElementById('handyman-add-modal');
+  if (!modal) return;
+  ['handyman-add-company','handyman-add-name','handyman-add-phone','handyman-add-email','handyman-add-city','handyman-add-state','handyman-add-rate','handyman-add-trades','handyman-add-notes']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const ver = document.getElementById('handyman-add-verified'); if (ver) ver.checked = false;
+  if (typeof _setVerifiedHeaderBtnState === 'function') _setVerifiedHeaderBtnState('handyman', false);
+  const hid = document.getElementById('handyman-edit-id');
+  const title = document.getElementById('handyman-modal-title');
+  const del = document.getElementById('handyman-delete-btn');
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : String(v)); };
+  if (editId && cache.handyman && cache.handyman[editId]) {
+    const r = cache.handyman[editId];
+    if (hid) hid.value = editId;
+    if (title) title.textContent = '✏ Edit Handyman';
+    if (del) del.style.display = '';
+    setVal('handyman-add-company', r.company); setVal('handyman-add-name', r.name);
+    setVal('handyman-add-phone', r.phone); setVal('handyman-add-email', r.email);
+    setVal('handyman-add-city', r.city); setVal('handyman-add-state', r.state);
+    setVal('handyman-add-rate', r.rate); setVal('handyman-add-trades', r.trades);
+    setVal('handyman-add-notes', r.notes);
+    if (ver) ver.checked = !!r.verified;
+    if (typeof _setVerifiedHeaderBtnState === 'function') _setVerifiedHeaderBtnState('handyman', !!r.verified);
+  } else {
+    if (hid) hid.value = '';
+    if (title) title.textContent = '🔧 Add Handyman';
+    if (del) del.style.display = 'none';
+  }
+  modal.style.display = 'flex';
+  setTimeout(() => { const f = document.getElementById('handyman-add-name'); if (f) f.focus(); }, 50);
+}
+window.handymanOpenAddModal = handymanOpenAddModal;
+function handymanCloseAddModal() { const m = document.getElementById('handyman-add-modal'); if (m) m.style.display = 'none'; }
+window.handymanCloseAddModal = handymanCloseAddModal;
+async function handymanSaveNew() {
+  const $ = (id) => document.getElementById(id);
+  const editId = ($('handyman-edit-id')?.value || '').trim();
+  const name = ($('handyman-add-name')?.value || '').trim();
+  const company = ($('handyman-add-company')?.value || '').trim();
+  const phone = ($('handyman-add-phone')?.value || '').trim();
+  const email = ($('handyman-add-email')?.value || '').trim();
+  const city = ($('handyman-add-city')?.value || '').trim();
+  const state = ($('handyman-add-state')?.value || '').trim().toUpperCase();
+  const rate = ($('handyman-add-rate')?.value || '').trim();
+  const trades = ($('handyman-add-trades')?.value || '').trim();
+  const notes = ($('handyman-add-notes')?.value || '').trim();
+  const verified = !!($('handyman-add-verified')?.checked);
+  if (!name) { if (typeof toast === 'function') toast('Contact Name is required.', 'warn'); $('handyman-add-name')?.focus(); return; }
+  if (state && state.length !== 2) { if (typeof toast === 'function') toast('State must be a 2-letter code.', 'warn'); $('handyman-add-state')?.focus(); return; }
+  const btn = $('handyman-add-save-btn'); let prev = '';
+  if (btn) { prev = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const payload = { name, company, phone, email, city, state, rate, trades, notes, verified };
+    let data, error;
+    if (editId) ({ data, error } = await sb.from('handyman').update(payload).eq('id', editId).select().single());
+    else ({ data, error } = await sb.from('handyman').insert(payload).select().single());
+    if (error) throw error;
+    cache.handyman = cache.handyman || {};
+    if (data && data.id) cache.handyman[data.id] = data;
+    if (typeof toast === 'function') toast(editId ? ('Updated ' + name) : ('Added ' + name), 'ok');
+    handymanCloseAddModal(); renderHandymanList();
+  } catch (e) {
+    console.warn('handymanSaveNew:', e);
+    if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
+  } finally { if (btn) { btn.disabled = false; btn.textContent = prev || '💾 Save'; } }
+}
+window.handymanSaveNew = handymanSaveNew;
+async function handymanDeleteFromModal() {
+  const editId = (document.getElementById('handyman-edit-id')?.value || '').trim();
+  if (!editId) return;
+  const r = cache.handyman && cache.handyman[editId];
+  const nm = r ? r.name : 'this handyman';
+  if (!confirm('Delete ' + nm + '? This cannot be undone.')) return;
+  try {
+    const { error } = await sb.from('handyman').delete().eq('id', editId);
+    if (error) throw error;
+    if (cache.handyman) delete cache.handyman[editId];
+    if (typeof toast === 'function') toast('Deleted ' + nm, 'ok');
+    handymanCloseAddModal(); renderHandymanList();
+  } catch (e) { console.warn('handymanDeleteFromModal:', e); if (typeof toast === 'function') toast('Delete failed: ' + (e.message || 'unknown'), 'err'); }
+}
+window.handymanDeleteFromModal = handymanDeleteFromModal;
+function renderHandymanList() {
+  _holdConnCounts();
+  if (!cache.handyman) { loadHandyman().then(() => renderHandymanList()); return; }
+  const tbody = document.getElementById('handyman-tbody');
+  const empty = document.getElementById('handyman-empty');
+  const tableEl = document.getElementById('handyman-table');
+  if (!tbody) return;
+  let rows = Object.values(cache.handyman).filter(r => r && r.name)
+    .sort((a, b) => String(a.name || '').toLowerCase().localeCompare(String(b.name || '').toLowerCase()));
+  const verBtn = document.getElementById('handyman-verified-filter');
+  if (verBtn && verBtn.getAttribute('data-active') === 'true') rows = rows.filter(r => r.verified === true);
+  const q = (document.getElementById('handyman-search')?.value || '').trim().toLowerCase();
+  if (q) rows = rows.filter(r => [r.name, r.company, r.trades, r.city, r.state, r.phone, r.email, r.notes, r.rate].map(v => String(v || '').toLowerCase()).join(' | ').includes(q));
+  const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  if (!rows.length) {
+    if (empty) { empty.style.display = ''; empty.innerHTML = q ? 'No handymen match the current filter.' : 'No handymen saved yet — click <b>+ Add Handyman</b> to start building your rolodex.'; }
+    if (tableEl) tableEl.style.display = 'none'; tbody.innerHTML = ''; return;
+  }
+  if (empty) empty.style.display = 'none';
+  if (tableEl) tableEl.style.display = '';
+  const chip = (s) => `<span style="display:inline-block;padding:2px 8px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;font-size:11px;margin:1px 3px 1px 0;color:var(--text)">${esc(s)}</span>`;
+  const renderPhone = (p) => { const v = String(p || '').trim(); return v ? `<a href="tel:${esc(v.replace(/[^0-9+]/g,''))}" style="color:var(--text);text-decoration:none;font-size:12px">📞 ${esc(v)}</a>` : '<span style="color:var(--text-dim);font-size:12px">📞 —</span>'; };
+  const renderEmail = (e) => { const v = String(e || '').trim(); return v ? `<a href="mailto:${esc(v)}" style="color:var(--text);text-decoration:none;font-size:12px">✉️ ${esc(v)}</a>` : '<span style="color:var(--text-dim);font-size:12px">✉️ —</span>'; };
+  tbody.innerHTML = rows.map(r => {
+    const name = esc(r.name || ''); const company = esc(r.company || '');
+    const trades = r.trades ? String(r.trades).split(',').map(s => s.trim()).filter(Boolean).map(chip).join('') : '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    const verBadge = r.verified ? '<span style="display:inline-flex;align-items:center;padding:2px 7px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;vertical-align:middle;margin-left:6px">✓ Verified</span>' : '';
+    const nameBlock = company ? `<div style="font-weight:600">${company}${verBadge}</div><div style="color:var(--text-dim);font-size:11px;margin-top:2px">${name}</div>` : `<div style="font-weight:600">${name}${verBadge}</div>`;
+    const contact = `<div style="margin:2px 0">${renderPhone(r.phone)}</div><div style="margin:2px 0">${renderEmail(r.email)}</div>`;
+    const loc = [r.city, r.state].filter(Boolean).map(esc).join(', ') || '<span style="color:var(--text-dim);font-size:11px">—</span>';
+    return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="handymanOpenAddModal('${esc(r.id)}')" onmouseover="this.style.background='var(--panel-2)'" onmouseout="this.style.background=''" title="Click to edit">
+      <td style="padding:10px 12px;font-size:13px;vertical-align:top">${nameBlock}${r.notes ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px;max-width:240px;line-height:1.4">${esc(r.notes)}</div>` : ''}</td>
+      <td style="padding:10px 12px;vertical-align:top">${trades}</td>
+      <td style="padding:10px 12px;vertical-align:top;font-size:12px">${r.rate ? esc(r.rate) : '<span style="color:var(--text-dim)">—</span>'}</td>
+      <td style="padding:10px 12px;vertical-align:top" onclick="event.stopPropagation()">${contact}</td>
+      <td style="padding:10px 12px;vertical-align:top;font-size:12px">${loc}</td>
+    </tr>`;
+  }).join('');
+}
+window.renderHandymanList = renderHandymanList;
 
 // Update count badges next to each subtab so the user sees how many deals
 // are in each phase without clicking each one. Called whenever the renovation
@@ -30695,6 +31146,9 @@ function _renoUpdateSubtabCounts() {
       const phase = _renoCurrentPhaseId(u);
       if (phase && counts.hasOwnProperty(phase)) counts[phase]++;
     });
+    // Holdings deals count as Renovated too (reno finished when moved to Holdings).
+    const holdN = Object.values(cache.underwrites).filter(u => u && u.data && u.data._holdingStatus === 'holding').length;
+    counts.renovated = (counts.renovated || 0) + holdN;
   }
   // Resources counts — Contractors / Lenders / Agents (realtors) / Attorneys.
   // Each cache key holds {id: row} so the count is the number of own keys.
@@ -30707,7 +31161,6 @@ function _renoUpdateSubtabCounts() {
   counts.contractors = resCount('contractors');
   counts.lenders     = resCount('lenders');
   counts.realtors    = resCount('realtors');
-  counts.managers    = resCount('managers');
   counts.attorneys   = resCount('attorneys');
   Object.keys(counts).forEach(key => {
     const el = document.getElementById('reno-count-' + key);
@@ -30733,14 +31186,14 @@ function _renoCurrentPhaseId(deal) {
   const manual = deal.data._reno_phase_override;
   if (typeof manual === 'string' && manual && manual !== 'auto') return manual;
   const closingStr = deal.data['uw-closed-on'] || deal.data['uw-reno-start'];
-  // No closing date yet → the deal just entered renovation and is still finding
-  // funding. Same if the closing date is in the future (funding not yet closed).
-  if (typeof closingStr !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(closingStr)) return 'funding';
+  // No closing date yet (or future) → the deal just entered renovation; it starts
+  // in Repossession (getting the property vacant/taken back) before work begins.
+  if (typeof closingStr !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(closingStr)) return 'repossession';
   const [y, m, d] = closingStr.slice(0, 10).split('-').map(Number);
   const startMs = new Date(y, m - 1, d).getTime();
-  if (isNaN(startMs)) return 'funding';
+  if (isNaN(startMs)) return 'repossession';
   const daysSince = Math.floor((Date.now() - startMs) / 86400000);
-  if (daysSince < 0) return 'funding'; // closing in the future → still securing funding
+  if (daysSince < 0) return 'repossession'; // closing in the future → not started yet
   const phases = Array.isArray(deal.data._scope_phases)
     ? deal.data._scope_phases
     : _UW_SCOPE_PHASE_DEFAULTS;
@@ -30763,10 +31216,11 @@ function renderHoldingsList() {
   const empty = document.getElementById('hold-empty');
   if (!tbody) return;
   if (!cache.underwrites) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-[var(--text-dim)]"><span class="loader"></span> Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-[var(--text-dim)]"><span class="loader"></span> Loading…</td></tr>';
     if (typeof loadUnderwrites === 'function') loadUnderwrites().then(() => renderHoldingsList());
     return;
   }
+  if (typeof _holdUpdateSubtabCounts === 'function') _holdUpdateSubtabCounts();
   const rows = _hrFilteredRows('holding', 'hold-search');
   if (!rows.length) {
     tbody.innerHTML = '';
@@ -30785,7 +31239,7 @@ function renderRenovationList() {
   const empty = document.getElementById('reno-empty');
   if (!tbody) return;
   if (!cache.underwrites) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-[var(--text-dim)]"><span class="loader"></span> Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-[var(--text-dim)]"><span class="loader"></span> Loading…</td></tr>';
     if (typeof loadUnderwrites === 'function') loadUnderwrites().then(() => renderRenovationList());
     return;
   }
@@ -32344,7 +32798,6 @@ const _RENO_VIEW_CONFIG = {
   contractors: { wrap: 'reno-contractors-wrap', pill: 'contractors', load: 'loadContractors', render: 'renderContractorsList' },
   lenders:     { wrap: 'reno-lenders-wrap',     pill: 'lenders',     load: 'loadLenders',     render: 'renderLendersList' },
   realtors:    { wrap: 'reno-realtors-wrap',    pill: 'realtors',    load: 'loadRealtors',    render: 'renderRealtorsList' },
-  managers:    { wrap: 'reno-managers-wrap',    pill: 'managers',    load: 'loadManagers',    render: 'renderManagersList' },
   attorneys:   { wrap: 'reno-attorneys-wrap',   pill: 'attorneys',   load: 'loadAttorneys',   render: 'renderAttorneysList' }
 };
 
@@ -32914,6 +33367,14 @@ function setDispoView(view) {
   document.querySelectorAll('#section-dispositions [data-dispoview]').forEach(p => {
     p.classList.toggle('active', p.getAttribute('data-dispoview') === _dispoActiveView);
   });
+  // Keep the Properties/Connections toggle + buyer-status dropdown in sync.
+  const _buyerViews = ['recent','vetting','unknown','qualified','unqualified'];
+  if (_buyerViews.indexOf(_dispoActiveView) >= 0) {
+    window._dispoLastBuyer = _dispoActiveView;
+    const _bs = document.getElementById('dispo-buyer-status'); if (_bs) _bs.value = _dispoActiveView;
+  } else {
+    window._dispoLastProp = _dispoActiveView;
+  }
   // Refresh subtab count badges every time the view switches — covers cases
   // where the user moved a contract/buyer to a different state in another tab.
   if (typeof _dispoUpdateCounts === 'function') _dispoUpdateCounts();
@@ -32978,6 +33439,26 @@ function setDispoView(view) {
   }
 }
 window.setDispoView = setDispoView;
+
+// Dispositions Properties / Connections toggle.
+function dispoOpenProperties() {
+  const pg = document.getElementById('dispo-props-group'); if (pg) pg.style.display = '';
+  const cg = document.getElementById('dispo-conn-group'); if (cg) cg.style.display = 'none';
+  document.getElementById('dispo-properties-pill')?.classList.add('active');
+  document.getElementById('dispo-connections-pill')?.classList.remove('active');
+  setDispoView(window._dispoLastProp || 'new-contract');
+}
+function dispoOpenConnections() {
+  const pg = document.getElementById('dispo-props-group'); if (pg) pg.style.display = 'none';
+  const cg = document.getElementById('dispo-conn-group'); if (cg) cg.style.display = '';
+  document.getElementById('dispo-properties-pill')?.classList.remove('active');
+  document.getElementById('dispo-connections-pill')?.classList.add('active');
+  const s = window._dispoLastBuyer || 'recent';
+  const sel = document.getElementById('dispo-buyer-status'); if (sel) sel.value = s;
+  setDispoView(s);
+}
+window.dispoOpenProperties = dispoOpenProperties;
+window.dispoOpenConnections = dispoOpenConnections;
 window._dispoActiveView = _dispoActiveView;
 // Re-export the var so renderBuyersList can read the latest value (closures).
 function _getDispoActiveView() { return _dispoActiveView; }
@@ -35531,7 +36012,7 @@ async function renderDispoOffers(force){
   const empty = document.getElementById('dispo-offers-empty');
   if (!tbody) return;
   if (typeof sb === 'undefined' || !sb){ tbody.innerHTML=''; return; }
-  tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-[var(--text-dim)]"><span class="loader"></span> Loading offers…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-[var(--text-dim)]"><span class="loader"></span> Loading offers…</td></tr>';
   if (empty) empty.style.display='none';
   try {
     const { data, error } = await sb.from('property_offers').select('*').order('submitted_at', { ascending: false });
@@ -39630,6 +40111,7 @@ window.managerDeleteFromModal = managerDeleteFromModal;
 
 function renderManagersList() {
   if (typeof _renoUpdateSubtabCounts === 'function') _renoUpdateSubtabCounts();
+  if (typeof _holdConnCounts === 'function') _holdConnCounts();
   if (!cache.managers) {
     loadManagers().then(() => renderManagersList());
     return;
@@ -45988,8 +46470,15 @@ function goSection(s, _opts) {
     if (typeof renderEmployees === "function") renderEmployees();
   }
   if (s === "dispositions") {
-    // Default to Recently Added on first land (or restore last view if set).
-    if (typeof setDispoView === 'function') setDispoView(_dispoActiveView || 'new-contract');
+    // Default to Connections → Buyers (Recent) on first land, or restore the
+    // last view + open the matching Properties/Connections group.
+    if (typeof setDispoView === 'function') {
+      const _dv = _dispoActiveView || 'recent';
+      const _isBuyer = ['recent','vetting','unknown','qualified','unqualified'].indexOf(_dv) >= 0;
+      if (_isBuyer && typeof dispoOpenConnections === 'function') dispoOpenConnections();
+      else if (!_isBuyer && typeof dispoOpenProperties === 'function') dispoOpenProperties();
+      else setDispoView(_dv);
+    }
     // Eagerly load the data the subtab badges + Per Deal panel depend on so
     // they populate without waiting for the user to click each subtab. Each
     // load resolves into a count refresh AND a Per Deal re-render (when that
@@ -46064,7 +46553,8 @@ function goSection(s, _opts) {
     const _refreshReno = () => {
       if (typeof _renoUpdateSubtabCounts === 'function') _renoUpdateSubtabCounts();
     };
-    ['loadInspectors','loadContractors','loadLenders','loadRealtors','loadManagers','loadAttorneys','loadUnderwrites'].forEach(fname => {
+    if (typeof _holdRelocateManagers === 'function') _holdRelocateManagers();
+    ['loadInspectors','loadContractors','loadLenders','loadRealtors','loadManagers','loadHandyman','loadAttorneys','loadUnderwrites'].forEach(fname => {
       const fn = window[fname];
       if (typeof fn !== 'function') return;
       Promise.resolve(fn()).then(_refreshReno).catch(() => {});
@@ -63927,8 +64417,9 @@ else window._uwHeaderSetup();
 // onto ONE row in line with the title, stop them from wrapping below, merge the
 // Agents two-row layout into one, and shrink the controls a touch.
 window._connFixHeaders = function(){
-  ['inspectors','contractors','lenders','realtors','managers','attorneys'].forEach(function(sec){
-    var wrap = document.getElementById('reno-' + sec + '-wrap');
+  [['inspectors','reno-inspectors-wrap'],['contractors','reno-contractors-wrap'],['lenders','reno-lenders-wrap'],['realtors','reno-realtors-wrap'],['managers','reno-managers-wrap'],['attorneys','reno-attorneys-wrap'],['handyman','hold-handyman-wrap']].forEach(function(pair){
+    var sec = pair[0];
+    var wrap = document.getElementById(pair[1]);
     if (!wrap) return;
     var panel = wrap.querySelector('.panel');
     if (!panel) return;

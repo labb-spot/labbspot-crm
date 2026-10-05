@@ -30700,7 +30700,9 @@ function _hrRenderRow(u, view) {
   const closedOn    = _hrFmtDate(closedOnRaw);
   // Determine source section from the property's current routing so the Back
   // button in the calculator can return here.
-  const _hrFrom = (u.data && u.data._holdingStatus === 'holding') ? 'holdings' : 'renovation';
+  // Open in whichever section's table was clicked (so a Holdings deal shown in
+  // the Renovated tab still opens here in Renovation, not the hidden Holdings mount).
+  const _hrFrom = (view === 'holdings') ? 'holdings' : 'renovation';
   // Budget summary cell: % used + amount left + total. Color-coded:
   //   green < 80%, amber 80–100%, red > 100% (overspend).
   const b = _hrComputeBudget(u);

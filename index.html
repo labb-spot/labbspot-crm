@@ -30923,6 +30923,13 @@ function _holdRelocateManagers() {
   const mount = document.getElementById('hold-conn-mount');
   const mgr = document.getElementById('reno-managers-wrap');
   if (mount && mgr && mgr.parentElement !== mount) mount.appendChild(mgr);
+  // The Add/Edit modal is position:fixed but was inside #section-renovation,
+  // which is display:none while Holdings is open — so it never showed. Move it
+  // (and the handyman modal) to <body> so they render over any section.
+  ['manager-add-modal','handyman-add-modal'].forEach(id => {
+    const md = document.getElementById(id);
+    if (md && md.parentElement !== document.body) document.body.appendChild(md);
+  });
 }
 function _holdConnCounts() {
   const mgr = (typeof cache !== 'undefined' && cache.managers) ? Object.keys(cache.managers).length : null;

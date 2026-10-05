@@ -7588,32 +7588,30 @@
      flip Paid / Transferred / Expectations after reviewing each folder. -->
 <div id="section-photos" class="section-content p-6" style="display:none">
   <div class="panel p-5">
-    <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
-      <div>
-        <div class="font-semibold text-lg flex items-center gap-2">
-          📸 Photo Submissions
-          <span id="ps-pill-paid" style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(20,184,166,0.15);color:#14b8a6;letter-spacing:0.3px" title="Submissions you've paid the photographer for, out of total submissions.">—</span>
-          <span id="ps-pill-trans" style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(139,92,246,0.15);color:#a78bfa;letter-spacing:0.3px" title="Submissions whose Dropbox folder you've copied to your master Dropbox, out of total submissions.">—</span>
-          <span id="ps-pill-today" style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(245,158,11,0.15);color:#f59e0b;letter-spacing:0.3px" title="Submissions that landed today.">—</span>
-        </div>
-        <div class="text-sm text-[var(--text-dim)]">Photo submissions from your bird-dog photographers. Flip Paid / Transferred as you process each one.</div>
+    <div class="flex items-center mb-3 gap-2" style="flex-wrap:nowrap;min-width:0">
+      <div class="font-semibold text-lg" style="white-space:nowrap;flex-shrink:0">📸 Photo Submissions</div>
+      <input id="ps-search" placeholder="🔍 Search by Street Address, City, or Contact Name" oninput="renderPhotoSubmissions()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 auto;min-width:160px;box-sizing:border-box">
+      <button class="btn text-sm" onclick="psOpenExampleFolderModal()" title="Set the Example Property Folder link shown on the public submission page." style="background:linear-gradient(135deg,#34d399,#16a34a);color:#fff;border:1px solid #15803d;font-weight:700;flex-shrink:0;box-shadow:0 2px 8px rgba(22,163,74,0.4);text-shadow:0 1px 1px rgba(0,0,0,0.2)">📁</button>
+      <div class="flex items-center gap-2" style="flex-wrap:nowrap;flex-shrink:0">
+        <span id="ps-pill-paid" style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(20,184,166,0.15);color:#14b8a6;letter-spacing:0.3px;white-space:nowrap" title="Submissions you've paid the photographer for, out of total submissions.">—</span>
+        <span id="ps-pill-trans" style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(139,92,246,0.15);color:#a78bfa;letter-spacing:0.3px;white-space:nowrap" title="Submissions whose Dropbox folder you've copied to your master Dropbox, out of total submissions.">—</span>
+        <span id="ps-pill-today" style="font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(245,158,11,0.15);color:#f59e0b;letter-spacing:0.3px;white-space:nowrap" title="Submissions that landed today.">—</span>
       </div>
-      <div class="flex items-center gap-2 flex-wrap">
-        <select id="ps-filter-status" onchange="renderPhotoSubmissions()" style="width:170px" title="Filter by Paid / Transferred status">
-          <option value="">All submissions</option>
-          <option value="needs_transfer">Needs Transfer</option>
-          <option value="needs_payment">Needs Payment</option>
-          <option value="both_pending">Needs Both</option>
-          <option value="done">Fully Done</option>
-        </select>
-        <select id="ps-filter-exp" onchange="renderPhotoSubmissions()" style="width:150px" title="Filter by expectations rating">
-          <option value="">Any expectations</option>
-          <option value="Sufficient">Sufficient</option>
-          <option value="Insufficient">Insufficient</option>
-          <option value="unset">Unrated</option>
-        </select>
-        <input id="ps-search" placeholder="Search address / submitter…" oninput="renderPhotoSubmissions()" style="width:220px;min-width:160px">
-        <button class="btn btn-ghost text-sm" onclick="loadPhotoSubmissions(true)" title="Re-fetch from Supabase">🔁 Refresh</button>
+      <button type="button" id="ps-filter-status" value="" onclick="psCycleStatus(this)" title="Click to cycle: All / Needs Transfer / Needs Payment / Needs Both / Fully Done" style="height:38px;width:150px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;text-align:center;box-sizing:border-box;flex-shrink:0">All submissions</button>
+      <button type="button" id="ps-filter-exp" value="" onclick="psCycleExp(this)" title="Click to cycle: Any / Sufficient / Insufficient / Unrated" style="height:38px;width:150px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;text-align:center;box-sizing:border-box;flex-shrink:0">Any expectations</button>
+      <button id="ps-refresh-btn" class="btn btn-ghost text-sm" onclick="psRefresh(this)" title="Re-fetch from Supabase" style="height:38px;width:110px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;gap:6px">🔁 Refresh</button>
+    </div>
+
+    <!-- Set Example Property Folder link modal -->
+    <div id="ps-example-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
+      <div class="panel" style="max-width:560px;width:100%;padding:28px;box-shadow:0 14px 50px rgba(0,0,0,0.6)">
+        <div style="font-weight:700;font-size:20px;margin-bottom:6px">📁 Example Property Folder</div>
+        <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px;line-height:1.5">Paste the link (e.g. a Dropbox folder) to an example submission folder. Photographers will see an <b>Open Example Property Folder</b> button on the public submission page that opens this link.</div>
+        <input id="ps-example-url" type="text" placeholder="https://www.dropbox.com/scl/fo/..." style="width:100%;height:44px;font-size:15px;padding:0 14px;box-sizing:border-box">
+        <div class="flex items-center justify-end gap-2" style="margin-top:18px">
+          <button class="btn btn-ghost" onclick="psCloseExampleFolderModal()">Cancel</button>
+          <button class="btn btn-primary" id="ps-example-save-btn" onclick="psSaveExampleFolder()">💾 Save</button>
+        </div>
       </div>
     </div>
     <div id="ps-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -46800,6 +46798,75 @@ window._funnelSetPeriod = function(key, val){
 // optimistic update + UPDATE round-trip.
 // ============================================================
 window._photoSubmissionsCache = null;
+
+// Click-to-cycle filter buttons for Photo Submissions (fixed width so the box
+// never resizes). The button's .value holds the filter key renderPhotoSubmissions reads.
+function psCycleStatus(btn) {
+  const opts = [['','All submissions'],['needs_transfer','Needs Transfer'],['needs_payment','Needs Payment'],['both_pending','Needs Both'],['done','Fully Done']];
+  let i = opts.findIndex(o => o[0] === btn.value); i = (i + 1) % opts.length;
+  btn.value = opts[i][0]; btn.textContent = opts[i][1];
+  if (typeof renderPhotoSubmissions === 'function') renderPhotoSubmissions();
+}
+function psCycleExp(btn) {
+  const opts = [['','Any expectations'],['Sufficient','Sufficient'],['Insufficient','Insufficient'],['unset','Unrated']];
+  let i = opts.findIndex(o => o[0] === btn.value); i = (i + 1) % opts.length;
+  btn.value = opts[i][0]; btn.textContent = opts[i][1];
+  if (typeof renderPhotoSubmissions === 'function') renderPhotoSubmissions();
+}
+window.psCycleStatus = psCycleStatus;
+window.psCycleExp = psCycleExp;
+// Refresh with a loading look — keeps the same width via the fixed-width button.
+async function psRefresh(btn) {
+  if (!btn) { if (typeof loadPhotoSubmissions === 'function') loadPhotoSubmissions(true); return; }
+  if (btn.disabled) return;
+  const prev = btn.innerHTML;
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+  btn.innerHTML = '<span class="loader" style="width:14px;height:14px"></span> …';
+  try { if (typeof loadPhotoSubmissions === 'function') await loadPhotoSubmissions(true); }
+  catch (e) { console.warn('psRefresh:', e); }
+  finally { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = prev || '🔁 Refresh'; }
+}
+window.psRefresh = psRefresh;
+
+// ---- Example Property Folder link (shown on the public submit-photos page) ----
+// Stored in the public-readable packet_gate row so the anonymous submission page
+// can read it without login.
+async function psOpenExampleFolderModal() {
+  const modal = document.getElementById('ps-example-modal');
+  const input = document.getElementById('ps-example-url');
+  if (!modal) return;
+  if (input) input.value = '';
+  try {
+    if (typeof sb !== 'undefined' && sb) {
+      const { data } = await sb.from('packet_gate').select('photo_example_folder_url').eq('id', 1).maybeSingle();
+      if (data && input) input.value = data.photo_example_folder_url || '';
+    }
+  } catch (e) { console.warn('psOpenExampleFolderModal:', e); }
+  modal.style.display = 'flex';
+  setTimeout(() => { if (input) input.focus(); }, 50);
+}
+window.psOpenExampleFolderModal = psOpenExampleFolderModal;
+function psCloseExampleFolderModal() { const m = document.getElementById('ps-example-modal'); if (m) m.style.display = 'none'; }
+window.psCloseExampleFolderModal = psCloseExampleFolderModal;
+async function psSaveExampleFolder() {
+  const input = document.getElementById('ps-example-url');
+  const url = (input?.value || '').trim();
+  const btn = document.getElementById('ps-example-save-btn');
+  let prev = '';
+  if (btn) { prev = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
+    const { error } = await sb.from('packet_gate').update({ photo_example_folder_url: url || null }).eq('id', 1);
+    if (error) throw error;
+    if (typeof toast === 'function') toast('Example folder link saved', 'ok');
+    psCloseExampleFolderModal();
+  } catch (e) {
+    console.warn('psSaveExampleFolder:', e);
+    if (typeof toast === 'function') toast('Save failed: ' + (e.message || 'unknown'), 'err');
+  } finally { if (btn) { btn.disabled = false; btn.textContent = prev || '💾 Save'; } }
+}
+window.psSaveExampleFolder = psSaveExampleFolder;
 
 async function loadPhotoSubmissions(forceRefresh) {
   if (typeof sb === 'undefined' || !sb) {

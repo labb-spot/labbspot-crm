@@ -33726,6 +33726,42 @@ function _dispoSetOutreach(dealId, buyerId, status) {
   if (typeof window._dispoRenderDealBuyers === 'function') window._dispoRenderDealBuyers();
 }
 window._dispoSetOutreach = _dispoSetOutreach;
+// Toggle a buyer's accepted contact channel straight from the deal preview
+// card. Canonical labels (Phone / Email / Facebook) match the Edit-Buyer
+// modal. Optimistically updates the cache + re-renders, then persists to
+// Supabase; reverts on failure.
+async function _dispoToggleBuyerChannel(buyerId, channel) {
+  if (!buyerId || !channel) return;
+  if (typeof cache === 'undefined' || !cache.buyers || !cache.buyers[buyerId]) return;
+  const b = cache.buyers[buyerId];
+  const canon = { phone: 'Phone', email: 'Email', facebook: 'Facebook' };
+  const key = canon[String(channel).toLowerCase()] || channel;
+  const prev = Array.isArray(b.channels) ? b.channels.slice() : [];
+  const has = prev.some(function (x) { return String(x).toLowerCase() === key.toLowerCase(); });
+  const next = has
+    ? prev.filter(function (x) { return String(x).toLowerCase() !== key.toLowerCase(); })
+    : prev.concat([key]);
+  b.channels = next;   // optimistic
+  if (typeof window._dispoRenderDealBuyers === 'function') window._dispoRenderDealBuyers();
+  if (typeof sb === 'undefined' || !sb) {
+    if (typeof toast === 'function') toast('Not connected — channel NOT saved.', 'err');
+    b.channels = prev;
+    if (typeof window._dispoRenderDealBuyers === 'function') window._dispoRenderDealBuyers();
+    return;
+  }
+  try {
+    const { data, error } = await sb.from('buyers').update({ channels: next, updated_at: new Date().toISOString() }).eq('id', buyerId).select().single();
+    if (error) throw error;
+    if (data) cache.buyers[buyerId] = data;
+    if (typeof window._dispoRenderDealBuyers === 'function') window._dispoRenderDealBuyers();
+  } catch (e) {
+    console.warn('_dispoToggleBuyerChannel:', e);
+    b.channels = prev;   // revert
+    if (typeof window._dispoRenderDealBuyers === 'function') window._dispoRenderDealBuyers();
+    if (typeof toast === 'function') toast('Channel save failed: ' + (e && e.message || e), 'err');
+  }
+}
+window._dispoToggleBuyerChannel = _dispoToggleBuyerChannel;
 function _dispoOpenDeal(dealId) {
   if (!dealId) return;
   window._dispoOpenedDealId = dealId;
@@ -36685,6 +36721,7 @@ function buyerRenderPerDealPanel() {
   const buyers = Object.values(cache.buyers || {}).filter(b => b && (b.company || b.name));
 
   const OUTREACH = [
+    { key: 'untraceable',   label: 'Untraceable',   icon: '🕵️', color: '#94a3b8' },
     { key: 'reached',       label: 'Attempted',     icon: '📞', color: '#a5b4fc' },
     { key: 'responded',     label: 'Responded',     icon: '💬', color: '#fbbf24' },
     { key: 'interested',    label: 'Interested',    icon: '👍', color: '#10b981' },
@@ -37035,21 +37072,28 @@ function buyerRenderPerDealPanel() {
                 // Channels chips on their Edit Buyer modal. Color-coded per
                 // channel so the user can scan at a glance how the buyer prefers
                 // to be contacted.
-                const _channelDefs = {
-                  phone:     { ic: '\u{1F4DE}',   l: 'Phone',     c: '#34d399' },
-                  email:     { ic: '\u2709\uFE0F', l: 'Email',     c: '#a78bfa' },
-                  sms:       { ic: '\u{1F4AC}',   l: 'SMS',       c: '#fbbf24' },
-                  messenger: { ic: '\u{1F48C}',   l: 'Messenger', c: '#60a5fa' },
-                  other:     { ic: '\u22EF',      l: 'Other',     c: '#9ca3af' }
-                };
-                const _bChans = Array.isArray(b.channels) ? b.channels : [];
-                const _chanChips = _bChans
-                  .map(function (raw) {
-                    const key = String(raw || '').toLowerCase().trim();
-                    const def = _channelDefs[key];
-                    if (!def) return '';
-                    return '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;background:' + def.c + '22;color:' + def.c + ';border:1px solid ' + def.c + '55" title="Buyer accepts ' + def.l + '">'
-                      + def.ic + ' ' + def.l + '</span>';
+                // Canonical channel set (matches the Edit-Buyer modal's
+                // BUYER_CHANNEL_TYPES). ALL channels always render here: the
+                // ones the buyer accepts are colored, the rest are greyed out.
+                // Clicking a chip toggles it on/off straight from the preview
+                // and saves to the buyer record.
+                const _channelDefs = [
+                  { key: 'Phone',    ic: '\u{1F4DE}',   c: '#10b981' },
+                  { key: 'Email',    ic: '\u2709\uFE0F', c: '#60a5fa' },
+                  { key: 'Facebook', ic: '\u{1F4D8}',   c: '#3b82f6' }
+                ];
+                const _bChans = (Array.isArray(b.channels) ? b.channels : []).map(function (x) { return String(x || '').toLowerCase().trim(); });
+                const _chanChips = _channelDefs
+                  .map(function (def) {
+                    const on = _bChans.indexOf(def.key.toLowerCase()) !== -1;
+                    const bg = on ? (def.c + '22') : 'transparent';
+                    const fg = on ? def.c : 'var(--text-dim)';
+                    const bd = on ? (def.c + '55') : 'var(--border)';
+                    const op = on ? '1' : '0.5';
+                    return '<button type="button" onclick="_dispoToggleBuyerChannel(\'' + ctx.esc(b.id) + '\',\'' + def.key + '\')" '
+                      + 'style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;background:' + bg + ';color:' + fg + ';border:1px solid ' + bd + ';opacity:' + op + '" '
+                      + 'title="' + (on ? 'Buyer accepts ' + def.key + ' \u2014 click to turn off' : 'Click to mark that this buyer accepts ' + def.key) + '">'
+                      + def.ic + ' ' + def.key + '</button>';
                   })
                   .join('');
                 return '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);align-items:center" onclick="event.stopPropagation()">'
@@ -55754,9 +55798,22 @@ async function _listAreasLoad() {
 // Guard: never write an EMPTY list over the saved one before we've confirmed the
 // saved state (that's the only way areas could get wiped). A real save always has
 // at least one area in memory, so legitimate saves/deletes still go through.
-function _listAreasSync() {
+async function _listAreasSync() {
   if (!window._listAreasLoaded && !(window._listAreas && window._listAreas.length)) return;
-  if (typeof _uwCfgMerge === 'function') _uwCfgMerge({ list_areas: window._listAreas });
+  if (typeof sb === 'undefined' || !sb) { if (typeof toast === 'function') toast('Not connected — areas NOT saved. Reload and try again.', 'err'); return; }
+  try {
+    const { data } = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle();
+    const mappings = (data && data.column_mappings && typeof data.column_mappings === 'object') ? data.column_mappings : {};
+    mappings.list_areas = window._listAreas;
+    const { data: upd, error } = await sb.from('app_config').update({ column_mappings: mappings, updated_at: new Date().toISOString() }).eq('id', 1).select('id');
+    if (error) throw error;
+    if (!upd || !upd.length) throw new Error('no app_config row (id=1) — ask admin to create it');
+    if (typeof cache !== 'undefined' && cache && cache.config) cache.config.column_mappings = mappings;
+    if (typeof toast === 'function') toast('🗺️ Areas saved to cloud', 'ok');
+  } catch (e) {
+    console.warn('_listAreasSync:', e);
+    if (typeof toast === 'function') toast('Area save FAILED: ' + (e && e.message || e), 'err');
+  }
 }
 // Draw the list-areas onto a Leaflet layer. editable=true wires click-to-edit.
 function _listDrawAreasOn(mapObj, lg, editable) {
@@ -65193,9 +65250,22 @@ async function _mapAreasPullAndRender(){
 // Guard: don't write an EMPTY areas list over the saved one before we've confirmed
 // the saved state — the only way saved areas could get wiped. Real saves/deletes
 // (which always have the loaded list in memory) still go through.
-function _mapAreasSync(){
+async function _mapAreasSync(){
   if (!window._mapAreasLoaded && !(window._mapAreas && window._mapAreas.length)) return;
-  if (typeof _uwCfgMerge==='function') _uwCfgMerge({ map_areas: window._mapAreas });
+  if (typeof sb === 'undefined' || !sb) { if (typeof toast === 'function') toast('Not connected — areas NOT saved. Reload and try again.', 'err'); return; }
+  try {
+    const { data } = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle();
+    const mappings = (data && data.column_mappings && typeof data.column_mappings === 'object') ? data.column_mappings : {};
+    mappings.map_areas = window._mapAreas;
+    const { data: upd, error } = await sb.from('app_config').update({ column_mappings: mappings, updated_at: new Date().toISOString() }).eq('id', 1).select('id');
+    if (error) throw error;
+    if (!upd || !upd.length) throw new Error('no app_config row (id=1) — ask admin to create it');
+    if (typeof cache !== 'undefined' && cache && cache.config) cache.config.column_mappings = mappings;
+    if (typeof toast === 'function') toast('🗺️ Areas saved to cloud', 'ok');
+  } catch (e) {
+    console.warn('_mapAreasSync:', e);
+    if (typeof toast === 'function') toast('Area save FAILED: ' + (e && e.message || e), 'err');
+  }
 }
 // Generic renderer — draws every saved area onto ANY Leaflet map/layer.
 // editable=true wires click-to-edit (Maps tab); false = read-only (per-deal map).

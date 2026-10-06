@@ -37381,7 +37381,7 @@ function buyerRenderPerDealPanel() {
     +   '<label style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-dim)">Master (you)'
     +     '<input id="pg-master" inputmode="numeric" maxlength="4" value="' + _pgMaster + '" placeholder="9999" oninput="this.value=this.value.replace(/\\D/g,\'\').slice(0,4)" style="width:64px;height:30px;text-align:center;letter-spacing:3px;font-size:14px;font-weight:700;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);box-sizing:border-box"></label>'
     +   '<button type="button" onclick="_pgSaveCodes(this)" style="height:30px;padding:0 14px;background:var(--brand);border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">💾 Save &amp; Reset</button>'
-    +   '<button type="button" onclick="_emailTplOpen()" title="Edit the default subject + message used by the ✉️ Send Email buttons" style="height:30px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">✉️ Edit Default Email</button>'
+    +   '<button type="button" onclick="_emailTplOpen()" title="Edit the Introduction + Deal email templates used by the ✉️ Send Email buttons" style="height:30px;padding:0 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">✉️ Edit Emails</button>'
     +   '<span style="display:inline-flex;align-items:center;gap:8px">'
     +     '<span style="font-size:12px;font-weight:700;color:var(--text-dim);white-space:nowrap">🔒 Passcode Page</span>'
     +     '<button type="button" id="pg-gate-toggle" role="switch" aria-checked="' + (_pgGateOn ? 'true' : 'false') + '" onclick="_pgToggleGate(this)" title="Slide to turn the packet passcode page on or off. When OFF, packets open immediately with no code." style="position:relative;width:48px;height:26px;border-radius:999px;border:none;cursor:pointer;padding:0;transition:background 0.18s;background:' + (_pgGateOn ? '#10b981' : '#94a3b8') + '">'
@@ -41134,15 +41134,34 @@ window.addEventListener('load', function () { setTimeout(function () { try { buy
 // ===== Default email template (editable from the Packet Access bar) =====
 // Stored in app_config.column_mappings.email_template so it's shared across
 // devices. Tokens like {address} are swapped per buyer/property when sending.
-window._EMAIL_TPL_DEFAULT = {
-  subject: 'Off-Market Investment Opportunity — {address}',
-  body: 'Hi {name},\n\nI have an off-market property that may fit your buy box: {full_address}.\n\nView the full details and submit your offer here:\n{link}\n\nBest,\nLABB LLC'
+// Two templates: a cold "Introduction" email and a warmer "Deal" email.
+window._EMAIL_TPL_META = {
+  intro: { label: 'Introduction Email', icon: '👋' },
+  deal:  { label: 'Deal Email',         icon: '📄' }
 };
-window._emailTplGet = function () {
-  var t = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings && cache.config.column_mappings.email_template) || null;
+window._EMAIL_TPL_DEFAULTS = {
+  intro: {
+    subject: 'Off-Market Investment Opportunity — {address}',
+    body: 'Hi {name},\n\nI have an off-market property that may fit your buy box: {full_address}.\n\nView the full details and submit your offer here:\n{link}\n\nBest,\nLABB LLC'
+  },
+  deal: {
+    subject: 'New Deal — {full_address}',
+    body: 'Hi {name},\n\nHere are the numbers on {full_address}.\n\nTake a look at the full details, photos, and comps — then submit your offer right here:\n{link}\n\nHappy to answer any questions. Let me know if you want to move on it.\n\nBest,\nLABB LLC'
+  }
+};
+// Back-compat: expose the intro default under the old name.
+window._EMAIL_TPL_DEFAULT = window._EMAIL_TPL_DEFAULTS.intro;
+window._emailTplGet = function (which) {
+  which = (which === 'deal') ? 'deal' : 'intro';
+  var cm = (typeof cache !== 'undefined' && cache && cache.config && cache.config.column_mappings) || {};
+  // New store: email_templates.{intro|deal}. Legacy store: email_template → intro.
+  var store = (cm.email_templates && typeof cm.email_templates === 'object') ? cm.email_templates : {};
+  var t = store[which] || null;
+  if (!t && which === 'intro' && cm.email_template) t = cm.email_template;
+  var def = window._EMAIL_TPL_DEFAULTS[which];
   return {
-    subject: (t && typeof t.subject === 'string' && t.subject.trim()) ? t.subject : window._EMAIL_TPL_DEFAULT.subject,
-    body:    (t && typeof t.body === 'string' && t.body.length)       ? t.body    : window._EMAIL_TPL_DEFAULT.body
+    subject: (t && typeof t.subject === 'string' && t.subject.trim()) ? t.subject : def.subject,
+    body:    (t && typeof t.body === 'string' && t.body.length)       ? t.body    : def.body
   };
 };
 window._emailTplFill = function (str, b, deal) {
@@ -41168,14 +41187,17 @@ window._emailTplFill = function (str, b, deal) {
 };
 // Opens a Gmail compose draft (new tab) pre-filled to this buyer using the saved
 // template + this deal's offer link. Nothing sends — it's a draft to review.
-window._dispoEmailBuyer = function (buyerId) {
+// Opens Gmail compose for this buyer using the chosen template ('intro' or
+// 'deal'). Called with no `which` → shows a small chooser first.
+window._dispoEmailBuyer = function (buyerId, which, anchorEvt) {
   var b = (cache.buyers || {})[buyerId];
   if (!b) return;
   var email = (b.email || '').trim();
   if (!email) { if (typeof toast === 'function') toast('No email on file for this buyer.', 'warn'); return; }
+  if (which !== 'intro' && which !== 'deal') { window._dispoEmailChooser(buyerId, anchorEvt); return; }
   var ctx = window._dispoDealCtx;
   var deal = (ctx && ctx.deal) || {};
-  var tpl = window._emailTplGet();
+  var tpl = window._emailTplGet(which);
   var subject = window._emailTplFill(tpl.subject, b, deal);
   var body = window._emailTplFill(tpl.body, b, deal);
   var url = 'https://mail.google.com/mail/?view=cm&fs=1'
@@ -41184,11 +41206,42 @@ window._dispoEmailBuyer = function (buyerId) {
     + '&body=' + encodeURIComponent(body);
   window.open(url, '_blank', 'noopener');
 };
+// Tiny popover offering Introduction vs Deal before opening Gmail.
+window._dispoEmailChooser = function (buyerId, evt) {
+  var prev = document.getElementById('dispo-email-chooser'); if (prev) prev.remove();
+  var pop = document.createElement('div');
+  pop.id = 'dispo-email-chooser';
+  pop.style.cssText = 'position:fixed;inset:0;z-index:100003;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:20px';
+  var mk = function (w) {
+    var m = window._EMAIL_TPL_META[w];
+    return '<button type="button" data-which="' + w + '" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:12px 14px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:700">'
+      + '<span style="font-size:18px">' + m.icon + '</span><span>' + m.label + '</span></button>';
+  };
+  pop.innerHTML = '<div style="width:min(360px,94vw);background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 16px 50px rgba(0,0,0,0.5)">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-weight:800;font-size:14px">✉️ Which email?</div><button id="dec-x" style="background:none;border:none;color:var(--text-dim);font-size:22px;line-height:1;cursor:pointer">×</button></div>'
+    + '<div style="display:flex;flex-direction:column;gap:8px">' + mk('intro') + mk('deal') + '</div>'
+    + '<button id="dec-edit" style="margin-top:12px;width:100%;padding:8px;border:1px dashed var(--border);background:transparent;color:var(--text-dim);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">✏️ Edit these templates</button>'
+    + '</div>';
+  document.body.appendChild(pop);
+  function close() { pop.remove(); }
+  pop.querySelector('#dec-x').onclick = close;
+  pop.addEventListener('click', function (e) { if (e.target === pop) close(); });
+  pop.querySelectorAll('button[data-which]').forEach(function (btn) {
+    btn.addEventListener('click', function () { var w = btn.getAttribute('data-which'); close(); window._dispoEmailBuyer(buyerId, w); });
+  });
+  pop.querySelector('#dec-edit').onclick = function () { close(); window._emailTplOpen(); };
+};
 // Popup editor for the default email — subject + message with click-to-insert
 // fields. Saves to app_config so every device uses the same template.
-window._emailTplOpen = function () {
-  var cur = window._emailTplGet();
+window._emailTplOpen = function (startWhich) {
   var prev = document.getElementById('email-tpl-pop'); if (prev) prev.remove();
+  // Working copy of both templates — edits are held here until Save.
+  var draft = {
+    intro: window._emailTplGet('intro'),
+    deal:  window._emailTplGet('deal')
+  };
+  draft = { intro: { subject: draft.intro.subject, body: draft.intro.body }, deal: { subject: draft.deal.subject, body: draft.deal.body } };
+  var which = (startWhich === 'deal') ? 'deal' : 'intro';
   var fields = [
     ['{address}', 'Street Address'], ['{full_address}', 'Full Address'],
     ['{city}', 'City'], ['{state}', 'State'], ['{zip}', 'Zip'],
@@ -41197,12 +41250,17 @@ window._emailTplOpen = function () {
   var chips = fields.map(function (f) {
     return '<button type="button" class="etf-chip" data-tok="' + f[0] + '" style="padding:3px 9px;font-size:11px;font-weight:600;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer">' + f[1] + ' <span style="color:var(--text-dim)">' + f[0] + '</span></button>';
   }).join('');
+  var tabBtn = function (w) {
+    var m = window._EMAIL_TPL_META[w];
+    return '<button type="button" class="etf-tab" data-tab="' + w + '" style="flex:1;padding:8px 10px;font-size:12.5px;font-weight:700;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);cursor:pointer;border-radius:8px">' + m.icon + ' ' + m.label + '</button>';
+  };
   var ov = document.createElement('div');
   ov.id = 'email-tpl-pop';
   ov.style.cssText = 'position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px';
   ov.innerHTML =
       '<div style="width:min(560px,96vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;box-shadow:0 16px 50px rgba(0,0,0,0.5)">'
-    +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-weight:800;font-size:15px">✉️ Edit Default Email</div><button id="etf-x" style="background:none;border:none;color:var(--text-dim);font-size:22px;line-height:1;cursor:pointer">×</button></div>'
+    +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-weight:800;font-size:15px">✉️ Edit Emails</div><button id="etf-x" style="background:none;border:none;color:var(--text-dim);font-size:22px;line-height:1;cursor:pointer">×</button></div>'
+    +   '<div style="display:flex;gap:8px;margin-bottom:12px">' + tabBtn('intro') + tabBtn('deal') + '</div>'
     +   '<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">Click a field to drop it where your cursor is. Each fills in automatically per buyer &amp; property when you hit Send Email.</div>'
     +   '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">' + chips + '</div>'
     +   '<label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px">SUBJECT / TITLE</label>'
@@ -41211,22 +41269,38 @@ window._emailTplOpen = function () {
     +   '<textarea id="etf-body" rows="9" style="width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);color:var(--text);font-size:13px;line-height:1.5;resize:vertical;min-height:170px"></textarea>'
     +   '<div id="etf-status" style="font-size:11px;min-height:14px;margin-top:6px;color:var(--text-dim)"></div>'
     +   '<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:6px">'
-    +     '<button id="etf-reset" style="padding:7px 12px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">Reset to default</button>'
-    +     '<div style="display:flex;gap:8px"><button id="etf-cancel" style="padding:7px 14px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">Cancel</button><button id="etf-save" style="padding:7px 16px;border:none;background:var(--brand);color:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">💾 Save</button></div>'
+    +     '<button id="etf-reset" style="padding:7px 12px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">Reset this to default</button>'
+    +     '<div style="display:flex;gap:8px"><button id="etf-cancel" style="padding:7px 14px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">Cancel</button><button id="etf-save" style="padding:7px 16px;border:none;background:var(--brand);color:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">💾 Save Both</button></div>'
     +   '</div>'
     + '</div>';
   document.body.appendChild(ov);
   var sEl = ov.querySelector('#etf-subject'), bEl = ov.querySelector('#etf-body'), st = ov.querySelector('#etf-status');
-  sEl.value = cur.subject; bEl.value = cur.body;
   var last = bEl;
   sEl.addEventListener('focus', function () { last = sEl; });
   bEl.addEventListener('focus', function () { last = bEl; });
+  // Keep the draft current as the user types in the active tab.
+  sEl.addEventListener('input', function () { draft[which].subject = sEl.value; });
+  bEl.addEventListener('input', function () { draft[which].body = bEl.value; });
+  function paint() {
+    sEl.value = draft[which].subject; bEl.value = draft[which].body;
+    ov.querySelectorAll('.etf-tab').forEach(function (t) {
+      var on = t.getAttribute('data-tab') === which;
+      t.style.background = on ? 'var(--brand)' : 'var(--panel-2)';
+      t.style.color = on ? '#fff' : 'var(--text-dim)';
+      t.style.borderColor = on ? 'var(--brand)' : 'var(--border)';
+    });
+    st.textContent = '';
+  }
+  ov.querySelectorAll('.etf-tab').forEach(function (t) {
+    t.addEventListener('click', function () { which = t.getAttribute('data-tab'); paint(); });
+  });
   function insertTok(tok) {
-    var el = last || bEl;
+    var el = (last === sEl) ? sEl : bEl;
     var s = el.selectionStart == null ? el.value.length : el.selectionStart;
     var e = el.selectionEnd == null ? el.value.length : el.selectionEnd;
     var v = el.value;
     el.value = v.slice(0, s) + tok + v.slice(e);
+    draft[which][(el === sEl) ? 'subject' : 'body'] = el.value;
     var np = s + tok.length;
     el.focus(); try { el.setSelectionRange(np, np); } catch (_) {}
   }
@@ -41235,22 +41309,33 @@ window._emailTplOpen = function () {
   ov.querySelector('#etf-x').onclick = close;
   ov.querySelector('#etf-cancel').onclick = close;
   ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
-  ov.querySelector('#etf-reset').onclick = function () { sEl.value = window._EMAIL_TPL_DEFAULT.subject; bEl.value = window._EMAIL_TPL_DEFAULT.body; };
+  ov.querySelector('#etf-reset').onclick = function () {
+    var d = window._EMAIL_TPL_DEFAULTS[which];
+    draft[which] = { subject: d.subject, body: d.body };
+    paint();
+  };
   ov.querySelector('#etf-save').onclick = async function () {
-    var subject = (sEl.value || '').trim(), body = (bEl.value || '');
+    if (!draft.intro.subject.trim() || !draft.deal.subject.trim()) {
+      st.textContent = 'Both emails need a subject'; st.style.color = '#f87171';
+      return;
+    }
     var btn = this;
-    if (!subject) { st.textContent = 'Subject cannot be empty'; st.style.color = '#f87171'; return; }
     btn.disabled = true; btn.textContent = 'Saving…';
+    var payload = {
+      intro: { subject: draft.intro.subject.trim(), body: draft.intro.body },
+      deal:  { subject: draft.deal.subject.trim(),  body: draft.deal.body }
+    };
     try {
-      await _uwCfgMerge({ email_template: { subject: subject, body: body } });
-      if (cache && cache.config && cache.config.column_mappings) cache.config.column_mappings.email_template = { subject: subject, body: body };
-      if (typeof toast === 'function') toast('✉️ Default email saved', 'ok');
+      await _uwCfgMerge({ email_templates: payload });
+      if (cache && cache.config && cache.config.column_mappings) cache.config.column_mappings.email_templates = payload;
+      if (typeof toast === 'function') toast('✉️ Emails saved', 'ok');
       close();
     } catch (e) {
       st.textContent = 'Save failed: ' + ((e && e.message) ? e.message : 'try again'); st.style.color = '#f87171';
-      btn.disabled = false; btn.textContent = '💾 Save';
+      btn.disabled = false; btn.textContent = '💾 Save Both';
     }
   };
+  paint();
 };
 // Small notes pop-out for the map popup. Reads/writes the SAME buyers.notes
 // field the buyer modal's "Notes" box uses, so the two always share one text.

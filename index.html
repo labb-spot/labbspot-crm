@@ -3306,6 +3306,7 @@
       <!-- All corner actions share one flex row so any combination that's visible
            lays out side by side (no overlap) instead of stacking on the same spot. -->
       <div style="position:absolute;bottom:14px;right:14px;z-index:3;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+        <select id="uw-hold-stage-select" onchange="uwSetHoldingStageCurrent(this.value)" style="display:none;height:34px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap" title="Move this property between Holdings stages."></select>
         <button class="btn text-sm" id="uw-add-to-reno-btn" onclick="uwAddToRenovation()" style="display:none;white-space:nowrap;background:#f97316;color:white;border:1px solid #f97316;font-weight:600" title="Send this property to the 🔨 Renovation tab. Only available when the Offer Status is Closed.">🔨 Add</button>
         <button class="btn text-sm" id="uw-move-to-reno-btn" onclick="uwMoveCurrentToRenovation()" style="display:none;white-space:nowrap;background:#10b981;color:white;border:1px solid #10b981;font-weight:600" title="Move this property back to the 🔨 Renovation tab.">🔨 Move to Renovation</button>
         <button class="btn btn-ghost text-sm" id="uw-remove-routing-btn" style="display:none;color:#f87171;border:1px solid rgba(239,68,68,0.4);white-space:nowrap" onclick="uwRemoveFromRouting()" title="Remove this deal from Renovation/Holdings (the deal stays in the 🏁 Finalized tab).">✕ Remove</button>
@@ -30050,6 +30051,20 @@ function _uwUpdateRemoveRoutingButton() {
     const _h = _u && _u.data && _u.data._holdingStatus;
     const _mvR = document.getElementById('uw-move-to-reno-btn');
     if (_mvR) _mvR.style.display = (_h === 'holding') ? '' : 'none';
+    // Holdings stage picker: only in Holdings. Build options once from
+    // _HOLD_STAGES, then reflect the deal's current stage.
+    const _ss = document.getElementById('uw-hold-stage-select');
+    if (_ss) {
+      if (_h === 'holding' && Array.isArray(_HOLD_STAGES)) {
+        if (!_ss.options.length) {
+          _ss.innerHTML = _HOLD_STAGES.map(function (s) { return '<option value="' + s[0] + '">' + s[1] + '</option>'; }).join('');
+        }
+        _ss.value = (_u.data._holdingStage) || 'staging';
+        _ss.style.display = '';
+      } else {
+        _ss.style.display = 'none';
+      }
+    }
   } catch (_) {}
   const btn = document.getElementById('uw-remove-routing-btn');
   if (!btn) return;
@@ -30075,6 +30090,12 @@ window._uwUpdateRemoveRoutingButton = _uwUpdateRemoveRoutingButton;
 window.uwMoveCurrentToRenovation = function(){
   if (typeof _uwCurrentId !== 'undefined' && _uwCurrentId && typeof uwSetHoldingStatus === 'function') {
     uwSetHoldingStatus(_uwCurrentId, 'renovation');
+  }
+};
+// Change the open Holdings deal's stage from the header dropdown.
+window.uwSetHoldingStageCurrent = function(stage){
+  if (typeof _uwCurrentId !== 'undefined' && _uwCurrentId && typeof uwSetHoldingStage === 'function') {
+    uwSetHoldingStage(_uwCurrentId, stage);
   }
 };
 

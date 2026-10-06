@@ -41325,10 +41325,25 @@ window._emailTplOpen = function (startWhich) {
       intro: { subject: draft.intro.subject.trim(), body: draft.intro.body },
       deal:  { subject: draft.deal.subject.trim(),  body: draft.deal.body }
     };
+    if (typeof sb === 'undefined' || !sb) {
+      st.textContent = 'Not connected — not saved. Reload and try again.'; st.style.color = '#f87171';
+      btn.disabled = false; btn.textContent = '💾 Save Both';
+      return;
+    }
     try {
-      await _uwCfgMerge({ email_templates: payload });
-      if (cache && cache.config && cache.config.column_mappings) cache.config.column_mappings.email_templates = payload;
-      if (typeof toast === 'function') toast('✉️ Emails saved', 'ok');
+      // Verified direct write (don't rely on the silent merge helper): read
+      // the current config, set email_templates, write it back, and confirm a
+      // row actually updated so a real DB/RLS error surfaces instead of a
+      // false "saved".
+      var sel = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle();
+      if (sel.error) throw sel.error;
+      var mappings = (sel.data && sel.data.column_mappings && typeof sel.data.column_mappings === 'object') ? sel.data.column_mappings : {};
+      mappings.email_templates = payload;
+      var upd = await sb.from('app_config').update({ column_mappings: mappings, updated_at: new Date().toISOString() }).eq('id', 1).select('id');
+      if (upd.error) throw upd.error;
+      if (!upd.data || !upd.data.length) throw new Error('no app_config row (id=1) to save into');
+      if (cache && cache.config && cache.config.column_mappings) cache.config.column_mappings = mappings;
+      if (typeof toast === 'function') toast('✉️ Emails saved to cloud', 'ok');
       close();
     } catch (e) {
       st.textContent = 'Save failed: ' + ((e && e.message) ? e.message : 'try again'); st.style.color = '#f87171';

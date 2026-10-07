@@ -28383,6 +28383,15 @@ function _uwRenderBidEditor(){
   _uwBid.draftSpecs = _specData;
   const isTpl = (_uwBid.mode === 'template');
   let lines = (_uwBid.draft || []).slice();
+  // Auto-hide items that are no longer in the live calculator catalog (deleted
+  // or renamed), EXCEPT custom bid lines (which aren't calculator items). Only
+  // applies in deal mode, and only when the catalog is actually loaded (so we
+  // never blank the list if the calculator hasn't initialized yet).
+  if (!isTpl) {
+    const _cat = new Set();
+    try { if (typeof window._rcGetFullCatalog === 'function') (window._rcGetFullCatalog()||[]).forEach(g => (g.items||[]).forEach(it => { const k = String(it||'').trim().toLowerCase(); if (k) _cat.add(k); })); } catch(_){}
+    if (_cat.size) lines = lines.filter(l => l && (l.custom || _cat.has(String(l.description||'').trim().toLowerCase())));
+  }
   if (!isTpl) lines.sort((a,b)=> (b.selected?1:0)-(a.selected?1:0));
   const mkRow = (l) => {
     const onSel = (!isTpl && l.selected);
@@ -29705,7 +29714,17 @@ function _uwRenderBidCompare(req, responses){
   const wrap = document.getElementById('uw-bid-compare');
   if (!wrap) return;
   responses = responses || [];
-  const lines = Array.isArray(req.line_items) ? req.line_items : [];
+  let lines = Array.isArray(req.line_items) ? req.line_items : [];
+  // Auto-hide items no longer in the live calculator catalog (deleted/renamed),
+  // EXCEPT custom lines or any line a contractor actually quoted (so a real bid
+  // is never hidden). Skipped if the catalog isn't loaded.
+  (function(){
+    const _cat = new Set();
+    try { if (typeof window._rcGetFullCatalog === 'function') (window._rcGetFullCatalog()||[]).forEach(g => (g.items||[]).forEach(it => { const k = String(it||'').trim().toLowerCase(); if (k) _cat.add(k); })); } catch(_){}
+    if (!_cat.size) return;
+    const _quoted = (l) => responses.some(r => { const q=(r.line_quotes||{})[l.id]; return q && q.interested; });
+    lines = lines.filter(l => l && (l.custom || _cat.has(String(l.description||'').trim().toLowerCase()) || _quoted(l)));
+  })();
   const fmt = (n) => (n||n===0) ? ('$'+(Math.round(parseFloat(n)||0)).toLocaleString()) : '—';
   // LABB Estimate — per-line $ from your Rehab Calculator, so you can see where
   // bids should land. Reference only.

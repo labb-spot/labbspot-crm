@@ -36843,13 +36843,55 @@ function buyerRenderPerDealPanel() {
       const active   = String(flt.active || '');
       const taggedSet = _dispoGetTaggedSet(ctx.deal.id);
       const sentSet = _dispoGetSentSet(ctx.deal.id);
+      // Search-box test (shared by both modes).
+      const _matchSearch = (b) => {
+        if (!search) return true;
+        const hay = ((b.company || '') + ' ' + (b.name || '') + ' ' + (b.email || '') + ' ' + (b.phone || '')).toLowerCase();
+        return hay.includes(search);
+      };
+      // Full criteria test — the distance/acqs/active/qual/outreach/offer rules.
+      // Used for the normal pool AND for the Tagged/Sent views when the
+      // "respect criteria" checkbox is on.
+      const _passesCriteria = (r) => {
+        const b = r.b;
+        if (minScore > 0 && (r.score || 0) < minScore) return false;
+        if (active) {
+          const bb = r.buyBox || (typeof getBuyerDerivedBuyBox === 'function' ? getBuyerDerivedBuyBox(b.id) : null);
+          const m  = bb ? bb.monthsSinceLast : null;
+          if (active === '3mo'  && (m == null || m > 3))   return false;
+          if (active === '6mo'  && (m == null || m > 6))   return false;
+          if (active === '12mo' && (m == null || m > 12))  return false;
+          if (active === '24mo' && (m == null || m > 24))  return false;
+          if (active === '36mo' && (m == null || m > 36))  return false;
+        }
+        if (outreach) {
+          const cur = _dispoGetOutreach(ctx.deal.id, b.id) || '';
+          if (outreach === 'none') { if (cur) return false; }
+          else if (cur !== outreach) return false;
+        }
+        if (qual) {
+          const q = (typeof buyerQualState === 'function') ? buyerQualState(b) : 'unknown';
+          if (q !== qual) return false;
+        }
+        if (acqMin > 0) {
+          if (!(r.acq >= acqMin)) return false;
+        }
+        if (offer) {
+          const has = (Number(_dispoGetBuyerOffer(ctx.deal.id, b.id)) || 0) > 0;
+          if (offer === 'made'   && !has) return false;
+          if (offer === 'noffer' &&  has) return false;
+        }
+        return true;
+      };
       let ranked;
       if (flt.taggedOnly || flt.sentOnly) {
-        // TAGGED MODE: show EVERY tagged buyer for this property, ignoring the
-        // distance / acqs / active / offers / qual / outreach filters. Only the
-        // search box still narrows. Tagged buyers outside the scored pool (e.g.
-        // beyond the mile range, or no purchase data) are pulled straight from
-        // the buyer cache so nothing tagged is ever hidden.
+        // TAGGED / SENT MODE: show the tagged (and/or sent-packet) buyers for
+        // this property. By default this ignores the distance / acqs / active /
+        // offers / qual / outreach filters so nothing tagged is ever hidden —
+        // but when the "respect criteria" checkbox (flt.tagRespectCriteria) is
+        // on, those filters DO apply, so you see only tagged buyers that still
+        // meet your current criteria. The search box always narrows.
+        const respect = !!flt.tagRespectCriteria;
         const byId = {};
         ctx.rankedAll.forEach(r => { byId[r.b.id] = r; });
         ranked = [];
@@ -36859,55 +36901,20 @@ function buyerRenderPerDealPanel() {
         _specialIds.forEach(id => {
           let r = byId[id];
           if (!r) {
+            // Buyer is outside the scored pool (beyond range / no purchase data).
+            // When respecting criteria, such a buyer can't meet them → drop it.
+            if (respect) return;
             const b = (cache.buyers || {})[id];
             if (!b) return;
             r = { b: b, score: 0, fallback: true, components: {} };
           }
-          if (search) {
-            const b = r.b;
-            const hay = ((b.company || '') + ' ' + (b.name || '') + ' ' + (b.email || '') + ' ' + (b.phone || '')).toLowerCase();
-            if (!hay.includes(search)) return;
-          }
+          if (!_matchSearch(r.b)) return;
+          if (respect && !_passesCriteria(r)) return;
           ranked.push(r);
         });
         ranked.sort((a, b) => (b.score || 0) - (a.score || 0) || String(a.b.name || '').toLowerCase().localeCompare(String(b.b.name || '').toLowerCase()));
       } else {
-        ranked = ctx.rankedAll.filter(r => {
-          const b = r.b;
-          if (minScore > 0 && (r.score || 0) < minScore) return false;
-          if (active) {
-            const bb = r.buyBox || (typeof getBuyerDerivedBuyBox === 'function' ? getBuyerDerivedBuyBox(b.id) : null);
-            const m  = bb ? bb.monthsSinceLast : null;
-            if (active === '3mo'  && (m == null || m > 3))   return false;
-            if (active === '6mo'  && (m == null || m > 6))   return false;
-            if (active === '12mo' && (m == null || m > 12))  return false;
-            if (active === '24mo' && (m == null || m > 24))  return false;
-            if (active === '36mo' && (m == null || m > 36))  return false;
-          }
-          if (search) {
-            const hay = ((b.company || '') + ' ' + (b.name || '') + ' ' + (b.email || '') + ' ' + (b.phone || '')).toLowerCase();
-            if (!hay.includes(search)) return false;
-          }
-          if (outreach) {
-            const cur = _dispoGetOutreach(ctx.deal.id, b.id) || '';
-            if (outreach === 'none') { if (cur) return false; }
-            else if (cur !== outreach) return false;
-          }
-          if (qual) {
-            const q = (typeof buyerQualState === 'function') ? buyerQualState(b) : 'unknown';
-            if (q !== qual) return false;
-          }
-          if (acqMin > 0) {
-            if (!(r.acq >= acqMin)) return false;
-          }
-          if (offer) {
-            // "Made offer" = any buyer with a non-zero number in the Buyer Offer slot.
-            const has = (Number(_dispoGetBuyerOffer(ctx.deal.id, b.id)) || 0) > 0;
-            if (offer === 'made'   && !has) return false;
-            if (offer === 'noffer' &&  has) return false;
-          }
-          return true;
-        });
+        ranked = ctx.rankedAll.filter(r => _matchSearch(r.b) && _passesCriteria(r));
       }
       // Expose the current filtered list so the (optional) buyer map can plot it,
       // and refresh the map in place if it's open (no Leaflet rebuild).
@@ -37209,6 +37216,7 @@ function buyerRenderPerDealPanel() {
       +     '<option value="0.5"'  + (Number(flt.maxMiles) === 0.5  ? ' selected' : '') + '>\u2264 0.5 mile</option>'
       +     '<option value="1"'    + (Number(flt.maxMiles) === 1    ? ' selected' : '') + '>\u2264 1 mile</option>'
       +     '<option value="5"'    + (Number(flt.maxMiles) === 5    ? ' selected' : '') + '>\u2264 5 miles</option>'
+      +     '<option value="10"'   + (Number(flt.maxMiles) === 10   ? ' selected' : '') + '>\u2264 10 miles</option>'
       +     '<option value="20"'   + (Number(flt.maxMiles) === 20   ? ' selected' : '') + '>\u2264 20 miles</option>'
       +     '<option value="40"'   + (Number(flt.maxMiles) === 40   ? ' selected' : '') + '>\u2264 40 miles</option>'
       +     '<option value="100"'  + (Number(flt.maxMiles) === 100  ? ' selected' : '') + '>\u2264 100 miles</option>'
@@ -37221,6 +37229,7 @@ function buyerRenderPerDealPanel() {
       +     '<option value="24mo"'  + (flt.active === '24mo'  ? ' selected' : '') + '>Active 24mo</option>'
       +     '<option value="36mo"'  + (flt.active === '36mo'  ? ' selected' : '') + '>Active 36mo</option>'
       +   '</select>'
+      +   '<label title="When ON, the 🏷 Tagged Buyers and ✉ Sent Packet views also apply all your filters above (distance, acqs, active, etc.) so you only see tagged/sent buyers that still meet your criteria. Has no effect on the normal list." style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;background:var(--panel);border:1px solid var(--border);border-radius:6px;cursor:pointer"><input type="checkbox" id="dispo-deal-tagcrit" ' + (flt.tagRespectCriteria ? 'checked' : '') + ' onchange="_dispoSetFilter(\'tagRespectCriteria\', this.checked)" style="cursor:pointer;width:15px;height:15px;margin:0"></label>'
       +   '<button onclick="_dispoClearFilters()" title="Clear all filters" style="flex:0 0 auto;width:30px;height:30px;padding:0;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:12px;cursor:pointer">✕</button>'
       + '</div>';
 

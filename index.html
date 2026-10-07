@@ -27944,19 +27944,26 @@ async function uwBidFillLineItems(){
   if ((hasLines || _edOpen) && !confirm("Rebuild this property's bid sheet from the full Rehab Calculator scope? Checked items come in selected, everything else goes under Additional Line Items. This replaces the current lines (custom lines you added are kept).")) return;
   { const _ov=document.getElementById('uw-bid-overview'); _uwBid.draftOverview = _ov ? _ov.value : ((existing && existing.overview_notes) || _uwBid.draftOverview || ''); }
   const seen = {}; const _haveDesc = new Set();
+  // Map existing saved lines by description so we REUSE their ids on rebuild.
+  // Without this, every rebuild minted fresh ids and orphaned every contractor
+  // quote (quotes are keyed by line id). Reusing the id keeps bids connected.
+  const _existingIdByDesc = {};
+  if (existing && Array.isArray(existing.line_items)) existing.line_items.forEach(l => {
+    if (l && l.id) { const k = String(l.description||'').trim().toLowerCase(); if (k && !_existingIdByDesc[k]) _existingIdByDesc[k] = l.id; }
+  });
   _uwBid.draft = [];
   // 1) The full scope — checked → selected (in its category), unchecked → left off.
   scopeItems.forEach(sc => {
     const desc = String((sc && sc.description) || '').trim(); if (!desc) return;
     const key = desc.toLowerCase(); if (_haveDesc.has(key)) return; _haveDesc.add(key);
-    const id = _uwBidGenId(); seen[id] = 1;
+    const id = _existingIdByDesc[key] || _uwBidGenId(); seen[id] = 1;
     _uwBid.draft.push({ id:id, room:(sc && sc.room) || 'Rehab Scope', description:desc, selected:!!(sc && sc.on), rehab:!!(sc && sc.on) });
   });
   // 2) Standard List items the calculator doesn't have — available (unselected).
   master.forEach(l => {
     const desc = String((l && l.description) || '').trim(); if (!desc) return;
     const key = desc.toLowerCase(); if (_haveDesc.has(key)) return; _haveDesc.add(key);
-    const id = (l && l.id) || _uwBidGenId(); seen[id] = 1;
+    const id = _existingIdByDesc[key] || (l && l.id) || _uwBidGenId(); seen[id] = 1;
     _uwBid.draft.push({ id:id, room:(l && l.room) || 'Other', description:desc, selected:false, rehab:false });
   });
   // 3) Keep any custom lines from the saved sheet (with their stamped budget).
@@ -29727,7 +29734,14 @@ function _uwRenderBidCompare(req, responses){
   // listing/rent (marketing). Same helper the LABB banner uses.
   let _labbDays = (typeof _invRenoTimelineDays==='function') ? _invRenoTimelineDays(_cmpD) : 0;
   if(!_labbDays && _labbTotal>0) _labbDays=Math.ceil(_labbTotal/750);
-  let html = '<div style="font-size:12px;font-weight:700;margin-bottom:8px">📊 Bids — '+(responses.length ? (responses.length+' contractor'+(responses.length===1?'':'s')) : 'no bids yet · share the contractor link to collect quotes')+'</div>';
+  // Detect orphaned quotes (ids no longer on the sheet) to decide whether to
+  // offer the Reconnect button.
+  const _curIdSet = new Set(lines.map(l => l.id));
+  const _hasOrphans = responses.some(r => { const lq = r.line_quotes || {}; return Object.keys(lq).some(k => !_curIdSet.has(k)); });
+  let html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">'
+    + '<div style="font-size:12px;font-weight:700">📊 Bids — '+(responses.length ? (responses.length+' contractor'+(responses.length===1?'':'s')) : 'no bids yet · share the contractor link to collect quotes')+'</div>'
+    + (_hasOrphans ? '<button onclick="uwBidReconnectResponses(\''+req.id+'\')" title="Re-match contractor quotes to your current line items by description (after a bid-sheet rebuild). Anything that can\'t match stays under Custom item bids so its $ is never lost." style="cursor:pointer;font-size:11px;font-weight:700;color:#fff;background:#a855f7;border:none;border-radius:6px;padding:5px 11px;white-space:nowrap">🔗 Reconnect Bids</button>' : '')
+    + '</div>';
   html += '<div class="overflow-auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
   const _lbl = 'text-align:left;padding:6px 9px;color:var(--text-dim);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap';
   const cells = responses.map(r => {
@@ -29800,7 +29814,11 @@ function _uwRenderBidCompare(req, responses){
   // Contractor-added custom items (ids not in the standard line list) — shown above Other lines
   const _lineIds = new Set(lines.map(l => l.id));
   const _customMap = {};
-  responses.forEach(r => { const lq = r.line_quotes || {}; Object.keys(lq).forEach(k => { const q = lq[k]; if (q && q.custom && !_lineIds.has(k)) _customMap[k] = q.description || 'Custom item'; }); });
+  // Include BOTH contractor-added custom items AND orphaned standard quotes
+  // (ids no longer on the sheet after a rebuild) so their $ is never invisible.
+  // Orphaned-but-reconnectable ones carry a description → labeled by it; the
+  // rest show as "Unmatched bid item". Use 🔗 Reconnect to re-match by description.
+  responses.forEach(r => { const lq = r.line_quotes || {}; Object.keys(lq).forEach(k => { const q = lq[k]; if (q && !_lineIds.has(k)) _customMap[k] = q.custom ? (q.description || 'Custom item') : (q.description || 'Unmatched bid item'); }); });
   const _customIds = Object.keys(_customMap);
   html += '<tr><td colspan="'+(responses.length+2)+'" style="padding:9px 10px;background:rgba(168,85,247,0.12);font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#a855f7">➕ Custom item bids</td></tr>';
   if (_customIds.length){
@@ -29822,6 +29840,45 @@ function _uwRenderBidCompare(req, responses){
   wrap.innerHTML = html;
 }
 window._uwRenderBidCompare = _uwRenderBidCompare;
+
+// Reconnect contractor quotes after a bid-sheet rebuild changed the line ids.
+// For each response, any quote keyed to an id that's no longer on the sheet is
+// re-matched to the current line with the same description (case-insensitive).
+// Quotes with no description, or whose description no longer exists, are kept
+// as custom items so their $ is never lost. Persists to bid_responses.
+async function uwBidReconnectResponses(reqId){
+  const dealId = _uwCurrentId;
+  const req = (_uwBid && _uwBid.byDeal) ? _uwBid.byDeal[dealId] : null;
+  if (!req || !Array.isArray(req.line_items)) { if (typeof toast==='function') toast('Open the bid sheet first.','warn'); return; }
+  const responses = (_uwBid.responses && _uwBid.responses[req.id]) ? _uwBid.responses[req.id] : [];
+  if (!responses.length) { if (typeof toast==='function') toast('No contractor bids to reconnect.','warn'); return; }
+  const curIds = new Set(req.line_items.map(l => l && l.id).filter(Boolean));
+  const idByDesc = {};
+  req.line_items.forEach(l => { if (l && l.id) { const k = String(l.description||'').trim().toLowerCase(); if (k && !idByDesc[k]) idByDesc[k] = l.id; } });
+  let remapped = 0, kept = 0;
+  for (const r of responses){
+    const lq = r.line_quotes || {};
+    const next = {};
+    let changed = false;
+    Object.keys(lq).forEach(k => {
+      const q = lq[k];
+      if (!q) return;
+      if (curIds.has(k)) { next[k] = q; return; }           // still valid — leave it
+      const desc = String((q.description)||'').trim().toLowerCase();
+      const targetId = desc ? idByDesc[desc] : null;
+      if (targetId && !next[targetId]) { next[targetId] = q; remapped++; changed = true; }   // re-match by description
+      else { const nq = Object.assign({}, q); nq.custom = true; if (!nq.description) nq.description = 'Unmatched bid item'; next[k] = nq; kept++; changed = true; }
+    });
+    if (changed){
+      r.line_quotes = next;
+      try { if (typeof sb!=='undefined' && sb && r.id) { const { error } = await sb.from('bid_responses').update({ line_quotes: next }).eq('id', r.id); if (error) throw error; } }
+      catch(e){ console.warn('uwBidReconnectResponses:', e); if (typeof toast==='function') toast('Reconnect save failed: '+(e.message||e),'err'); }
+    }
+  }
+  _uwRenderBidCompare(req, responses);
+  if (typeof toast==='function') toast('🔗 Reconnected '+remapped+' line'+(remapped===1?'':'s')+(kept?('; '+kept+' kept as custom'):'')+'.','ok');
+}
+window.uwBidReconnectResponses = uwBidReconnectResponses;
 
 function uwCmpToggleRest(el){
   const tbl = el.closest('table'); if (!tbl) return;

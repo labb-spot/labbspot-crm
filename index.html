@@ -6283,12 +6283,17 @@
          placeholder is the same tight width as a loaded digit (no wide em-dash
          pill, no shift between the placeholder and the real count). -->
     <style>[id^="reno-count-"]{display:inline-block;min-width:16px;text-align:center;box-sizing:border-box;padding:1px 4px}</style>
+    <!-- Contracted — its own separate pill box (like Buyers List in Dispositions),
+         sitting between Connections and the phase tabs. -->
+    <div class="flex items-center gap-0 panel p-1" id="reno-contracted-group" style="flex-shrink:0;width:fit-content;font-size:12px">
+      <div class="subtab subtab-compact" data-reno-subtab="contracted" id="reno-contracted-pill" onclick="setRenoSubtab('contracted')" title="Deals under contract (Accepted / Contracted / Pending) — the same list as Underwriting → Contracted. Open one here to work its Scope.">📝 Contracted <span id="reno-count-contracted" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
+    </div>
     <div class="flex items-center gap-0 panel p-1" id="reno-subtabs" style="flex-shrink:1;min-width:0;width:fit-content;font-size:12px">
       <div class="subtab subtab-compact active" data-reno-subtab="all"          onclick="setRenoSubtab('all')">All <span id="reno-count-all" class="badge ok" style="margin-left:4px;font-size:10px">–</span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="repossession" onclick="setRenoSubtab('repossession')" title="Deals currently in eviction / getting a tenant out.">🚪 Repossession <span id="reno-count-repossession" class="badge bad" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="repossession" onclick="setRenoSubtab('repossession')" title="Deals currently in eviction / getting a tenant out.">🚪 Repossess <span id="reno-count-repossession" class="badge bad" style="margin-left:4px;font-size:10px">–</span></div>
       <div class="subtab subtab-compact" data-reno-subtab="demo"         onclick="setRenoSubtab('demo')" title="Deals currently in demolition + clean out (tear-out work, trash haul-out, odor remediation).">💥 Demolition <span id="reno-count-demo" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
       <div class="subtab subtab-compact" data-reno-subtab="planning"     onclick="setRenoSubtab('planning')" title="Deals currently in the planning + permits phase (or restructure work).">📋 Planning <span id="reno-count-planning" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
-      <div class="subtab subtab-compact" data-reno-subtab="mechanicals"  onclick="setRenoSubtab('mechanicals')" title="Deals currently in mechanicals + exterior shell work (drain/supply/electrical, HVAC, roof, siding, windows, gutters).">⚙️ Mechanicals <span id="reno-count-mechanicals" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
+      <div class="subtab subtab-compact" data-reno-subtab="mechanicals"  onclick="setRenoSubtab('mechanicals')" title="Deals currently in mechanicals + exterior shell work (drain/supply/electrical, HVAC, roof, siding, windows, gutters).">⚙️ MEP's <span id="reno-count-mechanicals" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
       <div class="subtab subtab-compact" data-reno-subtab="cosmetics"    onclick="setRenoSubtab('cosmetics')" title="Deals currently in cosmetics (paint, flooring, fixtures, cabinets).">🎨 Cosmetics <span id="reno-count-cosmetics" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
       <div class="subtab subtab-compact" data-reno-subtab="punch-list"   onclick="setRenoSubtab('punch-list')" title="Deals currently in the final walkthrough / punch list.">✅ Punch List <span id="reno-count-punch-list" class="badge ok" style="margin-left:4px;font-size:10px">–</span></div>
       <div class="subtab subtab-compact" data-reno-subtab="renovated"    onclick="setRenoSubtab('renovated')" title="Deals whose renovation timeline is complete — past the punch list.">🏁 Renovated <span id="reno-count-renovated" class="badge ok" style="margin-left:4px;font-size:10px">–</span></div>
@@ -6352,6 +6357,12 @@
     </div>
   </div>
   </div><!-- /reno-table-wrap -->
+
+  <!-- Contracted view mount — the Underwriting → Contracted panel (#uwview-contracted)
+       is relocated in here while the Renovation "📝 Contracted" subtab is active,
+       then returned to Underwriting when you leave. Reuses that exact table so it
+       looks + behaves identically. -->
+  <div id="reno-contracted-mount" style="display:none"></div>
 
   <!-- Bids sub-view (Properties → 👷 Bids). Lists every contractor bid
        submitted through the public bid form, with property + PDF. -->
@@ -10357,6 +10368,11 @@ let _uwLastListView = 'analyzing';
 let _hrLastSection = null;
 
 function goUwView(v) {
+  // If the Contracted panel is currently borrowed by Renovation, return it
+  // here before Underwriting tries to show it — but NOT for the calculator
+  // view, which is the deal detail the Renovation Contracted view opens into
+  // (releasing there would strip the borrowed state on Back).
+  if (v !== 'calculator' && typeof _renoReleaseContracted === 'function') _renoReleaseContracted();
   // Switching to any non-calculator subtab inside Underwriting means the user
   // is browsing Underwriting normally now — drop the Holdings/Renovation
   // breadcrumb so Back works as expected.
@@ -30102,6 +30118,13 @@ window.uwSetHoldingStageCurrent = function(stage){
 // Click handler for Underwriting subview rows (Closed, Analyzing, etc.).
 // Stays inside Underwriting and switches to the calculator subtab.
 function _hrOpenDeal(id) {
+  // When the Renovation "Contracted" view is active, open the deal INSIDE the
+  // Renovation section (reno header + lines, Scope visible, no workflow-stage
+  // buttons) instead of jumping to Underwriting.
+  if (window._renoContractedActive && typeof _hrOpenInCalculator === 'function') {
+    _hrOpenInCalculator(id, 'renovation');
+    return;
+  }
   const uwSection = document.getElementById('section-underwriting');
   const onUw = uwSection && uwSection.style.display !== 'none';
   if (!onUw && typeof goSection === 'function') {
@@ -30466,6 +30489,9 @@ function _hrMountCalculator(targetSection) {
   }
   if (calc.parentNode !== mount) mount.appendChild(calc);
   if (tableWrap) tableWrap.style.display = 'none';
+  // Also hide the borrowed Contracted list (if open) so only the deal shows.
+  const _ctMount = document.getElementById('reno-contracted-mount');
+  if (_ctMount && window._renoContractedActive) _ctMount.style.display = 'none';
   // Reveal the Budget & Scope folder subtab — only available inside H/R.
   // (Previously was two subtabs; merged into one "Budget & Scope" panel.)
   const budgetBtn = document.querySelector('#uw-folder-subtabs [data-folder-subtab="budget"]');
@@ -30495,6 +30521,13 @@ function _hrUnmountCalculator() {
   // Restore both H/R table panels (we don't know which one was hidden).
   const ht = document.getElementById('hold-table-wrap'); if (ht) ht.style.display = '';
   const rt = document.getElementById('reno-table-wrap'); if (rt) rt.style.display = '';
+  // If we came from the Renovation Contracted view, return there (not the
+  // phase table): re-show the borrowed Contracted list and keep the table hidden.
+  if (window._renoContractedActive) {
+    if (rt) rt.style.display = 'none';
+    const ctMount = document.getElementById('reno-contracted-mount');
+    if (ctMount) ctMount.style.display = '';
+  }
   // Hide the Budget & Scope subtab — not visible inside the Underwriting
   // section. If it was the active tab, snap back to Evaluation so the user
   // lands on a valid view next time the calculator opens from Underwriting.
@@ -30818,11 +30851,25 @@ function _hrFilteredRows(flag, searchInputId) {
 let _renoSubtab = 'all';
 function setRenoSubtab(name) {
   if (typeof name !== 'string') return;
+  // "Contracted" is a special self-contained view: it borrows the Underwriting
+  // Contracted panel (same list + Scope access) instead of the phase table.
+  if (name === 'contracted') {
+    _renoSubtab = name;
+    document.querySelectorAll('#reno-subtabs [data-reno-subtab], #reno-contracted-group [data-reno-subtab]').forEach(el => {
+      el.classList.toggle('active', el.getAttribute('data-reno-subtab') === name);
+    });
+    const _rhf0 = document.getElementById('reno-renovated-holdings-filter');
+    if (_rhf0) _rhf0.style.display = 'none';
+    _renoShowContracted();
+    return;
+  }
+  // Leaving Contracted → hand the borrowed panel back to Underwriting.
+  _renoReleaseContracted();
   _renoSubtab = name;
   // Clicking a phase tab returns to the property table + hides Connections.
   if (typeof setRenoView === 'function') setRenoView('phases');
   // Toggle .active class on the matching subtab — matches Underwriting style.
-  document.querySelectorAll('#reno-subtabs [data-reno-subtab]').forEach(el => {
+  document.querySelectorAll('#reno-subtabs [data-reno-subtab], #reno-contracted-group [data-reno-subtab]').forEach(el => {
     el.classList.toggle('active', el.getAttribute('data-reno-subtab') === name);
   });
   // The In-Holdings / Non-Holdings filter only applies to the Renovated subtab.
@@ -30831,6 +30878,48 @@ function setRenoSubtab(name) {
   if (typeof renderRenovationList === 'function') renderRenovationList();
 }
 window.setRenoSubtab = setRenoSubtab;
+
+// --- Renovation "Contracted" view: borrow the Underwriting Contracted panel ---
+// We physically move the existing #uwview-contracted node into a mount inside
+// the Renovation section while the subtab is active, then move it back. This
+// reuses the exact same table, filters, sorting, and row-open behavior with no
+// duplicated markup. Row clicks call _hrOpenDeal (global) → opens the deal with
+// its Scope section.
+let _renoContractedHome = null;   // { parent, next } remembered on first borrow
+function _renoShowContracted() {
+  const node = document.getElementById('uwview-contracted');
+  const mount = document.getElementById('reno-contracted-mount');
+  if (!node || !mount) return;
+  // Hide the phase table + other reno wraps so only Contracted shows.
+  if (typeof setRenoView === 'function') { /* no-op: handled below */ }
+  const tableWrap = document.getElementById('reno-table-wrap'); if (tableWrap) tableWrap.style.display = 'none';
+  const _bidsWrap = document.getElementById('reno-bids-wrap');  if (_bidsWrap) _bidsWrap.style.display = 'none';
+  const _invWrap  = document.getElementById('reno-invoices-wrap'); if (_invWrap) _invWrap.style.display = 'none';
+  const _propViews = document.getElementById('reno-propviews'); if (_propViews) _propViews.style.display = '';
+  if (window._RENO_VIEW_CONFIG) Object.values(_RENO_VIEW_CONFIG).forEach(cfg => { const w = document.getElementById(cfg.wrap); if (w) w.style.display = 'none'; });
+  // Remember where the node lives so we can return it exactly.
+  if (node.parentNode && node.parentNode !== mount) {
+    _renoContractedHome = { parent: node.parentNode, next: node.nextSibling };
+    mount.appendChild(node);
+  }
+  node.style.display = 'block';
+  mount.style.display = '';
+  window._renoContractedActive = true;   // route row clicks into the reno calculator
+  if (typeof renderUnderwriteList === 'function') { try { renderUnderwriteList(); } catch (e) { console.warn('[renoContracted]', e); } }
+}
+window._renoShowContracted = _renoShowContracted;
+function _renoReleaseContracted() {
+  const node = document.getElementById('uwview-contracted');
+  const mount = document.getElementById('reno-contracted-mount');
+  if (mount) mount.style.display = 'none';
+  if (node && _renoContractedHome && node.parentNode === mount) {
+    node.style.display = 'none';
+    try { _renoContractedHome.parent.insertBefore(node, _renoContractedHome.next); } catch (e) { _renoContractedHome.parent.appendChild(node); }
+  }
+  _renoContractedHome = null;
+  window._renoContractedActive = false;
+}
+window._renoReleaseContracted = _renoReleaseContracted;
 function _renoCycleRenovatedFilter() {
   const order = ['', 'holding', 'non'];
   const labels = { '': '🏁 All Renovated', 'holding': '🏘️ In Holdings', 'non': '🔨 Non-Holdings' };
@@ -31160,6 +31249,11 @@ function _renoUpdateSubtabCounts() {
     // Holdings deals count as Renovated too (reno finished when moved to Holdings).
     const holdN = Object.values(cache.underwrites).filter(u => u && u.data && u.data._holdingStatus === 'holding').length;
     counts.renovated = (counts.renovated || 0) + holdN;
+    // Contracted = same bucket as Underwriting → Contracted (Accepted / Contracted / Pending).
+    counts.contracted = Object.values(cache.underwrites).filter(u => {
+      const os = ((u && u.data && u.data['uw-offer-status']) || '').trim();
+      return os === 'Accepted' || os === 'Contracted' || os === 'Pending';
+    }).length;
   }
   // Resources counts — Contractors / Lenders / Agents (realtors) / Attorneys.
   // Each cache key holds {id: row} so the count is the number of own keys.
@@ -32843,6 +32937,8 @@ window.renoOpenProperties = renoOpenProperties;
 // section, and indirectly by setRenoSubtab (which switches back to 'phases'
 // whenever the user clicks a phase tab).
 function setRenoView(view) {
+  // Leaving the borrowed Contracted panel → return it to Underwriting.
+  if (typeof _renoReleaseContracted === 'function') _renoReleaseContracted();
   // If a deal's calculator is currently open in this section (mounted into
   // reno-calc-mount), close it first — otherwise the deal screen stays on top
   // of whatever view (bids / invoices / phase table / rolodex) you picked.
@@ -32886,6 +32982,8 @@ function setRenoView(view) {
   if (_propsPill)  _propsPill.classList.toggle('active', inProperties);
   if (_connPill)   _connPill.classList.toggle('active', !inProperties);
   if (_phaseTabs)  _phaseTabs.style.display  = inProperties ? '' : 'none';
+  const _ctGroup = document.getElementById('reno-contracted-group');
+  if (_ctGroup)    _ctGroup.style.display    = inProperties ? '' : 'none';
   if (_propViews)  _propViews.style.display  = inProperties ? '' : 'none';
   if (_connSubnav) _connSubnav.style.display = inProperties ? 'none' : '';
 
@@ -38451,6 +38549,8 @@ window.toggleVerifiedFilter = toggleVerifiedFilter;
   if (typeof setRenoSubtab !== 'function' || setRenoSubtab.__withRenoView) return;
   const orig = setRenoSubtab;
   function patched(name) {
+    // Contracted is its own borrowed view — don't force the phase table.
+    if (name === 'contracted') { return orig.apply(this, arguments); }
     if (_renoActiveView !== 'phases') {
       _renoActiveView = 'phases';
       const tableWrap = document.getElementById('reno-table-wrap');

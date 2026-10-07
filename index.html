@@ -50632,6 +50632,10 @@ async function loadAllFromDB() {
   if (typeof _labRatesHydrateFromCloud === 'function') _labRatesHydrateFromCloud();
   // Custom rehab items / groups / auto rules — same cloud->local pattern.
   if (typeof _rcUserCustomHydrateFromCloud === 'function') _rcUserCustomHydrateFromCloud();
+  // Authoritative team-version pull — fresh DB read (not the cached snapshot),
+  // applies + reloads if a newer/different team version exists. This is the
+  // reliable backstop for the boot-snapshot check above.
+  if (typeof _rcCheckTeamForce === 'function') _rcCheckTeamForce();
 }
 
 // --------- Rendering ---------
@@ -62717,6 +62721,30 @@ function _rcUserCustomHydrateFromCloud() {
     }
   } catch (_) {}
 }
+
+// Authoritative team-version check: reads app_config FRESH from the database
+// (not the cached boot snapshot, which can be stale) and, if the cloud's team
+// version differs from what this device last applied, copies the cloud master
+// EXACTLY into localStorage and reloads. Shows a short toast so the result is
+// visible. Safe to call anytime after the cloud client (sb) is ready.
+window._rcCheckTeamForce = async function(){
+  if (typeof sb === 'undefined' || !sb) return;
+  let data = null;
+  try { const r = await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle(); data = r.data; if (r.error) throw r.error; }
+  catch (e) { console.warn('[_rcCheckTeamForce]', e); return; }
+  const map = (data && data.column_mappings) || {};
+  const cloudForce = Number(map.rehab_force_version || 0);
+  const appliedForce = Number(localStorage.getItem(RC_FORCE_APPLIED_KEY) || 0);
+  if (!(cloudForce > 0)) return;                 // no team version pushed yet
+  if (cloudForce === appliedForce) return;       // already on this version
+  // Pull the master in EXACTLY.
+  const K = { rehab_user_items:USER_ITEMS_KEY, rehab_user_groups:USER_GROUPS_KEY, rehab_group_order:USER_ORDER_KEY, rehab_user_auto:USER_AUTO_KEY, rehab_user_renames:USER_RENAMES_KEY, rehab_item_renames:USER_ITEM_RENAMES_KEY, rehab_user_trash:USER_TRASH_KEY };
+  Object.keys(K).forEach(ck => { const v = map[ck]; try { if (v != null) localStorage.setItem(K[ck], JSON.stringify(v)); else localStorage.removeItem(K[ck]); } catch(_){} });
+  try { if (typeof _UW_REHAB_PRICEBOOK_KEY !== 'undefined' && map.rehab_price_book != null) localStorage.setItem(_UW_REHAB_PRICEBOOK_KEY, JSON.stringify(map.rehab_price_book)); } catch(_){}
+  try { localStorage.setItem(RC_FORCE_APPLIED_KEY, String(cloudForce)); } catch(_){}
+  try { if (typeof toast === 'function') toast('⬇ Pulling team version — updating this device…', 'ok'); } catch(_){}
+  setTimeout(function(){ location.reload(); }, 400);
+};
 window._rcUserCustomHydrateFromCloud = _rcUserCustomHydrateFromCloud;
 
 // ----- Force-push this device's ENTIRE rehab customization set to the cloud -----

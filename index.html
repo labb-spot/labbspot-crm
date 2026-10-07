@@ -36891,7 +36891,7 @@ function buyerRenderPerDealPanel() {
         // but when the "respect criteria" checkbox (flt.tagRespectCriteria) is
         // on, those filters DO apply, so you see only tagged buyers that still
         // meet your current criteria. The search box always narrows.
-        const respect = !!flt.tagRespectCriteria;
+        const respect = (flt.tagRespectCriteria !== false);   // default ON
         const byId = {};
         ctx.rankedAll.forEach(r => { byId[r.b.id] = r; });
         ranked = [];
@@ -37229,7 +37229,7 @@ function buyerRenderPerDealPanel() {
       +     '<option value="24mo"'  + (flt.active === '24mo'  ? ' selected' : '') + '>Active 24mo</option>'
       +     '<option value="36mo"'  + (flt.active === '36mo'  ? ' selected' : '') + '>Active 36mo</option>'
       +   '</select>'
-      +   '<label title="When ON, the 🏷 Tagged Buyers and ✉ Sent Packet views also apply all your filters above (distance, acqs, active, etc.) so you only see tagged/sent buyers that still meet your criteria. Has no effect on the normal list." style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;background:var(--panel);border:1px solid var(--border);border-radius:6px;cursor:pointer"><input type="checkbox" id="dispo-deal-tagcrit" ' + (flt.tagRespectCriteria ? 'checked' : '') + ' onchange="_dispoSetFilter(\'tagRespectCriteria\', this.checked)" style="cursor:pointer;width:15px;height:15px;margin:0"></label>'
+      +   '<label title="When ON, the 🏷 Tagged Buyers and ✉ Sent Packet views also apply all your filters above (distance, acqs, active, etc.) so you only see tagged/sent buyers that still meet your criteria. Has no effect on the normal list." style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;background:var(--panel);border:1px solid var(--border);border-radius:6px;cursor:pointer"><input type="checkbox" id="dispo-deal-tagcrit" ' + (flt.tagRespectCriteria !== false ? 'checked' : '') + ' onchange="_dispoSetFilter(\'tagRespectCriteria\', this.checked)" style="cursor:pointer;width:15px;height:15px;margin:0"></label>'
       +   '<button onclick="_dispoClearFilters()" title="Clear all filters" style="flex:0 0 auto;width:30px;height:30px;padding:0;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:12px;cursor:pointer">✕</button>'
       + '</div>';
 

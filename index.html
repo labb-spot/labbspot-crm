@@ -62111,7 +62111,28 @@ window._rcAddCustomItem = function(groupIdx){
   _rcSaveUserGroups();
   recalc();
 };
-window._rcDeleteCustomItem = function(itemName){
+window._rcDeleteCustomItem = function(itemName, fromGroupName){
+  // Partial removal: if the item belongs to MORE THAN ONE section and a specific
+  // section was given, only remove it from THAT section — the item (and its other
+  // section memberships) stay. Only a delete from the item's LAST section fully
+  // removes it (moving it to Trash). This fixes "delete in one section deletes it
+  // from both" when the same item lives in Cosmetics AND Exterior.
+  try {
+    const _memberGroups = (typeof basicGroups !== 'undefined')
+      ? basicGroups.filter(g => g && Array.isArray(g.items) && g.items.includes(itemName))
+      : [];
+    if (fromGroupName && _memberGroups.length > 1) {
+      const g = basicGroups.find(bg => bg && bg.n === fromGroupName);
+      if (g) {
+        const i = g.items.indexOf(itemName); if (i >= 0) g.items.splice(i, 1);
+        if (g.auto) { const ai = g.auto.indexOf(itemName); if (ai >= 0) g.auto.splice(ai, 1); }
+      }
+      _rcSaveUserGroups();
+      _rcSaveUserAuto();
+      recalc();
+      return;
+    }
+  } catch (e) { console.warn('[_rcDeleteCustomItem partial]', e); }
   // Soft-delete: capture the item + its group memberships, then move to Trash so
   // it can be restored later (instead of destroying it outright).
   let removedCat = null, removedItem = null;
@@ -63179,7 +63200,7 @@ function renderBasic(){
         const userBadge = isUserItem ? `<span style="font-size:9px;color:#fcd34d;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);padding:0 4px;border-radius:3px;font-weight:700;font-family:monospace;flex-shrink:0" title="Custom item you added. Persisted in this browser's localStorage.">CUSTOM</span>` : '';
         const deleteBtn = (labMode && labEditMode)
           ? (isUserItem
-              ? `<button type="button" data-delete-custom-item="${name.replace(/"/g,'&quot;')}" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:2px 6px;flex-shrink:0;line-height:1;font-weight:700" title="Delete this custom item">✕</button>`
+              ? `<button type="button" data-delete-custom-item="${name.replace(/"/g,'&quot;')}" data-delete-custom-group="${String(g.n||'').replace(/"/g,'&quot;')}" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:2px 6px;flex-shrink:0;line-height:1;font-weight:700" title="Delete this custom item from this section">✕</button>`
               : `<button type="button" data-delete-builtin-cat="${f.cat}" data-delete-builtin-idx="${itemIdx}" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:2px 6px;flex-shrink:0;line-height:1;font-weight:700" title="Delete this built-in item (stays hidden across reloads; use Reset to restore)">✕</button>`)
           : '';
         // AUTO/OPTIONAL toggle — shown in Edit Mode for ALL items (built-in + custom).
@@ -63754,8 +63775,17 @@ _rcRoot.addEventListener('click', e=>{
     e.stopPropagation();
     e.preventDefault();
     const name = delBtn.getAttribute('data-delete-custom-item');
-    if(name && confirm('Delete custom item: ' + name + '?')){
-      window._rcDeleteCustomItem && window._rcDeleteCustomItem(name);
+    const grp  = delBtn.getAttribute('data-delete-custom-group') || '';
+    if(name){
+      // If this item is in more than one section, deleting here only removes it
+      // from THIS section (it stays in the others). If it's the last section,
+      // it's fully deleted (moved to Trash).
+      let _multi = false;
+      try { _multi = (typeof basicGroups !== 'undefined') && basicGroups.filter(g => g && Array.isArray(g.items) && g.items.includes(name)).length > 1; } catch(_){}
+      const _msg = (_multi && grp)
+        ? 'Remove "' + name + '" from this section (' + grp + ')? It will stay in its other sections.'
+        : 'Delete custom item: ' + name + '?';
+      if (confirm(_msg)) window._rcDeleteCustomItem && window._rcDeleteCustomItem(name, grp);
     }
     return;
   }

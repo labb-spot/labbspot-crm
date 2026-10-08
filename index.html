@@ -4475,6 +4475,7 @@
           <button type="button" id="rc-lab-edit-btn" onclick="window._rcToggleLabEditMode && window._rcToggleLabEditMode()" class="btn btn-ghost text-xs" style="display:none;padding:4px 10px;font-size:11px;font-weight:600" title="Toggle LAB Custom Edit Mode — unlocks rate cells for editing">🔒 Edit Mode: OFF</button>
           <button type="button" id="rc-edit-presets-btn" onclick="window._rcTogglePresetEdit && window._rcTogglePresetEdit()" class="btn btn-ghost text-xs" style="padding:4px 10px;font-size:11px;font-weight:600;border-color:#a855f7;color:#c4b5fd" title="Edit what's in each Quick Preset. GLOBAL — the change applies to every deal and every employee. Click this, pick a preset, check the items you want in it, then 💾 Save Quick Preset.">✏️ Edit Quick Presets</button>
           <button type="button" id="rc-sync-all" onclick="window._rcPushTeamVersion && window._rcPushTeamVersion()" class="btn btn-ghost text-xs" style="padding:4px 10px;font-size:11px;font-weight:600;border-color:#22d3ee;color:#67e8f9" title="Make every other device (iPad, employees, your other computer) match THIS device exactly — including any items you deleted — on their next refresh. Use this from the device that's 100% correct.">⬆ Push Team Version</button>
+          <button type="button" id="rc-fha-btn" onclick="window._fhaOpen && window._fhaOpen()" class="btn btn-ghost text-xs" style="padding:4px 10px;font-size:11px;font-weight:600;border-color:#34d399;color:#6ee7b7" title="FHA checklist — tick off the Minimum Property Requirements to see if this property is likely to pass an FHA appraisal. Saved per property.">📋 FHA</button>
         </div>
       </div>
 
@@ -62871,6 +62872,87 @@ window._rcPushTeamVersion = function(){
     if (ok) { if (typeof toast === 'function') toast('Pushed ✓ — every other device will match this one automatically on its next refresh.', 'ok'); else alert('Pushed! Others will match on next refresh.'); }
     else { if (typeof toast === 'function') toast('Sent, but could not confirm the write — your database may be blocking saves.', 'err'); else alert('Sent, but could not confirm the save.'); }
   }).catch(e => { if (btn){ btn.disabled = false; btn.textContent = btn.dataset.label || '⬆ Push Team Version'; } alert('Push failed: ' + (e && e.message || 'unknown')); });
+};
+// ===== FHA Minimum Property Requirements checklist (per property) =====
+// Checkmarks save to the open deal's data._fhaChecklist and sync across devices.
+window._FHA_GROUPS = [
+  { g: 'Safety', items: [['handrails','Handrails on stairs with 3+ steps'],['detectors','Smoke / CO detectors'],['wiring','No exposed wiring'],['covers','Outlet & box covers on']] },
+  { g: 'Paint (pre-1978)', items: [['paint_in','No peeling paint — inside'],['paint_out','No peeling paint — outside'],['paint_outb','No peeling paint — outbuildings']] },
+  { g: 'Roof & Structure', items: [['roof','Roof: no leaks, 2+ yrs life'],['shingles','No more than 3 shingle layers'],['foundation','Foundation sound'],['crawl','Crawlspace dry & accessible'],['grade','Grades away from foundation']] },
+  { g: 'Systems', items: [['heat','Heat works (holds ~50°F)'],['wh','Water heater: relief valve + drain pipe'],['plumb','Plumbing works, no leaks'],['water','Potable running water'],['elec','Electric functional']] },
+  { g: 'Utilities & Access', items: [['u_water','Water on'],['u_gas','Gas on'],['u_elec','Electric on'],['access','Safe driveway / walkway']] },
+  { g: 'Livability', items: [['kitchen','Functional kitchen (range if lender requires)'],['egress','Bedroom egress windows'],['builtins','Built-in appliances work'],['locks','Exterior doors lock'],['windows','Windows intact (none boarded)']] },
+  { g: 'Hazards', items: [['pests','No active termites/pests (WDO if required)'],['standing','No standing water'],['asbestos','No asbestos/lead hazards']] }
+];
+window._fhaTotal = function(){ let n=0; window._FHA_GROUPS.forEach(gr=>n+=gr.items.length); return n; };
+window._fhaGetState = function(){
+  try {
+    const id = (typeof _uwCurrentId!=='undefined') ? _uwCurrentId : null;
+    const u = id && cache.underwrites ? cache.underwrites[id] : null;
+    return (u && u.data && u.data._fhaChecklist && typeof u.data._fhaChecklist==='object') ? u.data._fhaChecklist : {};
+  } catch(_){ return {}; }
+};
+window._fhaSave = async function(state){
+  const id = (typeof _uwCurrentId!=='undefined') ? _uwCurrentId : null;
+  if (!id || !cache.underwrites || !cache.underwrites[id]) return;
+  const u = cache.underwrites[id];
+  u.data = u.data || {};
+  u.data._fhaChecklist = state;
+  try {
+    let r = await sb.from('underwrites').update({ data: u.data, updated_session: _UW_SESSION_ID }).eq('id', id).select().maybeSingle();
+    if (r.error && /updated_session/i.test(r.error.message||'')) r = await sb.from('underwrites').update({ data: u.data }).eq('id', id).select().maybeSingle();
+    if (r.error) throw r.error;
+  } catch(e){ console.warn('_fhaSave:', e); if (typeof toast==='function') toast('FHA save failed: '+(e.message||e),'err'); }
+};
+window._fhaOpen = function(){
+  const id = (typeof _uwCurrentId!=='undefined') ? _uwCurrentId : null;
+  if (!id){ if (typeof toast==='function') toast('Open a property first to run its FHA checklist.','warn'); return; }
+  const esc = (s)=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const state = Object.assign({}, window._fhaGetState());
+  const prev = document.getElementById('fha-modal'); if (prev) prev.remove();
+  const ov = document.createElement('div');
+  ov.id = 'fha-modal';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100004;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px';
+  const body = window._FHA_GROUPS.map(gr =>
+    '<div style="margin-top:12px"><div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#34d399;margin-bottom:5px">'+esc(gr.g)+'</div>'
+    + gr.items.map(it =>
+        '<label style="display:flex;align-items:center;gap:9px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;margin-bottom:5px;cursor:pointer;background:var(--panel-2)">'
+        + '<input type="checkbox" class="fha-cb" data-k="'+it[0]+'" '+(state[it[0]]?'checked':'')+' style="width:17px;height:17px;cursor:pointer;accent-color:#10b981;flex-shrink:0">'
+        + '<span style="font-size:13px;color:var(--text)">'+esc(it[1])+'</span></label>'
+      ).join('')
+    + '</div>'
+  ).join('');
+  ov.innerHTML =
+      '<div style="width:min(560px,96vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;box-shadow:0 16px 50px rgba(0,0,0,0.5)">'
+    +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-weight:800;font-size:16px">📋 FHA Checklist</div><button id="fha-x" style="background:none;border:none;color:var(--text-dim);font-size:22px;line-height:1;cursor:pointer">×</button></div>'
+    +   '<div id="fha-verdict" style="font-size:13px;font-weight:700;margin-bottom:6px"></div>'
+    +   body
+    +   '<div style="margin-top:14px;padding:10px 12px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.35);border-radius:8px;font-size:11px;color:#fbbf24;line-height:1.5">'
+    +     '⚠️ <b>FHA flip rule:</b> a buyer can’t use FHA financing until you’ve owned it 90+ days. On days 91–180, a <b>second appraisal</b> may be required if your resale is 100%+ over what you paid. General guide only — confirm with your lender; this checklist is not an FHA determination.'
+    +   '</div>'
+    +   '<div style="display:flex;justify-content:flex-end;margin-top:12px"><button id="fha-done" style="padding:7px 16px;border:none;background:var(--brand);color:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">Done</button></div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  const total = window._fhaTotal();
+  function paintVerdict(){
+    const passed = Object.keys(state).filter(k=>state[k]).length;
+    const el = ov.querySelector('#fha-verdict'); if (!el) return;
+    const allGood = passed === total;
+    el.innerHTML = '<span style="color:'+(allGood?'#10b981':'var(--text-dim)')+'">'+passed+' of '+total+' passed</span> · '
+      + (allGood ? '<span style="color:#10b981">✓ Likely passes FHA</span>' : '<span style="color:#fbbf24">'+(total-passed)+' item'+((total-passed)===1?'':'s')+' need work</span>');
+  }
+  paintVerdict();
+  let _saveT = null;
+  ov.querySelectorAll('.fha-cb').forEach(cb => cb.addEventListener('change', function(){
+    state[this.getAttribute('data-k')] = this.checked;
+    paintVerdict();
+    if (_saveT) clearTimeout(_saveT);
+    _saveT = setTimeout(()=>{ window._fhaSave(Object.assign({}, state)); }, 500);
+  }));
+  function close(){ if (_saveT){ clearTimeout(_saveT); } window._fhaSave(Object.assign({}, state)); ov.remove(); }
+  ov.querySelector('#fha-x').onclick = close;
+  ov.querySelector('#fha-done').onclick = close;
+  ov.addEventListener('click', e=>{ if (e.target===ov) close(); });
 };
 window._rcToggleAutoForItem = function(groupIdx, itemName){
   const g = basicGroups[groupIdx];

@@ -14362,7 +14362,7 @@ function uwComputeExits(ctx) {
   // exceed this regardless of what the user types in the input.
   const RF_LTV_CAP_PCT = 70;
   const rfLtvPct  = Math.min(RF_LTV_CAP_PCT, _wtVal('uw-rt-br-ltv', 70));
-  const rfRatePct = _wtVal('uw-rt-br-rate',  6.5);
+  const rfRatePct = _wtVal('uw-rt-br-rate',  _finDef('dscr_rate',6.5));
   const rfYrs     = _wtVal('uw-rt-br-yrs',  30);
   // DSCR refi fee structure — same shared inputs as Financed Rental.
   const rfClosePct = _wtVal('uw-rt-rf-close-pct',     1);
@@ -19012,6 +19012,7 @@ window._finOverwriteAll = async function(){
   const dd = window._finReadInputs();
   const map = {
     'uw-loan-rate': dd.dscr_rate,
+    'uw-rt-br-rate': dd.dscr_rate,
     'uw-rt-dscr-orig-pct': dd.dscr_points,
     'uw-wt-hm-rate': dd.hml_rate, 'uw-rt-rf-hm-rate': dd.hml_rate, 'uw-fl-hm-rate': dd.hml_rate,
     'uw-wt-hm-orig': dd.hml_points, 'uw-rt-rf-hm-orig': dd.hml_points, 'uw-fl-hm-orig': dd.hml_points

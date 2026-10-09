@@ -9678,6 +9678,21 @@
         <button class="btn btn-ghost" onclick="closeModal('modal-settings')">✕</button>
       </div>
     </div>
+    <div class="mb-4" style="border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--panel-2)">
+      <div class="font-semibold mb-1">💵 Financing defaults</div>
+      <div class="text-xs text-[var(--text-dim)] mb-3">Your standard loan terms. These are used on every deal where you haven't typed a custom value. Changing one updates all those deals automatically.</div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+        <label class="text-xs">DSCR / Refi rate %<input type="number" step="0.1" id="settings-fin-dscr-rate" placeholder="6.5" style="width:100%;margin-top:4px"></label>
+        <label class="text-xs">DSCR points %<input type="number" step="0.1" id="settings-fin-dscr-points" placeholder="2" style="width:100%;margin-top:4px"></label>
+        <label class="text-xs">Hard money rate %<input type="number" step="0.1" id="settings-fin-hml-rate" placeholder="12" style="width:100%;margin-top:4px"></label>
+        <label class="text-xs">Hard money points %<input type="number" step="0.1" id="settings-fin-hml-points" placeholder="2" style="width:100%;margin-top:4px"></label>
+      </div>
+      <div class="text-xs text-[var(--text-dim)] mt-2" id="settings-fin-status" style="min-height:14px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn btn-primary text-sm" onclick="_finSaveDefaults()" title="Save these as your defaults. Every deal that doesn't have its own custom value will use them.">💾 Save defaults</button>
+        <button class="btn btn-ghost text-sm" onclick="_finOverwriteAll()" style="border:1px solid rgba(248,113,113,0.4);color:#f87171" title="Force these exact numbers onto EVERY deal — including deals where you typed a custom rate. This overwrites per-deal values and can't be undone.">⚠ Overwrite all deals</button>
+      </div>
+    </div>
     <div class="mb-4">
       <div class="font-semibold mb-2">Geocoding provider</div>
       <div class="text-xs text-[var(--text-dim)] mb-3">Pick one. Selecting one turns the other off automatically.</div>
@@ -12995,7 +13010,7 @@ function uwRecalc() {
       ? '$' + Math.round(rent).toLocaleString() + '/mo total — used by all rental exits.'
       : '$' + Math.round(perUnitRent).toLocaleString() + '/mo per unit × ' + _uwUnits + ' units = $' + Math.round(rent).toLocaleString() + '/mo total — used by all rental exits.';
   })();
-  const loanRate = _uwGetN('uw-loan-rate') || 6.5;
+  const loanRate = _uwGetN('uw-loan-rate') || (window._finDef? _finDef('dscr_rate',6.5):6.5);
   const loanYrs = _uwGetN('uw-loan-yrs') || 30;
 
   // ===== MATCH USER'S SHEET — all costs based on ARV, not loan =====
@@ -14025,8 +14040,8 @@ function uwComputeExits(ctx) {
   // Interest AND origination are both charged on the financed (loan) amount.
   const wtPurchFinPct = _wtVal('uw-wt-purch-fin-pct', 100); // % of purchase financed
   const wtRenoFinPct  = _wtVal('uw-wt-reno-fin-pct', 100);  // % of reno financed
-  const wtFinRatePct = _wtVal('uw-wt-hm-rate', 12);
-  const wtFinOrigPct = _wtVal('uw-wt-hm-orig',  2);
+  const wtFinRatePct = _wtVal('uw-wt-hm-rate', _finDef('hml_rate',12));
+  const wtFinOrigPct = _wtVal('uw-wt-hm-orig',  _finDef('hml_points',2));
   const WT_FIN_ARV_CAP_PCT = _wtVal('uw-wt-arv-cap-pct', 70); // editable HM/PM lender ceiling
   const wtFinBaseCost  = buyPrice + wholetailRehab + wholetailHolding + wtPurchClosingTotal;
   const wtFinLoanByFin = Math.max(0, buyPrice * (wtPurchFinPct / 100) + wholetailRehab * (wtRenoFinPct / 100));
@@ -14182,12 +14197,12 @@ function uwComputeExits(ctx) {
   // lender's max LTV (70% of ARV, same cap as the Refi tab).
   const FIN_LTV_CAP_PCT = _wtVal('uw-rt-dscr-ltv-cap', 70); // editable DSCR loan cap (Financed + Turn Key)
   const finDownPct = _wtVal('uw-rt-down-pct', 0);
-  const finRatePct = _wtVal('uw-loan-rate',   6.5);
+  const finRatePct = _wtVal('uw-loan-rate',   _finDef('dscr_rate',6.5));
   const finYrs     = _wtVal('uw-loan-yrs',    30);
   // DSCR loan fee structure — shared between Financed Rental + Refinanced Rental.
   // Inputs let the user tune per-deal; defaults are realistic for Non-QM investor
   // loans (origination ~2%, closing ~1%, flat UW+appraisal ~$2k).
-  const finOrigPct      = _wtVal('uw-rt-dscr-orig-pct', 2);
+  const finOrigPct      = _wtVal('uw-rt-dscr-orig-pct', _finDef('dscr_points',2));
   const finClosePct     = _wtVal('uw-rt-rf-close-pct',  1);
   const uwAppraisalFee  = _wtVal('uw-rt-uw-appraisal-fee', 2000);
   // Pre-rent holding mirrors the FLIP holding model (elec + water + builder's
@@ -14298,8 +14313,8 @@ function uwComputeExits(ctx) {
   // Capital LEFT IN = (cash you put up in phase 1) - (cash returned by refi).
   // ----- Phase 1: HM/PM hold -----
   const rfHmLtvPct  = _wtVal('uw-rt-rf-hm-ltv', 70);
-  const rfHmRatePct = _wtVal('uw-rt-rf-hm-rate', 12);
-  const rfHmOrigPct = _wtVal('uw-rt-rf-hm-orig',  2);
+  const rfHmRatePct = _wtVal('uw-rt-rf-hm-rate', _finDef('hml_rate',12));
+  const rfHmOrigPct = _wtVal('uw-rt-rf-hm-orig',  _finDef('hml_points',2));
   const rfPurchFinPct = _wtVal('uw-rt-rf-purch-fin-pct', 100); // % of purchase the bridge finances
   const rfRenoFinPct  = _wtVal('uw-rt-rf-reno-fin-pct', 100);  // % of reno the bridge finances
   // Stabilization months = renovation + rent-up. The legacy rt-rf-stab-mo
@@ -14351,7 +14366,7 @@ function uwComputeExits(ctx) {
   const rfYrs     = _wtVal('uw-rt-br-yrs',  30);
   // DSCR refi fee structure — same shared inputs as Financed Rental.
   const rfClosePct = _wtVal('uw-rt-rf-close-pct',     1);
-  const rfOrigPct  = _wtVal('uw-rt-dscr-orig-pct',    2);
+  const rfOrigPct  = _wtVal('uw-rt-dscr-orig-pct',    _finDef('dscr_points',2));
   const rfUwFee    = _wtVal('uw-rt-uw-appraisal-fee', 2000);
   // SMART REFI LOAN SIZING: take only what you need to pull all your initial
   // capital back out — never borrow more. Borrowing extra creates dead P&I
@@ -14645,8 +14660,8 @@ function uwComputeExits(ctx) {
   // Interest AND origination are both charged on the financed (loan) amount.
   const flPurchFinPct = _flVal('uw-fl-purch-fin-pct', 100); // % of purchase financed
   const flRenoFinPct  = _flVal('uw-fl-reno-fin-pct', 100);  // % of reno financed
-  const flHmRatePct = _flVal('uw-fl-hm-rate', 12);
-  const flHmOrigPct = _flVal('uw-fl-hm-orig',  2);
+  const flHmRatePct = _flVal('uw-fl-hm-rate', _finDef('hml_rate',12));
+  const flHmOrigPct = _flVal('uw-fl-hm-orig',  _finDef('hml_points',2));
   const FL_HM_ARV_CAP_PCT = _flVal('uw-fl-arv-cap-pct', 70); // editable HM/PM lender ceiling
   const flHmDownFromPurch = buyPrice * (1 - flPurchFinPct / 100); // un-financed purchase portion
   const flBaseCost  = buyPrice + flipRehabAmt + flPurchClosingTotal + flipHolding;
@@ -18945,6 +18960,77 @@ function _uwCfgMerge(patch) {
   return _uwCfgQueue;
 }
 window._uwCfgMerge = _uwCfgMerge;
+
+// ===== Global financing defaults =====
+// Stored in app_config.column_mappings.fin_defaults = { dscr_rate, dscr_points,
+// hml_rate, hml_points }. Used as the fallback on every deal where the matching
+// rate field is left blank, so one setting drives all deals on the default.
+window._finDefaults = function(){
+  try { const d = (cache && cache.config && cache.config.column_mappings && cache.config.column_mappings.fin_defaults); return (d && typeof d==='object') ? d : {}; }
+  catch(_){ return {}; }
+};
+window._finDef = function(key, fallback){
+  const d = window._finDefaults(); const v = parseFloat(d[key]);
+  return (d[key] !== '' && d[key] != null && isFinite(v)) ? v : fallback;
+};
+window._finLoadSettings = function(){
+  const d = window._finDefaults();
+  const set = (id,k)=>{ const el=document.getElementById(id); if(el) el.value=(d[k]!=null?d[k]:''); };
+  set('settings-fin-dscr-rate','dscr_rate'); set('settings-fin-dscr-points','dscr_points');
+  set('settings-fin-hml-rate','hml_rate'); set('settings-fin-hml-points','hml_points');
+  const st=document.getElementById('settings-fin-status'); if(st) st.textContent='';
+};
+window._finReadInputs = function(){
+  const g = id => { const el=document.getElementById(id); const v=el?String(el.value).trim():''; return v===''?'':parseFloat(v); };
+  return { dscr_rate:g('settings-fin-dscr-rate'), dscr_points:g('settings-fin-dscr-points'), hml_rate:g('settings-fin-hml-rate'), hml_points:g('settings-fin-hml-points') };
+};
+window._finSaveDefaults = async function(){
+  const st = document.getElementById('settings-fin-status');
+  if (typeof sb==='undefined' || !sb){ if(st){st.textContent='Not connected — not saved.';st.style.color='#f87171';} return false; }
+  const payload = window._finReadInputs();
+  try {
+    const sel = await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle();
+    if (sel.error) throw sel.error;
+    const m = (sel.data && sel.data.column_mappings && typeof sel.data.column_mappings==='object') ? sel.data.column_mappings : {};
+    m.fin_defaults = payload;
+    const upd = await sb.from('app_config').update({ column_mappings:m, updated_at:new Date().toISOString() }).eq('id',1).select('id');
+    if (upd.error) throw upd.error;
+    if (!upd.data || !upd.data.length) throw new Error('no app_config row (id=1)');
+    if (cache && cache.config) cache.config.column_mappings = m;
+    if (st){ st.textContent='✓ Saved — every deal on the default now uses these.'; st.style.color='#10b981'; }
+    try { if (typeof uwRecalc==='function') uwRecalc(); } catch(_){}
+    return true;
+  } catch(e){ if(st){ st.textContent='Save failed: '+((e&&e.message)||e); st.style.color='#f87171'; } return false; }
+};
+window._finOverwriteAll = async function(){
+  const st = document.getElementById('settings-fin-status');
+  if (typeof sb==='undefined' || !sb){ if(st){st.textContent='Not connected.';st.style.color='#f87171';} return; }
+  if (!confirm('Overwrite the financing rates on EVERY deal with these numbers?\n\nThis replaces any custom per-deal rates you set, and it cannot be undone.')) return;
+  // Save as defaults first so new/empty deals match too.
+  const ok = await window._finSaveDefaults();
+  if (!ok) return;
+  const dd = window._finReadInputs();
+  const map = {
+    'uw-loan-rate': dd.dscr_rate,
+    'uw-rt-dscr-orig-pct': dd.dscr_points,
+    'uw-wt-hm-rate': dd.hml_rate, 'uw-rt-rf-hm-rate': dd.hml_rate, 'uw-fl-hm-rate': dd.hml_rate,
+    'uw-wt-hm-orig': dd.hml_points, 'uw-rt-rf-hm-orig': dd.hml_points, 'uw-fl-hm-orig': dd.hml_points
+  };
+  const ids = Object.keys(cache.underwrites||{});
+  let done=0, fail=0;
+  for (const id of ids){
+    const u = cache.underwrites[id]; if(!u) continue; u.data=u.data||{};
+    Object.keys(map).forEach(k=>{ const val=map[k]; if(val!=='' && val!=null && isFinite(val)) u.data[k]=String(val); });
+    try {
+      let r = await sb.from('underwrites').update({ data:u.data, updated_session:_UW_SESSION_ID }).eq('id',id).select('id').maybeSingle();
+      if (r.error && /updated_session/i.test(r.error.message||'')) r = await sb.from('underwrites').update({ data:u.data }).eq('id',id).select('id').maybeSingle();
+      if (r.error) throw r.error; done++;
+    } catch(e){ fail++; console.warn('_finOverwriteAll', id, e); }
+    if (st){ st.textContent='Overwriting… '+(done+fail)+'/'+ids.length+(fail?(' · '+fail+' failed'):''); st.style.color='var(--text-dim)'; }
+  }
+  if (st){ st.textContent='✓ Overwrote '+done+' deal'+(done===1?'':'s')+(fail?(' · '+fail+' failed'):'')+'. Reopen a deal to see it.'; st.style.color=fail?'#f59e0b':'#10b981'; }
+  try { if (typeof uwRecalc==='function') uwRecalc(); } catch(_){}
+};
 
 function _uwRehabPriceBookSyncToCloud() {
   if (typeof sb === 'undefined' || !sb) return;
@@ -53342,6 +53428,7 @@ function openSettings() {
   if (keyEl) keyEl.value = (typeof GMAPS_KEY !== 'undefined' ? GMAPS_KEY : '') || '';
   const dbInfo = document.getElementById('settings-db-info');
   if (dbInfo && typeof SUPABASE_URL !== 'undefined') dbInfo.textContent = `Connected: ${SUPABASE_URL}`;
+  if (typeof _finLoadSettings === 'function') _finLoadSettings();
   renderFlagEditor();
   openModal('modal-settings');
 }

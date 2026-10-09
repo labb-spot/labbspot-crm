@@ -19018,14 +19018,19 @@ window._finOverwriteAll = async function(){
   };
   const ids = Object.keys(cache.underwrites||{});
   let done=0, fail=0;
-  for (const id of ids){
-    const u = cache.underwrites[id]; if(!u) continue; u.data=u.data||{};
+  const one = async (id) => {
+    const u = cache.underwrites[id]; if(!u) return; u.data=u.data||{};
     Object.keys(map).forEach(k=>{ const val=map[k]; if(val!=='' && val!=null && isFinite(val)) u.data[k]=String(val); });
     try {
       let r = await sb.from('underwrites').update({ data:u.data, updated_session:_UW_SESSION_ID }).eq('id',id).select('id').maybeSingle();
       if (r.error && /updated_session/i.test(r.error.message||'')) r = await sb.from('underwrites').update({ data:u.data }).eq('id',id).select('id').maybeSingle();
       if (r.error) throw r.error; done++;
     } catch(e){ fail++; console.warn('_finOverwriteAll', id, e); }
+  };
+  // Run in parallel batches so 2,800 deals don't crawl one-by-one.
+  const BATCH = 40;
+  for (let i=0;i<ids.length;i+=BATCH){
+    await Promise.all(ids.slice(i,i+BATCH).map(one));
     if (st){ st.textContent='Overwriting… '+(done+fail)+'/'+ids.length+(fail?(' · '+fail+' failed'):''); st.style.color='var(--text-dim)'; }
   }
   if (st){ st.textContent='✓ Overwrote '+done+' deal'+(done===1?'':'s')+(fail?(' · '+fail+' failed'):'')+'. Reopen a deal to see it.'; st.style.color=fail?'#f59e0b':'#10b981'; }

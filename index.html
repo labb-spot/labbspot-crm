@@ -6548,6 +6548,8 @@
             <option value="">All services</option>
           </select>
           <button type="button" id="contractors-verified-filter" data-state="all" onclick="contractorsCycleListFilter()" title="Click to cycle: All → ✓ Verified → ✗ Unverified → ? Unknown" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">All Status</button>
+          <button type="button" id="contractors-signups-filter" data-on="0" onclick="contractorsToggleSignups()" title="Show only contractors who signed up through the public Become a Contractor form (pending your review)." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">📥 Signups <span id="contractors-signups-count" class="badge warn" style="font-size:10px">0</span></button>
+          <button type="button" id="contractors-refresh-btn" onclick="contractorsRefresh()" title="Reload contractors from the cloud — pulls in new public signups." style="height:38px;width:38px;padding:0;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;cursor:pointer;flex-shrink:0">🔁</button>
           <button class="btn btn-primary text-sm" onclick="contractorOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new contractor to your rolodex.">+ Add Contractor</button>
           <input id="contractors-search" type="text" placeholder="🔍 Search by name, city, or service..." oninput="renderContractorsList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 330px;min-width:270px;max-width:420px;box-sizing:border-box" title="Filter by name, services, city, state, or notes. Matches anywhere." />
           <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('contractors-search');if(i){i.value='';renderContractorsList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
@@ -6605,7 +6607,7 @@
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Email
           <input type="email" id="contractor-add-email" placeholder="e.g. joe@joeshvac.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
         </label>
-        <!-- Row 3 — Type + License Status -->
+        <!-- Row 3 — Type + Website -->
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Type
           <select id="contractor-add-type" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
             <option value="">—</option>
@@ -6613,11 +6615,22 @@
             <option value="sub">Sub Contractor</option>
           </select>
         </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Website
+          <input type="text" id="contractor-add-website" placeholder="www.example.com" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <!-- Row 3b — License + Insurance -->
         <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">License Status
           <select id="contractor-add-licensed" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
             <option value="">—</option>
             <option value="licensed">Licensed</option>
             <option value="unlicensed">Not Licensed</option>
+          </select>
+        </label>
+        <label class="col-span-2 md:col-span-1" style="font-size:14px;font-weight:600">Insurance
+          <select id="contractor-add-insured" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+            <option value="">—</option>
+            <option value="insured">Insured</option>
+            <option value="uninsured">Not Insured</option>
           </select>
         </label>
         <!-- Row 4 — City + State -->
@@ -6639,6 +6652,13 @@
         <label class="col-span-2" style="font-size:14px;font-weight:600">Notes <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(optional)</span>
           <textarea id="contractor-add-notes" rows="3" placeholder="e.g. Reliable but slow to respond on weekends. Prefers texts over calls." style="width:100%;margin-top:8px;font-size:14px;padding:12px 14px;resize:vertical;min-height:80px;line-height:1.5"></textarea>
         </label>
+        <div class="col-span-2" style="font-size:14px;font-weight:600">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
+            <div>References <span style="color:var(--text-dim);font-weight:normal;font-size:13px">(name + phone)</span></div>
+            <button type="button" class="btn btn-ghost text-xs" onclick="contractorAddRefRow()" style="padding:6px 12px;white-space:nowrap;border:1px solid var(--border)">+ Add Reference</button>
+          </div>
+          <div id="contractor-add-refs"></div>
+        </div>
         <label class="col-span-2" style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;display:none">
           <input type="checkbox" id="contractor-add-verified" style="width:18px;height:18px;cursor:pointer;accent-color:#10b981">
           <span>✓ Mark as Verified</span>
@@ -38911,6 +38931,9 @@ function contractorOpenAddModal(editId) {
     setVal('contractor-add-notes',    c.notes);
     setVal('contractor-add-type',     c.contractor_type);
     setVal('contractor-add-licensed', c.licensed);
+    setVal('contractor-add-website',  c.website);
+    setVal('contractor-add-insured',  c.insured);
+    contractorRenderRefs(c.contractor_references);
     if (verResetEl) verResetEl.checked = !!c.verified;
     if (typeof contractorSetVerifiedButton === 'function') {
       const _vs = c.verified === true ? 'true' : (c.verified === false ? 'false' : 'unknown');
@@ -38920,6 +38943,8 @@ function contractorOpenAddModal(editId) {
     if (hiddenId) hiddenId.value = '';
     if (title)    title.textContent = '👷 Add Contractor';
     if (delBtn)   delBtn.style.display = 'none';
+    ['contractor-add-website','contractor-add-insured'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    contractorRenderRefs([]);
   }
   modal.style.display = 'flex';
   setTimeout(() => {
@@ -38928,6 +38953,34 @@ function contractorOpenAddModal(editId) {
   }, 50);
 }
 window.contractorOpenAddModal = contractorOpenAddModal;
+
+// ----- Contractor References (name + phone) rows in the Add/Edit modal -----
+function contractorAddRefRow(name, phone) {
+  const wrap = document.getElementById('contractor-add-refs'); if (!wrap) return;
+  const esc = (x) => String(x == null ? '' : x).replace(/"/g, '&quot;');
+  const row = document.createElement('div');
+  row.className = 'ctr-ref-row';
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 34px;gap:8px;margin-bottom:8px;align-items:center';
+  row.innerHTML = '<input type="text" class="ctr-ref-name" placeholder="Reference name" value="' + esc(name) + '" style="height:40px;font-size:14px;padding:0 12px">'
+    + '<input type="text" class="ctr-ref-phone" placeholder="Phone" value="' + esc(phone) + '" style="height:40px;font-size:14px;padding:0 12px">'
+    + '<button type="button" title="Remove" onclick="this.parentNode.remove()" style="height:40px;border:1px solid var(--border);background:transparent;color:#f87171;border-radius:8px;cursor:pointer;font-size:16px;font-weight:700;line-height:1">×</button>';
+  wrap.appendChild(row);
+}
+window.contractorAddRefRow = contractorAddRefRow;
+function contractorRenderRefs(list) {
+  const wrap = document.getElementById('contractor-add-refs'); if (!wrap) return;
+  wrap.innerHTML = '';
+  (Array.isArray(list) ? list : []).forEach(r => contractorAddRefRow(r && r.name, r && r.phone));
+}
+window.contractorRenderRefs = contractorRenderRefs;
+function contractorCollectRefs() {
+  return [].slice.call(document.querySelectorAll('#contractor-add-refs .ctr-ref-row')).map(row => {
+    const nm = ((row.querySelector('.ctr-ref-name') || {}).value || '').trim();
+    const ph = ((row.querySelector('.ctr-ref-phone') || {}).value || '').trim();
+    return (nm || ph) ? { name: nm, phone: ph } : null;
+  }).filter(Boolean);
+}
+window.contractorCollectRefs = contractorCollectRefs;
 
 function contractorCloseAddModal() {
   const modal = document.getElementById('contractor-add-modal');
@@ -38952,6 +39005,9 @@ async function contractorSaveNew() {
   const notes   = ($('contractor-add-notes')?.value    || '').trim();
   const ctype   = ($('contractor-add-type')?.value     || '').trim();
   const licensed= ($('contractor-add-licensed')?.value || '').trim();
+  const website = ($('contractor-add-website')?.value  || '').trim();
+  const insured = ($('contractor-add-insured')?.value  || '').trim();
+  const contractor_references = (typeof contractorCollectRefs === 'function') ? contractorCollectRefs() : [];
   const _vSt = ($('contractor-verified-btn')?.getAttribute('data-state') || 'unknown');
   const verified = _vSt === 'true' ? true : (_vSt === 'false' ? false : null);
   if (!name) {
@@ -38969,7 +39025,7 @@ async function contractorSaveNew() {
   if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
   try {
     if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
-    const payload = { name, company, phone, email, services, specialized_services: specialized_services || null, city, state, price_notes: prices, notes, verified, contractor_type: ctype || null, licensed: licensed || null };
+    const payload = { name, company, phone, email, services, specialized_services: specialized_services || null, city, state, price_notes: prices, notes, verified, contractor_type: ctype || null, licensed: licensed || null, website: website || null, insured: insured || null, contractor_references: contractor_references.length ? contractor_references : null };
     let data, error;
     if (editId) {
       ({ data, error } = await sb.from('contractors').update(payload).eq('id', editId).select().single());
@@ -39066,6 +39122,14 @@ function renderContractorsList() {
   else if (verState === 'false')    rows = rows.filter(c => c.verified === false);
   else if (verState === 'unknown')  rows = rows.filter(c => c.verified == null);
   const verFilter = verState !== 'all';
+
+  // Public-signup count badge + "📥 Signups" filter.
+  const _signupRows = Object.values(cache.contractors).filter(c => c && c.name && String(c.source || '') === 'public-signup');
+  const _scEl = document.getElementById('contractors-signups-count');
+  if (_scEl) { _scEl.textContent = _signupRows.length.toLocaleString(); _scEl.style.display = _signupRows.length ? '' : 'none'; }
+  const signupsBtn = document.getElementById('contractors-signups-filter');
+  const signupsOn = signupsBtn && signupsBtn.getAttribute('data-on') === '1';
+  if (signupsOn) rows = rows.filter(c => String(c.source || '') === 'public-signup');
 
   const searchEl = document.getElementById('contractors-search');
   const q = (searchEl ? (searchEl.value || '').trim().toLowerCase() : '');
@@ -39187,6 +39251,34 @@ function renderContractorsList() {
   }).join('');
 }
 window.renderContractorsList = renderContractorsList;
+// Toggle the "📥 Signups" filter — show only public-form signups (pending review).
+function contractorsToggleSignups() {
+  const b = document.getElementById('contractors-signups-filter');
+  if (!b) return;
+  const on = b.getAttribute('data-on') === '1';
+  b.setAttribute('data-on', on ? '0' : '1');
+  b.style.background  = on ? 'var(--panel-2)' : 'rgba(234,88,12,0.18)';
+  b.style.borderColor = on ? 'var(--border)'  : '#ea580c';
+  b.style.color       = on ? 'var(--text)'    : '#fdba74';
+  renderContractorsList();
+}
+window.contractorsToggleSignups = contractorsToggleSignups;
+// Force-reload contractors from the cloud (pulls in new public signups).
+async function contractorsRefresh() {
+  const b = document.getElementById('contractors-refresh-btn');
+  if (b) { b.disabled = true; b.textContent = '⏳'; }
+  try {
+    cache.contractors = null;
+    if (typeof loadContractors === 'function') await loadContractors();
+    if (typeof toast === 'function') toast('Contractors refreshed', 'ok');
+  } catch (e) {
+    console.warn('contractorsRefresh:', e);
+    if (typeof toast === 'function') toast('Refresh failed: ' + (e.message || e), 'err');
+  }
+  if (b) { b.disabled = false; b.textContent = '🔁'; }
+  if (typeof renderContractorsList === 'function') renderContractorsList();
+}
+window.contractorsRefresh = contractorsRefresh;
 
 // ============================================================
 // LENDERS — Renovation → 🏦 Lenders subview

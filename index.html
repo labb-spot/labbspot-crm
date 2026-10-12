@@ -1110,6 +1110,10 @@
 <div id="mkt-subbar" class="px-6 pt-4">
   <div class="flex items-center gap-3" style="flex-wrap:wrap;min-width:0">
     <div class="flex items-center gap-1 panel p-1 w-fit">
+      <div class="subtab" data-mview="requests" onclick="goMarketingView('requests')" title="List sources — where you request lead lists (code violations, liens, fire damage, divorce, etc.)."><span style="display:inline-block;transform:translateY(-4px);vertical-align:middle">📨</span> Requests</div>
+    </div>
+    <span style="color:#ffffff;font-size:28px;font-weight:800;opacity:0.9;user-select:none;display:inline-flex;align-items:center;justify-content:center;align-self:stretch;line-height:0;transform:translateY(-2px)">→</span>
+    <div class="flex items-center gap-1 panel p-1 w-fit">
       <div class="subtab" id="mkt-pill-imports" onclick="goSection('data')" title="Data imports &amp; uploads.">📥 Imports</div>
     </div>
     <span style="color:#ffffff;font-size:28px;font-weight:800;opacity:0.9;user-select:none;display:inline-flex;align-items:center;justify-content:center;align-self:stretch;line-height:0;transform:translateY(-2px)">→</span>
@@ -1988,6 +1992,29 @@
   <!-- Marketing subtab row lives OUTSIDE this section (#mkt-subbar, just under the
        top nav) so it stays visible for both Marketing and Imports, letting the
        Imports pill highlight like a real sub-tab. -->
+
+  <!-- ============ Marketing: Requests (list sources) ============ -->
+  <div id="mview-requests" class="mview" style="display:none">
+    <div class="panel p-5">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+        <div class="flex items-center gap-3" style="flex-wrap:nowrap;min-width:0">
+          <div class="font-semibold text-lg" style="white-space:nowrap"><span style="display:inline-block;transform:translateY(-6px);vertical-align:middle">📨</span> Requests</div>
+          <input id="requests-search" placeholder="🔍 Search source, list type, county, city…" oninput="renderRequestsList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;width:320px;max-width:60vw">
+          <button class="btn btn-ghost text-sm" onclick="reqEmailTplOpen()" title="Edit the request-email templates (one per list type) the ✉️ buttons use.">✉️ Emails</button>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button id="requests-priority-filter" class="btn btn-ghost text-sm" data-on="0" onclick="requestsTogglePriority()" title="Show only cities you've marked as Priority." style="height:38px;min-width:110px;justify-content:center;display:inline-flex;align-items:center;gap:6px">⭐ Priority</button>
+          <button id="requests-sort-btn" class="btn btn-ghost text-sm" data-sort="city" onclick="requestsToggleSort()" title="Switch between sorting your cities by City name or grouping them under their County." style="height:38px;width:138px;justify-content:center;display:inline-flex;align-items:center;white-space:nowrap">🔀 Sort: City</button>
+          <button class="btn btn-primary text-sm" onclick="requestOpenModal()" title="Add a city (with its county) to track list requests for.">+ Add City</button>
+          <button class="btn btn-ghost text-sm" onclick="requestAddType()" title="Add a new list type — it applies to every city.">+ List Type</button>
+          <button id="requests-refresh-btn" class="btn btn-ghost text-sm" onclick="requestsRefresh()" title="Reload from the cloud" style="height:38px;width:112px;justify-content:center;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden">🔁 Refresh</button>
+        </div>
+      </div>
+      <div class="text-sm text-[var(--text-dim)] mb-3">Your cities. Click a city to add the source contacts for each list type (Code Violations, Utility Liens, Fire Damage, Tax Delinquent) and track when you requested each list and last got it.</div>
+      <div id="requests-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none"></div>
+      <div id="requests-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"></div>
+    </div>
+  </div>
 
   <!-- ============ Marketing: Lists subview ============ -->
   <div id="mview-lists" class="mview">
@@ -3150,11 +3177,6 @@
   <!-- GIS Maps subview — collected county assessor / GIS portal links per
        deal. Hidden by default; goUwView('gis-maps') flips its display. -->
   <div id="uwview-gis-maps" class="uwview" style="display:none">
-    <!-- Sub-tab toggle: Maps | Contacts -->
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      <button id="gis-subtab-maps" class="btn btn-primary text-sm" onclick="gisSwitchSub('maps')" style="height:36px;padding:0 18px" title="County assessor / GIS portal links">🗺 Maps</button>
-      <button id="gis-subtab-contacts" class="btn btn-ghost text-sm" onclick="gisSwitchSub('contacts')" style="height:36px;padding:0 18px" title="County office contacts — assessor, recorder, permits, etc.">📇 Contacts</button>
-    </div>
     <div id="gis-sub-maps">
     <div class="panel p-5">
       <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
@@ -3162,15 +3184,18 @@
           <div class="font-semibold text-lg">🗺 GIS Maps</div>
           <div class="text-xs text-[var(--text-dim)]">County assessor / GIS portal links collected from your deals. Click any link to open its parcel in a new tab.</div>
         </div>
-        <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
-          <button class="btn btn-primary text-sm" onclick="gisMapOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new county GIS / assessor site to your input list.">+ Add Site</button>
-          <select id="gis-maps-source-filter" onchange="renderGisMapsList()" title="Filter by where the GIS link came from. 'From Input' = the master reference table you seeded. 'From Deal' = links saved on individual deals' Property Info." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex-shrink:0">
-            <option value="input">From Input</option>
-            <option value="deal">From Deal</option>
-            <option value="all">All sources</option>
-          </select>
-          <input id="gis-maps-search" type="text" placeholder="🔍 Search by city or county..." oninput="renderGisMapsList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" title="Filter by city, county, or state. Matches anywhere in the name." />
-          <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('gis-maps-search');if(i){i.value='';renderGisMapsList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear the search">✕</button>
+        <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end">
+          <div style="position:relative;flex:0 0 auto">
+            <input id="gis-maps-search" type="text" placeholder="🔍 Search by city or county..." oninput="renderGisMapsList()" style="height:38px;padding:0 34px 0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;width:240px;box-sizing:border-box" title="Filter by city, county, or state. Matches anywhere in the name." />
+            <button onclick="(function(){var i=document.getElementById('gis-maps-search');if(i){i.value='';renderGisMapsList();i.focus();}})();" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;border-radius:5px" title="Clear the search">✕</button>
+          </div>
+          <input type="hidden" id="gis-maps-source-filter" value="input">
+          <div style="display:inline-flex;height:38px;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:0 0 auto" title="Filter by where the GIS link came from. 'From Input' = the master reference table you seeded. 'From Deal' = links saved on individual deals' Property Info.">
+            <button type="button" data-gis-src="input" onclick="gisMapsSetSource('input')" style="height:100%;padding:0 14px;border:none;border-right:1px solid var(--border);background:var(--accent,#f97316);color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">From Input</button>
+            <button type="button" data-gis-src="deal" onclick="gisMapsSetSource('deal')" style="height:100%;padding:0 14px;border:none;border-right:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">From Deal</button>
+            <button type="button" data-gis-src="all" onclick="gisMapsSetSource('all')" style="height:100%;padding:0 14px;border:none;background:transparent;color:var(--text-dim);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">All</button>
+          </div>
+          <button class="btn btn-primary text-sm" onclick="gisMapOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex:0 0 auto;line-height:1" title="Add a new county GIS / assessor site to your input list.">+ Add Site</button>
         </div>
       </div>
       <div id="gis-maps-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No GIS map links yet — open a deal and paste a link into the "Assessor Site / GIS Map URL" field on Property Info to start building this list.</div>
@@ -3190,24 +3215,6 @@
     </div>
     </div><!-- /#gis-sub-maps -->
 
-    <!-- ===== Contacts sub-tab: County Contacts ===== -->
-    <div id="gis-sub-contacts" style="display:none">
-      <div class="panel p-5">
-        <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
-          <div>
-            <div class="font-semibold text-lg">📇 County Contacts</div>
-            <div class="text-xs text-[var(--text-dim)]">County offices and the people you work with — assessor, recorder, building/permits, and more. Add as many department contacts per county as you need.</div>
-          </div>
-          <div class="flex items-center gap-2" style="flex-wrap:wrap;justify-content:flex-end;max-width:100%">
-            <button class="btn btn-primary text-sm" onclick="countyContactOpenModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new county with its contacts.">+ Add County</button>
-            <input id="county-contacts-search" type="text" placeholder="🔍 Search county, city, name..." oninput="renderCountyContactsList()" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;flex:1 1 220px;min-width:180px;max-width:280px;box-sizing:border-box" />
-            <button class="btn btn-ghost text-xs" onclick="(function(){var i=document.getElementById('county-contacts-search');if(i){i.value='';renderCountyContactsList();i.focus();}})();" style="height:38px;padding:0 12px;white-space:nowrap;flex-shrink:0" title="Clear search">✕</button>
-          </div>
-        </div>
-        <div id="county-contacts-empty" class="text-sm text-[var(--text-dim)]" style="padding:24px;text-align:center;display:none">No county contacts yet — click "+ Add County" to add one.</div>
-        <div id="county-contacts-list" style="display:flex;flex-direction:column;gap:12px"></div>
-      </div>
-    </div>
   </div>
 
   <!-- Add-assessor-site modal — opened by the "+ Add Site" button.
@@ -4780,6 +4787,8 @@
            deal is loaded; per-deal overrides are persisted via UW_FIELDS. -->
       <div data-uw-slot="wt-sale-pct"><label class="text-xs">Resale %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-sale-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="75"></span></label></div>
       <div data-uw-slot="wt-rehab-pct"><label class="text-xs" title="Wholetail rehab (capital invested) as a % of the full flip rehab. Default 60% — a light clean-out + cosmetic touch-up vs a full flip.">Cap % of Rehab<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-rehab-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="60"></span></label></div>
+      <div data-uw-slot="wt-nov-sale-pct"><label class="text-xs" title="Novation resale as a % of ARV. Default 85%.">Resale %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-nov-sale-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="85"></span></label></div>
+      <div data-uw-slot="wt-nov-rehab-amt"><label class="text-xs" title="Novation rehab budget (flat dollar amount). Default $5,000 — minor touch-ups to get the seller's home list-ready.">Rehab ($)<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-nov-rehab-amt" step="500" oninput="uwRecalc()" style="width:100%" placeholder="5,000"></span></label></div>
       <div data-uw-slot="wt-cap-pct"><label class="text-xs">Capital Invested (% of ARV)<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-cap-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="10"></span></label></div>
       <div data-uw-slot="wt-reno-mo"><label class="text-xs">Renovation Time (mo)<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-wt-reno-mo" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="1"></span></label></div>
       <div data-uw-slot="wt-listed-mo"><label class="text-xs">Listing Time (mo)<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-wt-listed-mo" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="2"></span></label></div>
@@ -6666,6 +6675,52 @@
         </label>
       </div>
       <!-- Bottom button bar removed — actions now live in the header. -->
+    </div>
+  </div>
+
+  <!-- Requests (list source) Add/Edit modal -->
+  <div id="request-add-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:20px">
+    <div style="width:min(880px,96vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:22px">
+      <div class="flex items-center justify-between mb-4">
+        <div id="request-modal-title" class="font-bold text-xl" style="white-space:nowrap">📨 Add Source</div>
+        <div class="flex items-center gap-2">
+          <button type="button" id="request-priority-btn" data-on="0" onclick="requestTogglePriorityBtn()" title="Toggle Priority for this city." style="height:34px;padding:0 14px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap">☆ Priority</button>
+          <button id="request-delete-btn" class="btn btn-ghost text-sm" style="display:none;color:#f87171;border:1px solid rgba(248,113,113,0.4)" onclick="requestDelete()">🗑 Delete</button>
+          <button class="btn btn-primary text-sm" onclick="requestSaveNew()">💾 Save</button>
+          <button class="btn btn-ghost" onclick="requestCloseModal()">✕</button>
+        </div>
+      </div>
+      <input type="hidden" id="request-edit-id" value="">
+      <div style="display:grid;grid-template-columns:2.2fr 1.2fr 0.7fr;gap:12px">
+        <label style="font-size:14px;font-weight:600">City(s) <span style="color:#f87171">*</span>
+          <input type="text" id="request-add-city" placeholder="e.g. Evansville, Newburgh" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label style="font-size:14px;font-weight:600">County
+          <input type="text" id="request-add-county" placeholder="e.g. Vanderburgh" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px">
+        </label>
+        <label style="font-size:14px;font-weight:600">State
+          <input type="text" id="request-add-state" maxlength="2" placeholder="IN" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z]/g,'').toUpperCase().slice(0,2)">
+        </label>
+      </div>
+      <div style="margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div style="font-weight:800;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">🌐 Website Links</div>
+        <button type="button" onclick="_reqAddLinkRow()" style="font-size:11px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;padding:5px 11px;cursor:pointer">+ Add Link</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-dim);margin-top:4px">Name each link (e.g. “County Clerk”, “Record Request Form”) — the name shows on the city card.</div>
+      <div id="request-links-container" style="margin-top:8px"></div>
+
+      <div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div style="font-weight:800;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">List Types</div>
+        <button type="button" onclick="requestAddType()" style="font-size:11px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;padding:5px 11px;cursor:pointer">+ List Type</button>
+      </div>
+      <div id="request-lists-container" style="margin-top:10px"></div>
+
+      <div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div style="font-weight:800;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">🔗 Connections</div>
+        <button type="button" onclick="_reqAddConnRow()" style="font-size:11px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;padding:5px 11px;cursor:pointer">+ Add Connection</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-dim);margin-top:4px">Offices / people for this city — Recorder, Assessor, Clerk, etc.</div>
+      <div id="request-conns-container" style="margin-top:8px"></div>
     </div>
   </div>
 
@@ -14114,13 +14169,36 @@ function uwComputeExits(ctx) {
   // covers them (wtFinBaseCost = buy + rehab + holding + buying closing),
   // so adding them here would double-count.
   const wtFinCapital    = wtFinDown + wtFinOrig + (wtFinTotalInt || 0) + wtDrawCost;
-  // Mode resolution — picks Cash or Financed view. Mirrors the Flip pattern
-  // so `wholetailProfit`, `wholetailAnnualized`, and `wholetailCapital` all
-  // reflect whichever mode the user has the toggle set to.
-  const wholetailMode       = (typeof _uwWholetailMode !== 'undefined' && _uwWholetailMode === 'financed') ? 'financed' : 'cash';
-  const wholetailProfit     = wholetailMode === 'financed' ? wtFinProfit     : wholetailCashProfit;
-  const wholetailAnnualized = wholetailMode === 'financed' ? wtFinAnnualized : wholetailCashAnnualized;
-  const wholetailCapital    = wholetailMode === 'financed' ? wtFinCapital    : wholetailCashCapital;
+  // ----- Wholetail "Novation" -----
+  // You never buy the property (no cash for the purchase, no first/purchase
+  // closing fees, no holding costs, and it's cash so no financing costs). You
+  // list the seller's home at retail; the seller's price + your selling costs
+  // come out of the sale proceeds. Profit = resale − seller price − rehab −
+  // sale closing − agent commission. Your money in = rehab only.
+  // Novation has its OWN assumptions (separate from Cash/Financed): resale %
+  // defaults to 90, and rehab is a flat $ figure (default $5,000), not a % of
+  // the flip rehab — a novation is typically list-ready with minor touch-ups.
+  const wtNovSalePct   = _wtVal('uw-wt-nov-sale-pct', 85);
+  const wtNovSale      = arv * (wtNovSalePct / 100);
+  const wtNovRehab     = _wtVal('uw-wt-nov-rehab-amt', 5000);
+  // Selling costs for novation scale with the novation resale price.
+  const wtNovSaleSellClose    = wtNovSale * 0.015;
+  const wtNovSaleBuyClose     = wtNovSale * 0.015;
+  const wtNovSaleClosingTotal = wtNovSaleSellClose + wtNovSaleBuyClose;
+  const wtNovSellAgent        = wtNovSale * (sellAgentPct / 100);
+  const wtNovBuyerAgent       = wtNovSale * (buyAgentPct  / 100);
+  const wtNovAgentTotal       = wtNovSellAgent + wtNovBuyerAgent;
+  const wtNovProfit     = wtNovSale - buyPrice - wtNovRehab - wtNovSaleClosingTotal - wtNovAgentTotal;
+  const wtNovAnnualized = wtNovProfit > 0 ? wtNovProfit * (12 / wholetailMonths) : 0;
+  const wtNovCapital    = wtNovRehab;
+  window._3p_wtNov = (typeof wtNovProfit === 'number') ? wtNovProfit : null;
+  // Mode resolution — picks Cash / Financed / Novation view. Mirrors the Flip
+  // pattern so `wholetailProfit`, `wholetailAnnualized`, and `wholetailCapital`
+  // all reflect whichever mode the user has the toggle set to.
+  const wholetailMode       = (typeof _uwWholetailMode !== 'undefined' && (_uwWholetailMode === 'financed' || _uwWholetailMode === 'novation')) ? _uwWholetailMode : 'cash';
+  const wholetailProfit     = wholetailMode === 'financed' ? wtFinProfit     : (wholetailMode === 'novation' ? wtNovProfit     : wholetailCashProfit);
+  const wholetailAnnualized = wholetailMode === 'financed' ? wtFinAnnualized : (wholetailMode === 'novation' ? wtNovAnnualized : wholetailCashAnnualized);
+  const wholetailCapital    = wholetailMode === 'financed' ? wtFinCapital    : (wholetailMode === 'novation' ? wtNovCapital    : wholetailCashCapital);
 
   // ====== RENTAL — shared editable assumptions (drive both Cash + Financed) ======
   // Per-deal overrides via uw-rt-* fields, with fallback to the documented
@@ -14911,6 +14989,7 @@ function uwComputeExits(ctx) {
   const _wholetailOpts = [
     { value: 'cash',     label: '💵 Cash', color: '#10b981', title: 'Cash purchase — no loan' },
     { value: 'financed', label: '🏦 Fin',  color: '#3b82f6', title: 'Hard money loan covers buy + capital + holding + purchase closing' },
+    { value: 'novation', label: '📝 Nova', color: '#8b5cf6', title: 'Novation — list the seller\'s home; no purchase, no money in for the buy, no purchase closing fees. Your money in is rehab + holding only.' },
   ];
 
   // ====== Build cards =====
@@ -14968,7 +15047,7 @@ function uwComputeExits(ctx) {
       // places it on its own line under the title.
       name: 'Wholetail',
       toggle: _modeToggle('wholetail', wholetailMode, _wholetailOpts, _wholetailRecMode),
-      mode: wholetailMode === 'financed' ? 'Financed' : 'Cash',
+      mode: wholetailMode === 'financed' ? 'Financed' : (wholetailMode === 'novation' ? 'Novation' : 'Cash'),
       profit: wholetailProfit, time: wholetailMonths + ' mo', timeMo: wholetailMonths,
       annualized: wholetailAnnualized,
       note: _threshNote(wholetailProfit, 25000), noteOk: wholetailProfit >= 25000,
@@ -14978,6 +15057,19 @@ function uwComputeExits(ctx) {
       // Financing costs only show in financed mode — they're literally $0
       // in cash mode and would just be noise.
       lines: (() => {
+        const _isNova = wholetailMode === 'novation';
+        if (_isNova) {
+          // Novation: no purchase, no holding, no financing — so those rows are
+          // dropped entirely rather than shown as "—". Resale %, seller payoff,
+          // rehab ($), and selling costs only.
+          return [
+            ['Resale Value @ ' + wtNovSalePct + '% ARV', fmt(wtNovSale)],
+            ['Seller payoff (buy price)', fmt(buyPrice)],
+            ['Rehab', fmt(wtNovRehab)],
+            ['Selling costs', fmt((wtNovSaleClosingTotal || 0) + (wtNovAgentTotal || 0))],
+            ['Capital tied up', fmt(wholetailCapital)],
+          ];
+        }
         const _rows = [
           ['Resale Value @ ' + wtSalePct + '% ARV', fmt(wholetailSale)],
           ['Capital invested (' + Math.round(WT_REHAB_PCT_OF_FLIP*100) + '% of flip rehab)', fmt(wholetailRehab)],
@@ -14989,7 +15081,7 @@ function uwComputeExits(ctx) {
         // when toggling between Cash and Financed modes. Cash shows "—".
         _rows.push(['Financing costs',
           wholetailMode === 'financed' ? fmt((wtFinOrig || 0) + (wtFinTotalInt || 0)) : '—']);
-        _rows.push(['Capital tied up', fmt(wholetailMode === 'financed' ? wtFinCapital : wholetailCashCapital)]);
+        _rows.push(['Capital tied up', fmt(wholetailCapital)]);
         return _rows;
       })(),
       details: (wholetailMode === 'financed' ? [
@@ -15041,6 +15133,23 @@ function uwComputeExits(ctx) {
           ['Resale seller agent (' + sellAgentPct + '%)', fmt(wholetailSellAgent)],
           ['Total buying + selling', fmt(wtPurchClosingTotal + wtSaleClosingTotal + wtAgentTotal), 'profit'],
         ]},
+      ] : (wholetailMode === 'novation' ? [
+        { title: '💰 Novation Math', rows: [
+          ['Resale @ ' + wtNovSalePct + '% ARV', fmt(wtNovSale)],
+          ['Seller payoff (buy price)', '−' + fmt(buyPrice)],
+          ['Rehab', '−' + fmt(wtNovRehab)],
+          ['Resale closing (3%)', '−' + fmt(wtNovSaleClosingTotal)],
+          ['Agent commissions (' + (sellAgentPct + buyAgentPct) + '%)', '−' + fmt(wtNovAgentTotal)],
+          ['💰 Your Money In (rehab only)', fmt(wtNovCapital), 'redhl'],
+          ['Net profit', fmt(wtNovProfit), 'profit'],
+        ]},
+        { title: '🏷️ Selling Costs', rows: [
+          ['Resale seller closing (1.5%)', fmt(wtNovSaleSellClose)],
+          ['Resale buyer closing (1.5%)', fmt(wtNovSaleBuyClose)],
+          ['Resale buyer agent (' + buyAgentPct + '%)', fmt(wtNovBuyerAgent)],
+          ['Resale seller agent (' + sellAgentPct + '%)', fmt(wtNovSellAgent)],
+          ['Total selling', fmt(wtNovSaleClosingTotal + wtNovAgentTotal), 'profit'],
+        ]},
       ] : [
         { title: '💰 Resale Math', rows: [
           ['Resale @ ' + wtSalePct + '% ARV', fmt(wholetailSale)],
@@ -15071,7 +15180,7 @@ function uwComputeExits(ctx) {
           ['Resale seller agent (' + sellAgentPct + '%)', fmt(wholetailSellAgent)],
           ['Total buying + selling', fmt(wtPurchClosingTotal + wtSaleClosingTotal + wtAgentTotal), 'profit'],
         ]},
-      ]),
+      ])),
       type: 'oneTime',
     },
     {
@@ -15940,9 +16049,12 @@ function uwComputeExits(ctx) {
   // no contention).
   const _wtBaseSlots = ['wt-sale-pct', 'wt-rehab-pct'];
   const _wtFinSlots  = ['wt-arv-cap-pct', 'wt-purch-fin-pct', 'wt-reno-fin-pct', 'wt-hm-orig', 'wt-hm-rate'];
+  const _wtNovSlots  = ['wt-nov-sale-pct', 'wt-nov-rehab-amt'];
   const exitInputs = {
     wholesale:  [], // wholesale math is hardcoded (70% MAO) — no editable inputs
-    wholetail:  wholetailMode === 'financed' ? _wtBaseSlots.concat(_wtFinSlots) : _wtBaseSlots,
+    wholetail:  wholetailMode === 'financed' ? _wtBaseSlots.concat(_wtFinSlots)
+              : wholetailMode === 'novation' ? _wtNovSlots
+              : _wtBaseSlots,
     // Flip + Rental show extra inputs in financed mode (HM loan / mortgage terms)
     flip:       flipMode   === 'financed' ? _flipBaseSlots.concat(_flipFinSlots) : _flipBaseSlots,
     rental:     rentalMode === 'refi' ? _rentalRfSlots : ((rentalMode === 'financed' || rentalMode === 'turnkey') ? _rentalTurnkeySlots : _rentalCashSlots),
@@ -20077,7 +20189,7 @@ function _uwCollect() {
   data._inChecking = !!_uwInChecking;
   // Persist the Cash/Financed mode for the combined Flip and Rental cards
   data._flipMode      = _uwFlipMode      === 'financed' ? 'financed' : 'cash';
-  data._wholetailMode = _uwWholetailMode === 'financed' ? 'financed' : 'cash';
+  data._wholetailMode = (_uwWholetailMode === 'financed' || _uwWholetailMode === 'novation') ? _uwWholetailMode : 'cash';
   data._wholesaleMode = _uwWholesaleMode === 'doubleclose' ? 'doubleclose' : 'assignment';
   // Normalize: legacy 'brrr' value persists as 'refi' going forward.
   const _rmOut = (_uwRentalMode === 'brrr') ? 'refi' : _uwRentalMode;
@@ -20315,7 +20427,7 @@ function _uwApply(data) {
   if (typeof _uwUpdateCheckingButton  === 'function') _uwUpdateCheckingButton();
   // Restore the Cash/Financed toggle for Flip + Rental (defaults to cash)
   _uwFlipMode      = data._flipMode      === 'financed' ? 'financed' : 'cash';
-  _uwWholetailMode = data._wholetailMode === 'financed' ? 'financed' : 'cash';
+  _uwWholetailMode = (data._wholetailMode === 'financed' || data._wholetailMode === 'novation') ? data._wholetailMode : 'cash';
   _uwWholesaleMode = data._wholesaleMode === 'doubleclose' ? 'doubleclose' : 'assignment';
   // Migrate any legacy 'brrr' state to the renamed 'refi' on load.
   const _rmIn = (data._rentalMode === 'brrr') ? 'refi' : data._rentalMode;
@@ -21009,7 +21121,7 @@ let _uwIsPriority = false;
 // which compute branch + detail panel renders inside the combined card.
 let _uwFlipMode      = 'cash'; // 'cash' | 'financed' — Flip card
 let _uwRentalMode    = 'cash'; // 'cash' | 'financed' — Rental card
-let _uwWholetailMode = 'cash'; // 'cash' | 'financed' — Wholetail card
+let _uwWholetailMode = 'cash'; // 'cash' | 'financed' | 'novation' — Wholetail card
 let _uwWholesaleMode = 'assignment'; // 'assignment' | 'doubleclose' — Wholesale card
 function uwSetWholesaleMode(mode) {
   if (mode !== 'assignment' && mode !== 'doubleclose') return;
@@ -21038,7 +21150,7 @@ function uwSetRentalMode(mode) {
   if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
 }
 function uwSetWholetailMode(mode) {
-  if (mode !== 'cash' && mode !== 'financed') return;
+  if (mode !== 'cash' && mode !== 'financed' && mode !== 'novation') return;
   _uwWholetailMode = mode;
   window._uwModeToggle = true;
   if (typeof uwRecalc === 'function') uwRecalc();
@@ -32675,6 +32787,21 @@ async function gisMapSaveNew() {
   }
 }
 window.gisMapSaveNew = gisMapSaveNew;
+
+// Segmented source toggle (From Input / From Deal / All). Stores the choice
+// in the hidden #gis-maps-source-filter input so renderGisMapsList keeps
+// reading .value exactly as it did with the old <select>, then repaints the
+// active button and re-renders.
+window.gisMapsSetSource = function(v) {
+  const hidden = document.getElementById('gis-maps-source-filter');
+  if (hidden) hidden.value = v;
+  document.querySelectorAll('[data-gis-src]').forEach(function(b) {
+    const active = b.getAttribute('data-gis-src') === v;
+    b.style.background = active ? 'var(--accent,#f97316)' : 'transparent';
+    b.style.color = active ? '#fff' : 'var(--text-dim)';
+  });
+  if (typeof renderGisMapsList === 'function') renderGisMapsList();
+};
 
 // Render the GIS Maps subview — merges two sources:
 //   1) Master gis_maps table (county-level reference URLs)
@@ -45849,6 +45976,7 @@ function goMarketingView(v) {
   document.querySelectorAll('#section-marketing .mview').forEach(el => el.style.display = 'none');
   const target = document.getElementById('mview-' + v);
   if (target) target.style.display = '';
+  if (v === 'requests') { if (!cache.requests) { loadRequests().then(renderRequestsList); } else { renderRequestsList(); } }
   if (v === 'lists' && typeof renderListTypeWidgets === 'function') renderListTypeWidgets();
   if (v === 'vendors' && typeof renderVendorDownloadTable === 'function') renderVendorDownloadTable();
   if (v === 'vendors') {
@@ -45866,6 +45994,486 @@ function goMarketingView(v) {
     loadCampaigns().then(() => { if (typeof renderCampaigns === 'function') renderCampaigns(); });
   }
 }
+
+// ======================================================================
+// Marketing → Requests: cities + their list sources (request_cities table)
+// Each city row: { id, city, county, lists: { "<Type>": {email,phone,website,requested,received,notes} } }
+// Fixed list types for now; click a city to edit its sources + request/received dates.
+// ======================================================================
+const _REQ_TYPES_DEFAULT = ['Code Violations', 'Utility Liens', 'Fire Damage', 'Tax Delinquent'];
+// List types are GLOBAL (shared across every city). Stored in app_config so one
+// add applies everywhere. Falls back to the defaults when nothing's saved.
+function _reqTypes(){
+  try { const t = cache && cache.config && cache.config.column_mappings && cache.config.column_mappings.request_list_types; return (Array.isArray(t) && t.length) ? t : _REQ_TYPES_DEFAULT; }
+  catch(_){ return _REQ_TYPES_DEFAULT; }
+}
+async function _reqSaveTypes(arr){
+  if (typeof sb === 'undefined' || !sb) { if (typeof toast==='function') toast('Not connected.','err'); return false; }
+  try {
+    const sel = await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle();
+    if (sel.error) throw sel.error;
+    const m = (sel.data && sel.data.column_mappings && typeof sel.data.column_mappings==='object') ? sel.data.column_mappings : {};
+    m.request_list_types = arr;
+    const upd = await sb.from('app_config').update({ column_mappings:m, updated_at:new Date().toISOString() }).eq('id',1).select('id');
+    if (upd.error) throw upd.error;
+    if (!upd.data || !upd.data.length) throw new Error('no app_config row (id=1)');
+    if (cache && cache.config) cache.config.column_mappings = m;
+    return true;
+  } catch(e){ console.warn('_reqSaveTypes:', e); if (typeof toast==='function') toast('Save types failed: ' + (e.message||e), 'err'); return false; }
+}
+async function requestAddType(){
+  const name = (prompt('New list type (applies to EVERY city):') || '').trim();
+  if (!name) return;
+  const cur = _reqTypes().slice();
+  if (cur.some(x => x.toLowerCase() === name.toLowerCase())) { if (typeof toast==='function') toast('That list type already exists.','warn'); return; }
+  cur.push(name);
+  const ok = await _reqSaveTypes(cur);
+  if (!ok) return;
+  // If a city popup is open, re-render its sections preserving current edits.
+  const modal = document.getElementById('request-add-modal');
+  if (modal && modal.style.display === 'flex') _reqRenderListSections(_reqCollectLists());
+  renderRequestsList();
+  if (typeof toast==='function') toast('“' + name + '” added to all cities','ok');
+}
+window.requestAddType = requestAddType;
+async function requestRemoveType(name){
+  if (!name) return;
+  if (!confirm('Remove the "' + name + '" list type from EVERY city? (Any saved contacts under it stay in the data but it won\'t show as a default.)')) return;
+  const cur = _reqTypes().filter(x => x !== name);
+  const ok = await _reqSaveTypes(cur);
+  if (!ok) return;
+  const modal = document.getElementById('request-add-modal');
+  if (modal && modal.style.display === 'flex') _reqRenderListSections(_reqCollectLists());
+  renderRequestsList();
+}
+window.requestRemoveType = requestRemoveType;
+
+// ----- Request-email templates (one per list type), stored in app_config -----
+const _REQ_EMAIL_DEFAULT = {
+  subject: 'Records Request — {list_type} ({city})',
+  body: "Hi {name},\n\nI'm reaching out to request your {list_type} list for {city}. Could you let me know the process to receive it, any cost, and how often it's updated?\n\nIf possible, I'd like to be added to a recurring send so I get it each time it refreshes.\n\nThank you,\nLABB LLC"
+};
+function reqEmailTplStore(){ try { const m = cache && cache.config && cache.config.column_mappings && cache.config.column_mappings.request_email_templates; return (m && typeof m === 'object') ? m : {}; } catch(_){ return {}; } }
+function reqEmailTplGet(type){
+  const s = reqEmailTplStore(); const t = s[type] || null;
+  return { subject: (t && t.subject) ? t.subject : _REQ_EMAIL_DEFAULT.subject, body: (t && t.body != null) ? t.body : _REQ_EMAIL_DEFAULT.body };
+}
+function reqEmailTplFill(str, ctx){
+  ctx = ctx || {};
+  const map = { '{name}': ctx.name || 'there', '{list_type}': ctx.list_type || 'records', '{city}': ctx.city || 'your area', '{county}': ctx.county || '' };
+  return String(str).replace(/\{(name|list_type|city|county)\}/g, m => map[m] != null ? map[m] : m);
+}
+async function reqEmailTplSave(payload){
+  if (typeof sb === 'undefined' || !sb) { if (typeof toast==='function') toast('Not connected.','err'); return false; }
+  try {
+    const sel = await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle();
+    if (sel.error) throw sel.error;
+    const m = (sel.data && sel.data.column_mappings && typeof sel.data.column_mappings==='object') ? sel.data.column_mappings : {};
+    m.request_email_templates = payload;
+    const upd = await sb.from('app_config').update({ column_mappings:m, updated_at:new Date().toISOString() }).eq('id',1).select('id');
+    if (upd.error) throw upd.error;
+    if (!upd.data || !upd.data.length) throw new Error('no app_config row (id=1)');
+    if (cache && cache.config) cache.config.column_mappings = m;
+    return true;
+  } catch(e){ console.warn('reqEmailTplSave:', e); if (typeof toast==='function') toast('Save failed: ' + (e.message||e), 'err'); return false; }
+}
+function reqEmailTplOpen(){
+  const types = _reqTypes().slice();
+  const prev = document.getElementById('req-eml-pop'); if (prev) prev.remove();
+  const store = reqEmailTplStore();
+  const draft = {}; types.forEach(t => { const g = reqEmailTplGet(t); draft[t] = { subject:g.subject, body:g.body }; });
+  let which = types[0] || '';
+  const ov = document.createElement('div');
+  ov.id = 'req-eml-pop';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px';
+  const chips = ['{name}','{list_type}','{city}','{county}'].map(t => '<button type="button" class="reml-chip" data-tok="'+t+'" style="padding:3px 9px;font-size:11px;font-weight:600;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer">'+t+'</button>').join(' ');
+  ov.innerHTML = '<div style="width:min(600px,96vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;box-shadow:0 16px 50px rgba(0,0,0,0.5)">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-weight:800;font-size:15px">✉️ Request Emails</div><button id="reml-x" style="background:none;border:none;color:var(--text-dim);font-size:22px;line-height:1;cursor:pointer">×</button></div>'
+    + '<label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:6px">LIST TYPE</label>'
+    + '<div id="reml-tabs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">' + types.map(t => '<button type="button" class="reml-tab" data-t="'+_reqEsc(t)+'" style="padding:6px 11px;font-size:12px;font-weight:700;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);border-radius:8px;cursor:pointer">'+_reqEsc(t)+'</button>').join('') + '</div>'
+    + '<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">Click to insert: ' + chips + '</div>'
+    + '<label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px">SUBJECT</label>'
+    + '<input id="reml-subject" type="text" style="width:100%;box-sizing:border-box;height:38px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);color:var(--text);font-size:13px;margin-bottom:12px">'
+    + '<label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px">MESSAGE</label>'
+    + '<textarea id="reml-body" rows="9" style="width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);color:var(--text);font-size:13px;line-height:1.5;resize:vertical;min-height:170px"></textarea>'
+    + '<div id="reml-status" style="font-size:11px;min-height:14px;margin-top:6px;color:var(--text-dim)"></div>'
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button id="reml-cancel" style="padding:7px 14px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">Cancel</button><button id="reml-save" style="padding:7px 16px;border:none;background:var(--brand);color:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">💾 Save All</button></div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  const sEl = ov.querySelector('#reml-subject'), bEl = ov.querySelector('#reml-body'), st = ov.querySelector('#reml-status');
+  let last = bEl;
+  sEl.addEventListener('focus', ()=>last=sEl); bEl.addEventListener('focus', ()=>last=bEl);
+  sEl.addEventListener('input', ()=>{ draft[which].subject = sEl.value; });
+  bEl.addEventListener('input', ()=>{ draft[which].body = bEl.value; });
+  function paint(){
+    sEl.value = draft[which].subject; bEl.value = draft[which].body;
+    ov.querySelectorAll('.reml-tab').forEach(tb => { const on = tb.getAttribute('data-t') === which; tb.style.background = on?'var(--brand)':'var(--panel-2)'; tb.style.color = on?'#fff':'var(--text-dim)'; tb.style.borderColor = on?'var(--brand)':'var(--border)'; });
+  }
+  ov.querySelectorAll('.reml-tab').forEach(tb => tb.addEventListener('click', ()=>{ which = tb.getAttribute('data-t'); paint(); }));
+  ov.querySelectorAll('.reml-chip').forEach(c => c.addEventListener('click', ()=>{ const el = (last===sEl)?sEl:bEl; const tok=c.getAttribute('data-tok'); const s=el.selectionStart||el.value.length, e=el.selectionEnd||el.value.length; el.value=el.value.slice(0,s)+tok+el.value.slice(e); draft[which][el===sEl?'subject':'body']=el.value; el.focus(); }));
+  function close(){ ov.remove(); }
+  ov.querySelector('#reml-x').onclick = close; ov.querySelector('#reml-cancel').onclick = close;
+  ov.addEventListener('click', e=>{ if (e.target===ov) close(); });
+  ov.querySelector('#reml-save').onclick = async function(){ this.disabled=true; this.textContent='Saving…'; const ok = await reqEmailTplSave(draft); if (ok){ if (typeof toast==='function') toast('✉️ Templates saved','ok'); close(); } else { this.disabled=false; this.textContent='💾 Save All'; } };
+  which = types[0] || ''; paint();
+}
+window.reqEmailTplOpen = reqEmailTplOpen;
+function _reqEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _reqToday(){ return new Date().toISOString().slice(0,10); }
+function _reqFmtDate(d){ if(!d) return ''; try{ const dt=new Date(d+'T00:00:00'); if(isNaN(dt)) return d; return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(_){ return d; } }
+function _reqRecencyColor(d){ if(!d) return '#6b7280'; const days=Math.round((Date.now()-new Date(d+'T00:00:00').getTime())/86400000); return days<=30?'#10b981':days<=90?'#f59e0b':'#ef4444'; }
+
+async function loadRequests(){
+  if (cache.requests) return cache.requests;
+  try {
+    const { data, error } = await sb.from('request_cities').select('*').order('city');
+    if (error) throw error;
+    cache.requests = {};
+    (data || []).forEach(r => { if (r && r.id) { if (!r.lists || typeof r.lists !== 'object') r.lists = {}; cache.requests[r.id] = r; } });
+  } catch (e) { console.warn('loadRequests:', e); cache.requests = cache.requests || {}; }
+  return cache.requests;
+}
+window.loadRequests = loadRequests;
+
+function requestsToggleSort(){
+  const b = document.getElementById('requests-sort-btn'); if (!b) return;
+  const cur = b.getAttribute('data-sort') || 'city';
+  const next = cur === 'city' ? 'county' : 'city';
+  b.setAttribute('data-sort', next);
+  b.textContent = '🔀 Sort: ' + (next === 'city' ? 'City' : 'County');
+  renderRequestsList();
+}
+window.requestsToggleSort = requestsToggleSort;
+
+function requestsTogglePriority(){
+  const b = document.getElementById('requests-priority-filter'); if (!b) return;
+  const on = b.getAttribute('data-on') === '1';
+  b.setAttribute('data-on', on ? '0' : '1');
+  b.style.background  = on ? '' : 'rgba(245,158,11,0.18)';
+  b.style.borderColor = on ? '' : '#f59e0b';
+  b.style.color       = on ? '' : '#fbbf24';
+  renderRequestsList();
+}
+window.requestsTogglePriority = requestsTogglePriority;
+
+// Priority toggle button inside the city popup (on = ⭐ gold, off = ☆ muted).
+function _reqSetPriorityBtn(on){
+  const b = document.getElementById('request-priority-btn'); if (!b) return;
+  b.setAttribute('data-on', on ? '1' : '0');
+  b.textContent = on ? '⭐ Priority' : '☆ Priority';
+  b.style.background  = on ? 'rgba(245,158,11,0.18)' : 'var(--panel-2)';
+  b.style.borderColor = on ? '#f59e0b' : 'var(--border)';
+  b.style.color       = on ? '#fbbf24' : 'var(--text-dim)';
+}
+function requestTogglePriorityBtn(){
+  const b = document.getElementById('request-priority-btn'); if (!b) return;
+  _reqSetPriorityBtn(b.getAttribute('data-on') !== '1');
+}
+window.requestTogglePriorityBtn = requestTogglePriorityBtn;
+
+async function requestsRefresh(){
+  const b = document.getElementById('requests-refresh-btn');
+  if (b){ b.disabled = true; b.dataset.lbl = b.textContent; b.textContent = '⏳'; }
+  try { cache.requests = null; await loadRequests(); }
+  catch(e){ console.warn('requestsRefresh:', e); }
+  if (b){ b.disabled = false; b.textContent = b.dataset.lbl || '🔁 Refresh'; }
+  renderRequestsList();
+}
+window.requestsRefresh = requestsRefresh;
+
+function renderRequestsList(){
+  const grid = document.getElementById('requests-grid');
+  const empty = document.getElementById('requests-empty');
+  if (!grid) return;
+  if (!cache.requests) { loadRequests().then(renderRequestsList); return; }
+  const q = (document.getElementById('requests-search')?.value || '').trim().toLowerCase();
+  let rows = Object.values(cache.requests).filter(r => r && r.city);
+  if (q) rows = rows.filter(r => {
+    const hay = [r.city, r.county, JSON.stringify(r.lists||{})].map(v => String(v||'').toLowerCase()).join(' | ');
+    return hay.includes(q);
+  });
+  const prioOn = (document.getElementById('requests-priority-filter')?.getAttribute('data-on')) === '1';
+  if (prioOn) rows = rows.filter(r => !!r.priority);
+  if (!rows.length){
+    grid.innerHTML = '';
+    if (empty){ empty.style.display=''; empty.innerHTML = q ? 'No cities match your search.' : 'No cities yet — click <b>+ Add City</b> to start tracking list requests.'; }
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  const sortMode = (document.getElementById('requests-sort-btn')?.getAttribute('data-sort')) || 'city';
+
+  const cardHtml = (r) => {
+    const id = _reqEsc(r.id);
+    const chips = _reqTypes().map(t => {
+      const d = (r.lists && r.lists[t]) || {};
+      const col = _reqRecencyColor(d.received);
+      const has = !!((d.contacts && d.contacts.length) || d.email || d.phone || d.website || d.requested || d.received);
+      return '<span title="' + _reqEsc(t) + (d.received ? (' — last received ' + _reqFmtDate(d.received)) : (d.requested ? (' — requested ' + _reqFmtDate(d.requested)) : ' — no activity')) + '" style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;background:' + (has?col+'1f':'var(--panel-2)') + ';color:' + (has?col:'var(--text-dim)') + ';border:1px solid ' + (has?col+'55':'var(--border)') + ';border-radius:5px;padding:1px 6px;margin:2px 3px 0 0"><span style="width:7px;height:7px;border-radius:50%;background:' + (has?col:'#4b5563') + '"></span>' + _reqEsc(t) + '</span>';
+    }).join('');
+    return '<div onclick="requestOpenModal(\'' + id + '\')" style="position:relative;cursor:pointer;background:var(--panel);border:1px solid ' + (r.priority?'rgba(245,158,11,0.5)':'var(--border)') + ';border-radius:12px;padding:14px;transition:border-color .12s" onmouseover="this.style.borderColor=\'var(--brand)\'" onmouseout="this.style.borderColor=\'' + (r.priority?'rgba(245,158,11,0.5)':'var(--border)') + '\'">'
+      + (r.priority ? '<div style="position:absolute;top:9px;right:11px;font-size:16px" title="Priority">⭐</div>' : '')
+      + '<div style="font-weight:800;font-size:15px;color:var(--text);padding-right:18px">🏙️ ' + _reqEsc(r.city) + '</div>'
+      + '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">' + ((r.county || r.state) ? ('📍 ' + [_reqEsc(r.county) + (r.county?' County':''), _reqEsc(r.state)].filter(x=>x && x.trim()).join(', ')) : '<span style="opacity:.6">No county set</span>') + '</div>'
+      + (Array.isArray(r.links) && r.links.length ? ('<div style="margin-top:7px;display:flex;flex-wrap:wrap;gap:8px" onclick="event.stopPropagation()">' + r.links.filter(l=>l&&(l.label||l.url)).map(l=>{ let u=String(l.url||''); if(u && !/^https?:\/\//i.test(u)) u='https://'+u; return '<a href="' + _reqEsc(u) + '" target="_blank" rel="noopener" style="font-size:11.5px;color:#60a5fa;text-decoration:none;font-weight:600">🌐 ' + _reqEsc(l.label||l.url) + '</a>'; }).join('') + '</div>') : '')
+      + '<div style="margin-top:9px;display:flex;flex-wrap:wrap">' + chips + '</div></div>';
+  };
+
+  if (sortMode === 'county'){
+    const groups = {}; const order = [];
+    rows.forEach(r => { const c = (r.county || '').trim() || 'No County'; if (!groups[c]) { groups[c] = []; order.push(c); } groups[c].push(r); });
+    order.sort((a,b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    grid.className = '';
+    grid.innerHTML = order.map(c => {
+      const cities = groups[c].sort((a,b)=> ((b.priority?1:0)-(a.priority?1:0)) || String(a.city||'').toLowerCase().localeCompare(String(b.city||'').toLowerCase()));
+      return '<div style="margin-bottom:18px"><div style="font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#a5b4fc;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:10px">📍 ' + _reqEsc(c) + ' County <span style="color:var(--text-dim);font-weight:600">(' + cities.length + ')</span></div>'
+        + '<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">' + cities.map(cardHtml).join('') + '</div></div>';
+    }).join('');
+  } else {
+    rows.sort((a,b)=> ((b.priority?1:0)-(a.priority?1:0)) || String(a.city||'').toLowerCase().localeCompare(String(b.city||'').toLowerCase()));
+    grid.className = 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3';
+    grid.innerHTML = rows.map(cardHtml).join('');
+  }
+}
+window.renderRequestsList = renderRequestsList;
+
+// ----- City Add/Edit popup: renders a section per list type -----
+// Quick email / call from a contact or connection row (uses the current field
+// values — your goal: reach the list senders fast and repeatedly).
+function _reqRowContact(btn, kind){
+  const row = btn.closest('.rt-contact-row') || btn.closest('.rt-conn-row'); if (!row) return;
+  if (kind === 'email'){
+    const v = ((row.querySelector('input[type=email]') || {}).value || '').trim();
+    if (!v){ if (typeof toast==='function') toast('No email on this contact.','warn'); return; }
+    let href = 'mailto:' + v;
+    // If this is a list-type contact, pre-fill that type's request template.
+    const card = btn.closest('.req-type-card');
+    const type = card ? (card.getAttribute('data-type') || ((card.querySelector('.rt-type-name')||{}).value || '')) : '';
+    if (type && typeof reqEmailTplGet === 'function'){
+      const ctx = {
+        name: ((row.querySelector('.rc-name')||row.querySelector('.cn-name')||{}).value || '').trim(),
+        list_type: type,
+        city: ((document.getElementById('request-add-city')||{}).value || '').trim(),
+        county: ((document.getElementById('request-add-county')||{}).value || '').trim()
+      };
+      const tpl = reqEmailTplGet(type);
+      href += '?subject=' + encodeURIComponent(reqEmailTplFill(tpl.subject, ctx)) + '&body=' + encodeURIComponent(reqEmailTplFill(tpl.body, ctx));
+    }
+    const a = document.createElement('a'); a.href = href; a.click();
+  } else {
+    const v = (((row.querySelector('.rc-phone') || row.querySelector('.cn-phone') || {}).value) || '').replace(/[^0-9+]/g,'');
+    if (!v){ if (typeof toast==='function') toast('No phone on this contact.','warn'); return; }
+    const a = document.createElement('a'); a.href = 'tel:' + v; a.click();
+  }
+}
+window._reqRowContact = _reqRowContact;
+function _reqActionBtns(){
+  return '<div style="display:flex;gap:4px;justify-content:center">'
+    + '<button type="button" title="Email" onclick="_reqRowContact(this,\'email\')" style="height:36px;width:30px;border:1px solid var(--border);background:var(--panel-2);color:#a78bfa;border-radius:7px;cursor:pointer;font-size:13px">📧</button>'
+    + '<button type="button" title="Call" onclick="_reqRowContact(this,\'phone\')" style="height:36px;width:30px;border:1px solid var(--border);background:var(--panel-2);color:#34d399;border-radius:7px;cursor:pointer;font-size:13px">📞</button>'
+    + '<button type="button" title="Remove" onclick="(this.closest(\'.rt-contact-row\')||this.closest(\'.rt-conn-row\')).remove()" style="height:36px;width:26px;border:1px solid var(--border);background:transparent;color:#f87171;border-radius:7px;cursor:pointer;font-weight:700">×</button></div>';
+}
+function _reqContactRowHtml(c){
+  c = c || {};
+  return '<div class="rt-contact-row" style="display:grid;grid-template-columns:1.1fr 1.5fr 1fr 100px;gap:6px;margin-bottom:6px;align-items:center">'
+    + '<input type="text" class="rc-name" placeholder="Name" value="' + _reqEsc(c.name||'') + '" style="height:36px;font-size:13px;padding:0 9px">'
+    + '<input type="email" class="rc-email" placeholder="Email" value="' + _reqEsc(c.email||'') + '" style="height:36px;font-size:13px;padding:0 9px">'
+    + '<input type="text" class="rc-phone" placeholder="Phone" value="' + _reqEsc(c.phone||'') + '" style="height:36px;font-size:13px;padding:0 9px">'
+    + _reqActionBtns() + '</div>';
+}
+function _reqConnRowHtml(c){
+  c = c || {};
+  return '<div class="rt-conn-row" style="display:grid;grid-template-columns:1fr 1fr 1.4fr 1fr 100px;gap:6px;margin-bottom:6px;align-items:center">'
+    + '<input type="text" class="cn-role" placeholder="Role (Recorder…)" value="' + _reqEsc(c.role||'') + '" style="height:36px;font-size:13px;padding:0 9px">'
+    + '<input type="text" class="cn-name" placeholder="Name" value="' + _reqEsc(c.name||'') + '" style="height:36px;font-size:13px;padding:0 9px">'
+    + '<input type="email" class="cn-email" placeholder="Email" value="' + _reqEsc(c.email||'') + '" style="height:36px;font-size:13px;padding:0 9px">'
+    + '<input type="text" class="cn-phone" placeholder="Phone" value="' + _reqEsc(c.phone||'') + '" style="height:36px;font-size:13px;padding:0 9px">'
+    + _reqActionBtns() + '</div>';
+}
+function _reqRenderConns(list){
+  const box = document.getElementById('request-conns-container'); if (!box) return;
+  list = Array.isArray(list) ? list : [];
+  box.innerHTML = (list.length ? list : [{}]).map(_reqConnRowHtml).join('');
+}
+// ----- Website links (label + url) -----
+function _reqNormUrl(u){ u = String(u||'').trim(); if (!u) return ''; if (!/^https?:\/\//i.test(u)) u = 'https://' + u; return u; }
+function _reqOpenLink(btn){
+  const row = btn.closest('.rt-link-row'); if (!row) return;
+  const u = _reqNormUrl((row.querySelector('.lk-url')||{}).value);
+  if (!u){ if (typeof toast==='function') toast('No URL on this link.','warn'); return; }
+  window.open(u, '_blank', 'noopener');
+}
+window._reqOpenLink = _reqOpenLink;
+function _reqLinkRowHtml(l){
+  l = l || {};
+  return '<div class="rt-link-row" style="display:grid;grid-template-columns:1fr 1.8fr 66px;gap:6px;margin-bottom:6px;align-items:center">'
+    + '<input type="text" class="lk-label" placeholder="Label (County Clerk)" value="' + _reqEsc(l.label||'') + '" style="height:36px;font-size:13px;padding:0 9px">'
+    + '<input type="text" class="lk-url" placeholder="https://…" value="' + _reqEsc(l.url||'') + '" style="height:36px;font-size:13px;padding:0 9px">'
+    + '<div style="display:flex;gap:4px;justify-content:center">'
+    +   '<button type="button" title="Open link" onclick="_reqOpenLink(this)" style="height:36px;width:30px;border:1px solid var(--border);background:var(--panel-2);color:#60a5fa;border-radius:7px;cursor:pointer;font-size:13px">🌐</button>'
+    +   '<button type="button" title="Remove" onclick="this.closest(\'.rt-link-row\').remove()" style="height:36px;width:26px;border:1px solid var(--border);background:transparent;color:#f87171;border-radius:7px;cursor:pointer;font-weight:700">×</button>'
+    + '</div></div>';
+}
+function _reqRenderLinks(list){
+  const box = document.getElementById('request-links-container'); if (!box) return;
+  list = Array.isArray(list) ? list : [];
+  box.innerHTML = (list.length ? list : [{}]).map(_reqLinkRowHtml).join('');
+}
+function _reqAddLinkRow(){
+  const box = document.getElementById('request-links-container'); if (!box) return;
+  box.insertAdjacentHTML('beforeend', _reqLinkRowHtml({}));
+}
+window._reqAddLinkRow = _reqAddLinkRow;
+function _reqCollectLinks(){
+  const out = [];
+  document.querySelectorAll('#request-links-container .rt-link-row').forEach(row => {
+    const label = ((row.querySelector('.lk-label')||{}).value||'').trim();
+    const url = ((row.querySelector('.lk-url')||{}).value||'').trim();
+    if (label || url) out.push({ label, url });
+  });
+  return out;
+}
+function _reqAddConnRow(){
+  const box = document.getElementById('request-conns-container'); if (!box) return;
+  box.insertAdjacentHTML('beforeend', _reqConnRowHtml({}));
+}
+window._reqAddConnRow = _reqAddConnRow;
+function _reqCollectConns(){
+  const out = [];
+  document.querySelectorAll('#request-conns-container .rt-conn-row').forEach(row => {
+    const g = (sel) => ((row.querySelector(sel) || {}).value || '').trim();
+    const role = g('.cn-role'), name = g('.cn-name'), email = g('.cn-email'), phone = g('.cn-phone');
+    if (role || name || email || phone) out.push({ role, name, email, phone });
+  });
+  return out;
+}
+function _reqAddContactRow(btn){
+  const card = btn.closest('.req-type-card'); if (!card) return;
+  const box = card.querySelector('.rt-contacts'); if (!box) return;
+  box.insertAdjacentHTML('beforeend', _reqContactRowHtml({}));
+}
+window._reqAddContactRow = _reqAddContactRow;
+
+function _reqRenderListSections(lists){
+  const wrap = document.getElementById('request-lists-container'); if (!wrap) return;
+  lists = lists || {};
+  const field = (label, cls, val, type) => '<label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-dim);margin-bottom:8px">' + label
+    + '<input type="' + (type||'text') + '" class="' + cls + '" value="' + _reqEsc(val||'') + '" style="width:100%;margin-top:4px;height:38px;font-size:14px;padding:0 11px"></label>';
+  const types = _reqTypes().slice();
+  Object.keys(lists).forEach(k => { if (types.indexOf(k) < 0) types.push(k); });
+  wrap.innerHTML = types.map(t => {
+    const d = lists[t] || {};
+    let contacts = Array.isArray(d.contacts) ? d.contacts.slice() : [];
+    // Back-compat: migrate an old single email/phone into one contact row.
+    if (!contacts.length && (d.email || d.phone || d.name)) contacts = [{ name:d.name||'', email:d.email||'', phone:d.phone||'' }];
+    if (!contacts.length) contacts = [{}];
+    const dateField = (label, cls, val) => '<div style="font-size:11.5px;font-weight:600;color:var(--text-dim);margin-bottom:8px">' + label
+      + '<div style="display:flex;gap:6px;margin-top:4px"><input type="date" class="' + cls + '" value="' + _reqEsc(val||'') + '" style="flex:1;height:38px;font-size:14px;padding:0 10px">'
+      + '<button type="button" onclick="this.previousElementSibling.value=new Date().toISOString().slice(0,10)" style="height:38px;padding:0 10px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap">✓ today</button></div></div>';
+    return '<div class="req-type-card" data-type="' + _reqEsc(t) + '" style="border:1px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px;background:var(--panel-2)">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><div style="font-weight:800;font-size:13.5px">' + _reqEsc(t) + '</div>'
+      + '<button type="button" title="Remove this list type from every city" onclick="requestRemoveType(\'' + _reqEsc(t).replace(/\\/g,"\\\\").replace(/'/g,"\\'") + '\')" style="border:1px solid var(--border);background:transparent;color:#f87171;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px">✕ Remove</button></div>'
+      + '<div style="font-size:11.5px;font-weight:600;color:var(--text-dim);margin-bottom:5px">Contacts <span style="font-weight:normal">(name · email · phone)</span></div>'
+      + '<div class="rt-contacts">' + contacts.map(_reqContactRowHtml).join('') + '</div>'
+      + '<button type="button" onclick="_reqAddContactRow(this)" style="font-size:11px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;padding:5px 11px;cursor:pointer;margin:2px 0 11px">+ Add Contact</button>'
+      + field('Website / Portal','rt-website',d.website)
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + dateField('Requested','rt-requested',d.requested) + dateField('Last Received','rt-received',d.received) + '</div>'
+      + '<label style="display:block;font-size:11.5px;font-weight:600;color:var(--text-dim)">Notes<input type="text" class="rt-notes" value="' + _reqEsc(d.notes||'') + '" placeholder="e.g. ask for records dept, $25 fee" style="width:100%;margin-top:4px;height:38px;font-size:14px;padding:0 11px"></label>'
+      + '</div>';
+  }).join('');
+}
+
+function requestOpenModal(id){
+  const modal = document.getElementById('request-add-modal'); if (!modal) return;
+  // The modal markup lives inside a section that's hidden on other tabs; move it
+  // to <body> so it always shows (its own backdrop covers the screen).
+  if (modal.parentNode !== document.body) document.body.appendChild(modal);
+  const setV = (k,v)=>{ const el=document.getElementById(k); if(el) el.value=(v==null?'':String(v)); };
+  const hid = document.getElementById('request-edit-id');
+  const title = document.getElementById('request-modal-title');
+  const del = document.getElementById('request-delete-btn');
+  if (id && cache.requests && cache.requests[id]){
+    const r = cache.requests[id];
+    if (hid) hid.value = id;
+    if (title) title.textContent = '✏ ' + (r.city || 'Edit City');
+    if (del) del.style.display = '';
+    setV('request-add-city', r.city); setV('request-add-county', r.county); setV('request-add-state', r.state);
+    _reqSetPriorityBtn(!!r.priority);
+    _reqRenderLinks(r.links || []);
+    _reqRenderListSections(r.lists || {});
+    _reqRenderConns(r.connections || []);
+  } else {
+    if (hid) hid.value = '';
+    if (title) title.textContent = '📨 Add City';
+    if (del) del.style.display = 'none';
+    setV('request-add-city',''); setV('request-add-county',''); setV('request-add-state','');
+    _reqSetPriorityBtn(false);
+    _reqRenderLinks([]);
+    _reqRenderListSections({});
+    _reqRenderConns([]);
+  }
+  modal.style.display = 'flex';
+}
+window.requestOpenModal = requestOpenModal;
+function requestCloseModal(){ const m=document.getElementById('request-add-modal'); if(m) m.style.display='none'; }
+window.requestCloseModal = requestCloseModal;
+
+function _reqCollectLists(){
+  const out = {};
+  document.querySelectorAll('#request-lists-container .req-type-card').forEach(card => {
+    const t = card.getAttribute('data-type'); if (!t) return;
+    const g = (sel) => (card.querySelector(sel) || {}).value || '';
+    const contacts = [];
+    card.querySelectorAll('.rt-contacts .rt-contact-row').forEach(row => {
+      const nm = ((row.querySelector('.rc-name')  || {}).value || '').trim();
+      const em = ((row.querySelector('.rc-email') || {}).value || '').trim();
+      const ph = ((row.querySelector('.rc-phone') || {}).value || '').trim();
+      if (nm || em || ph) contacts.push({ name:nm, email:em, phone:ph });
+    });
+    const website = g('.rt-website').trim(), requested = g('.rt-requested'), received = g('.rt-received'), notes = g('.rt-notes').trim();
+    if (contacts.length || website || requested || received || notes) out[t] = { contacts: contacts, website: website, requested: requested, received: received, notes: notes };
+  });
+  return out;
+}
+
+async function requestSaveNew(){
+  const $ = (id)=>document.getElementById(id);
+  const editId = ($('request-edit-id')?.value || '').trim();
+  const city = ($('request-add-city')?.value || '').trim();
+  if (!city){ if(typeof toast==='function') toast('City is required.','warn'); const n=$('request-add-city'); if(n) n.focus(); return; }
+  const payload = {
+    city,
+    county: ($('request-add-county')?.value || '').trim() || null,
+    state: ($('request-add-state')?.value || '').trim().toUpperCase() || null,
+    priority: (document.getElementById('request-priority-btn') && document.getElementById('request-priority-btn').getAttribute('data-on') === '1'),
+    links: _reqCollectLinks(),
+    lists: _reqCollectLists(),
+    connections: _reqCollectConns(),
+    updated_at: new Date().toISOString()
+  };
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Not connected');
+    let data, error;
+    if (editId) ({ data, error } = await sb.from('request_cities').update(payload).eq('id', editId).select().single());
+    else ({ data, error } = await sb.from('request_cities').insert(payload).select().single());
+    if (error) throw error;
+    cache.requests = cache.requests || {};
+    if (data){ if(!data.lists||typeof data.lists!=='object') data.lists={}; cache.requests[data.id] = data; }
+    renderRequestsList(); requestCloseModal();
+    if (typeof toast === 'function') toast('City saved', 'ok');
+  } catch (e) { console.warn('requestSaveNew:', e); if (typeof toast==='function') toast('Save failed: ' + (e.message||e), 'err'); }
+}
+window.requestSaveNew = requestSaveNew;
+
+async function requestDelete(){
+  const id = (document.getElementById('request-edit-id')?.value || '').trim(); if (!id) return;
+  if (!confirm('Delete this city and its list sources?')) return;
+  try { const { error } = await sb.from('request_cities').delete().eq('id', id); if (error) throw error;
+    if (cache.requests) delete cache.requests[id];
+    renderRequestsList(); requestCloseModal();
+    if (typeof toast === 'function') toast('City deleted', 'ok');
+  } catch (e) { console.warn('requestDelete:', e); if (typeof toast==='function') toast('Delete failed: ' + (e.message||e), 'err'); }
+}
+window.requestDelete = requestDelete;
 
 // ---------- Marketing: Vendors subtab — quick CSV download per vendor ----------
 // Selected list IDs the user has filtered to. Empty Set = "all lists" (no filter).

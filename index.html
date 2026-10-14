@@ -63449,6 +63449,29 @@ function _rcApplyTrash(){
         if(g.auto){ const a = g.auto.indexOf(nm); if(a >= 0) g.auto.splice(a, 1); }
       });
     });
+    // Remove trashed CUSTOM items too. These get re-added on every load by the
+    // cloud hydrate's union merge (which only ever adds, never removes), so
+    // without this a deleted custom item resurrects on reload and never syncs.
+    let _customRemoved = false;
+    trash.filter(e=>e.type==='custom').forEach(e=>{
+      const cat = e.cat; const nm = (e.item && e.item.n) || e.name;
+      if(!cat || !nm) return;
+      if(items[cat]){
+        const idx = items[cat].findIndex(x => x._user && x.n === nm);
+        if(idx >= 0){ items[cat].splice(idx, 1); _customRemoved = true; }
+      }
+      basicGroups.forEach(g=>{
+        const i = g.items.indexOf(nm); if(i >= 0){ g.items.splice(i, 1); _customRemoved = true; }
+        if(g.auto){ const a = g.auto.indexOf(nm); if(a >= 0){ g.auto.splice(a, 1); _customRemoved = true; } }
+      });
+    });
+    // Persist the cleaned custom-item + group lists so the stored copy (and the
+    // next Push Team Version) no longer carries the deleted item — this is what
+    // lets the deletion finally stick and propagate instead of coming back.
+    if(_customRemoved){
+      if(typeof _rcSaveUserItems === 'function') _rcSaveUserItems();
+      if(typeof _rcSaveUserGroups === 'function') _rcSaveUserGroups();
+    }
   }catch(e){ console.warn('[_rcApplyTrash]', e); }
 }
 // Every custom item must live in at least one group, otherwise it exists in

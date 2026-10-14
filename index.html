@@ -2225,18 +2225,44 @@
         <span id="sq-filter-sk-providers" class="flex flex-wrap gap-1"></span>
       </div>
     </div>
+    <!-- Filter row: Source (where the property's list came from) -->
+    <div class="mb-2" style="padding:12px 14px;background:var(--panel-2);border-radius:8px;border:1px solid var(--border)">
+      <div class="flex items-center flex-wrap" style="gap:14px 22px">
+        <span class="text-xs whitespace-nowrap" style="font-weight:700;color:#f59e0b;display:inline-block;width:104px">🏷️ Source</span>
+        <span class="text-xs flex items-center gap-2 whitespace-nowrap" style="margin-left:auto" title="Include = keep only properties from the selected source(s). Exclude = drop them.">Match
+          <span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden">
+            <input type="hidden" id="sq-source-inmode" value="include">
+            <button type="button" id="sq-source-inc" onclick="_sqSetMode('source','include')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:#10b981;color:#fff">Include</button>
+            <button type="button" id="sq-source-exc" onclick="_sqSetMode('source','exclude')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim)">Exclude</button>
+          </span>
+        </span>
+        <span class="text-xs flex items-center gap-2 whitespace-nowrap" title="ALL = property's lists must cover every selected source (AND). ANY = at least one (OR).">Combine
+          <span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden">
+            <input type="hidden" id="sq-source-mode" value="or">
+            <button type="button" id="sq-source-mode-and" onclick="_sqSetMatch('source','and')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--text-dim)">ALL (AND)</button>
+            <button type="button" id="sq-source-mode-or" onclick="_sqSetMatch('source','or')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-left:1px solid var(--border);cursor:pointer;background:#3b82f6;color:#fff">ANY (OR)</button>
+          </span>
+        </span>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap" style="margin-top:10px;row-gap:8px">
+        <span id="sq-filter-sources" class="flex flex-wrap gap-1"></span>
+      </div>
+    </div>
     <!-- Filter row 2 (flag chips) -->
     <div class="mb-2" style="padding:12px 14px;background:var(--panel-2);border-radius:8px;border:1px solid var(--border)">
       <div class="flex items-center flex-wrap" style="gap:14px 22px">
         <span class="text-xs whitespace-nowrap" style="font-weight:700;color:#fbbf24;display:inline-block;width:104px">🚩 Flags</span>
-        <span class="text-xs flex items-center gap-2 whitespace-nowrap" style="margin-left:auto" title="Include = keep only properties that match the selected flags. Exclude = drop properties that match them.">Match
+        <span class="text-xs flex items-center gap-2 whitespace-nowrap" style="margin-left:auto" title="Stack: keep properties that have AT LEAST this many of the selected flags. 0 = off (use ALL/ANY). Example: select 5 flags, set Stack to 3 → keep anything with any 3+ of those flags. Flags only.">Stack ≥
+          <input type="number" id="sq-flag-min" min="0" step="1" value="0" onchange="_sqFiltersChanged()" oninput="_sqFiltersChanged()" style="width:52px;padding:4px 6px;text-align:center;border:1px solid var(--border);border-radius:7px;background:var(--panel);color:var(--text)">
+        </span>
+        <span class="text-xs flex items-center gap-2 whitespace-nowrap" title="Include = keep only properties that match the selected flags. Exclude = drop properties that match them.">Match
           <span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden">
             <input type="hidden" id="sq-flag-inmode" value="include">
             <button type="button" id="sq-flag-inc" onclick="_sqSetMode('flag','include')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:#10b981;color:#fff">Include</button>
             <button type="button" id="sq-flag-exc" onclick="_sqSetMode('flag','exclude')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim)">Exclude</button>
           </span>
         </span>
-        <span class="text-xs flex items-center gap-2 whitespace-nowrap" title="ALL = property must have every selected flag (AND). ANY = property must have at least one (OR).">Combine
+        <span class="text-xs flex items-center gap-2 whitespace-nowrap" title="ALL = property must have every selected flag (AND). ANY = property must have at least one (OR). Ignored when Stack is 1 or more.">Combine
           <span style="display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden">
             <input type="hidden" id="sq-flag-mode" value="or">
             <button type="button" id="sq-flag-mode-and" onclick="_sqSetMatch('flag','and')" style="padding:5px 12px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--text-dim)">ALL (AND)</button>
@@ -56890,6 +56916,72 @@ function toggleSqFlag(flag) {
   renderSuggestedQueue();
 }
 
+// ----- Source chips (derived from flags, like a live tag) -----
+// A property's source is inferred from the flags it already carries, so a
+// property can belong to SEVERAL sources at once (shows in both if it has
+// flags for both). Mapping:
+//   Code Violations                    → FOIA Request
+//   Eviction / Foreclosure / Probate   → Government Portal
+//   Tax Delinquent (and anything else) → Software
+// Any explicit list source_type (future, tagged lists) is also included.
+window._sqSourceFilters = window._sqSourceFilters || {};
+function _sqPropSources(p) {
+  // Source is a REAL stored value, not computed from flags each time:
+  //   • property's own `source` — set once by the one-time backlog fill, and
+  //     the actual source going forward;
+  //   • plus any source picked on a list it belongs to (source_type).
+  // Both may be comma-joined (a property/list from more than one source).
+  const out = new Set();
+  String((p && p.source) || '').split(',').forEach(s => { s = s.trim(); if (s) out.add(s); });
+  (p._lists || []).forEach(lid => {
+    String((cache.lists[lid] || {}).source_type || '').split(',').forEach(s => { s = s.trim(); if (s) out.add(s); });
+  });
+  return out;
+}
+window._sqPropSources = _sqPropSources;
+function _sqAllSources() {
+  const base = ['Government Portal', 'FOIA Request', 'Software', 'Driving for Dollars', 'List Company'];
+  const set = new Set(base);
+  // Only individual source names as chips — split any comma-joined source_type
+  // so combos never become their own chip.
+  Object.values(cache.lists || {}).forEach(l => {
+    String((l && l.source_type) || '').split(',').forEach(s => {
+      s = s.trim(); if (s) set.add(s);
+    });
+  });
+  const extras = Array.from(set).filter(s => base.indexOf(s) < 0).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  return base.concat(extras);
+}
+function renderSqSourceChips() {
+  const container = document.getElementById('sq-filter-sources');
+  if (!container) return;
+  const chosen = window._sqSourceFilters;
+  // Property count per source — derived from each property's flags (+ any
+  // tagged list source). A property can count toward several sources.
+  const counts = {};
+  Object.values(cache.properties || {}).forEach(p => {
+    _sqPropSources(p).forEach(s => { counts[s] = (counts[s] || 0) + 1; });
+  });
+  container.innerHTML = _sqAllSources().map(s => {
+    const on = !!chosen[s];
+    const n = counts[s] || 0;
+    const bg = on
+      ? 'background:rgba(245,158,11,0.22);border-color:#f59e0b;color:var(--text)'
+      : 'background:var(--panel-2);border-color:var(--border);color:var(--text-dim)';
+    return '<span onclick="toggleSqSource(\'' + String(s).replace(/'/g, "\\'") + '\')" '
+      + 'style="cursor:pointer;padding:2px 8px;border-radius:999px;border:1px solid;font-size:11px;' + bg + '">'
+      + (on ? '✓ ' : '') + escapeHtml(s) + ' · ' + n.toLocaleString() + '</span>';
+  }).join('');
+}
+window.renderSqSourceChips = renderSqSourceChips;
+function toggleSqSource(src) {
+  window._sqSourceFilters[src] = !window._sqSourceFilters[src];
+  window._mpPage = 0;
+  renderSqSourceChips();
+  renderSuggestedQueue();
+}
+window.toggleSqSource = toggleSqSource;
+
 // Render list chips \u2014 newest list first, with property count per list as a hint
 function renderSqListChips() {
   const container = document.getElementById('sq-filter-lists');
@@ -57403,20 +57495,23 @@ function toggleSqProvider(name) {
 }
 window.toggleSqProvider = toggleSqProvider;
 function clearSuggestedQueueFilters() {
-  ['sq-filter-state','sq-filter-city','sq-filter-addr','sq-filter-mail','sq-filter-imported','sq-filter-contacted','sq-filter-owner','sq-filter-missing','sq-filter-sk-window'].forEach(id => {
+  ['sq-filter-state','sq-filter-city','sq-filter-addr','sq-filter-mail','sq-filter-imported','sq-filter-contacted','sq-filter-owner','sq-filter-missing','sq-filter-sk-window','sq-filter-source'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  const _fm = document.getElementById('sq-flag-min'); if (_fm) _fm.value = '0';
   if (typeof populateSqCityOptions === 'function') populateSqCityOptions();
   window._sqProviderFilters = {};
-  if (typeof _sqSetMode === 'function') { _sqSetMode('sk','include'); _sqSetMode('flag','include'); _sqSetMode('list','include'); _sqSetMode('area','include'); }
-  if (typeof _sqSetMatch === 'function') { _sqSetMatch('flag','or'); _sqSetMatch('list','or'); _sqSetMatch('sk','or'); _sqSetMatch('area','or'); }
+  if (typeof _sqSetMode === 'function') { _sqSetMode('sk','include'); _sqSetMode('flag','include'); _sqSetMode('list','include'); _sqSetMode('area','include'); _sqSetMode('source','include'); }
+  if (typeof _sqSetMatch === 'function') { _sqSetMatch('flag','or'); _sqSetMatch('list','or'); _sqSetMatch('sk','or'); _sqSetMatch('area','or'); _sqSetMatch('source','or'); }
   window._sqFlagFilters = {};
   window._sqListFilters = {};
   window._sqAreaFilters = {};
+  window._sqSourceFilters = {};
   window._mpPage = 0;
   renderSqFlagChips();
   renderSqListChips();
   renderSqAreaChips();
+  if (typeof renderSqSourceChips === 'function') renderSqSourceChips();
   renderSuggestedQueue();
 }
 
@@ -57520,6 +57615,13 @@ function _computeFilteredMarketingProps() {
   const flagFilters = Object.keys(window._sqFlagFilters || {}).filter(k => window._sqFlagFilters[k]);
   const flagMode = document.getElementById('sq-flag-mode')?.value || 'or';
   const flagInMode = document.getElementById('sq-flag-inmode')?.value || 'include';
+  // Flags "Stack ≥ N": when >=1, keep properties that have at least N of the
+  // selected flags (overrides the ALL/ANY combine toggle). 0 = off.
+  const flagMin = parseInt(document.getElementById('sq-flag-min')?.value || '0', 10) || 0;
+  // Source filter — multi-select chips (list source_type) with combine + include/exclude.
+  const sourceFilters = Object.keys(window._sqSourceFilters || {}).filter(k => window._sqSourceFilters[k]);
+  const sourceMode = document.getElementById('sq-source-mode')?.value || 'or';
+  const sourceInMode = document.getElementById('sq-source-inmode')?.value || 'include';
   const listFilters = Object.keys(window._sqListFilters || {}).filter(k => window._sqListFilters[k]);
   const listMode = document.getElementById('sq-list-mode')?.value || 'or';
   const listInMode = document.getElementById('sq-list-inmode')?.value || 'include';
@@ -57607,12 +57709,23 @@ function _computeFilteredMarketingProps() {
     }
     if (contactedF === 'never' && mostRecentMs > 0) continue;
     if (contactedF === 'contacted' && mostRecentMs === 0) continue;
-    // Flag filters with AND/OR mode + Include/Exclude
+    // Source filter — property's sources derived from its flags (+ tagged list
+    // source). Stack ≥ N overrides ALL/ANY like Flags does.
+    if (sourceFilters.length) {
+      const propSources = _sqPropSources(p);
+      const matched = sourceMode === 'and'
+        ? sourceFilters.every(s => propSources.has(s))
+        : sourceFilters.some(s => propSources.has(s));
+      if (sourceInMode === 'include' && !matched) continue;
+      if (sourceInMode === 'exclude' && matched) continue;
+    }
+    // Flag filters: Stack ≥ N (if set) overrides the AND/OR combine mode.
     if (flagFilters.length) {
       const pf = p.flags || {};
-      const matched = flagMode === 'and'
-        ? flagFilters.every(f => pf[f])
-        : flagFilters.some(f => pf[f]);
+      const hitCount = flagFilters.reduce((n, f) => n + (pf[f] ? 1 : 0), 0);
+      const matched = flagMin >= 1
+        ? hitCount >= Math.min(flagMin, flagFilters.length)
+        : (flagMode === 'and' ? hitCount === flagFilters.length : hitCount > 0);
       if (flagInMode === 'include' && !matched) continue;
       if (flagInMode === 'exclude' && matched) continue;
     }
@@ -57661,6 +57774,7 @@ function renderSuggestedQueue() {
   renderSqFlagChips();
   renderSqListChips();
   renderSqAreaChips();
+  if (typeof renderSqSourceChips === 'function') renderSqSourceChips();
 
   const totalProps = Object.keys(cache.properties || {}).length;
   const filtered = _computeFilteredMarketingProps();

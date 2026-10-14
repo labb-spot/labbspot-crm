@@ -64447,7 +64447,12 @@ function renderBasic(){
       const dropdownWidth = _editWide
         ? 'min-width:620px;max-width:94vw'
         : ((sfRows && flatRows) ? 'min-width:760px;max-width:90vw' : 'min-width:100%');
-      const anchor = g.col === 3 ? 'right:0;left:auto;' : 'left:0;';
+      // Left column anchors left, right column anchors right (both fit fine).
+      // The MIDDLE column anchored left would run off the right edge, so center
+      // it on the box instead — that keeps it on-screen without scrolling.
+      const anchor = g.col === 3 ? 'right:0;left:auto;'
+                   : g.col === 2 ? 'left:50%;transform:translateX(-50%);'
+                   : 'left:0;';
       // "+ Add Custom Item" button shows only when LAB Custom + Edit Mode on
       const addItemBtn = (isLabCustom() && labEditMode) ? `<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);text-align:center"><button type="button" onclick="event.stopPropagation();window._rcAddCustomItem&&window._rcAddCustomItem(${idx})" class="btn btn-ghost text-xs" style="padding:4px 12px;font-size:11px;border-color:#fcd34d;color:#fcd34d;background:rgba(245,158,11,0.08)" title="Add a custom item to this group. Saved to your browser's localStorage and persists across code updates.">+ Add Custom Item</button><div style="font-size:9px;color:var(--text-dim);margin-top:4px">Custom items save to this browser only — they survive future code updates.</div></div>` : '';
       dropdownHtml = '<div class="basic-dropdown" style="position:absolute;top:calc(100% + 4px);'+anchor+dropdownWidth+';z-index:20;background:var(--panel);border:1px solid #10b981;border-radius:8px;padding:8px 12px;box-shadow:0 8px 20px rgba(0,0,0,0.5)">'

@@ -63850,13 +63850,32 @@ window._rcPushTeamVersion = function(){
   };
   try { localStorage.setItem(RC_FORCE_APPLIED_KEY, String(token)); } catch(_){}   // master is already at this version — don't reload itself
   if (btn){ btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = '⏳ Pushing…'; }
-  Promise.resolve(_uwCfgMerge(patch)).then(async () => {
-    let ok = false;
-    try { const { data } = await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle(); const cm=(data&&data.column_mappings)||{}; ok = Number(cm.rehab_force_version||0) === token; } catch(_){}
-    if (btn){ btn.disabled = false; btn.textContent = btn.dataset.label || '⬆ Push Team Version'; }
-    if (ok) { if (typeof toast === 'function') toast('Pushed ✓ — every other device will match this one automatically on its next refresh.', 'ok'); else alert('Pushed! Others will match on next refresh.'); }
-    else { if (typeof toast === 'function') toast('Sent, but could not confirm the write — your database may be blocking saves.', 'err'); else alert('Sent, but could not confirm the save.'); }
-  }).catch(e => { if (btn){ btn.disabled = false; btn.textContent = btn.dataset.label || '⬆ Push Team Version'; } alert('Push failed: ' + (e && e.message || 'unknown')); });
+  // VERIFIED direct write — read current config, overwrite each rehab key with
+  // THIS device's exact snapshot (so deletions propagate), bump the force token,
+  // write, and confirm a row + the token actually came back. No swallowed
+  // errors: if the database blocks the save we surface the real reason.
+  (async () => {
+    try {
+      const sel = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle();
+      if (sel.error) throw sel.error;
+      const m = (sel.data && sel.data.column_mappings && typeof sel.data.column_mappings === 'object') ? sel.data.column_mappings : {};
+      Object.keys(patch).forEach(k => { m[k] = patch[k]; });  // exact replace per key
+      const upd = await sb.from('app_config').update({ column_mappings: m, updated_at: new Date().toISOString() }).eq('id', 1).select('column_mappings');
+      if (upd.error) throw upd.error;
+      if (!upd.data || !upd.data.length) throw new Error('no app_config row (id=1) — nothing was saved');
+      const savedToken = Number((upd.data[0].column_mappings || {}).rehab_force_version || 0);
+      if (savedToken !== token) throw new Error('write did not persist (token mismatch)');
+      if (cache && cache.config) cache.config.column_mappings = m;
+      if (btn){ btn.disabled = false; btn.textContent = btn.dataset.label || '⬆ Push Team Version'; }
+      if (typeof toast === 'function') toast('Pushed ✓ — every other device will match this one exactly on its next refresh.', 'ok');
+      else alert('Pushed! Others will match exactly on next refresh.');
+    } catch (e) {
+      if (btn){ btn.disabled = false; btn.textContent = btn.dataset.label || '⬆ Push Team Version'; }
+      console.warn('_rcPushTeamVersion:', e);
+      if (typeof toast === 'function') toast('Push failed: ' + (e && e.message || 'unknown') + ' — tell me this message and I\'ll fix it.', 'err');
+      else alert('Push failed: ' + (e && e.message || 'unknown'));
+    }
+  })();
 };
 // ===== FHA Minimum Property Requirements checklist (per property) =====
 // Checkmarks save to the open deal's data._fhaChecklist and sync across devices.

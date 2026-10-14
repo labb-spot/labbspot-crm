@@ -62756,7 +62756,7 @@ window._rcTogglePresetEdit = function () {
   }
 };
 // Save the currently-checked items as the selected preset — GLOBAL, syncs to team.
-window._rcSaveQuickPreset = function () {
+window._rcSaveQuickPreset = async function () {
   if (!window._rcEditingPreset) {
     if (typeof toast === 'function') toast('Click a preset first (Cosmetic…Monster), then adjust its items.', 'warn');
     return;
@@ -62764,8 +62764,29 @@ window._rcSaveQuickPreset = function () {
   var list = [];
   Object.keys(items).forEach(function (k) { items[k].forEach(function (i) { if (i.on) list.push(i.n); }); });
   presets[window._rcEditingPreset] = list;
-  if (typeof _uwCfgMerge === 'function') _uwCfgMerge({ rehab_preset_overrides: presets });
-  if (typeof toast === 'function') toast('✅ Saved "' + window._rcEditingPreset + '" preset — syncs to the whole team.', 'ok');
+  // VERIFIED save — read → merge → update → confirm a row came back. The old
+  // path (_uwCfgMerge) swallowed errors and toasted success even on failure,
+  // which is why this looked saved but didn't sync.
+  if (typeof sb === 'undefined' || !sb) { if (typeof toast === 'function') toast('Not connected — preset not saved.', 'err'); return; }
+  var btn = document.getElementById('rc-save-preset-btn');
+  var prevTxt = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    var sel = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle();
+    if (sel.error) throw sel.error;
+    var m = (sel.data && sel.data.column_mappings && typeof sel.data.column_mappings === 'object') ? sel.data.column_mappings : {};
+    m.rehab_preset_overrides = presets;
+    var upd = await sb.from('app_config').update({ column_mappings: m, updated_at: new Date().toISOString() }).eq('id', 1).select('id');
+    if (upd.error) throw upd.error;
+    if (!upd.data || !upd.data.length) throw new Error('no app_config row (id=1)');
+    if (cache && cache.config) cache.config.column_mappings = m;
+    if (typeof toast === 'function') toast('✅ Saved "' + window._rcEditingPreset + '" preset — syncs to the whole team.', 'ok');
+  } catch (e) {
+    console.warn('_rcSaveQuickPreset:', e);
+    if (typeof toast === 'function') toast('Save failed: ' + (e.message || e), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prevTxt || '💾 Save Quick Preset'; }
+  }
 };
 
 const noScaleCategories = ['structural','utilities'];

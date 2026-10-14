@@ -6559,7 +6559,7 @@
           <select id="contractors-service-filter" onchange="renderContractorsList()" title="Filter by trade / service offered." style="height:38px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;box-sizing:border-box;white-space:nowrap;flex:0 0 auto;width:190px">
             <option value="">All services</option>
           </select>
-          <button type="button" id="contractors-verified-filter" data-state="all" onclick="contractorsCycleListFilter()" title="Click to cycle: All → ✓ Verified → ✗ Unverified → ? Unknown" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">All Status</button>
+          <button type="button" id="contractors-verified-filter" data-state="all" onclick="contractorsCycleListFilter()" title="Click to cycle: All → ✓ Verified → 🔎 Vetting → ✗ Unqualified → ? Unknown" style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">All Status</button>
           <button type="button" id="contractors-signups-filter" data-on="0" onclick="contractorsToggleSignups()" title="Show only contractors who signed up through the public Become a Contractor form (pending your review)." style="height:38px;padding:0 14px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease">📥 Signups <span id="contractors-signups-count" class="badge warn" style="font-size:10px">0</span></button>
           <button type="button" id="contractors-refresh-btn" onclick="contractorsRefresh()" title="Reload contractors from the cloud — pulls in new public signups." style="height:38px;width:38px;padding:0;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;cursor:pointer;flex-shrink:0">🔁</button>
           <button class="btn btn-primary text-sm" onclick="contractorOpenAddModal()" style="height:38px;padding:0 16px;white-space:nowrap;flex-shrink:0;line-height:1" title="Add a new contractor to your rolodex.">+ Add Contractor</button>
@@ -38949,24 +38949,33 @@ function _setVerifiedHeaderBtnState(prefix, on) {
 window._toggleVerifiedHeaderBtn = _toggleVerifiedHeaderBtn;
 window._setVerifiedHeaderBtnState = _setVerifiedHeaderBtnState;
 
-// 3-state verified button on the contractor Add/Edit modal.
-// States cycle: unknown → true (Verified) → false (Unverified) → unknown.
+// 4-state vetting button on the contractor Add/Edit modal.
+// States cycle: unknown → verified → vetting → unqualified → unknown.
+// data-state values are the vet_status strings saved to the DB.
 function contractorSetVerifiedButton(state) {
   const btn = document.getElementById('contractor-verified-btn');
   if (!btn) return;
-  const valid = ['true','false','unknown'];
+  const valid = ['verified','vetting','unqualified','unknown'];
+  // Tolerate the old boolean-era values so edits of old rows don't blow up.
+  if (state === 'true') state = 'verified';
+  else if (state === 'false') state = 'unqualified';
   const st = valid.indexOf(state) >= 0 ? state : 'unknown';
   btn.setAttribute('data-state', st);
-  if (st === 'true') {
+  if (st === 'verified') {
     btn.style.background  = 'rgba(16,185,129,0.15)';
     btn.style.borderColor = 'rgba(16,185,129,0.5)';
     btn.style.color       = '#10b981';
     btn.textContent       = '✓ Verified';
-  } else if (st === 'false') {
+  } else if (st === 'vetting') {
+    btn.style.background  = 'rgba(245,158,11,0.15)';
+    btn.style.borderColor = 'rgba(245,158,11,0.5)';
+    btn.style.color       = '#f59e0b';
+    btn.textContent       = '🔎 Vetting';
+  } else if (st === 'unqualified') {
     btn.style.background  = 'rgba(239,68,68,0.15)';
     btn.style.borderColor = 'rgba(239,68,68,0.5)';
     btn.style.color       = '#f87171';
-    btn.textContent       = '✗ Unverified';
+    btn.textContent       = '✗ Unqualified';
   } else {
     btn.style.background  = 'rgba(156,163,175,0.15)';
     btn.style.borderColor = 'rgba(156,163,175,0.5)';
@@ -38976,41 +38985,48 @@ function contractorSetVerifiedButton(state) {
   // Keep the legacy hidden checkbox in sync so any other code that still reads
   // it sees a sensible value (checked only when explicitly verified).
   const cb = document.getElementById('contractor-add-verified');
-  if (cb) cb.checked = (st === 'true');
+  if (cb) cb.checked = (st === 'verified');
 }
 window.contractorSetVerifiedButton = contractorSetVerifiedButton;
 
 function contractorCycleVerifiedBtn() {
   const btn = document.getElementById('contractor-verified-btn');
   const cur = btn ? (btn.getAttribute('data-state') || 'unknown') : 'unknown';
-  const next = cur === 'unknown' ? 'true'
-            : cur === 'true'    ? 'false'
-            :                     'unknown';
+  const next = cur === 'unknown'     ? 'verified'
+            : cur === 'verified'    ? 'vetting'
+            : cur === 'vetting'     ? 'unqualified'
+            :                         'unknown';
   contractorSetVerifiedButton(next);
 }
 window.contractorCycleVerifiedBtn = contractorCycleVerifiedBtn;
 
-// 4-state filter on the Contractors list header — cycles through
-// All → Verified → Unverified → Unknown and re-renders.
+// 5-state filter on the Contractors list header — cycles through
+// All → Verified → Vetting → Unqualified → Unknown and re-renders.
 function contractorsCycleListFilter() {
   const btn = document.getElementById('contractors-verified-filter');
   if (!btn) return;
   const cur = btn.getAttribute('data-state') || 'all';
-  const next = cur === 'all'     ? 'true'
-            : cur === 'true'    ? 'false'
-            : cur === 'false'   ? 'unknown'
-            :                     'all';
+  const next = cur === 'all'        ? 'verified'
+            : cur === 'verified'   ? 'vetting'
+            : cur === 'vetting'    ? 'unqualified'
+            : cur === 'unqualified'? 'unknown'
+            :                        'all';
   btn.setAttribute('data-state', next);
-  if (next === 'true') {
+  if (next === 'verified') {
     btn.style.background  = 'rgba(16,185,129,0.15)';
     btn.style.borderColor = 'rgba(16,185,129,0.5)';
     btn.style.color       = '#10b981';
     btn.textContent       = '✓ Verified';
-  } else if (next === 'false') {
+  } else if (next === 'vetting') {
+    btn.style.background  = 'rgba(245,158,11,0.15)';
+    btn.style.borderColor = 'rgba(245,158,11,0.5)';
+    btn.style.color       = '#f59e0b';
+    btn.textContent       = '🔎 Vetting';
+  } else if (next === 'unqualified') {
     btn.style.background  = 'rgba(239,68,68,0.15)';
     btn.style.borderColor = 'rgba(239,68,68,0.5)';
     btn.style.color       = '#f87171';
-    btn.textContent       = '✗ Unverified';
+    btn.textContent       = '✗ Unqualified';
   } else if (next === 'unknown') {
     btn.style.background  = 'rgba(156,163,175,0.15)';
     btn.style.borderColor = 'rgba(156,163,175,0.5)';
@@ -39025,6 +39041,15 @@ function contractorsCycleListFilter() {
   if (typeof renderContractorsList === 'function') renderContractorsList();
 }
 window.contractorsCycleListFilter = contractorsCycleListFilter;
+
+// Resolve a contractor's 4-state vetting status, falling back to the legacy
+// boolean (verified → verified, anything else → unknown) for old rows.
+function _contractorVetStatus(c) {
+  const s = (c && c.vet_status) ? String(c.vet_status).toLowerCase() : '';
+  if (['verified','vetting','unqualified','unknown'].indexOf(s) >= 0) return s;
+  return (c && c.verified === true) ? 'verified' : 'unknown';
+}
+window._contractorVetStatus = _contractorVetStatus;
 
 function contractorOpenAddModal(editId) {
   const modal = document.getElementById('contractor-add-modal');
@@ -39066,7 +39091,11 @@ function contractorOpenAddModal(editId) {
     contractorRenderRefs(c.contractor_references);
     if (verResetEl) verResetEl.checked = !!c.verified;
     if (typeof contractorSetVerifiedButton === 'function') {
-      const _vs = c.verified === true ? 'true' : (c.verified === false ? 'false' : 'unknown');
+      // Prefer the new 4-state vet_status; fall back to the legacy boolean.
+      const _vsRaw = (c.vet_status ? String(c.vet_status).toLowerCase() : '');
+      const _vs = ['verified','vetting','unqualified','unknown'].indexOf(_vsRaw) >= 0
+        ? _vsRaw
+        : (c.verified === true ? 'verified' : 'unknown');
       contractorSetVerifiedButton(_vs);
     }
   } else {
@@ -39138,8 +39167,12 @@ async function contractorSaveNew() {
   const website = ($('contractor-add-website')?.value  || '').trim();
   const insured = ($('contractor-add-insured')?.value  || '').trim();
   const contractor_references = (typeof contractorCollectRefs === 'function') ? contractorCollectRefs() : [];
-  const _vSt = ($('contractor-verified-btn')?.getAttribute('data-state') || 'unknown');
-  const verified = _vSt === 'true' ? true : (_vSt === 'false' ? false : null);
+  // 4-state vetting: vet_status holds the real value; verified boolean is kept
+  // in sync (true only when Verified, false only when Unqualified) for any
+  // legacy code still reading it.
+  let vet_status = ($('contractor-verified-btn')?.getAttribute('data-state') || 'unknown');
+  if (['verified','vetting','unqualified','unknown'].indexOf(vet_status) < 0) vet_status = 'unknown';
+  const verified = vet_status === 'verified' ? true : (vet_status === 'unqualified' ? false : null);
   if (!name) {
     if (typeof toast === 'function') toast('Contact Name is required.', 'warn');
     const n = $('contractor-add-name'); if (n) n.focus();
@@ -39155,7 +39188,7 @@ async function contractorSaveNew() {
   if (btn) { prevLabel = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Saving…'; }
   try {
     if (typeof sb === 'undefined' || !sb) throw new Error('Supabase client not ready');
-    const payload = { name, company, phone, email, services, specialized_services: specialized_services || null, city, state, price_notes: prices, notes, verified, contractor_type: ctype || null, licensed: licensed || null, website: website || null, insured: insured || null, contractor_references: contractor_references.length ? contractor_references : null };
+    const payload = { name, company, phone, email, services, specialized_services: specialized_services || null, city, state, price_notes: prices, notes, verified, vet_status, contractor_type: ctype || null, licensed: licensed || null, website: website || null, insured: insured || null, contractor_references: contractor_references.length ? contractor_references : null };
     let data, error;
     if (editId) {
       ({ data, error } = await sb.from('contractors').update(payload).eq('id', editId).select().single());
@@ -39248,9 +39281,11 @@ function renderContractorsList() {
 
   const verBtn = document.getElementById('contractors-verified-filter');
   const verState = verBtn ? (verBtn.getAttribute('data-state') || 'all') : 'all';
-  if      (verState === 'true')     rows = rows.filter(c => c.verified === true);
-  else if (verState === 'false')    rows = rows.filter(c => c.verified === false);
-  else if (verState === 'unknown')  rows = rows.filter(c => c.verified == null);
+  // Back-compat: old chips stored 'true'/'false'. Map them to the new states.
+  const _verStateMapped = verState === 'true' ? 'verified' : (verState === 'false' ? 'unqualified' : verState);
+  if (['verified','vetting','unqualified','unknown'].indexOf(_verStateMapped) >= 0) {
+    rows = rows.filter(c => _contractorVetStatus(c) === _verStateMapped);
+  }
   const verFilter = verState !== 'all';
 
   // Public-signup count badge + "📥 Signups" filter.
@@ -39324,15 +39359,15 @@ function renderContractorsList() {
     const services = (_regChips || _spcChips)
       ? (_regChips + _spcChips)
       : '<span style="color:var(--text-dim);font-size:11px">—</span>';
-    // Verification status display: c.verified can be true / false / null|undefined
-    const verSt = c.verified === true ? 'verified'
-                : c.verified === false ? 'unverified'
-                :                        'unknown';
+    // Vetting status display — 4 states (vet_status, legacy boolean fallback).
+    const verSt = _contractorVetStatus(c);
     const statusCell = verSt === 'verified'
-      ? '<span style="display:inline-block;padding:3px 9px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap" title="Marked verified — you\'ve worked with them and they\'re proven reliable.">✓ Verified</span>'
-      : verSt === 'unverified'
-        ? '<span style="display:inline-block;padding:3px 9px;background:rgba(239,68,68,0.15);color:#f87171;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap" title="Marked unverified — explicitly ruled out or had a bad experience.">✗ Unverified</span>'
-        : '<span style="display:inline-block;padding:3px 9px;background:rgba(156,163,175,0.15);color:#9ca3af;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap" title="No verification status set yet.">? Unknown</span>';
+      ? '<span style="display:inline-block;padding:3px 9px;background:rgba(16,185,129,0.15);color:#10b981;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap" title="Verified — you\'ve worked with them and they\'re proven reliable.">✓ Verified</span>'
+      : verSt === 'vetting'
+        ? '<span style="display:inline-block;padding:3px 9px;background:rgba(245,158,11,0.15);color:#f59e0b;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap" title="Vetting — actively checking them out.">🔎 Vetting</span>'
+      : verSt === 'unqualified'
+        ? '<span style="display:inline-block;padding:3px 9px;background:rgba(239,68,68,0.15);color:#f87171;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap" title="Unqualified — ruled out or had a bad experience.">✗ Unqualified</span>'
+        : '<span style="display:inline-block;padding:3px 9px;background:rgba(156,163,175,0.15);color:#9ca3af;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap" title="Unknown — no vetting status set yet.">? Unknown</span>';
     // Type display: contractor_type can be 'general' or 'sub'
     const typeMap = { general: 'General Contractor', sub: 'Sub Contractor' };
     const typeVal = typeMap[String(c.contractor_type || '').toLowerCase()] || '';

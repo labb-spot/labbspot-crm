@@ -378,6 +378,17 @@
   .rc-preset { background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim); padding:8px 14px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; transition:all 0.15s; }
   .rc-preset:hover { border-color:#a855f7; color:var(--text); }
   .rc-preset.active { background:rgba(168,85,247,0.15); border-color:#a855f7; color:#c4b5fd; }
+  /* Quick-preset chips (Cosmetic…Monster) — orange glow outline, except Clear All. */
+  #rc-quick-presets-row .rc-preset:not([data-preset="clear"]) { border-color:#f97316; box-shadow:0 0 7px rgba(249,115,22,0.55); color:#fdba74; }
+  #rc-quick-presets-row .rc-preset:not([data-preset="clear"]):hover { border-color:#fb923c; box-shadow:0 0 10px rgba(249,115,22,0.75); color:var(--text); }
+  #rc-quick-presets-row .rc-preset.active:not([data-preset="clear"]) { background:rgba(249,115,22,0.18); border-color:#f97316; color:#fdba74; box-shadow:0 0 10px rgba(249,115,22,0.7); }
+  /* Clear All — red glow outline. */
+  #rc-quick-presets-row .rc-preset[data-preset="clear"] { border-color:#ef4444; box-shadow:0 0 7px rgba(239,68,68,0.55); color:#fca5a5; }
+  #rc-quick-presets-row .rc-preset[data-preset="clear"]:hover { border-color:#f87171; box-shadow:0 0 10px rgba(239,68,68,0.8); color:#fff; }
+  /* Custom preset chips — purple glow outline. */
+  #rc-custom-presets-list .rc-preset { border-color:#a855f7; box-shadow:0 0 7px rgba(168,85,247,0.55); color:#c4b5fd; }
+  #rc-custom-presets-list .rc-preset:hover { border-color:#c084fc; box-shadow:0 0 10px rgba(168,85,247,0.8); color:var(--text); }
+  #rc-custom-presets-list .rc-preset.active { background:rgba(168,85,247,0.18); border-color:#a855f7; color:#c4b5fd; box-shadow:0 0 10px rgba(168,85,247,0.7); }
   .sev-btn { background:transparent; border:1px solid var(--border); color:var(--text-dim); padding:3px 8px; border-radius:4px; font-size:11px; cursor:pointer; }
   .sev-btn:hover { border-color:#f43f5e; }
   .sev-btn.active-light { background:rgba(180,83,9,0.20); border-color:#b45309; color:#fcd34d; }
@@ -4538,20 +4549,15 @@
            rest are user-named, reusable across all deals) ===== -->
       <div id="rc-custom-presets-row" class="flex items-center gap-2 mb-2 flex-wrap" style="align-items:center">
         <span class="text-xs" style="color:var(--text-dim);align-self:center">Custom Presets:</span>
-        <!-- ⭐ Custom — per-deal, always present, cannot be deleted. Loads
-             whatever the user saved last time for this deal. Save Custom (next
-             to it) appears when Custom is active so the user can update it. -->
-        <button class="rc-preset" data-preset="custom" title="Apply this deal's saved Custom selection. Use 💾 Save Custom to update it. This one is always here and can't be deleted.">⭐ Custom</button>
         <span id="rc-custom-presets-list" class="flex items-center gap-2 flex-wrap" style="align-items:center"></span>
         <span style="margin-left:auto;display:inline-flex;gap:8px;align-items:center">
-          <button id="rc-save-custom" class="rc-preset" style="display:none;background:#10b981;color:white;border-color:#10b981" title="Save the current item + special-case selection as this deal's Custom preset. The next time you click ⭐ Custom on this deal, this exact selection loads back.">💾 Save Custom</button>
-          <button id="rc-save-preset-btn" onclick="window._rcSaveQuickPreset && window._rcSaveQuickPreset()" class="rc-preset" style="display:none;background:#a855f7;color:white;border-color:#a855f7" title="Save the current checked items as the selected Quick Preset. GLOBAL — every deal and every employee will see this.">💾 Save Quick Preset</button>
-          <button type="button" id="rc-save-new-preset" style="background:#a855f7;color:white;border:1px solid #a855f7;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s" title="Save the current item + special-case selection as a new named preset for this deal.">💾 Save New Preset</button>
+          <button id="rc-save-preset-btn" onclick="window._rcSaveQuickPreset && window._rcSaveQuickPreset()" style="background:#f97316;color:white;border:1px solid #f97316;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s" title="Save the currently-checked items into a Quick Preset you choose (Cosmetic…Monster). GLOBAL — every deal and every employee will see this.">💾 Save Quick Preset</button>
+          <button type="button" id="rc-save-new-preset" style="background:#a855f7;color:white;border:1px solid #a855f7;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s" title="Save the current item + special-case selection as a new named custom preset.">💾 Create Custom Preset</button>
         </span>
       </div>
 
       <!-- ===== Distress Presets ===== -->
-      <div class="flex items-center gap-2 mb-3 flex-wrap" style="align-items:center">
+      <div id="rc-quick-presets-row" class="flex items-center gap-2 mb-3 flex-wrap" style="align-items:center">
         <span class="text-xs" style="color:var(--text-dim);align-self:center">Quick presets:</span>
         <button class="rc-preset" data-preset="cosmetic">Cosmetic</button>
         <button class="rc-preset" data-preset="light">Light</button>
@@ -62747,7 +62753,7 @@ window._rcTogglePresetEdit = function () {
     btn.style.background = window._rcPresetEdit ? '#7c3aed' : '';
     btn.style.color = window._rcPresetEdit ? '#fff' : '';
   }
-  if (saveBtn) saveBtn.style.display = window._rcPresetEdit ? '' : 'none';
+  if (saveBtn) saveBtn.style.display = '';  // Save Quick Preset is always available now
   if (!window._rcPresetEdit) window._rcEditingPreset = null;
   if (typeof toast === 'function') {
     toast(window._rcPresetEdit
@@ -62755,22 +62761,40 @@ window._rcTogglePresetEdit = function () {
       : 'Preset editing off.', 'ok');
   }
 };
-// Save the currently-checked items as the selected preset — GLOBAL, syncs to team.
-window._rcSaveQuickPreset = async function () {
-  if (!window._rcEditingPreset) {
-    if (typeof toast === 'function') toast('Click a preset first (Cosmetic…Monster), then adjust its items.', 'warn');
-    return;
-  }
+// Quick-preset names (key → label), shown in the chooser.
+window._RC_QP_NAMES = { cosmetic:'Cosmetic', light:'Light', moderate:'Moderate', heavy:'Heavy', gut:'Gut Rehab', monster:'Monster' };
+
+// Save Quick Preset — opens a chooser so you pick WHICH preset to save the
+// currently-checked items into. No need to be in edit mode or pre-select one.
+window._rcSaveQuickPreset = function () {
+  var prev = document.getElementById('rc-qp-chooser'); if (prev) prev.remove();
+  var ov = document.createElement('div');
+  ov.id = 'rc-qp-chooser';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100000;display:flex;align-items:center;justify-content:center';
+  ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;min-width:280px;max-width:92vw;box-shadow:0 12px 40px rgba(0,0,0,0.4)';
+  var html = '<div style="font-weight:700;font-size:15px;margin-bottom:4px">Save as which Quick Preset?</div>'
+    + '<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Your currently checked items will replace that preset. GLOBAL — syncs to the whole team.</div>'
+    + '<div style="display:flex;flex-direction:column;gap:8px">';
+  Object.keys(window._RC_QP_NAMES).forEach(function (k) {
+    html += '<button type="button" onclick="window._rcSaveQuickPresetTo(\'' + k + '\')" style="text-align:left;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);color:var(--text);cursor:pointer;font-size:13px;font-weight:600">' + window._RC_QP_NAMES[k] + '</button>';
+  });
+  html += '</div><div style="text-align:right;margin-top:12px"><button type="button" onclick="var c=document.getElementById(\'rc-qp-chooser\');if(c)c.remove()" style="background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:13px">Cancel</button></div>';
+  box.innerHTML = html;
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+};
+
+// Does the verified save of the current checked items into preset `key`.
+window._rcSaveQuickPresetTo = async function (key) {
+  if (!window._RC_QP_NAMES[key]) return;
+  var chooser = document.getElementById('rc-qp-chooser'); if (chooser) chooser.remove();
   var list = [];
   Object.keys(items).forEach(function (k) { items[k].forEach(function (i) { if (i.on) list.push(i.n); }); });
-  presets[window._rcEditingPreset] = list;
-  // VERIFIED save — read → merge → update → confirm a row came back. The old
-  // path (_uwCfgMerge) swallowed errors and toasted success even on failure,
-  // which is why this looked saved but didn't sync.
+  presets[key] = list;
   if (typeof sb === 'undefined' || !sb) { if (typeof toast === 'function') toast('Not connected — preset not saved.', 'err'); return; }
-  var btn = document.getElementById('rc-save-preset-btn');
-  var prevTxt = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  if (typeof toast === 'function') toast('⏳ Saving "' + window._RC_QP_NAMES[key] + '"…', 'ok');
   try {
     var sel = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle();
     if (sel.error) throw sel.error;
@@ -62780,12 +62804,10 @@ window._rcSaveQuickPreset = async function () {
     if (upd.error) throw upd.error;
     if (!upd.data || !upd.data.length) throw new Error('no app_config row (id=1)');
     if (cache && cache.config) cache.config.column_mappings = m;
-    if (typeof toast === 'function') toast('✅ Saved "' + window._rcEditingPreset + '" preset — syncs to the whole team.', 'ok');
+    if (typeof toast === 'function') toast('✅ Saved "' + window._RC_QP_NAMES[key] + '" preset — syncs to the whole team.', 'ok');
   } catch (e) {
-    console.warn('_rcSaveQuickPreset:', e);
+    console.warn('_rcSaveQuickPresetTo:', e);
     if (typeof toast === 'function') toast('Save failed: ' + (e.message || e), 'err');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = prevTxt || '💾 Save Quick Preset'; }
   }
 };
 
@@ -64779,7 +64801,7 @@ function _rcRenderCustomPresets(){
   if(!list) return;
   const arr = _rcGetCustomPresets();
   list.innerHTML = arr.map(p=>(
-    '<span style="display:inline-flex;align-items:center;border:1px solid #a855f7;border-radius:8px;overflow:hidden">'
+    '<span style="display:inline-flex;align-items:center;border:1px solid #a855f7;border-radius:8px;overflow:hidden;box-shadow:0 0 7px rgba(168,85,247,0.6)">'
     + '<button type="button" class="rc-cpreset" data-cpreset-id="'+p.id+'" title="Apply preset: '+_rcEscAttr(p.name)+'" style="background:rgba(168,85,247,0.12);color:#c4b5fd;border:none;padding:8px 12px;cursor:pointer;font-size:13px;font-weight:500">'+_rcEscHtml(p.name)+'</button>'
     + '<button type="button" data-cpreset-del="'+p.id+'" title="Delete this preset" style="background:transparent;border:none;border-left:1px solid #a855f7;color:#f87171;padding:8px 9px;cursor:pointer;font-size:12px;line-height:1">✕</button>'
     + '</span>'
@@ -64787,18 +64809,51 @@ function _rcRenderCustomPresets(){
 }
 window._rcRenderCustomPresets = _rcRenderCustomPresets;
 
+// In-app "name this custom preset" modal (replaces the native prompt()).
+window._rcOpenNamePresetModal = function(){
+  var prev = document.getElementById('rc-name-preset-modal'); if (prev) prev.remove();
+  var ov = document.createElement('div');
+  ov.id = 'rc-name-preset-modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100000;display:flex;align-items:center;justify-content:center';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;min-width:320px;max-width:92vw;box-shadow:0 12px 40px rgba(0,0,0,0.45)';
+  box.innerHTML =
+      '<div style="font-weight:700;font-size:15px;margin-bottom:4px">Name this custom preset</div>'
+    + '<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Saves your current item + special-case selection.</div>'
+    + '<input id="rc-name-preset-input" type="text" placeholder="e.g. Gut – No Wiring" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #a855f7;border-radius:8px;background:var(--panel-2);color:var(--text);font-size:14px;box-shadow:0 0 7px rgba(168,85,247,0.4)">'
+    + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'
+    +   '<button type="button" id="rc-name-preset-cancel" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600">Cancel</button>'
+    +   '<button type="button" id="rc-name-preset-save" style="background:#a855f7;border:1px solid #a855f7;color:#fff;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600">💾 Save Preset</button>'
+    + '</div>';
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  var input = document.getElementById('rc-name-preset-input');
+  var close = function(){ var m = document.getElementById('rc-name-preset-modal'); if (m) m.remove(); };
+  var save = function(){
+    var name = (input && input.value || '').trim();
+    if (!name) { if (input) { input.style.borderColor = '#ef4444'; input.focus(); } return; }
+    var arr = _rcGetCustomPresets().slice();
+    arr.push(Object.assign({ id:'cp-'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:name }, _rcSnapshotCurrent()));
+    if (_rcSetCustomPresets(arr)) {
+      _rcRenderCustomPresets();
+      if (typeof toast === 'function') toast('💾 Preset saved: ' + name, 'ok');
+    }
+    close();
+  };
+  ov.onclick = function(e){ if (e.target === ov) close(); };
+  document.getElementById('rc-name-preset-cancel').onclick = close;
+  document.getElementById('rc-name-preset-save').onclick = save;
+  if (input) {
+    input.addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); save(); } else if (e.key === 'Escape') { close(); } });
+    setTimeout(function(){ input.focus(); }, 30);
+  }
+};
+
 _rcRoot.addEventListener('click', e=>{
   // ----- Save New Preset (named, global) -----
   if(e.target.id === 'rc-save-new-preset'){
     if(!_rcCurrentDeal()){ if(typeof toast === 'function') toast('Open a deal first', 'warn'); return; }
-    const name = (prompt('Name this preset:') || '').trim();
-    if(!name) return;
-    const arr = _rcGetCustomPresets().slice();
-    arr.push(Object.assign({ id:'cp-'+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:name }, _rcSnapshotCurrent()));
-    if(_rcSetCustomPresets(arr)){
-      _rcRenderCustomPresets();
-      if(typeof toast === 'function') toast('💾 Preset saved: ' + name, 'ok');
-    }
+    if(typeof window._rcOpenNamePresetModal === 'function') window._rcOpenNamePresetModal();
     return;
   }
   // ----- Delete a named preset (with confirm) -----

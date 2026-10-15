@@ -22544,28 +22544,42 @@ window._uwRtQueueRehab = function(){
 };
 function _uwRtApplyRehab(snap){
   if(!snap) return;
-  // DON'T overwrite my rehab while I'm actively editing it — that was clearing /
-  // flashing people's in-progress work when both were in the rehab list. Their
-  // version will sync once I pause (and on re-open). Only apply when I'm idle.
+  var id=_uwRtDealId;
+  // 1) CUSTOM PRESETS — always merge (union by id), independent of the rehab
+  //    item state. This runs even if item selections are unchanged or I'm
+  //    mid-edit, so a preset a teammate saves always shows up for me.
+  if(snap.presets != null){
+    try {
+      var curP = (id && cache.underwrites && cache.underwrites[id] && cache.underwrites[id].data && Array.isArray(cache.underwrites[id].data._customRehabPresets)) ? cache.underwrites[id].data._customRehabPresets : [];
+      var seen={}, out=[];
+      curP.concat(snap.presets).forEach(function(p){ if(p && p.id && !seen[p.id]){ seen[p.id]=1; out.push(p); } });
+      if(JSON.stringify(out) !== JSON.stringify(curP)){
+        window._uwApplyingRemote = true;
+        if(id && cache.underwrites && cache.underwrites[id] && cache.underwrites[id].data) cache.underwrites[id].data._customRehabPresets = out;
+        try { if(_uwBaseline) _uwBaseline._customRehabPresets = out; } catch(_){}
+        if(typeof window._rcRenderCustomPresets==='function'){ try { window._rcRenderCustomPresets(); } catch(_){} }
+        window._uwApplyingRemote = false;
+      }
+    } catch(_){ window._uwApplyingRemote = false; }
+  }
+  // 2) REHAB ITEM STATE — gated so it doesn't clobber my in-progress editing,
+  //    and skipped if it already matches mine (avoids a re-render flash).
   if(window._rcLastRehabEdit && (Date.now() - window._rcLastRehabEdit) < 4000) return;
-  // Skip if the incoming rehab state already matches mine (avoids a needless re-render flash).
   try { if(typeof window._rcGetState==='function' && JSON.stringify(window._rcGetState()) === JSON.stringify(snap.rehabV2)) return; } catch(_){}
+  if(snap.rehabV2==null && snap.rehab==null) return;
   window._uwApplyingRemote = true;
   try {
-    var id=_uwRtDealId;
     if(id && cache.underwrites && cache.underwrites[id] && cache.underwrites[id].data){
       var d=cache.underwrites[id].data;
       if(snap.rehab!=null)   d._rehab   = snap.rehab;
       if(snap.rehabV2!=null)  d._rehabV2 = snap.rehabV2;
-      if(snap.presets!=null)  d._customRehabPresets = snap.presets;
     }
     if(snap.rehab!=null){ try { window._uwRehabState = JSON.parse(JSON.stringify(snap.rehab)); } catch(_){} }
     if(snap.rehabV2!=null && typeof window._rcLoadState==='function'){ try { window._rcLoadState(snap.rehabV2); } catch(_){} }
-    if(typeof window._rcRenderCustomPresets==='function'){ try { window._rcRenderCustomPresets(); } catch(_){} }
     if(typeof renderCategoryRows==='function'){ try { renderCategoryRows(); } catch(_){} }
     if(typeof recalc==='function'){ try { recalc(); } catch(_){} }
     if(typeof uwRecalc==='function'){ try { uwRecalc(); } catch(_){} }
-    try { if(_uwBaseline){ if(snap.rehab!=null)_uwBaseline._rehab=snap.rehab; if(snap.rehabV2!=null)_uwBaseline._rehabV2=snap.rehabV2; if(snap.presets!=null)_uwBaseline._customRehabPresets=snap.presets; } } catch(_){}
+    try { if(_uwBaseline){ if(snap.rehab!=null)_uwBaseline._rehab=snap.rehab; if(snap.rehabV2!=null)_uwBaseline._rehabV2=snap.rehabV2; } } catch(_){}
   } finally { window._uwApplyingRemote = false; }
 }
 // Persist ONE field directly to the deal's row the moment the user clicks out —

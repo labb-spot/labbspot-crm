@@ -20798,21 +20798,34 @@ async function uwSave(manual) {
   // block entirely (no more "this deal was changed" interruptions).
   let _saveData = data;
   let _mergeApplied = false;
-  if (_uwCurrentId && _uwBaseline && typeof sb !== 'undefined' && sb) {
+  if (_uwCurrentId && typeof sb !== 'undefined' && sb) {
+    // Make sure we have a baseline (fall back to the cached copy if missing).
+    if (!_uwBaseline) {
+      try { _uwBaseline = (cache.underwrites && cache.underwrites[_uwCurrentId] && cache.underwrites[_uwCurrentId].data) ? JSON.parse(JSON.stringify(cache.underwrites[_uwCurrentId].data)) : {}; }
+      catch(_) { _uwBaseline = {}; }
+    }
+    // ALWAYS merge (never fall through to the old conflict/take-over popup).
+    // Read the latest copy; if that read fails, use our cached copy as "latest".
+    let _latest;
     try {
       const _ls = await sb.from('underwrites').select('data, updated_at').eq('id', _uwCurrentId).maybeSingle();
       if (!_ls.error && _ls.data) {
-        const _latest = (_ls.data.data && typeof _ls.data.data === 'object') ? _ls.data.data : {};
-        const _merged = Object.assign({}, _latest);
-        Object.keys(data).forEach(k => {
-          try { if (JSON.stringify(data[k]) !== JSON.stringify(_uwBaseline[k])) _merged[k] = data[k]; }
-          catch(_) { _merged[k] = data[k]; }
-        });
-        _saveData = _merged;
-        _mergeApplied = true;
-        _uwLoadedAt = _ls.data.updated_at || _uwLoadedAt;  // keep baseline fresh so no false conflict
+        _latest = (_ls.data.data && typeof _ls.data.data === 'object') ? _ls.data.data : {};
+        _uwLoadedAt = _ls.data.updated_at || _uwLoadedAt;
       }
     } catch(_) {}
+    if (!_latest) {
+      _latest = (cache.underwrites && cache.underwrites[_uwCurrentId] && cache.underwrites[_uwCurrentId].data) ? cache.underwrites[_uwCurrentId].data : {};
+    }
+    try {
+      const _merged = Object.assign({}, _latest);
+      Object.keys(data).forEach(k => {
+        try { if (JSON.stringify(data[k]) !== JSON.stringify(_uwBaseline[k])) _merged[k] = data[k]; }
+        catch(_) { _merged[k] = data[k]; }
+      });
+      _saveData = _merged;
+    } catch(_) { _saveData = data; }
+    _mergeApplied = true;   // guarantees the conflict/take-over popup never fires
   }
   // ----- DIAGNOSTIC: Main Picture Upload -----
   // Log whether the uploaded picture made it into the save payload + how big.
@@ -22510,6 +22523,7 @@ function _uwRtSend(event, payload){ if(_uwRtChannel && _uwRtReady){ try { _uwRtC
 // lock, so this only streams per-deal selections — safe to last-writer-wins.
 let _uwRtRehabTimer = null;
 window._uwRtQueueRehab = function(){
+  window._rcLastRehabEdit = Date.now();   // mark that I'm actively editing rehab
   if(window._uwApplyingRemote || window._uwViewOnly) return;
   if(typeof _uwLoadingDeal !== 'undefined' && _uwLoadingDeal) return;  // not during a load
   if(!_uwRtChannel || !_uwRtReady) return;
@@ -22530,6 +22544,12 @@ window._uwRtQueueRehab = function(){
 };
 function _uwRtApplyRehab(snap){
   if(!snap) return;
+  // DON'T overwrite my rehab while I'm actively editing it — that was clearing /
+  // flashing people's in-progress work when both were in the rehab list. Their
+  // version will sync once I pause (and on re-open). Only apply when I'm idle.
+  if(window._rcLastRehabEdit && (Date.now() - window._rcLastRehabEdit) < 4000) return;
+  // Skip if the incoming rehab state already matches mine (avoids a needless re-render flash).
+  try { if(typeof window._rcGetState==='function' && JSON.stringify(window._rcGetState()) === JSON.stringify(snap.rehabV2)) return; } catch(_){}
   window._uwApplyingRemote = true;
   try {
     var id=_uwRtDealId;

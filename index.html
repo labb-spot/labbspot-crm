@@ -11786,6 +11786,10 @@ async function _uwGeocodeOnExit(id) {
 window._uwGeocodeOnExit = _uwGeocodeOnExit;
 
 function uwBackToList() {
+  // Leave the live co-editing channel for the deal I'm closing (frees my field locks).
+  try { if (typeof _uwRtTeardown === 'function') _uwRtTeardown(); } catch(_){}
+  // Release any legacy whole-deal lock + clear View-Only state (harmless if unused).
+  try { if (typeof _uwExitViewOnly === 'function') _uwExitViewOnly(); if (_uwCurrentId && typeof _uwReleaseLock === 'function') _uwReleaseLock(_uwCurrentId); } catch(_){}
   // Background-geocode the deal we're leaving if it doesn't have a place_id
   // yet (typical case: a brand-new deal the user just created).
   if (_uwCurrentId) _uwGeocodeOnExit(_uwCurrentId);
@@ -20674,6 +20678,10 @@ setInterval(() => {
 
 // Debounced trigger — fires uwSave(false) after the user stops editing
 function _uwQueueAutosave(force) {
+  // VIEW-ONLY: never autosave while viewing someone else's active edit.
+  if (window._uwViewOnly) return;
+  // Applying a teammate's live value — don't echo a save back (they already saved).
+  if (window._uwApplyingRemote) return;
   // WIPE PROTECTION — GUARD 1: Don't autosave while a deal is being loaded.
   // The load process sets form fields via _uwApply, fires off uwRecalc, may
   // mount dropdowns and other widgets, etc. Any of these can briefly look
@@ -20773,6 +20781,8 @@ else document.addEventListener('DOMContentLoaded', _uwAttachAutosave);
 async function uwSave(manual) {
   // Default to manual=true so existing call sites (e.g. legacy buttons) still alert/toast
   if (manual === undefined) manual = true;
+  // VIEW-ONLY: block writes while viewing someone else's active edit.
+  if (window._uwViewOnly) { if (manual && typeof toast === 'function') toast('View Only — click Take Over to edit this deal.', 'warn'); return; }
   const { data, arv, offer, bestExit, bestProfitText } = _uwCollect();
   // ----- DIAGNOSTIC: Main Picture Upload -----
   // Log whether the uploaded picture made it into the save payload + how big.
@@ -22297,7 +22307,211 @@ function _uwSetDealAge(createdAt, lastSubmissionAt, updatedAt) {
     (updatedAt ? ' Last Edit ' + fmtDate(new Date(updatedAt)) + ' (' + fmtAgo(new Date(updatedAt)) + ').' : '');
 }
 
+// ===================================================================
+// Editing lock — Take Over / View Only / Go Back (concurrent editing).
+// Columns on `underwrites`: editing_by (text), editing_session (text),
+// editing_at (timestamptz). A deal is "being edited" when editing_session
+// is set and editing_at is within _UW_LOCK_STALE_MS. Only one person edits
+// at a time; everyone else is View Only until they Take Over. Because only
+// one person can write, nobody's work gets wiped by a concurrent save.
+// ===================================================================
+const _UW_LOCK_STALE_MS = 45000;      // lock auto-frees after this with no heartbeat
+let _uwLockTimer = null;
+let _uwMyEmailCache = null;
+window._uwViewOnly = false;
+async function _uwMyWho(){
+  if (_uwMyEmailCache) return _uwMyEmailCache;
+  try { const r = await sb.auth.getUser(); _uwMyEmailCache = (r && r.data && r.data.user && r.data.user.email) || 'A teammate'; } catch(_){ _uwMyEmailCache='A teammate'; }
+  return _uwMyEmailCache;
+}
+function _uwLockFresh(at){ if(!at) return false; var t=new Date(at).getTime(); return isFinite(t) && (Date.now()-t) < _UW_LOCK_STALE_MS; }
+async function _uwClaimLock(id){
+  if(!id || typeof sb==='undefined' || !sb) return;
+  try { var who=await _uwMyWho(); await sb.from('underwrites').update({ editing_by:who, editing_session:_UW_SESSION_ID, editing_at:new Date().toISOString() }).eq('id', id); } catch(e){ console.warn('[lock] claim', e); }
+}
+async function _uwReleaseLock(id){
+  _uwStopLockTimer();
+  if(!id || typeof sb==='undefined' || !sb) return;
+  try { await sb.from('underwrites').update({ editing_by:null, editing_session:null, editing_at:null }).eq('id', id).eq('editing_session', _UW_SESSION_ID); } catch(_){}
+}
+window._uwReleaseLock = _uwReleaseLock;
+function _uwStopLockTimer(){ if(_uwLockTimer){ clearInterval(_uwLockTimer); _uwLockTimer=null; } }
+function _uwStartLockTimer(id){
+  _uwStopLockTimer();
+  _uwLockTimer = setInterval(async function(){
+    if(_uwCurrentId !== id){ _uwStopLockTimer(); return; }
+    if(typeof sb==='undefined'||!sb) return;
+    try {
+      var sel = await sb.from('underwrites').select('editing_by, editing_session, editing_at').eq('id', id).maybeSingle();
+      var d = (sel && sel.data) ? sel.data : {};
+      if(window._uwViewOnly){
+        // Viewing: if the editor left or their lock went stale, silently claim the seat.
+        if(!d.editing_session || d.editing_session===_UW_SESSION_ID || !_uwLockFresh(d.editing_at)){
+          await _uwClaimLock(id); if(_uwCurrentId===id) _uwExitViewOnly();
+        }
+        return;
+      }
+      // Editing: did someone take over?
+      if(d.editing_session && d.editing_session!==_UW_SESSION_ID && _uwLockFresh(d.editing_at)){
+        _uwEnterViewOnly(id, d.editing_by || 'A teammate', true); return;
+      }
+      // Keep my heartbeat alive.
+      await sb.from('underwrites').update({ editing_at:new Date().toISOString() }).eq('id', id).eq('editing_session', _UW_SESSION_ID);
+    } catch(_){}
+  }, 15000);
+}
+async function _uwLockOnOpen(id){
+  _uwExitViewOnly();
+  if(typeof sb==='undefined'||!sb) return;
+  var sel;
+  try { sel = await sb.from('underwrites').select('editing_by, editing_session, editing_at').eq('id', id).maybeSingle(); } catch(_){ sel=null; }
+  if(_uwCurrentId !== id) return;   // user navigated away during the await
+  var d = (sel && sel.data) ? sel.data : {};
+  if(d.editing_session && d.editing_session!==_UW_SESSION_ID && _uwLockFresh(d.editing_at)){
+    _uwShowLockPrompt(id, d.editing_by || 'A teammate');
+  } else {
+    await _uwClaimLock(id);
+    if(_uwCurrentId===id) _uwStartLockTimer(id);
+  }
+}
+function _uwShowLockPrompt(id, who){
+  var prev=document.getElementById('uw-lock-prompt'); if(prev) prev.remove();
+  var ov=document.createElement('div'); ov.id='uw-lock-prompt';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100001;display:flex;align-items:center;justify-content:center;padding:20px';
+  var box=document.createElement('div');
+  box.style.cssText='background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;max-width:460px;box-shadow:0 12px 40px rgba(0,0,0,0.5)';
+  box.innerHTML='<div style="font-weight:800;font-size:17px;margin-bottom:6px">🔒 Someone is editing this deal</div>'
+    +'<div style="font-size:13px;color:var(--text-dim);margin-bottom:18px"><b style="color:var(--text)">'+String(who).replace(/</g,'&lt;')+'</b> currently has this deal open for editing. What would you like to do?</div>'
+    +'<div style="display:flex;flex-direction:column;gap:9px">'
+    +'<button id="lk-take" style="background:#3b82f6;color:#fff;border:none;border-radius:9px;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;text-align:left">🔄 Take Over — I\'ll edit, they switch to View Only</button>'
+    +'<button id="lk-view" style="background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left">👁 View Only — just look, don\'t edit</button>'
+    +'<button id="lk-back" style="background:transparent;color:var(--text-dim);border:1px solid var(--border);border-radius:9px;padding:11px 16px;font-size:13px;font-weight:600;cursor:pointer;text-align:left">← Go Back to the list</button>'
+    +'</div>';
+  ov.appendChild(box); document.body.appendChild(ov);
+  var close=function(){ ov.remove(); };
+  box.querySelector('#lk-take').onclick=async function(){ close(); await _uwClaimLock(id); if(_uwCurrentId===id){ _uwExitViewOnly(); _uwStartLockTimer(id); if(typeof toast==='function') toast('You\'re now editing this deal.','ok'); } };
+  box.querySelector('#lk-view').onclick=function(){ close(); _uwEnterViewOnly(id, who, false); };
+  box.querySelector('#lk-back').onclick=function(){ close(); if(typeof uwBackToList==='function') uwBackToList(); };
+}
+function _uwSetCalcDisabled(dis){
+  var root=document.getElementById('uwview-calculator'); if(!root) return;
+  root.querySelectorAll('input, select, textarea').forEach(function(el){ el.disabled=!!dis; });
+}
+function _uwEnterViewOnly(id, who, wasTakenOver){
+  window._uwViewOnly = true;
+  _uwSetCalcDisabled(true);
+  _uwShowViewOnlyBanner(who, id);
+  if(wasTakenOver && typeof toast==='function') toast((who||'Someone')+' took over editing — you\'re now in View Only.','warn');
+  _uwStartLockTimer(id);  // keep polling so I can reclaim the seat if they leave
+}
+function _uwExitViewOnly(){
+  if(window._uwViewOnly){ _uwSetCalcDisabled(false); }
+  window._uwViewOnly = false;
+  var b=document.getElementById('uw-viewonly-banner'); if(b) b.remove();
+}
+function _uwShowViewOnlyBanner(who, id){
+  var prev=document.getElementById('uw-viewonly-banner'); if(prev) prev.remove();
+  var bar=document.createElement('div'); bar.id='uw-viewonly-banner';
+  bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#b45309;color:#fff;padding:9px 16px;display:flex;align-items:center;justify-content:center;gap:14px;font-size:13px;font-weight:600;box-shadow:0 2px 10px rgba(0,0,0,0.3)';
+  bar.innerHTML='<span>👁 View Only — <b>'+String(who||'someone').replace(/</g,'&lt;')+'</b> is editing this deal.</span><button id="vo-take" style="background:#fff;color:#b45309;border:none;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:800;cursor:pointer">Take Over</button>';
+  document.body.appendChild(bar);
+  var tk=document.getElementById('vo-take'); if(tk) tk.onclick=async function(){ await _uwClaimLock(id); if(_uwCurrentId===id){ _uwExitViewOnly(); _uwStartLockTimer(id); if(typeof toast==='function') toast('You\'re now editing this deal.','ok'); } };
+}
+
+// ===================================================================
+// Per-field LIVE co-editing (Supabase Realtime). Click a field → it locks
+// for everyone else ("✎ Name") ; click out → your value pushes to everyone
+// live and the field unlocks. Locks are ephemeral (broadcast messages), no
+// DB columns needed. Persistence is unchanged — the editor's normal autosave
+// still writes the deal. A viewer who receives a value just sees it live.
+// ===================================================================
+let _uwRtChannel = null;
+let _uwRtDealId = null;
+let _uwRtReady = false;
+const _uwFieldLocks = {};   // fieldId -> { by, session }
+function _uwRtIsField(el){ return el && el.id && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName); }
+function _uwRtFieldEl(f){ var el=document.getElementById(f); return _uwRtIsField(el) ? el : null; }
+function _uwRtVal(el){ return el.type==='checkbox' ? (el.checked?'1':'') : el.value; }
+function _uwRtSetTag(el, text){
+  _uwRtRemoveTag(el);
+  var tag=document.createElement('span'); tag.className='uw-rt-tag'; tag.textContent=text;
+  tag.style.cssText='display:inline-block;font-size:9px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,0.16);border:1px solid #f59e0b;border-radius:4px;padding:0 4px;margin-left:5px;vertical-align:middle;white-space:nowrap';
+  if(el.parentNode) el.parentNode.insertBefore(tag, el.nextSibling);
+}
+function _uwRtRemoveTag(el){ if(el && el.parentNode){ var n=el.nextSibling; if(n && n.className==='uw-rt-tag') n.parentNode.removeChild(n); } }
+function _uwRtApplyLock(field, by, session){
+  _uwFieldLocks[field]={ by:by, session:session };
+  var el=_uwRtFieldEl(field); if(!el) return;
+  el.disabled=true; el.style.outline='2px solid #f59e0b'; el.style.outlineOffset='1px';
+  _uwRtSetTag(el, '✎ '+(by||'editing'));
+}
+function _uwRtApplyUnlock(field, session){
+  var lk=_uwFieldLocks[field]; if(lk && lk.session && session && lk.session!==session) return;
+  delete _uwFieldLocks[field];
+  var el=_uwRtFieldEl(field); if(el){ el.disabled=false; el.style.outline=''; el.style.outlineOffset=''; _uwRtRemoveTag(el); }
+}
+function _uwRtClearLocksForSession(session){
+  Object.keys(_uwFieldLocks).forEach(function(f){ if(_uwFieldLocks[f].session===session) _uwRtApplyUnlock(f, session); });
+}
+function _uwRtApplyValue(field, value){
+  var el=_uwRtFieldEl(field); if(!el) return;
+  if(document.activeElement===el) return;  // I'm in it — don't clobber my typing
+  window._uwApplyingRemote = true;
+  try {
+    if(el.type==='checkbox') el.checked = !!value; else el.value = value;
+    try { el.dispatchEvent(new Event('input', { bubbles:true })); } catch(_){}
+    try { el.dispatchEvent(new Event('change', { bubbles:true })); } catch(_){}
+    if(typeof uwRecalc==='function') { try { uwRecalc(); } catch(_){} }
+  } finally { window._uwApplyingRemote = false; }
+}
+function _uwRtSend(event, payload){ if(_uwRtChannel && _uwRtReady){ try { _uwRtChannel.send({ type:'broadcast', event:event, payload:payload }); } catch(_){} } }
+function _uwRtTeardown(){
+  Object.keys(_uwFieldLocks).forEach(function(f){ _uwRtApplyUnlock(f, _uwFieldLocks[f].session); });
+  if(_uwRtChannel){ try { _uwRtChannel.unsubscribe(); } catch(_){} try { sb.removeChannel(_uwRtChannel); } catch(_){} }
+  _uwRtChannel=null; _uwRtDealId=null; _uwRtReady=false;
+}
+async function _uwRtJoin(id){
+  if(typeof sb==='undefined' || !sb || !id) return;
+  if(_uwRtDealId===id && _uwRtChannel) return;
+  _uwRtTeardown();
+  _uwRtDealId=id;
+  var who = (typeof _uwMyWho==='function') ? await _uwMyWho() : 'A teammate';
+  if(_uwCurrentId !== id) return;  // user moved on during await
+  try {
+    var ch = sb.channel('deal:'+id, { config:{ broadcast:{ self:false }, presence:{ key:_UW_SESSION_ID } } });
+    ch.on('broadcast', { event:'field_lock' },   function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyLock(p.field, p.by, p.session); });
+    ch.on('broadcast', { event:'field_unlock' }, function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyUnlock(p.field, p.session); });
+    ch.on('broadcast', { event:'field_value' },  function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyValue(p.field, p.value); });
+    ch.on('presence', { event:'leave' }, function(m){ (m.leftPresences||[]).forEach(function(pr){ _uwRtClearLocksForSession(pr.session || pr.key); }); });
+    ch.subscribe(function(status){ if(status==='SUBSCRIBED'){ _uwRtReady=true; try { ch.track({ session:_UW_SESSION_ID, email:who }); } catch(_){} } });
+    _uwRtChannel=ch;
+  } catch(e){ console.warn('[rt] join', e); }
+}
+function _uwRtAttach(){
+  var root=document.getElementById('uwview-calculator'); if(!root || root._rtAttached) return; root._rtAttached=true;
+  root.addEventListener('focusin', function(e){
+    var el=e.target; if(!_uwRtIsField(el) || !_uwRtChannel) return;
+    var f=el.id;
+    if(_uwFieldLocks[f] && _uwFieldLocks[f].session!==_UW_SESSION_ID){
+      try { el.blur(); } catch(_){}
+      if(typeof toast==='function') toast((_uwFieldLocks[f].by||'Someone')+' is editing this field.', 'warn');
+      return;
+    }
+    if(typeof _uwMyWho==='function') _uwMyWho().then(function(who){ _uwRtSend('field_lock', { field:f, by:who, session:_UW_SESSION_ID }); });
+  }, true);
+  root.addEventListener('focusout', function(e){
+    var el=e.target; if(!_uwRtIsField(el) || !_uwRtChannel) return;
+    var f=el.id;
+    if(_uwFieldLocks[f] && _uwFieldLocks[f].session!==_UW_SESSION_ID) return;
+    _uwRtSend('field_value', { field:f, value:_uwRtVal(el) });
+    _uwRtSend('field_unlock', { field:f, session:_UW_SESSION_ID });
+  }, true);
+}
+
 async function uwLoadById(id) {
+  // Release the lock on the PREVIOUS deal (switching deals without ← Back) and
+  // clear any View-Only state from the deal we're leaving.
+  try { _uwExitViewOnly(); if(_uwCurrentId && _uwCurrentId!==id) _uwReleaseLock(_uwCurrentId); } catch(_){}
   // WIPE PROTECTION: set the loading lock as the very first thing. Any
   // input/change events that fire during _uwApply + uwRecalc + dropdown
   // mounting will hit _uwQueueAutosave and be suppressed by the loading
@@ -22527,6 +22741,9 @@ async function uwLoadById(id) {
         });
     } catch (e) { console.warn('best_exit refresh exception:', e); }
   }, 1500);
+  // Per-field live co-editing: attach field listeners + join this deal's live
+  // channel so locks + values flow between everyone viewing it.
+  try { _uwRtAttach(); _uwRtJoin(id); } catch (e) { console.warn('[rt] onOpen', e); }
 }
 
 async function uwDelete(id) {
@@ -31188,6 +31405,7 @@ function _hrRenderRow(u, view) {
     <td style="padding:8px 10px;min-width:160px;text-align:center">${budgetCell}</td>
     <td style="padding:8px 10px;text-align:center;white-space:nowrap" onclick="event.stopPropagation()">
       <button class="btn text-xs" title="Account info — utilities, insurance, bridge loan" onclick="_uwOpenAccountsModal('${u.id}')" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);margin-right:6px">🧾</button>
+      <button class="btn text-xs" title="Applicants — tenant applicants + screening checklist" onclick="_uwOpenApplicantsModal('${u.id}')" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);margin-right:6px">👤</button>
       ${(u.data && u.data._holdingStatus === 'renovation') ? `<button class="btn text-xs" style="background:#10b981;color:white;border:1px solid #10b981" onclick="uwSetHoldingStatus('${u.id}', 'holding')" title="Promote this property to the Holdings tab">🏘️ Move to Holdings</button>` : ''}
     </td>
   </tr>`;
@@ -67057,21 +67275,193 @@ async function _uwOpenAccountsModal(id){
   ov.onclick=function(e){ if(e.target===ov) close(); };
   box.querySelector('#acc-x').onclick=close;
   box.querySelector('#acc-cancel').onclick=close;
-  box.querySelector('#acc-save').onclick=function(){
+  box.querySelector('#acc-save').onclick=async function(){
     var obj={};
     box.querySelectorAll('[data-acc]').forEach(function(el){
       var parts=el.getAttribute('data-acc').split('.'); var k=parts[0], f=parts[1];
       var val=(el.value||'').trim(); if(!val) return;
       if(!obj[k]) obj[k]={}; obj[k][f]=val;
     });
-    u.data._propAccounts = obj;
-    if (typeof _uwQueueAutosave==='function') _uwQueueAutosave(true);
-    else if (typeof uwSave==='function') uwSave(true);
-    if (typeof toast==='function') toast('Account info saved.','ok');
-    close();
+    var saveBtn=box.querySelector('#acc-save'); if(saveBtn){ saveBtn.disabled=true; saveBtn.textContent='⏳ Saving…'; }
+    // Save DIRECTLY to THIS property's row (not the open-calculator deal). Read
+    // current data, merge account info in, write back, confirm it landed.
+    try {
+      if (typeof sb==='undefined' || !sb) throw new Error('Not connected');
+      var sel = await sb.from('underwrites').select('data').eq('id', _cid).maybeSingle();
+      if (sel.error) throw sel.error;
+      var d = (sel.data && sel.data.data && typeof sel.data.data==='object') ? sel.data.data : (u.data||{});
+      d._propAccounts = obj;
+      var upd = await sb.from('underwrites').update({ data: d }).eq('id', _cid).select('id');
+      if (upd.error) throw upd.error;
+      if (!upd.data || !upd.data.length) throw new Error('property row not found');
+      u.data = d;
+      if (typeof toast==='function') toast('Account info saved — visible to the whole team.','ok');
+      close();
+    } catch(e) {
+      console.warn('account info save:', e);
+      if (saveBtn){ saveBtn.disabled=false; saveBtn.textContent='Save'; }
+      if (typeof toast==='function') toast('Save failed: ' + (e.message||e), 'err');
+    }
   };
 }
 window._uwOpenAccountsModal=_uwOpenAccountsModal;
+
+// ===== Applicants + screening checklist (per holding property) =====
+// Stored on the deal as data._applicants = [{ name, phone, email, status,
+// moveIn, notes, checklist:{interested:'green',...} }]. Each checklist item is
+// a 4-state color: '' (blank) → 'yellow' → 'green' → 'red'. Saved with the deal.
+window._apChkColor = function(s){ return s==='yellow'?'#fbbf24':(s==='green'?'#10b981':(s==='red'?'#ef4444':'transparent')); };
+// Full chip style for a given state — the whole pill is colored, word inside.
+window._apChipCss = function(s){
+  var base='display:inline-flex;align-items:center;padding:6px 16px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;user-select:none;margin:4px 9px 4px 0;border:1px solid;white-space:nowrap';
+  var c;
+  if(s==='yellow') c='background:rgba(251,191,36,0.22);border-color:#fbbf24;color:#fbbf24';
+  else if(s==='green') c='background:rgba(16,185,129,0.22);border-color:#10b981;color:#34d399';
+  else if(s==='red') c='background:rgba(239,68,68,0.22);border-color:#ef4444;color:#f87171';
+  else c='background:var(--panel-2);border-color:var(--border);color:var(--text-dim)';
+  return base+';'+c;
+};
+window._apCycleChk = function(el){
+  var order=['','yellow','green','red'];
+  var cur=el.getAttribute('data-state')||'';
+  var next=order[(order.indexOf(cur)+1)%order.length];
+  el.setAttribute('data-state',next);
+  el.style.cssText=window._apChipCss(next);
+};
+// One reference row (name / phone / relationship + remove).
+window._apRefRowHtml = function(r){
+  r=r||{}; var e=function(s){return String(s==null?'':s).replace(/"/g,'&quot;');};
+  return '<div class="appl-ref" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'
+    +'<input data-rf="name" placeholder="Name" value="'+e(r.name)+'" style="flex:2 1 150px;min-width:120px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
+    +'<input data-rf="phone" type="tel" placeholder="Phone" value="'+e(r.phone)+'" style="flex:1 1 120px;min-width:110px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
+    +'<input data-rf="relationship" placeholder="Relationship (e.g. prior landlord)" value="'+e(r.relationship)+'" style="flex:2 1 180px;min-width:150px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
+    +'<button type="button" title="Remove reference" onclick="var r=this.closest(\'.appl-ref\'); if(r) r.remove();" style="flex:0 0 auto;background:none;border:1px solid var(--border);color:#f87171;border-radius:6px;padding:5px 9px;cursor:pointer">✕</button>'
+    +'</div>';
+};
+window._apAddRef = function(btn){ var holder=btn.parentNode.querySelector('.appl-refs'); if(holder) holder.insertAdjacentHTML('beforeend', window._apRefRowHtml({})); };
+window._uwOpenApplicantsModal = function(id){
+  var u = (typeof cache!=='undefined' && cache.underwrites) ? cache.underwrites[id] : null;
+  if(!u) return;
+  if(!u.data) u.data={};
+  var _esc = (typeof _maEsc==='function') ? _maEsc : function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+  var CHECK = [['interested','Interested'],['applied','Applied'],['credit','Credit'],['background','Background'],['income','Income'],['pets','Pets'],['smoker','Smoker'],['identification','Identification'],['references','References'],['toured','Toured'],['character','Character']];
+  var MOVEIN = [['lease','Lease'],['deposit','Deposit'],['inspection','Inspection'],['rent','Rent'],['water','Water'],['electric','Electric'],['gas','Gas'],['insurance','Insurance'],['keys','Keys']];
+  var applicants = Array.isArray(u.data._applicants) ? JSON.parse(JSON.stringify(u.data._applicants)) : [];
+  var prev=document.getElementById('appl-modal'); if(prev) prev.remove();
+  var ov=document.createElement('div'); ov.id='appl-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:100000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 16px';
+  var box=document.createElement('div');
+  box.style.cssText='background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;width:min(1120px,97vw);box-shadow:0 12px 40px rgba(0,0,0,0.45)';
+  ov.appendChild(box); document.body.appendChild(ov);
+  var close=function(){ ov.remove(); };
+  ov.onclick=function(e){ if(e.target===ov) close(); };
+  var openIdx = -1;  // start collapsed — list shows names only; click a name to open its card
+  // The editable detail body for the currently-open applicant.
+  function bodyHtml(a){
+    a=a||{}; var cl=a.checklist||{};
+    var checks = CHECK.map(function(c){
+      var st=cl[c[0]]||'';
+      return '<span class="appl-chk" data-chk="'+c[0]+'" data-state="'+st+'" onclick="_apCycleChk(this)" title="Click to cycle: blank → 🟡 yellow → 🟢 green → 🔴 red" style="'+window._apChipCss(st)+'">'+c[1]+'</span>';
+    }).join('');
+    var ml=a.moveinChk||{};
+    var moveins = MOVEIN.map(function(c){
+      var st=ml[c[0]]||'';
+      return '<span class="appl-mi" data-mi="'+c[0]+'" data-state="'+st+'" onclick="_apCycleChk(this)" title="Click to cycle: blank → 🟡 yellow → 🟢 green → 🔴 red" style="'+window._apChipCss(st)+'">'+c[1]+'</span>';
+    }).join('');
+    var statusOpts=['Applied','Approved','Denied'].map(function(s){return '<option '+((a.status||'')===s?'selected':'')+'>'+s+'</option>';}).join('');
+    return '<div class="appl-card" style="padding:4px 12px 12px 12px">'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
+      +'<div style="flex:2 1 160px;min-width:130px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Name</label><input data-f="name" value="'+_esc(a.name||'')+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"></div>'
+      +'<div style="flex:1 1 120px;min-width:120px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Phone</label><input data-f="phone" type="tel" value="'+_esc(a.phone||'')+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"></div>'
+      +'<div style="flex:2 1 170px;min-width:150px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Email</label><input data-f="email" type="email" value="'+_esc(a.email||'')+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"></div>'
+      +'<div style="flex:1 1 110px;min-width:110px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Status</label><select data-f="status" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"><option value="">—</option>'+statusOpts+'</select></div>'
+      +'<div style="flex:1 1 130px;min-width:120px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Move-in date</label><input data-f="moveIn" type="date" value="'+_esc(a.moveIn||'')+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"></div>'
+      +'</div>'
+      +'<div style="margin-top:14px"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:7px"><span style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">Screening checklist</span><span style="font-size:11px;color:var(--text-dim)">Click to cycle: <span style="color:var(--text-dim)">⚪ not started</span> · <span style="color:#fbbf24">🟡 in progress</span> · <span style="color:#34d399">🟢 cleared</span> · <span style="color:#f87171">🔴 concern</span></span></div><div style="display:flex;flex-wrap:wrap">'+checks+'</div></div>'
+      +'<div style="margin-top:14px"><div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600;margin-bottom:7px">Move-In Checklist</div><div style="display:flex;flex-wrap:wrap">'+moveins+'</div></div>'
+      +'<div style="margin-top:12px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Notes</label><textarea data-f="notes" rows="2" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.notes||'')+'</textarea></div>'
+      +'<details style="margin-top:12px"'+((a.references&&a.references.length)?' open':'')+'><summary style="cursor:pointer;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">References'+((a.references&&a.references.length)?' ('+a.references.length+')':'')+'</summary><div style="margin-top:8px"><div class="appl-refs">'+((a.references&&a.references.length)?a.references.map(window._apRefRowHtml).join(''):'')+'</div><button type="button" onclick="_apAddRef(this)" style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600;margin-top:4px">+ Add reference</button></div></details>'
+      +'</div>';
+  }
+  // One collapsed/expanded list item (header always; body only when open).
+  function itemHtml(a,i){
+    a=a||{};
+    var nm=(a.name&&a.name.trim())||('Applicant '+(i+1));
+    var st=a.status||'';
+    var stColor=st==='Approved'?'#10b981':(st==='Denied'?'#f87171':(st==='Applied'?'#fbbf24':'var(--text-dim)'));
+    var done=a.checklist?Object.keys(a.checklist).filter(function(k){return a.checklist[k]==='green';}).length:0;
+    var open=(i===openIdx);
+    return '<div style="border:1px solid '+(open?'#6366f1':'var(--border)')+';border-radius:9px;margin-bottom:8px;overflow:hidden;background:var(--panel-2)">'
+      +'<div class="appl-hdr" data-i="'+i+'" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer">'
+      +'<span style="font-size:12px;color:var(--text-dim);flex-shrink:0">'+(open?'▲':'▼')+'</span>'
+      +'<span style="font-weight:600;font-size:13.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(nm)+'</span>'
+      +(st?'<span style="font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;color:'+stColor+';background:rgba(148,163,184,0.14)">'+_esc(st)+'</span>':'')
+      +'<span style="font-size:11px;color:'+(done===CHECK.length?'#34d399':'var(--text-dim)')+';white-space:nowrap;font-weight:600">🟢 '+done+' / '+CHECK.length+' cleared</span>'
+      +'<button type="button" class="appl-remove" data-i="'+i+'" title="Remove this applicant" style="flex-shrink:0;background:none;border:1px solid var(--border);color:#f87171;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">✕ Remove</button>'
+      +'</div>'
+      +(open?bodyHtml(a):'')
+      +'</div>';
+  }
+  // Save edits from the one open detail card back into the array.
+  function collectOpen(){
+    if(openIdx<0) return;
+    var card=box.querySelector('.appl-card'); if(!card) return;
+    var a={};
+    Array.prototype.forEach.call(card.querySelectorAll('[data-f]'),function(el){ a[el.getAttribute('data-f')]=(el.value||'').trim(); });
+    var chk={};
+    Array.prototype.forEach.call(card.querySelectorAll('.appl-chk'),function(el){ var s=el.getAttribute('data-state')||''; if(s) chk[el.getAttribute('data-chk')]=s; });
+    a.checklist=chk;
+    var mi={};
+    Array.prototype.forEach.call(card.querySelectorAll('.appl-mi'),function(el){ var s=el.getAttribute('data-state')||''; if(s) mi[el.getAttribute('data-mi')]=s; });
+    a.moveinChk=mi;
+    var refs=[];
+    Array.prototype.forEach.call(card.querySelectorAll('.appl-ref'),function(rw){ var r={}; Array.prototype.forEach.call(rw.querySelectorAll('[data-rf]'),function(el){ r[el.getAttribute('data-rf')]=(el.value||'').trim(); }); if(r.name||r.phone||r.relationship) refs.push(r); });
+    a.references=refs;
+    applicants[openIdx]=a;
+  }
+  function render(){
+    box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="font-weight:800;font-size:16px">👤 Applicants</div><button id="appl-x" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button></div>'
+      +'<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Tenant applicants + screening checklist for '+_esc(u.address||(u.data&&u.data.address)||'this property')+'. Click a name to open it. Saved with the deal.</div>'
+      +'<div id="appl-list">'+(applicants.length?applicants.map(itemHtml).join(''):'<div style="color:var(--text-dim);font-size:13px;padding:10px 0">No applicants yet — click “+ Add Applicant”.</div>')+'</div>'
+      +'<button id="appl-add" type="button" style="background:rgba(16,185,129,0.12);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600">+ Add Applicant</button>'
+      +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><button id="appl-cancel" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:9px 16px;cursor:pointer">Cancel</button><button id="appl-save" style="background:var(--brand,#6366f1);color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700">Save</button></div>';
+    box.querySelector('#appl-x').onclick=close;
+    box.querySelector('#appl-cancel').onclick=close;
+    box.querySelector('#appl-add').onclick=function(){ collectOpen(); applicants.push({}); openIdx=applicants.length-1; render(); };
+    box.querySelector('#appl-save').onclick=async function(){
+      collectOpen();
+      var cleaned=applicants.filter(function(a){return a && (a.name||a.phone||a.email||a.notes||(a.checklist&&Object.keys(a.checklist).length)||(a.moveinChk&&Object.keys(a.moveinChk).length)||(a.references&&a.references.length));});
+      var saveBtn=box.querySelector('#appl-save'); if(saveBtn){ saveBtn.disabled=true; saveBtn.textContent='⏳ Saving…'; }
+      // Save DIRECTLY to THIS property's row (not the open-calculator deal). Read
+      // the row's current data, merge in applicants, write back, confirm.
+      try {
+        if (typeof sb==='undefined' || !sb) throw new Error('Not connected');
+        var sel = await sb.from('underwrites').select('data').eq('id', id).maybeSingle();
+        if (sel.error) throw sel.error;
+        var d = (sel.data && sel.data.data && typeof sel.data.data==='object') ? sel.data.data : (u.data||{});
+        d._applicants = cleaned;
+        var upd = await sb.from('underwrites').update({ data: d }).eq('id', id).select('id');
+        if (upd.error) throw upd.error;
+        if (!upd.data || !upd.data.length) throw new Error('property row not found');
+        u.data = d;  // keep cache in sync
+        if (typeof toast==='function') toast('Applicants saved — visible to the whole team.','ok');
+        close();
+      } catch(e) {
+        console.warn('applicants save:', e);
+        if (saveBtn){ saveBtn.disabled=false; saveBtn.textContent='Save'; }
+        if (typeof toast==='function') toast('Save failed: ' + (e.message||e), 'err');
+      }
+    };
+    Array.prototype.forEach.call(box.querySelectorAll('.appl-remove'),function(btn){
+      btn.onclick=function(e){ e.stopPropagation(); var i=parseInt(btn.getAttribute('data-i'),10); if(openIdx===i) collectOpen(); applicants.splice(i,1); if(openIdx===i) openIdx=-1; else if(openIdx>i) openIdx--; render(); };
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('.appl-hdr'),function(hdr){
+      hdr.onclick=function(){ var i=parseInt(hdr.getAttribute('data-i'),10); collectOpen(); openIdx=(openIdx===i?-1:i); render(); };
+    });
+  }
+  render();
+};
+
 // Fill Lender Company Name / Phone / Email from a saved lender (Connections tab).
 window._uwFillLenderFromSaved=function(id){
   if(!id) return;

@@ -22580,17 +22580,20 @@ async function uwLoadById(id) {
   window._uwManualAddMode = false;
   { const _bbLoad = document.getElementById('uw-back-btn'); if (_bbLoad) _bbLoad.style.display = ''; }
   { const _xbLoad = document.getElementById('uw-manual-x-btn'); if (_xbLoad) _xbLoad.style.display = 'none'; }
-  if (!cache.underwrites || !cache.underwrites[id]) {
+  // ALWAYS fetch the freshest copy from the DB on open — a teammate may have
+  // edited this deal while it sat in our cache. Falls back to cache only if the
+  // fetch fails and we have a cached copy.
+  {
     const { data, error } = await sb.from('underwrites').select('*').eq('id', id).maybeSingle();
-    if (error || !data) {
-      // Loading failed — clear the lock so future user actions can save
+    if (!error && data) {
+      if (!cache.underwrites) cache.underwrites = {};
+      cache.underwrites[id] = data;
+    } else if (!cache.underwrites || !cache.underwrites[id]) {
       _uwLoadingDeal = false;
       if (_uwLoadingDealTimer) { clearTimeout(_uwLoadingDealTimer); _uwLoadingDealTimer = null; }
       toast('Could not load deal.', 'err');
       return;
     }
-    if (!cache.underwrites) cache.underwrites = {};
-    cache.underwrites[id] = data;
   }
   const u = cache.underwrites[id];
   // FLUSH any debounced autosave for the PREVIOUS deal before _uwApply()

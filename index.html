@@ -11788,6 +11788,8 @@ window._uwGeocodeOnExit = _uwGeocodeOnExit;
 function uwBackToList() {
   // Leave the live co-editing channel for the deal I'm closing (frees my field locks).
   try { if (typeof _uwRtTeardown === 'function') _uwRtTeardown(); } catch(_){}
+  // If I was holding the rehab Edit-Mode lock, release it so I don't strand it.
+  try { if (_rcEditLockHeldByMe && typeof window._rcReleaseEditLock === 'function') window._rcReleaseEditLock(); } catch(_){}
   // Release any legacy whole-deal lock + clear View-Only state (harmless if unused).
   try { if (typeof _uwExitViewOnly === 'function') _uwExitViewOnly(); if (_uwCurrentId && typeof _uwReleaseLock === 'function') _uwReleaseLock(_uwCurrentId); } catch(_){}
   // Background-geocode the deal we're leaving if it doesn't have a place_id
@@ -22563,6 +22565,59 @@ function _uwRtAttach(){
   }, true);
 }
 
+// ===================================================================
+// GLOBAL rehab-table edit lock. The rehab cost/item template is shared by
+// everyone, so when one person turns on rehab Edit Mode, the rehab table is
+// locked (view-only, with an "✎ Name is editing" overlay) for everyone else
+// on ANY deal until they turn Edit Mode back off. Uses one global Realtime
+// channel. Per-deal item SELECTING (Edit Mode off) is unaffected.
+// ===================================================================
+let _rcEditLockChannel = null;
+let _rcEditLockReady = false;
+let _rcEditLockHeldByMe = false;
+let _rcEditLockHolderSession = null;
+window._rcEditLockBy = null;   // name of the OTHER person holding it; null if free/me
+function _rcEditLockPanel(){ return document.querySelector('[data-uw-section="rehab-calc"]'); }
+function _rcApplyEditLockUI(by, session){
+  window._rcEditLockBy = by; _rcEditLockHolderSession = session || null;
+  var panel=_rcEditLockPanel(); if(!panel) return;
+  try { if(getComputedStyle(panel).position==='static') panel.style.position='relative'; } catch(_){}
+  var ov=document.getElementById('rc-editlock-overlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='rc-editlock-overlay';
+    ov.style.cssText='position:absolute;inset:0;z-index:50;background:rgba(10,14,20,0.6);display:flex;align-items:flex-start;justify-content:center;padding-top:16px;border-radius:12px;cursor:not-allowed';
+    panel.appendChild(ov);
+  }
+  ov.innerHTML='<div style="background:#b45309;color:#fff;padding:9px 18px;border-radius:9px;font-size:13.5px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,0.45)">✎ '+String(by||'Someone').replace(/</g,'&lt;')+' is editing the rehab table…</div>';
+}
+function _rcClearEditLockUI(){
+  window._rcEditLockBy = null; _rcEditLockHolderSession = null;
+  var ov=document.getElementById('rc-editlock-overlay'); if(ov) ov.remove();
+}
+window._rcIsEditLockedByOther = function(){ return window._rcEditLockBy || null; };
+async function _rcEditLockJoin(){
+  if(typeof sb==='undefined' || !sb || _rcEditLockChannel) return;
+  var who = (typeof _uwMyWho==='function') ? await _uwMyWho() : 'A teammate';
+  try {
+    var ch = sb.channel('rehab-edit-lock', { config:{ broadcast:{ self:false }, presence:{ key:_UW_SESSION_ID } } });
+    ch.on('broadcast', { event:'lock' },   function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _rcApplyEditLockUI(p.by, p.session); });
+    ch.on('broadcast', { event:'unlock' }, function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID && (!_rcEditLockHolderSession || _rcEditLockHolderSession===p.session)) _rcClearEditLockUI(); });
+    ch.on('presence', { event:'leave' }, function(m){ (m.leftPresences||[]).forEach(function(pr){ if((pr.session||pr.key) && (pr.session||pr.key)===_rcEditLockHolderSession) _rcClearEditLockUI(); }); });
+    ch.subscribe(function(status){ if(status==='SUBSCRIBED'){ _rcEditLockReady=true; try{ ch.track({ session:_UW_SESSION_ID, email:who }); }catch(_){} } });
+    _rcEditLockChannel = ch;
+  } catch(e){ console.warn('[rc-lock] join', e); }
+}
+window._rcClaimEditLock = async function(){
+  await _rcEditLockJoin();
+  _rcEditLockHeldByMe = true;
+  var who = (typeof _uwMyWho==='function') ? await _uwMyWho() : 'A teammate';
+  if(_rcEditLockChannel && _rcEditLockReady){ try{ _rcEditLockChannel.send({ type:'broadcast', event:'lock', payload:{ by:who, session:_UW_SESSION_ID } }); }catch(_){} }
+};
+window._rcReleaseEditLock = function(){
+  if(!_rcEditLockHeldByMe) return;
+  _rcEditLockHeldByMe = false;
+  if(_rcEditLockChannel && _rcEditLockReady){ try{ _rcEditLockChannel.send({ type:'broadcast', event:'unlock', payload:{ session:_UW_SESSION_ID } }); }catch(_){} }
+};
+
 async function uwLoadById(id) {
   // Release the lock on the PREVIOUS deal (switching deals without ← Back) and
   // clear any View-Only state from the deal we're leaving.
@@ -22804,6 +22859,8 @@ async function uwLoadById(id) {
   // Per-field live co-editing: attach field listeners + join this deal's live
   // channel so locks + values flow between everyone viewing it.
   try { _uwRtAttach(); _uwRtJoin(id); } catch (e) { console.warn('[rt] onOpen', e); }
+  // Join the GLOBAL rehab-table edit lock so we see / enforce Edit Mode locks.
+  try { _rcEditLockJoin(); } catch (e) { console.warn('[rc-lock] onOpen', e); }
 }
 
 async function uwDelete(id) {
@@ -63154,7 +63211,17 @@ function isLabCustom(){ return document.getElementById('finishLevel').value === 
 const LAB_STORAGE_KEY = 'rehab-lab-custom-rates-v2';
 let labEditMode = false;
 function toggleLabEditMode(){
+  // Block entering Edit Mode if a teammate is already editing the rehab table.
+  if(!labEditMode && typeof window._rcIsEditLockedByOther==='function' && window._rcIsEditLockedByOther()){
+    if(typeof toast==='function') toast(window._rcIsEditLockedByOther()+' is editing the rehab table — wait for them to finish.', 'warn');
+    return;
+  }
   labEditMode = !labEditMode;
+  // Lock the table for everyone else while I'm in Edit Mode; release when I exit.
+  try {
+    if(labEditMode){ if(typeof window._rcClaimEditLock==='function') window._rcClaimEditLock(); }
+    else { if(typeof window._rcReleaseEditLock==='function') window._rcReleaseEditLock(); }
+  } catch(_){}
   recalc();
 }
 function saveLabRates(){

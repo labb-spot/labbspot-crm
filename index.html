@@ -22578,26 +22578,30 @@ function _uwRtApplyPresetDelete(pid){
     }
   } catch(_){ window._uwApplyingRemote = false; }
 }
+// Union-merge an incoming custom-preset list into mine (by id) and re-render.
+// Dedicated so presets sync even when nothing else in rehab changed.
+window._uwRtSendPresets = function(arr){ _uwRtSend('preset_list', { presets: Array.isArray(arr)?arr:[], session:_UW_SESSION_ID }); };
+function _uwRtApplyPresets(incoming){
+  if(!Array.isArray(incoming)) return;
+  try {
+    var id=_uwRtDealId;
+    var curP = (id && cache.underwrites && cache.underwrites[id] && cache.underwrites[id].data && Array.isArray(cache.underwrites[id].data._customRehabPresets)) ? cache.underwrites[id].data._customRehabPresets : [];
+    var seen={}, out=[];
+    curP.concat(incoming).forEach(function(p){ if(p && p.id && !seen[p.id]){ seen[p.id]=1; out.push(p); } });
+    if(JSON.stringify(out) !== JSON.stringify(curP)){
+      window._uwApplyingRemote = true;
+      if(id && cache.underwrites && cache.underwrites[id] && cache.underwrites[id].data) cache.underwrites[id].data._customRehabPresets = out;
+      try { if(_uwBaseline) _uwBaseline._customRehabPresets = out; } catch(_){}
+      if(typeof window._rcRenderCustomPresets==='function'){ try { window._rcRenderCustomPresets(); } catch(_){} }
+      window._uwApplyingRemote = false;
+    }
+  } catch(_){ window._uwApplyingRemote = false; }
+}
 function _uwRtApplyRehab(snap){
   if(!snap) return;
   var id=_uwRtDealId;
-  // 1) CUSTOM PRESETS — always merge (union by id), independent of the rehab
-  //    item state. This runs even if item selections are unchanged or I'm
-  //    mid-edit, so a preset a teammate saves always shows up for me.
-  if(snap.presets != null){
-    try {
-      var curP = (id && cache.underwrites && cache.underwrites[id] && cache.underwrites[id].data && Array.isArray(cache.underwrites[id].data._customRehabPresets)) ? cache.underwrites[id].data._customRehabPresets : [];
-      var seen={}, out=[];
-      curP.concat(snap.presets).forEach(function(p){ if(p && p.id && !seen[p.id]){ seen[p.id]=1; out.push(p); } });
-      if(JSON.stringify(out) !== JSON.stringify(curP)){
-        window._uwApplyingRemote = true;
-        if(id && cache.underwrites && cache.underwrites[id] && cache.underwrites[id].data) cache.underwrites[id].data._customRehabPresets = out;
-        try { if(_uwBaseline) _uwBaseline._customRehabPresets = out; } catch(_){}
-        if(typeof window._rcRenderCustomPresets==='function'){ try { window._rcRenderCustomPresets(); } catch(_){} }
-        window._uwApplyingRemote = false;
-      }
-    } catch(_){ window._uwApplyingRemote = false; }
-  }
+  // 1) CUSTOM PRESETS — always merge (union by id), independent of rehab items.
+  if(snap.presets != null) _uwRtApplyPresets(snap.presets);
   // 2) REHAB ITEM STATE — gated so it doesn't clobber my in-progress editing,
   //    and skipped if it already matches mine (avoids a re-render flash).
   if(window._rcLastRehabEdit && (Date.now() - window._rcLastRehabEdit) < 4000) return;
@@ -22653,6 +22657,7 @@ async function _uwRtJoin(id){
     ch.on('broadcast', { event:'field_value' },  function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyValue(p.field, p.value); });
     ch.on('broadcast', { event:'rehab_state' },  function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyRehab(p); });
     ch.on('broadcast', { event:'preset_delete' },function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyPresetDelete(p.id); });
+    ch.on('broadcast', { event:'preset_list' },  function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyPresets(p.presets); });
     ch.on('presence', { event:'leave' }, function(m){ (m.leftPresences||[]).forEach(function(pr){ _uwRtClearLocksForSession(pr.session || pr.key); }); });
     ch.subscribe(function(status){ if(status==='SUBSCRIBED'){ _uwRtReady=true; try { ch.track({ session:_UW_SESSION_ID, email:who }); } catch(_){} } });
     _uwRtChannel=ch;
@@ -65296,7 +65301,7 @@ function _rcSetCustomPresets(arr){
   u.data._customRehabPresets = arr || [];
   if(typeof window._uwRtSavePresets === 'function' && u.id) window._uwRtSavePresets(u.id, arr || []);  // guaranteed persist
   else if(typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
-  if(typeof window._uwRtQueueRehab === 'function') window._uwRtQueueRehab();  // live-sync to teammates
+  if(typeof window._uwRtSendPresets === 'function') window._uwRtSendPresets(arr || []);  // dedicated live preset sync
   return true;
 }
 function _rcEscHtml(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }

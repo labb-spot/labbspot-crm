@@ -2333,14 +2333,15 @@
     </div>
     <div id="suggested-queue-summary" class="text-xs text-[var(--text-dim)] mb-2">—</div>
     <div class="overflow-auto" style="max-height:840px">
-      <table style="width:100%;font-size:13px">
+      <table style="width:100%;font-size:13px;table-layout:fixed">
         <thead><tr style="position:sticky;top:0;background:var(--panel-2);z-index:1;color:var(--text-dim);text-transform:uppercase;font-size:10px;letter-spacing:0.5px">
-          <th style="text-align:left;padding:10px 12px">Owner</th>
-          <th style="text-align:left;padding:10px 12px">Property</th>
-          <th style="text-align:left;padding:10px 12px">Mailing</th>
-          <th style="text-align:left;padding:10px 12px;width:170px">Top phone</th>
-          <th style="text-align:left;padding:10px 12px;width:120px">Last contact</th>
+          <th style="text-align:left;padding:10px 12px;width:15%">Owner</th>
+          <th style="text-align:left;padding:10px 12px;width:18%">Property</th>
+          <th style="text-align:left;padding:10px 12px;width:18%">Mailing</th>
+          <th style="text-align:left;padding:10px 12px;width:150px">Top phone</th>
+          <th style="text-align:left;padding:10px 12px;width:95px;white-space:nowrap">Contact</th>
           <th style="text-align:left;padding:10px 12px">Flags</th>
+          <th style="text-align:center;padding:10px 12px;width:128px">Actions</th>
         </tr></thead>
         <tbody id="suggested-queue-tbody"></tbody>
       </table>
@@ -4791,6 +4792,7 @@
       <div data-uw-slot="rt-rf-close-pct"><label class="text-xs" title="DSCR closing cost as % of loan (excludes origination + appraisal/UW). Default 1% covers title, recording, credit, flood, misc third-party fees.">DSCR Closing %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-rf-close-pct" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="1"></span></label></div>
       <div data-uw-slot="rt-dscr-orig-pct"><label class="text-xs" title="DSCR loan origination fee as % of loan. Typically 2% on Non-QM investor loans.">DSCR Origination Financing %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-dscr-orig-pct" step="0.1" oninput="uwRecalc()" style="width:100%" placeholder="2"></span></label></div>
       <div data-uw-slot="rt-uw-appraisal-fee"><label class="text-xs" title="Flat dollar fee covering underwriting + appraisal + small third-party fees. Doesn't scale with loan size.">DSCR Underwriting &amp; Appraisal Fee<span class="uw-money" style="margin-top:4px;display:block"><input type="number" id="uw-rt-uw-appraisal-fee" step="100" oninput="uwRecalc()" style="width:100%" placeholder="2000"></span></label></div>
+      <div data-uw-slot="rt-loan-override"><label class="text-xs" title="Manually set the DSCR loan amount for Financed / Turn Key and Refinanced. Leave blank to auto-size from the LTV cap. When filled, all the financing (P&I, cashflow, capital left in) is calculated from this exact loan instead.">Overwrite Loan Size<span class="uw-money" style="margin-top:4px;display:block"><input type="text" inputmode="numeric" id="uw-rt-loan-override" oninput="_rtFmtThousands(this); uwRecalc()" style="width:100%" placeholder="$ auto"></span></label></div>
       <div data-uw-slot="rt-dscr-ltv-cap"><label class="text-xs" title="Max DSCR loan as % of ARV. Lender ceiling — the loan can't exceed this share of ARV. Default 70%.">DSCR Loan Cap %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-dscr-ltv-cap" step="1" oninput="uwRecalc()" style="width:100%" placeholder="70"></span></label></div>
       <div data-uw-slot="rt-vac-pct"><label class="text-xs" title="Vacancy reserve as % of monthly rent.">Vacancy %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-vac-pct" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="10"></span></label></div>
       <div data-uw-slot="rt-capex-pct"><label class="text-xs" title="Long-term capex/repair reserve as % of monthly rent.">Capital Expenses %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-rt-capex-pct" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="5"></span></label></div>
@@ -12758,6 +12760,23 @@ window.uwUpdateCompArv = uwUpdateCompArv;
 // fields. Deliberately isolated: it never touches uw-arv, uw-lreal-arv, the
 // active-comp mode, or any downstream offer/exit math. Called at the end of
 // uwRecalc so it stays in sync with the subject's Total Livable SqFt.
+// Live thousands-comma formatter for text number inputs (e.g. Overwrite Loan
+// Size). Strips non-digits, re-inserts commas, and keeps the caret sensible.
+window._rtFmtThousands = function(el){
+  if (!el) return;
+  var digits = String(el.value).replace(/[^\d]/g, '');
+  if (digits === '') { el.value = ''; return; }
+  // Count digits to the left of the caret so we can restore position after reformat.
+  var caret = el.selectionStart;
+  var leftDigits = String(el.value).slice(0, caret).replace(/[^\d]/g, '').length;
+  var formatted = Number(digits).toLocaleString('en-US');
+  el.value = formatted;
+  // Re-place the caret after the same number of digits.
+  var pos = 0, seen = 0;
+  while (pos < formatted.length && seen < leftDigits) { if (/\d/.test(formatted[pos])) seen++; pos++; }
+  try { el.setSelectionRange(pos, pos); } catch(_){}
+};
+
 function uwRecalcAsIs() {
   const sqft = _uwGetN('uw-sqft');
   const round1k = (n) => Math.round(n / 1000) * 1000;
@@ -14056,8 +14075,10 @@ function uwComputeExits(ctx) {
   const _wtVal = (id, def) => {
     const el = document.getElementById(id);
     if (!el) return def;
-    const n = parseFloat(el.value);
-    return isFinite(n) && el.value !== '' ? n : def;
+    // Strip thousands commas so text inputs like "100,000" parse correctly.
+    const raw = String(el.value).replace(/,/g, '');
+    const n = parseFloat(raw);
+    return isFinite(n) && raw !== '' ? n : def;
   };
   const wtSalePct       = _wtVal('uw-wt-sale-pct', 75);  // resale = X% of ARV (standard wholetail)
   const wtCapPct        = _wtVal('uw-wt-cap-pct',  10);  // capital invested = X% of ARV
@@ -14348,6 +14369,9 @@ function uwComputeExits(ctx) {
   // sized to recover all the cash you put up + origination, capped at the
   // lender's max LTV (70% of ARV, same cap as the Refi tab).
   const FIN_LTV_CAP_PCT = _wtVal('uw-rt-dscr-ltv-cap', 70); // editable DSCR loan cap (Financed + Turn Key)
+  // Manual loan-size override (Financed/Turn Key + Refi). When > 0, the loan is
+  // forced to this exact amount instead of auto-sizing from the LTV cap.
+  const _rtLoanOverride = _wtVal('uw-rt-loan-override', 0);
   const finDownPct = _wtVal('uw-rt-down-pct', 0);
   const finRatePct = _wtVal('uw-loan-rate',   _finDef('dscr_rate',6.5));
   const finYrs     = _wtVal('uw-loan-yrs',    30);
@@ -14378,7 +14402,7 @@ function uwComputeExits(ctx) {
   const _finLoanNeeded    = _finNetOrigFactor > 0 ? (finCashPutUp + uwAppraisalFee) / _finNetOrigFactor : 0;
   const _finLtvCapLoan    = arv * (FIN_LTV_CAP_PCT / 100);
   const _finLoanSmart     = Math.min(_finLoanNeeded, _finLtvCapLoan);
-  const finLoan           = Math.max(0, _finLoanSmart * (1 - finDownPct / 100));
+  const finLoan           = _rtLoanOverride > 0 ? _rtLoanOverride : Math.max(0, _finLoanSmart * (1 - finDownPct / 100));
   const finRate = finRatePct / 100 / 12;
   const finN    = finYrs * 12;
   const finPi   = finRate > 0 ? finLoan * (finRate * Math.pow(1 + finRate, finN)) / (Math.pow(1 + finRate, finN) - 1) : 0;
@@ -14533,7 +14557,7 @@ function uwComputeExits(ctx) {
   const _rfLoanNeededForOut  = _rfNetCloseFactor > 0
                                  ? (rfHmLoan + rfInitialOut + rfUwFee) / _rfNetCloseFactor
                                  : _rfLtvCapLoan;
-  const rfLoan    = Math.min(_rfLtvCapLoan, Math.max(0, _rfLoanNeededForOut));
+  const rfLoan    = _rtLoanOverride > 0 ? _rtLoanOverride : Math.min(_rfLtvCapLoan, Math.max(0, _rfLoanNeededForOut));
   const rfRate    = rfRatePct / 100 / 12;
   const rfN       = rfYrs * 12;
   const rfPi      = rfRate > 0 ? rfLoan * (rfRate * Math.pow(1 + rfRate, rfN)) / (Math.pow(1 + rfRate, rfN) - 1) : 0;
@@ -16075,10 +16099,10 @@ function uwComputeExits(ctx) {
   const _rentalCashSlots = _rentalTimeSlots.concat(_rentalOpsSlots).concat(_rentalTenantSlots);
   // Turn Key = DSCR-financed, rent-ready. Row 1 = operating (ops + tax/ins),
   // row 2 = the DSCR loan terms.
-  const _rentalTurnkeySlots = ['rt-dscr-ltv-cap', 'rt-dscr-orig-pct', 'rt-uw-appraisal-fee', 'loan-rate', 'loan-yrs'].concat(_rentalOpsSlots).concat(_rentalTenantSlots);
+  const _rentalTurnkeySlots = ['rt-loan-override', 'rt-dscr-ltv-cap', 'rt-dscr-orig-pct', 'rt-uw-appraisal-fee', 'loan-rate', 'loan-yrs'].concat(_rentalOpsSlots).concat(_rentalTenantSlots);
   const _rentalFinSlots  = ['rt-down-pct', 'loan-rate', 'loan-yrs', 'rt-rf-close-pct', 'rt-dscr-orig-pct', 'rt-uw-appraisal-fee'].concat(_rentalTimeSlots).concat(_rentalOpsSlots).concat(_rentalTenantSlots);
   // Refi mode: initial financing terms + cash-out refi terms + refi closing + shared time/ops/tenant
-  const _rentalRfSlots   = ['rt-rf-hm-ltv', 'rt-rf-purch-fin-pct', 'rt-rf-reno-fin-pct', 'rt-rf-hm-orig', 'rt-rf-hm-rate', 'rt-br-ltv', 'rt-br-rate', 'rt-br-yrs', 'rt-dscr-orig-pct', 'rt-uw-appraisal-fee'].concat(_rentalOpsSlots).concat(_rentalTenantSlots);
+  const _rentalRfSlots   = ['rt-rf-hm-ltv', 'rt-rf-purch-fin-pct', 'rt-rf-reno-fin-pct', 'rt-rf-hm-orig', 'rt-rf-hm-rate', 'rt-loan-override', 'rt-br-ltv', 'rt-br-rate', 'rt-br-yrs', 'rt-dscr-orig-pct', 'rt-uw-appraisal-fee'].concat(_rentalOpsSlots).concat(_rentalTenantSlots);
   // Wholetail base inputs + financing inputs (shared with Flip — same loan
   // terms, same DOM nodes; only one card is expanded at a time so there's
   // no contention).
@@ -57804,7 +57828,7 @@ function renderSuggestedQueue() {
   }
 
   if (!pageRows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-[var(--text-dim)] py-6">No properties match the current filters. Click ✕ Clear all filters to start over.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-[var(--text-dim)] py-6">No properties match the current filters. Click ✕ Clear all filters to start over.</td></tr>';
     const pgEl = document.getElementById('mp-pagination');
     if (pgEl) pgEl.innerHTML = '';
     return;
@@ -57828,18 +57852,27 @@ function renderSuggestedQueue() {
     const flagList = Object.keys(flagsObj).filter(k => flagsObj[k]);
     const flagChips = flagList.length === 0
       ? '<span style="color:var(--text-dim)">—</span>'
-      : flagList.slice(0, 4).map(f =>
-          '<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:10.5px;background:rgba(99,102,241,0.16);color:#a5b4fc;margin-right:3px;margin-bottom:2px">' + escapeHtml(f) + '</span>'
-        ).join('') + (flagList.length > 4 ? '<span class="text-xs" style="color:var(--text-dim)">+' + (flagList.length - 4) + '</span>' : '');
+      : '<div style="display:flex;flex-wrap:wrap;gap:3px">' + flagList.map(f =>
+          '<span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:10.5px;background:rgba(99,102,241,0.16);color:#a5b4fc;white-space:nowrap">' + escapeHtml(f) + '</span>'
+        ).join('') + '</div>';
     const mailStreet = p.mail_street || '';
     const mailCSZ = [p.mail_city, p.mail_state].filter(Boolean).join(', ') + (p.mail_zip ? ' ' + p.mail_zip : '');
+    // Actions — Google + Zillow address lookups, stacked vertically.
+    const _addrQ = encodeURIComponent([p.street, p.city, p.state, p.zip].filter(Boolean).join(' '));
+    const _gUrl = 'https://www.google.com/search?q=' + _addrQ;
+    const _zUrl = 'https://www.zillow.com/homes/' + _addrQ + '_rb/';
+    const actionsCell = `<div style="display:flex;flex-direction:row;gap:6px;align-items:center;justify-content:center">
+        <a href="${_gUrl}" target="_blank" rel="noopener" title="Search this address on Google" style="width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:7px;text-decoration:none;background:var(--panel-2)"><span style="font-weight:700;font-size:13px;background:linear-gradient(135deg,#4285F4,#EA4335,#FBBC05,#34A853);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent">G</span></a>
+        <a href="${_zUrl}" target="_blank" rel="noopener" title="Look this address up on Zillow" style="width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:7px;text-decoration:none;background:var(--panel-2)"><span style="font-weight:700;font-size:13px;color:#006AFF">Z</span></a>
+        <button type="button" onclick="deleteProperty('${p.id}')" title="Delete this property from your system" style="width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:7px;background:var(--panel-2);cursor:pointer;color:#f87171;font-size:14px;line-height:1">✕</button>
+      </div>`;
     return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:8px 12px;vertical-align:top;font-weight:500">${ownerName}</td>
-      <td style="padding:8px 12px;vertical-align:top">
+      <td style="padding:8px 12px;vertical-align:top;font-weight:500;overflow-wrap:anywhere">${ownerName}</td>
+      <td style="padding:8px 12px;vertical-align:top;overflow-wrap:anywhere">
         <div>${escapeHtml(p.street || '—')} ${propV}</div>
         <div class="text-xs" style="color:var(--text-dim)">${escapeHtml(p.city || '')}, ${escapeHtml(p.state || '')} ${escapeHtml(p.zip || '')}</div>
       </td>
-      <td style="padding:8px 12px;vertical-align:top">
+      <td style="padding:8px 12px;vertical-align:top;overflow-wrap:anywhere">
         <div class="text-xs">${escapeHtml(mailStreet || '—')} ${mailV}</div>
         ${mailStreet ? '<div class="text-xs" style="color:var(--text-dim)">' + escapeHtml(mailCSZ) + '</div>' : ''}
       </td>
@@ -57849,6 +57882,7 @@ function renderSuggestedQueue() {
       </td>
       <td style="padding:8px 12px;vertical-align:top;white-space:nowrap">${lastContact}</td>
       <td style="padding:8px 12px;vertical-align:top">${flagChips}</td>
+      <td style="padding:8px 12px;vertical-align:top;text-align:center">${actionsCell}</td>
     </tr>`;
   }).join('');
 

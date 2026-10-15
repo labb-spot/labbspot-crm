@@ -22542,6 +22542,42 @@ window._uwRtQueueRehab = function(){
     } catch(_){}
   }, 400);
 };
+// Guaranteed direct save of the custom-preset list to the deal row (read latest
+// → set _customRehabPresets → write). Doesn't depend on the debounced autosave,
+// so a newly created / deleted preset always persists.
+async function _uwRtSavePresets(id, arr){
+  if(!id || typeof sb==='undefined' || !sb) return;
+  try {
+    var sel = await sb.from('underwrites').select('data').eq('id', id).maybeSingle();
+    if(sel.error) throw sel.error;
+    var d = (sel.data && sel.data.data && typeof sel.data.data==='object') ? sel.data.data : {};
+    d._customRehabPresets = Array.isArray(arr) ? arr : [];
+    var upd = await sb.from('underwrites').update({ data:d, updated_at:new Date().toISOString(), updated_session:_UW_SESSION_ID }).eq('id', id).select('updated_at');
+    if(upd.error) throw upd.error;
+    if(cache.underwrites && cache.underwrites[id]) cache.underwrites[id].data = d;
+    if(_uwCurrentId===id){ if(_uwBaseline) _uwBaseline._customRehabPresets = d._customRehabPresets; if(upd.data && upd.data[0]) _uwLoadedAt = upd.data[0].updated_at; }
+  } catch(e){ console.warn('[rt] savePresets', e); }
+}
+window._uwRtSavePresets = _uwRtSavePresets;
+// Broadcast + apply a preset DELETION (the union-merge never removes on its own).
+window._uwRtSendPresetDelete = function(pid){ if(pid) _uwRtSend('preset_delete', { id:pid, session:_UW_SESSION_ID }); };
+function _uwRtApplyPresetDelete(pid){
+  if(!pid) return;
+  try {
+    var id=_uwRtDealId;
+    var d = (id && cache.underwrites && cache.underwrites[id]) ? cache.underwrites[id].data : null;
+    if(d && Array.isArray(d._customRehabPresets)){
+      var next = d._customRehabPresets.filter(function(p){ return p && p.id !== pid; });
+      if(next.length !== d._customRehabPresets.length){
+        window._uwApplyingRemote = true;
+        d._customRehabPresets = next;
+        try { if(_uwBaseline) _uwBaseline._customRehabPresets = next; } catch(_){}
+        if(typeof window._rcRenderCustomPresets==='function'){ try { window._rcRenderCustomPresets(); } catch(_){} }
+        window._uwApplyingRemote = false;
+      }
+    }
+  } catch(_){ window._uwApplyingRemote = false; }
+}
 function _uwRtApplyRehab(snap){
   if(!snap) return;
   var id=_uwRtDealId;
@@ -22616,6 +22652,7 @@ async function _uwRtJoin(id){
     ch.on('broadcast', { event:'field_unlock' }, function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyUnlock(p.field, p.session); });
     ch.on('broadcast', { event:'field_value' },  function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyValue(p.field, p.value); });
     ch.on('broadcast', { event:'rehab_state' },  function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyRehab(p); });
+    ch.on('broadcast', { event:'preset_delete' },function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyPresetDelete(p.id); });
     ch.on('presence', { event:'leave' }, function(m){ (m.leftPresences||[]).forEach(function(pr){ _uwRtClearLocksForSession(pr.session || pr.key); }); });
     ch.subscribe(function(status){ if(status==='SUBSCRIBED'){ _uwRtReady=true; try { ch.track({ session:_UW_SESSION_ID, email:who }); } catch(_){} } });
     _uwRtChannel=ch;
@@ -65257,7 +65294,8 @@ function _rcSetCustomPresets(arr){
   if(!u){ if(typeof toast === 'function') toast('Open a deal first', 'warn'); return false; }
   if(!u.data) u.data = {};
   u.data._customRehabPresets = arr || [];
-  if(typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+  if(typeof window._uwRtSavePresets === 'function' && u.id) window._uwRtSavePresets(u.id, arr || []);  // guaranteed persist
+  else if(typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
   if(typeof window._uwRtQueueRehab === 'function') window._uwRtQueueRehab();  // live-sync to teammates
   return true;
 }
@@ -65356,6 +65394,7 @@ _rcRoot.addEventListener('click', e=>{
     if(found && confirm('Delete preset "' + found.name + '"?\n\nThis cannot be undone.')){
       _rcSetCustomPresets(arr.filter(p=>p.id!==id));
       _rcRenderCustomPresets();
+      if(typeof window._uwRtSendPresetDelete === 'function') window._uwRtSendPresetDelete(id);  // sync the delete live
       if(typeof toast === 'function') toast('Preset deleted', 'ok');
     }
     return;

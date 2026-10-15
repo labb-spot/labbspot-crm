@@ -22503,6 +22503,51 @@ function _uwRtApplyValue(field, value){
   } finally { window._uwApplyingRemote = false; }
 }
 function _uwRtSend(event, payload){ if(_uwRtChannel && _uwRtReady){ try { _uwRtChannel.send({ type:'broadcast', event:event, payload:payload }); } catch(_){} } }
+// ----- Live rehab per-deal state (item selections + custom presets) -----
+// When Edit Mode is OFF, two people can build a deal's rehab list together. We
+// broadcast the whole per-deal rehab snapshot on change (debounced) and apply
+// it on the other side. Template (cost/item) edits are handled by the Edit-Mode
+// lock, so this only streams per-deal selections — safe to last-writer-wins.
+let _uwRtRehabTimer = null;
+window._uwRtQueueRehab = function(){
+  if(window._uwApplyingRemote || window._uwViewOnly) return;
+  if(typeof _uwLoadingDeal !== 'undefined' && _uwLoadingDeal) return;  // not during a load
+  if(!_uwRtChannel || !_uwRtReady) return;
+  if(_uwRtRehabTimer) clearTimeout(_uwRtRehabTimer);
+  _uwRtRehabTimer = setTimeout(function(){
+    _uwRtRehabTimer = null;
+    try {
+      var d = (_uwRtDealId && cache.underwrites && cache.underwrites[_uwRtDealId]) ? cache.underwrites[_uwRtDealId].data : null;
+      var snap = {
+        session: _UW_SESSION_ID,
+        rehab:   (typeof window._uwRehabState !== 'undefined') ? window._uwRehabState : null,
+        rehabV2: (typeof window._rcGetState === 'function') ? window._rcGetState() : null,
+        presets: (d && d._customRehabPresets) ? d._customRehabPresets : null
+      };
+      _uwRtSend('rehab_state', snap);
+    } catch(_){}
+  }, 400);
+};
+function _uwRtApplyRehab(snap){
+  if(!snap) return;
+  window._uwApplyingRemote = true;
+  try {
+    var id=_uwRtDealId;
+    if(id && cache.underwrites && cache.underwrites[id] && cache.underwrites[id].data){
+      var d=cache.underwrites[id].data;
+      if(snap.rehab!=null)   d._rehab   = snap.rehab;
+      if(snap.rehabV2!=null)  d._rehabV2 = snap.rehabV2;
+      if(snap.presets!=null)  d._customRehabPresets = snap.presets;
+    }
+    if(snap.rehab!=null){ try { window._uwRehabState = JSON.parse(JSON.stringify(snap.rehab)); } catch(_){} }
+    if(snap.rehabV2!=null && typeof window._rcLoadState==='function'){ try { window._rcLoadState(snap.rehabV2); } catch(_){} }
+    if(typeof window._rcRenderCustomPresets==='function'){ try { window._rcRenderCustomPresets(); } catch(_){} }
+    if(typeof renderCategoryRows==='function'){ try { renderCategoryRows(); } catch(_){} }
+    if(typeof recalc==='function'){ try { recalc(); } catch(_){} }
+    if(typeof uwRecalc==='function'){ try { uwRecalc(); } catch(_){} }
+    try { if(_uwBaseline){ if(snap.rehab!=null)_uwBaseline._rehab=snap.rehab; if(snap.rehabV2!=null)_uwBaseline._rehabV2=snap.rehabV2; if(snap.presets!=null)_uwBaseline._customRehabPresets=snap.presets; } } catch(_){}
+  } finally { window._uwApplyingRemote = false; }
+}
 // Persist ONE field directly to the deal's row the moment the user clicks out —
 // read latest data, set just this field, write back. Guarantees the edit lands
 // (and lands for everyone) without depending on the debounced whole-deal save.
@@ -22536,6 +22581,7 @@ async function _uwRtJoin(id){
     ch.on('broadcast', { event:'field_lock' },   function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyLock(p.field, p.by, p.session); });
     ch.on('broadcast', { event:'field_unlock' }, function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyUnlock(p.field, p.session); });
     ch.on('broadcast', { event:'field_value' },  function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyValue(p.field, p.value); });
+    ch.on('broadcast', { event:'rehab_state' },  function(m){ var p=m.payload||{}; if(p.session!==_UW_SESSION_ID) _uwRtApplyRehab(p); });
     ch.on('presence', { event:'leave' }, function(m){ (m.leftPresences||[]).forEach(function(pr){ _uwRtClearLocksForSession(pr.session || pr.key); }); });
     ch.subscribe(function(status){ if(status==='SUBSCRIBED'){ _uwRtReady=true; try { ch.track({ session:_UW_SESSION_ID, email:who }); } catch(_){} } });
     _uwRtChannel=ch;
@@ -65096,6 +65142,8 @@ function recalc(){
     // now handles the cascade automatically whenever s-fin's value changes.
     // No need to wire it from inside the rehab calc's bridge code.)
     if (typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+    // Live-sync this deal's rehab selections to anyone else viewing it.
+    if (typeof window._uwRtQueueRehab === 'function') window._uwRtQueueRehab();
     // Also write the phantom directly into the in-memory cache for the currently-open
     // deal — that way the deal list reads the correct rehab number on its next render
     // even if the autosave hasn't fired yet (or has been debounced/cancelled).
@@ -65176,6 +65224,7 @@ function _rcSetCustomPresets(arr){
   if(!u.data) u.data = {};
   u.data._customRehabPresets = arr || [];
   if(typeof _uwQueueAutosave === 'function') _uwQueueAutosave();
+  if(typeof window._uwRtQueueRehab === 'function') window._uwRtQueueRehab();  // live-sync to teammates
   return true;
 }
 function _rcEscHtml(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }

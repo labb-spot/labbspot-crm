@@ -22488,8 +22488,10 @@ function _uwRtApplyValue(field, value){
   var el=_uwRtFieldEl(field); if(!el) return;
   if(document.activeElement===el) return;  // I'm in it — don't clobber my typing
   // A teammate's value is now the truth for this field — fold it into my merge
-  // baseline so my next save doesn't treat it as "my change" and re-write it.
+  // baseline so my next save doesn't treat it as "my change" and re-write it,
+  // and into my cached copy of the deal so re-opening it shows the new value.
   try { if(_uwBaseline) _uwBaseline[field] = value; } catch(_){}
+  try { if(_uwRtDealId && cache.underwrites && cache.underwrites[_uwRtDealId] && cache.underwrites[_uwRtDealId].data) cache.underwrites[_uwRtDealId].data[field] = value; } catch(_){}
   window._uwApplyingRemote = true;
   try {
     if(el.type==='checkbox') el.checked = !!value; else el.value = value;
@@ -22499,6 +22501,22 @@ function _uwRtApplyValue(field, value){
   } finally { window._uwApplyingRemote = false; }
 }
 function _uwRtSend(event, payload){ if(_uwRtChannel && _uwRtReady){ try { _uwRtChannel.send({ type:'broadcast', event:event, payload:payload }); } catch(_){} } }
+// Persist ONE field directly to the deal's row the moment the user clicks out —
+// read latest data, set just this field, write back. Guarantees the edit lands
+// (and lands for everyone) without depending on the debounced whole-deal save.
+async function _uwRtSaveField(id, field, value){
+  if(!id || typeof sb==='undefined' || !sb) return;
+  try {
+    var sel = await sb.from('underwrites').select('data').eq('id', id).maybeSingle();
+    if(sel.error) throw sel.error;
+    var d = (sel.data && sel.data.data && typeof sel.data.data==='object') ? sel.data.data : {};
+    d[field] = value;
+    var upd = await sb.from('underwrites').update({ data:d, updated_at:new Date().toISOString(), updated_session:_UW_SESSION_ID }).eq('id', id).select('updated_at');
+    if(upd.error) throw upd.error;
+    if(cache.underwrites && cache.underwrites[id]) cache.underwrites[id].data = d;
+    if(_uwCurrentId===id){ if(_uwBaseline) _uwBaseline[field]=value; if(upd.data && upd.data[0]) _uwLoadedAt = upd.data[0].updated_at; }
+  } catch(e){ console.warn('[rt] saveField', e); }
+}
 function _uwRtTeardown(){
   Object.keys(_uwFieldLocks).forEach(function(f){ _uwRtApplyUnlock(f, _uwFieldLocks[f].session); });
   if(_uwRtChannel){ try { _uwRtChannel.unsubscribe(); } catch(_){} try { sb.removeChannel(_uwRtChannel); } catch(_){} }
@@ -22537,8 +22555,11 @@ function _uwRtAttach(){
     var el=e.target; if(!_uwRtIsField(el) || !_uwRtChannel) return;
     var f=el.id;
     if(_uwFieldLocks[f] && _uwFieldLocks[f].session!==_UW_SESSION_ID) return;
-    _uwRtSend('field_value', { field:f, value:_uwRtVal(el) });
+    var v=_uwRtVal(el);
+    _uwRtSend('field_value', { field:f, value:v });
     _uwRtSend('field_unlock', { field:f, session:_UW_SESSION_ID });
+    // Persist this field to the deal right now so it survives a reload / re-open.
+    _uwRtSaveField(_uwRtDealId, f, v);
   }, true);
 }
 

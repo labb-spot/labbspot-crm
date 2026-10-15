@@ -18729,6 +18729,11 @@ let _uwCurrentId = null; // null = new deal; UUID = editing existing
 // updated_at differs, another user has saved while we were editing and we
 // abort with a clear warning rather than silently overwriting their work.
 let _uwLoadedAt = null;
+// Snapshot of this deal's `data` as it was when loaded. Used for MERGE saves:
+// on save we only write the keys that changed vs this baseline, overlaid on the
+// latest DB copy — so two people editing the same deal never overwrite each
+// other's untouched fields, and we don't need to block on a conflict.
+let _uwBaseline = null;
 // Unique ID for THIS browser tab/session. Stamped onto every underwrite save so
 // the optimistic lock can tell this tab's own writes apart from a STALE second
 // tab of the same login. Without it, the "same user → proceed" branch below let
@@ -20784,6 +20789,29 @@ async function uwSave(manual) {
   // VIEW-ONLY: block writes while viewing someone else's active edit.
   if (window._uwViewOnly) { if (manual && typeof toast === 'function') toast('View Only — click Take Over to edit this deal.', 'warn'); return; }
   const { data, arv, offer, bestExit, bestProfitText } = _uwCollect();
+  // ===== MERGE SAVE (concurrent-edit safe) =====
+  // Only write the fields that changed vs the baseline we loaded, overlaid on
+  // the LATEST copy in the DB. So two people editing the same deal never
+  // overwrite each other's untouched fields — and we skip the old conflict
+  // block entirely (no more "this deal was changed" interruptions).
+  let _saveData = data;
+  let _mergeApplied = false;
+  if (_uwCurrentId && _uwBaseline && typeof sb !== 'undefined' && sb) {
+    try {
+      const _ls = await sb.from('underwrites').select('data, updated_at').eq('id', _uwCurrentId).maybeSingle();
+      if (!_ls.error && _ls.data) {
+        const _latest = (_ls.data.data && typeof _ls.data.data === 'object') ? _ls.data.data : {};
+        const _merged = Object.assign({}, _latest);
+        Object.keys(data).forEach(k => {
+          try { if (JSON.stringify(data[k]) !== JSON.stringify(_uwBaseline[k])) _merged[k] = data[k]; }
+          catch(_) { _merged[k] = data[k]; }
+        });
+        _saveData = _merged;
+        _mergeApplied = true;
+        _uwLoadedAt = _ls.data.updated_at || _uwLoadedAt;  // keep baseline fresh so no false conflict
+      }
+    } catch(_) {}
+  }
   // ----- DIAGNOSTIC: Main Picture Upload -----
   // Log whether the uploaded picture made it into the save payload + how big.
   // Helps diagnose silent persistence failures (size limits, dropped fields).
@@ -20821,7 +20849,7 @@ async function uwSave(manual) {
   let _bypassWipeOnce = false;
   try { _bypassWipeOnce = !!window._uwBypassWipeOnce; window._uwBypassWipeOnce = false; } catch (_) {}
   try {
-    if (!_bypassWipeOnce && _uwCurrentId && cache.underwrites && cache.underwrites[_uwCurrentId]) {
+    if (!_bypassWipeOnce && !_mergeApplied && _uwCurrentId && cache.underwrites && cache.underwrites[_uwCurrentId]) {
       const cachedData = cache.underwrites[_uwCurrentId].data || {};
       // A "filled" value is anything not null/undefined/empty string.
       // Empty objects and arrays don't count as filled either.
@@ -20977,7 +21005,7 @@ async function uwSave(manual) {
     cash_rental_cap_pct:    isFinite(window._3p_cashCapPct)  ? window._3p_cashCapPct  : null,
     financed_rental_monthly: isFinite(window._3p_finRentalMo) ? window._3p_finRentalMo : null,
     wholetail_profit:       isFinite(window._3p_wtFin)        ? window._3p_wtFin       : null,
-    data: data,
+    data: _saveData,   // merged: latest DB copy + only the fields THIS user changed
     updated_at: new Date().toISOString(),
     updated_session: _UW_SESSION_ID,   // which tab/session made this write (concurrency guard)
   };
@@ -21003,7 +21031,7 @@ async function uwSave(manual) {
       // user has saved this deal in the meantime — bail rather than silently
       // overwriting their work. The user must reload to see the new state,
       // then re-apply their edits.
-      if (_uwLoadedAt) {
+      if (_uwLoadedAt && !_mergeApplied) {
         const { data: live, error: lockErr } = await sb
           .from('underwrites')
           .select('updated_at, updated_by, updated_session')
@@ -21152,6 +21180,9 @@ async function uwSave(manual) {
         // Refresh the optimistic-locking baseline so the next save uses the
         // fresh updated_at instead of triggering a false conflict.
         _uwLoadedAt = result.data.updated_at || _uwLoadedAt;
+        // Reset the merge baseline to what's now saved, so the next save only
+        // diffs NEW edits (and inherits any teammate changes we merged in).
+        try { _uwBaseline = (result.data.data && typeof result.data.data==='object') ? JSON.parse(JSON.stringify(result.data.data)) : _uwBaseline; } catch(_){}
         // Show the "Added on X · N days ago" badge once we know created_at.
         if (typeof _uwSetDealAge === 'function') _uwSetDealAge(result.data.created_at, result.data.last_submission_at, result.data.updated_at);
       }
@@ -22456,6 +22487,9 @@ function _uwRtClearLocksForSession(session){
 function _uwRtApplyValue(field, value){
   var el=_uwRtFieldEl(field); if(!el) return;
   if(document.activeElement===el) return;  // I'm in it — don't clobber my typing
+  // A teammate's value is now the truth for this field — fold it into my merge
+  // baseline so my next save doesn't treat it as "my change" and re-write it.
+  try { if(_uwBaseline) _uwBaseline[field] = value; } catch(_){}
   window._uwApplyingRemote = true;
   try {
     if(el.type==='checkbox') el.checked = !!value; else el.value = value;
@@ -22549,6 +22583,8 @@ async function uwLoadById(id) {
   goUwView('calculator');
   _uwApply(u.data);
   _uwCurrentId = id;
+  // Baseline snapshot for MERGE saves (only write fields I actually change).
+  try { _uwBaseline = (u.data && typeof u.data==='object') ? JSON.parse(JSON.stringify(u.data)) : {}; } catch(_){ _uwBaseline = {}; }
   // Per-deal custom rehab presets — render AFTER _uwCurrentId is set so the row
   // reflects THIS deal's saved presets (data._customRehabPresets), not the
   // previously-open deal's. Empty for deals that have none.

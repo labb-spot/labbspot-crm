@@ -48600,7 +48600,8 @@ function _insRenderLocation(data, zips, counties){
 }
 window._insRenderLocation = _insRenderLocation;
 
-// National cards (Inflation + 30-yr mortgage) with period-aware up/down arrows.
+// Top summary row — NATIONWIDE backdrop: Inflation, 30-yr mortgage, Employment
+// growth, Days on market, Price cuts %. All U.S. figures (period-aware arrows).
 function _insRenderNational(){
   const box = document.getElementById('ins-loc-national');
   if (!box) return;
@@ -48609,9 +48610,15 @@ function _insRenderNational(){
   const infVal = (per==='mm') ? N.inflation_mom : N.inflation_yoy;
   const infChg = (per==='mm') ? N.inflation_chg_mm : N.inflation_chg_yy;
   const mortChg = (per==='mm') ? N.mortgage_chg_mm : N.mortgage_chg_yy;
-  box.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
+  const empG = (per==='mm') ? N.emp_growth_mm : N.emp_growth_yy;
+  const domChg = (per==='mm') ? N.dom_mm : N.dom_yy;
+  box.innerHTML = '<div style="color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">🇺🇸 Nationwide</div>'
+    + '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
     + _insKpiC('Inflation (CPI, '+(per==='mm'?'mo':'yr')+')', (infVal!=null? infVal.toFixed(1)+'%':'—'), '#f59e0b', _insArrowPts(infChg))
     + _insKpiC('30-yr mortgage', (N.mortgage_30yr!=null? N.mortgage_30yr.toFixed(2)+'%':'—'), '#ef4444', _insArrowPts(mortChg))
+    + _insKpiGrowth('Employment growth', empG)
+    + _insKpiC('Days on market', (N.dom!=null? Math.round(N.dom):'—'), '#a855f7', _insArrow(domChg))
+    + _insKpiC('Price cuts %', (N.price_cuts_pct!=null? N.price_cuts_pct.toFixed(0)+'%':'—'), '#f59e0b', _insArrow((per==='mm')? N.price_cuts_pct_mm : N.price_cuts_pct_yy))
     + '</div>';
 }
 window._insRenderNational = _insRenderNational;

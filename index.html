@@ -2013,7 +2013,7 @@
           <div class="subtab" onclick="_insLocSetPeriod('mm')">Month</div>
         </div>
         <div id="ins-loc-modewrap" class="flex items-center gap-1 panel p-1 w-fit" style="display:none">
-          <div class="subtab active" onclick="_insLocSetMode('zip')">By ZIP</div>
+          <div class="subtab active" onclick="_insLocSetMode('zip')">By Zipcode</div>
           <div class="subtab" onclick="_insLocSetMode('city')">By City</div>
         </div>
       </div>
@@ -48476,12 +48476,13 @@ async function renderInsightsLocation(force){
     return;
   }
 
+  if (force) { window._insLocExpandCache = {}; window._insLocServerBust = true; }
   if (window._insLocData && !force) { _insRenderLocation(window._insLocData, zips, counties); return; }
 
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center">Pulling live market data for ' + counties.list.length + ' count' + (counties.list.length!==1?'ies':'y') + ' and ' + zips.length + ' ZIP code' + (zips.length!==1?'s':'') + '… <div style="font-size:12px;margin-top:6px;opacity:0.8">(first pull of the month can take ~15s while it refreshes the listing file)</div></div>';
 
   try {
-    const { data, error } = await sb.functions.invoke('market-data', { body: { zips, counties: countyReq } });
+    const { data, error } = await sb.functions.invoke('market-data', { body: { zips, counties: countyReq, nocache: !!window._insLocServerBust } });
     if (error) throw error;
     if (data && data.error === 'no_zips') throw new Error('No areas sent.');
     window._insLocData = data;
@@ -48527,6 +48528,22 @@ function _insArrow(frac){
 // Change arrow for a metric off a raw listing object, honoring the period.
 function _insChgOf(obj, base){ if(!obj) return ''; return _insArrow(obj[base+'_'+(window._insLocPeriod||'yy')]); }
 
+// Points arrow for RATE metrics (mortgage, inflation) — e.g. ▲1.1 pts.
+function _insArrowPts(pts){
+  if (pts==null) return '';
+  const col = pts>0?'#22c55e':pts<0?'#ef4444':'var(--muted)';
+  const ar = pts>0?'▲':pts<0?'▼':'•';
+  return '<span style="color:'+col+';font-size:10.5px;font-weight:700;margin-left:5px;white-space:nowrap">'+ar+Math.abs(pts).toFixed(1)+' pts</span>';
+}
+
+// Value + change in fixed-width columns so numbers (and arrows) line up uniformly.
+function _insCell(valStr, chgHtml){
+  return '<span style="display:inline-flex;align-items:center;justify-content:flex-end">'
+    + '<span style="min-width:62px;text-align:right">' + valStr + '</span>'
+    + '<span style="display:inline-block;min-width:66px;text-align:left;padding-left:8px">' + (chgHtml||'') + '</span>'
+    + '</span>';
+}
+
 // Aggregate a set of ZIPs from the per-ZIP listing/census maps (incl. avg change).
 function _insAggZips(zipArr, L, C){
   const lv = zipArr.map(z=>L[z]).filter(Boolean);
@@ -48561,12 +48578,9 @@ function _insRenderLocation(data, zips, counties){
   // Default selection: keep prior choice if still valid, else 'all'.
   if (window._insLocCounty !== 'all' && !clist.some(c=>c.key===window._insLocCounty)) window._insLocCounty = 'all';
 
-  // National economy (always on top)
+  // National economy (always on top; re-renders with the period toggle)
   let html = '<div style="color:var(--muted);font-size:12.5px;margin-bottom:14px">Live market data' + (monthLabel? ' · listings as of <b>'+monthLabel+'</b>' : '') + '. Free public sources (Realtor.com, U.S. Census, FRED).</div>';
-  html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
-    + _insKpi('Inflation (CPI, yr)', (N.inflation_yoy!=null? N.inflation_yoy.toFixed(1)+'%':'—'), '#f59e0b')
-    + _insKpi('30-yr mortgage', (N.mortgage_30yr!=null? N.mortgage_30yr.toFixed(2)+'%':'—'), '#ef4444')
-    + '</div>';
+  html += '<div id="ins-loc-national"></div>';
 
   // Left county rail + right content/toggle.
   html += '<div style="display:flex;gap:16px;align-items:flex-start">'
@@ -48580,10 +48594,27 @@ function _insRenderLocation(data, zips, counties){
     html += '<div style="margin-top:12px;color:var(--muted);font-size:11.5px;opacity:0.8">Some sources were unavailable: ' + data.errors.join(', ') + '</div>';
   }
   el.innerHTML = html;
+  _insRenderNational();
   _insRenderCountyRail();
   _insLocRenderContent();
 }
 window._insRenderLocation = _insRenderLocation;
+
+// National cards (Inflation + 30-yr mortgage) with period-aware up/down arrows.
+function _insRenderNational(){
+  const box = document.getElementById('ins-loc-national');
+  if (!box) return;
+  const N = (window._insLocData||{}).national || {};
+  const per = window._insLocPeriod || 'yy';
+  const infVal = (per==='mm') ? N.inflation_mom : N.inflation_yoy;
+  const infChg = (per==='mm') ? N.inflation_chg_mm : N.inflation_chg_yy;
+  const mortChg = (per==='mm') ? N.mortgage_chg_mm : N.mortgage_chg_yy;
+  box.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
+    + _insKpiC('Inflation (CPI, '+(per==='mm'?'mo':'yr')+')', (infVal!=null? infVal.toFixed(1)+'%':'—'), '#f59e0b', _insArrowPts(infChg))
+    + _insKpiC('30-yr mortgage', (N.mortgage_30yr!=null? N.mortgage_30yr.toFixed(2)+'%':'—'), '#ef4444', _insArrowPts(mortChg))
+    + '</div>';
+}
+window._insRenderNational = _insRenderNational;
 
 // Left-side clickable county list with a search box.
 window._insLocCountySearch = window._insLocCountySearch || '';
@@ -48626,7 +48657,7 @@ function _insSyncModeWrap(){
   if(m){
     const show = onLoc && window._insLocCounty && window._insLocCounty!=='all';
     m.style.display = show ? '' : 'none';
-    m.querySelectorAll('.subtab').forEach(t=>t.classList.toggle('active', t.textContent.trim().toLowerCase()===('by '+(window._insLocMode||'zip'))));
+    m.querySelectorAll('.subtab').forEach(t=>{ const lbl=t.textContent.trim().toLowerCase(); const mode=window._insLocMode||'zip'; t.classList.toggle('active', (mode==='zip'&&lbl.indexOf('zip')>=0)||(mode==='city'&&lbl.indexOf('cit')>=0)); });
   }
   const p=document.getElementById('ins-loc-periodwrap');
   if(p){
@@ -48637,7 +48668,7 @@ function _insSyncModeWrap(){
 }
 window._insSyncModeWrap = _insSyncModeWrap;
 
-function _insLocSetPeriod(p){ window._insLocPeriod = p; _insSyncModeWrap(); _insLocRenderContent(); }
+function _insLocSetPeriod(p){ window._insLocPeriod = p; _insSyncModeWrap(); if(typeof _insRenderNational==='function') _insRenderNational(); _insLocRenderContent(); }
 window._insLocSetPeriod = _insLocSetPeriod;
 
 async function _insLocPick(key){
@@ -48651,7 +48682,7 @@ async function _insLocPick(key){
       const box = document.getElementById('ins-loc-content');
       if (box) box.innerHTML = '<div style="color:var(--muted);padding:30px;text-align:center">Loading '+(cObj?cObj.label:'county')+' — every ZIP &amp; city…</div>';
       try {
-        const { data, error } = await sb.functions.invoke('market-data', { body: { expand: { name: cObj.name, state: cObj.state } } });
+        const { data, error } = await sb.functions.invoke('market-data', { body: { expand: { name: cObj.name, state: cObj.state }, nocache: !!window._insLocServerBust } });
         if (error) throw error;
         window._insLocExpandCache[key] = data;
       } catch (e) {
@@ -48694,11 +48725,11 @@ function _insBreakdownTable(labelHdr, rows){
     const a = r.a;
     return '<tr style="border-bottom:1px solid rgba(148,163,184,0.12)">'
       + '<td style="padding:8px 10px;font-weight:700;white-space:nowrap">' + r.label + '</td>'
-      + '<td style="padding:8px 10px;text-align:right;white-space:nowrap">' + (a.active!=null? Math.round(a.active).toLocaleString():'—') + _insArrow(a.activeChg) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right;white-space:nowrap">' + (a.pending!=null? Math.round(a.pending).toLocaleString():'—') + _insArrow(a.pendingChg) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right;white-space:nowrap">' + (a.dom!=null? Math.round(a.dom):'—') + _insArrow(a.domChg) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right;white-space:nowrap">' + _insFmtMoney(a.list) + _insArrow(a.listChg) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right;white-space:nowrap">' + (a.cuts!=null? Math.round(a.cuts).toLocaleString():'—') + _insArrow(a.cutsChg) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + _insCell((a.active!=null? Math.round(a.active).toLocaleString():'—'), _insArrow(a.activeChg)) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + _insCell((a.pending!=null? Math.round(a.pending).toLocaleString():'—'), _insArrow(a.pendingChg)) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + _insCell((a.dom!=null? Math.round(a.dom):'—'), _insArrow(a.domChg)) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + _insCell(_insFmtMoney(a.list), _insArrow(a.listChg)) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + _insCell((a.cuts!=null? Math.round(a.cuts).toLocaleString():'—'), _insArrow(a.cutsChg)) + '</td>'
       + '<td style="padding:8px 10px;text-align:right">' + _insFmtPct(a.vac) + '</td>'
       + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(a.val) + '</td>'
       + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(a.rent) + '</td>'
@@ -48737,11 +48768,11 @@ function _insLocRenderContent(){
       const l=r.l, cc=r.cc;
       return '<tr style="border-bottom:1px solid rgba(148,163,184,0.12);cursor:pointer" onclick="(function(s){var sel=document.querySelector(\'#insights-location-body select\'); if(sel){sel.value=s;} _insLocPick(s);})(\''+r.c.key+'\')">'
         + '<td style="padding:8px 10px;font-weight:700;white-space:nowrap;color:#93c5fd">' + r.c.label + '</td>'
-        + '<td style="padding:8px 10px;text-align:right;white-space:nowrap">' + (l.active_listing_count!=null? l.active_listing_count.toLocaleString():'—') + _insChgOf(l,'active_listing_count') + '</td>'
-        + '<td style="padding:8px 10px;text-align:right;white-space:nowrap">' + (l.pending_listing_count!=null? l.pending_listing_count.toLocaleString():'—') + _insChgOf(l,'pending_listing_count') + '</td>'
-        + '<td style="padding:8px 10px;text-align:right;white-space:nowrap">' + (l.median_days_on_market!=null? Math.round(l.median_days_on_market):'—') + _insChgOf(l,'median_days_on_market') + '</td>'
-        + '<td style="padding:8px 10px;text-align:right;white-space:nowrap">' + _insFmtMoney(l.median_listing_price) + _insChgOf(l,'median_listing_price') + '</td>'
-        + '<td style="padding:8px 10px;text-align:right;white-space:nowrap">' + (l.price_reduced_count!=null? l.price_reduced_count.toLocaleString():'—') + _insChgOf(l,'price_reduced_count') + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + _insCell((l.active_listing_count!=null? l.active_listing_count.toLocaleString():'—'), _insChgOf(l,'active_listing_count')) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + _insCell((l.pending_listing_count!=null? l.pending_listing_count.toLocaleString():'—'), _insChgOf(l,'pending_listing_count')) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + _insCell((l.median_days_on_market!=null? Math.round(l.median_days_on_market):'—'), _insChgOf(l,'median_days_on_market')) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + _insCell(_insFmtMoney(l.median_listing_price), _insChgOf(l,'median_listing_price')) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + _insCell((l.price_reduced_count!=null? l.price_reduced_count.toLocaleString():'—'), _insChgOf(l,'price_reduced_count')) + '</td>'
         + '<td style="padding:8px 10px;text-align:right">' + _insFmtPct(cc.vacancy_pct) + '</td>'
         + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(cc.median_home_value) + '</td>'
         + '</tr>';

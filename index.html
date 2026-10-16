@@ -446,7 +446,7 @@
   input[id^="uw-"][id$="-date-to"] { display: none !important; }
   /* Uniform, roomier search bar across every Underwriting subtab: ~double width
      and a bit of left padding so the first character isn't jammed to the edge. */
-  input[id^="uw-"][id$="-search"], #reno-search, #hold-search {
+  input[id^="uw-"][id$="-search"], #reno-search, #hold-search, #reno-bids-search, #reno-invoices-search {
     width: 330px !important;
     min-width: 210px !important;
     height: 36px !important;
@@ -2017,7 +2017,17 @@
           <div class="subtab" onclick="_insLocSetMode('city')">By City</div>
         </div>
       </div>
-      <button onclick="if(typeof refreshInsights==='function')refreshInsights()" style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);color:#93c5fd;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer">↻ Refresh</button>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:relative">
+        <button onclick="_insToggleNotes()" style="background:rgba(234,179,8,0.15);border:1px solid rgba(234,179,8,0.4);color:#fcd34d;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;height:36px">📝 Notes</button>
+        <button onclick="if(typeof refreshInsights==='function')refreshInsights()" style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);color:#93c5fd;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;height:36px">↻ Refresh</button>
+        <div id="ins-notes-panel" style="display:none;position:absolute;top:44px;right:0;z-index:60;width:340px;max-width:80vw;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;box-shadow:0 8px 28px rgba(0,0,0,0.4)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-weight:700;font-size:13px">📝 Future things to add</span>
+            <span onclick="_insToggleNotes()" style="cursor:pointer;color:var(--muted);font-size:16px;line-height:1">✕</span>
+          </div>
+          <textarea id="ins-notepad" placeholder="Type ideas here… saved automatically." oninput="_insSaveNotes()" style="width:100%;height:180px;padding:8px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit"></textarea>
+        </div>
+      </div>
     </div>
     <div id="insights-body"><div style="color:var(--muted);padding:40px;text-align:center">Loading insights…</div></div>
     <div id="insights-location-body" style="display:none"></div>
@@ -6399,7 +6409,7 @@
   <div class="panel p-5">
     <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
       <div class="flex items-center gap-3" style="flex-wrap:nowrap;min-width:0">
-        <div class="font-semibold text-lg" style="white-space:nowrap">🔨 Renovation</div>
+        <div class="font-semibold text-lg" id="reno-table-title" style="white-space:nowrap">🔨 Renovation</div>
         <input id="reno-search" placeholder="Search by Street Address, City, or Contact Name" oninput="_hrOnSearch('renovation')">
       </div>
       <div class="flex items-center gap-2 flex-wrap">
@@ -6442,13 +6452,12 @@
        submitted through the public bid form, with property + PDF. -->
   <div id="reno-bids-wrap" style="display:none">
     <div class="panel p-5">
-      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
-        <div>
-          <div class="font-semibold text-lg">👷 Bids</div>
-          <div class="text-sm text-[var(--text-dim)]">Every bid submitted through your contractor bid form — the property it came in for, and a printable PDF.</div>
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+        <div class="flex items-center gap-3" style="flex-wrap:nowrap;min-width:0">
+          <div class="font-semibold text-lg" style="white-space:nowrap">👷 Bids</div>
+          <input id="reno-bids-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderRenoBids()">
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <input id="reno-bids-search" placeholder="Search address / contractor…" oninput="renderRenoBids()" style="width:210px;min-width:150px">
+        <div class="flex items-center gap-2 flex-wrap">
           <div class="flex items-center gap-0 panel p-1" style="width:fit-content;font-size:12px" title="Show all bids in one list, or grouped by property.">
             <div class="subtab subtab-compact active" id="reno-bids-view-all" onclick="renoBidsSetGroup(false)">All</div>
             <div class="subtab subtab-compact" id="reno-bids-view-prop" onclick="renoBidsSetGroup(true)">By Property</div>
@@ -6485,13 +6494,12 @@
        invoice submitted through the public invoice form, with property + PDF. -->
   <div id="reno-invoices-wrap" style="display:none">
     <div class="panel p-5">
-      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
-        <div>
-          <div class="font-semibold text-lg">🧾 Invoices</div>
-          <div class="text-sm text-[var(--text-dim)]">Every invoice submitted through your contractor invoice form — the property it came in for, and a printable PDF.</div>
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+        <div class="flex items-center gap-3" style="flex-wrap:nowrap;min-width:0">
+          <div class="font-semibold text-lg" style="white-space:nowrap">🧾 Invoices</div>
+          <input id="reno-invoices-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderRenoInvoices()">
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <input id="reno-invoices-search" placeholder="Search address / contractor…" oninput="renderRenoInvoices()" style="width:210px;min-width:150px">
+        <div class="flex items-center gap-2 flex-wrap">
           <div class="flex items-center gap-0 panel p-1" style="width:fit-content;font-size:12px" title="Show all invoices in one list, or grouped by property.">
             <div class="subtab subtab-compact active" id="reno-invoices-view-all" onclick="renoInvoicesSetGroup(false)">All</div>
             <div class="subtab subtab-compact" id="reno-invoices-view-prop" onclick="renoInvoicesSetGroup(true)">By Property</div>
@@ -31711,8 +31719,19 @@ function _hrFilteredRows(flag, searchInputId) {
 // ---------- Renovation subtab phase detection ----------
 // Active subtab — defaults to 'all' (show every property in renovation).
 let _renoSubtab = 'all';
+// Title shown on the Renovation table for each phase subtab.
+const _RENO_SUBTAB_TITLES = {
+  all: '🔨 Renovation', contracted: '📝 Contracted', repossession: '🚪 Repossession',
+  demo: '💥 Demolition', planning: '📋 Planning', mechanicals: "⚙️ MEP's",
+  cosmetics: '🎨 Cosmetics', 'punch-list': '✅ Punch List', renovated: '🏁 Renovated',
+};
+function _renoSetTableTitle(name){
+  const t = document.getElementById('reno-table-title');
+  if (t) t.textContent = _RENO_SUBTAB_TITLES[name] || '🔨 Renovation';
+}
 function setRenoSubtab(name) {
   if (typeof name !== 'string') return;
+  _renoSetTableTitle(name);
   // "Contracted" is a special self-contained view: it borrows the Underwriting
   // Contracted panel (same list + Scope access) instead of the phase table.
   if (name === 'contracted') {
@@ -48360,6 +48379,36 @@ async function renderInsights(){
 }
 window.renderInsights = renderInsights;
 
+// Insights notepad — shared scratchpad saved in Supabase (app_config.notes) so
+// everyone sees the same text. localStorage is a fast local cache/fallback.
+let _insNotesTimer = null;
+function _insSaveNotes(){
+  const el=document.getElementById('ins-notepad'); if(!el) return;
+  const v = el.value;
+  try { localStorage.setItem('labbInsightsNotes', v); } catch(e){}
+  clearTimeout(_insNotesTimer);
+  _insNotesTimer = setTimeout(async () => {
+    try { if (typeof sb!=='undefined' && sb) await sb.from('app_config').update({ notes: v }).eq('id', 1); } catch(e){}
+  }, 600);
+}
+async function _insLoadNotes(){
+  const el=document.getElementById('ins-notepad'); if(!el) return;
+  try { el.value = localStorage.getItem('labbInsightsNotes') || ''; } catch(e){}
+  try {
+    if (typeof sb!=='undefined' && sb) {
+      const { data } = await sb.from('app_config').select('notes').eq('id', 1).maybeSingle();
+      if (data && data.notes != null) { el.value = data.notes; try { localStorage.setItem('labbInsightsNotes', data.notes); } catch(_){} }
+    }
+  } catch(e){}
+}
+function _insToggleNotes(){
+  const p=document.getElementById('ins-notes-panel'); if(!p) return;
+  const show = (p.style.display==='none' || !p.style.display);
+  p.style.display = show ? 'block' : 'none';
+  if (show){ _insLoadNotes(); const t=document.getElementById('ins-notepad'); if(t) t.focus(); }
+}
+window._insSaveNotes = _insSaveNotes; window._insLoadNotes = _insLoadNotes; window._insToggleNotes = _insToggleNotes;
+
 // Which Insights sub-tab is active: 'performance' | 'location'
 window._insightsView = window._insightsView || 'location';
 function goInsightsView(v){
@@ -48448,8 +48497,9 @@ function _insBuildCounties(){
   return { list:arr, byKey };
 }
 
-function _insFmtMoney(n){ return (n==null) ? '—' : '$' + Math.round(n).toLocaleString(); }
-function _insFmtPct(n,d){ return (n==null) ? '—' : (n>=0?'':'') + n.toFixed(d==null?1:d) + '%'; }
+function _insFmtMoney(n){ return (n==null) ? '?' : '$' + Math.round(n).toLocaleString(); }
+function _insFmtPct(n,d){ return (n==null) ? '?' : (n>=0?'':'') + n.toFixed(d==null?1:d) + '%'; }
+function _insNum(n){ return (n==null) ? '?' : Math.round(n).toLocaleString(); }
 function _insYoy(n){ // n is a fraction like -0.29 => -29%
   if (n==null) return '';
   const pct = n*100;
@@ -48614,11 +48664,11 @@ function _insRenderNational(){
   const domChg = (per==='mm') ? N.dom_mm : N.dom_yy;
   box.innerHTML = '<div style="color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">🇺🇸 Nationwide</div>'
     + '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
-    + _insKpiC('Inflation (CPI, '+(per==='mm'?'mo':'yr')+')', (infVal!=null? infVal.toFixed(1)+'%':'—'), '#f59e0b', _insArrowPts(infChg))
-    + _insKpiC('30-yr mortgage', (N.mortgage_30yr!=null? N.mortgage_30yr.toFixed(2)+'%':'—'), '#ef4444', _insArrowPts(mortChg))
+    + _insKpiC('Inflation (CPI, '+(per==='mm'?'mo':'yr')+')', (infVal!=null? infVal.toFixed(1)+'%':'?'), '#f59e0b', _insArrowPts(infChg))
+    + _insKpiC('30-yr mortgage', (N.mortgage_30yr!=null? N.mortgage_30yr.toFixed(2)+'%':'?'), '#ef4444', _insArrowPts(mortChg))
     + _insKpiGrowth('Employment growth', empG)
-    + _insKpiC('Days on market', (N.dom!=null? Math.round(N.dom):'—'), '#a855f7', _insArrow(domChg))
-    + _insKpiC('Price cuts %', (N.price_cuts_pct!=null? N.price_cuts_pct.toFixed(0)+'%':'—'), '#f59e0b', _insArrow((per==='mm')? N.price_cuts_pct_mm : N.price_cuts_pct_yy))
+    + _insKpiC('Days on market', (N.dom!=null? Math.round(N.dom):'?'), '#a855f7', _insArrow(domChg))
+    + _insKpiC('Price cuts %', (N.price_cuts_pct!=null? N.price_cuts_pct.toFixed(0)+'%':'?'), '#f59e0b', _insArrow((per==='mm')? N.price_cuts_pct_mm : N.price_cuts_pct_yy))
     + '</div>';
 }
 window._insRenderNational = _insRenderNational;
@@ -48709,7 +48759,7 @@ function _insKpiC(label, value, color, chgHtml){
     + '<div style="color:var(--muted);font-size:12.5px;font-weight:600;margin-top:4px">' + label + '</div></div>';
 }
 function _insKpiGrowth(label, frac){
-  const v = (frac==null) ? '—' : ((frac>0?'+':'')+(frac*100).toFixed(1)+'%');
+  const v = (frac==null) ? '?' : ((frac>0?'+':'')+(frac*100).toFixed(1)+'%');
   const col = (frac==null) ? 'var(--text)' : frac>0?'#22c55e':frac<0?'#ef4444':'var(--muted)';
   return _insKpiC(label, v, col, '');
 }
@@ -48720,7 +48770,7 @@ function _insKpiCS(label, value, color, chgHtml){
     + '<div style="color:var(--muted);font-size:11px;font-weight:600;margin-top:3px">' + label + '</div></div>';
 }
 function _insKpiGrowthS(label, frac){
-  const v = (frac==null) ? '—' : ((frac>0?'+':'')+(frac*100).toFixed(1)+'%');
+  const v = (frac==null) ? '?' : ((frac>0?'+':'')+(frac*100).toFixed(1)+'%');
   const col = (frac==null) ? 'var(--text)' : frac>0?'#22c55e':frac<0?'#ef4444':'var(--muted)';
   return _insKpiCS(label, v, col, '');
 }
@@ -48729,11 +48779,11 @@ function _insCountyKpis(cd){
   const pr = (l.pending_ratio!=null) ? l.pending_ratio
            : (l.active_listing_count && l.pending_listing_count!=null ? l.pending_listing_count/l.active_listing_count : null);
   const topCards = [
-    _insKpiCS('Active listings', (l.active_listing_count!=null? Math.round(l.active_listing_count).toLocaleString():'—'), '#3b82f6', _insChgOf(l,'active_listing_count')),
-    _insKpiCS('Pending listings', (l.pending_listing_count!=null? Math.round(l.pending_listing_count).toLocaleString():'—'), '#22c55e', _insChgOf(l,'pending_listing_count')),
-    _insKpiCS('Pending / Listed', (pr!=null? Math.round(pr*100)+'%':'—'), '#22c55e'),
-    _insKpiCS('Price cuts', (l.price_reduced_count!=null? Math.round(l.price_reduced_count).toLocaleString():'—'), '#f59e0b', _insChgOf(l,'price_reduced_count')),
-    _insKpiCS('Days on market', (l.median_days_on_market!=null? Math.round(l.median_days_on_market):'—'), '#a855f7', _insChgOf(l,'median_days_on_market')),
+    _insKpiCS('Active listings', _insNum(l.active_listing_count), '#3b82f6', _insChgOf(l,'active_listing_count')),
+    _insKpiCS('Pending listings', _insNum(l.pending_listing_count), '#22c55e', _insChgOf(l,'pending_listing_count')),
+    _insKpiCS('Pending / Listed', (pr!=null? Math.round(pr*100)+'%':'?'), '#22c55e'),
+    _insKpiCS('Price cuts', _insNum(l.price_reduced_count), '#f59e0b', _insChgOf(l,'price_reduced_count')),
+    _insKpiCS('Days on market', _insNum(l.median_days_on_market), '#a855f7', _insChgOf(l,'median_days_on_market')),
     _insKpiCS('Vacancy rate', _insFmtPct(c.vacancy_pct), '#ef4444'),
     _insKpiCS('Median rent', _insFmtMoney(c.median_rent), '#14b8a6'),
   ];
@@ -48741,7 +48791,7 @@ function _insCountyKpis(cd){
     _insKpiCS('Median income', _insFmtMoney(c.median_income), '#f59e0b'),
     _insKpiCS('Median home value', _insFmtMoney(c.median_home_value), '#a855f7'),
     _insKpiCS('Median list', _insFmtMoney(l.median_listing_price), '#3b82f6', _insChgOf(l,'median_listing_price')),
-    _insKpiCS('List $/sqft', (l.median_listing_price_per_square_foot!=null? '$'+l.median_listing_price_per_square_foot.toFixed(0):'—'), '#3b82f6', _insChgOf(l,'median_listing_price_per_square_foot')),
+    _insKpiCS('List $/sqft', (l.median_listing_price_per_square_foot!=null? '$'+l.median_listing_price_per_square_foot.toFixed(0):'?'), '#3b82f6', _insChgOf(l,'median_listing_price_per_square_foot')),
     _insKpiGrowthS('Population growth (yr)', g.pop_growth),
     _insKpiGrowthS('Employment growth (yr)', g.emp_growth),
     _insKpiCS('Homeownership', _insFmtPct(c.ownership_pct), '#22c55e'),
@@ -48750,35 +48800,51 @@ function _insCountyKpis(cd){
   return grid(topCards) + grid(botCards);
 }
 
-function _insBreakdownTable(labelHdr, rows){
-  // rows: [{label, a (agg obj)}]
+function _insBreakdownTable(mode, rows){
+  // rows: [{zip?, city, a}]. mode 'zip' -> Zipcode + City cols; 'city' -> City col.
+  const isZip = (mode === 'zip');
+  const labelCols = isZip ? 2 : 1;
   let tbody = rows.map(r => {
     const a = r.a;
+    const labelCells = isZip
+      ? '<td style="padding:8px 10px;font-weight:700;white-space:nowrap">' + (r.zip||'') + '</td>'
+        + '<td style="padding:8px 10px;white-space:nowrap;color:var(--muted)">' + (r.city||'') + '</td>'
+      : '<td style="padding:8px 10px;font-weight:700;white-space:nowrap">' + (r.city||'') + '</td>';
+    const mDen = (a.active||0) + (a.pending||0);
+    const ratio = (mDen>0 && a.pending!=null) ? (a.pending/mDen) : null;
+    const mPct = ratio!=null ? ratio*100 : null;
+    const mCol = mPct==null ? 'var(--muted)' : mPct<20 ? '#ef4444' : mPct<30 ? '#eab308' : '#22c55e';
+    // Price cuts as a % of active listings (lower is better): <5 green, 5-15 yellow, 15+ red.
+    const cutPct = (a.active && a.cuts!=null) ? (a.cuts/a.active*100) : null;
+    const cutCol = cutPct==null ? 'var(--muted)' : cutPct<5 ? '#22c55e' : cutPct<15 ? '#eab308' : '#ef4444';
     return '<tr style="border-bottom:1px solid rgba(148,163,184,0.12)">'
-      + '<td style="padding:8px 10px;font-weight:700;white-space:nowrap">' + r.label + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + _insCell((a.active!=null? Math.round(a.active).toLocaleString():'—'), _insArrow(a.activeChg)) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + _insCell((a.pending!=null? Math.round(a.pending).toLocaleString():'—'), _insArrow(a.pendingChg)) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + _insCell((a.dom!=null? Math.round(a.dom):'—'), _insArrow(a.domChg)) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + _insCell(_insFmtMoney(a.list), _insArrow(a.listChg)) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + _insCell((a.cuts!=null? Math.round(a.cuts).toLocaleString():'—'), _insArrow(a.cutsChg)) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + _insFmtPct(a.vac) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(a.val) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(a.rent) + '</td>'
+      + labelCells
+      + '<td style="padding:8px 10px;text-align:center;color:'+mCol+';font-weight:700">' + (mPct!=null? Math.round(mPct)+'%':'?') + '</td>'
+      + '<td style="padding:8px 10px;text-align:center">' + _insCell(_insNum(a.active), _insArrow(a.activeChg)) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center">' + _insCell(_insNum(a.pending), _insArrow(a.pendingChg)) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center">' + _insCell(_insNum(a.dom), _insArrow(a.domChg)) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center;color:'+cutCol+';font-weight:700">' + (cutPct!=null? Math.round(cutPct)+'%':'?') + '</td>'
+      + '<td style="padding:8px 10px;text-align:center">' + _insFmtPct(a.vac) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center">' + _insFmtMoney(a.val) + '</td>'
+      + '<td style="padding:8px 10px;text-align:center">' + _insFmtMoney(a.rent) + '</td>'
       + '</tr>';
   }).join('');
+  const labelHead = isZip
+    ? '<th style="padding:6px 10px;text-align:left">Zipcode</th><th style="padding:6px 10px;text-align:left">City</th>'
+    : '<th style="padding:6px 10px;text-align:left">City</th>';
   return '<div class="panel" style="padding:16px;border-radius:12px;overflow-x:auto">'
-    + '<table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:820px">'
+    + '<table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:780px">'
     + '<thead><tr style="color:var(--muted);border-bottom:1px solid rgba(148,163,184,0.25)">'
-    + '<th style="padding:6px 10px;text-align:left">' + labelHdr + '</th>'
-    + '<th style="padding:6px 10px;text-align:right">Active</th>'
-    + '<th style="padding:6px 10px;text-align:right">Pending</th>'
-    + '<th style="padding:6px 10px;text-align:right">Days</th>'
-    + '<th style="padding:6px 10px;text-align:right">Median list</th>'
-    + '<th style="padding:6px 10px;text-align:right">Price cuts</th>'
-    + '<th style="padding:6px 10px;text-align:right">Vacancy</th>'
-    + '<th style="padding:6px 10px;text-align:right">Home value</th>'
-    + '<th style="padding:6px 10px;text-align:right">Rent</th>'
-    + '</tr></thead><tbody>' + (tbody || '<tr><td colspan="9" style="padding:14px;color:var(--muted)">No ZIP data for this county.</td></tr>') + '</tbody></table></div>';
+    + labelHead
+    + '<th style="padding:6px 10px;text-align:center">Momentum</th>'
+    + '<th style="padding:6px 10px;text-align:center">Active</th>'
+    + '<th style="padding:6px 10px;text-align:center">Pending</th>'
+    + '<th style="padding:6px 10px;text-align:center">Days</th>'
+    + '<th style="padding:6px 10px;text-align:center">Price cuts</th>'
+    + '<th style="padding:6px 10px;text-align:center">Vacancy</th>'
+    + '<th style="padding:6px 10px;text-align:center">Home value</th>'
+    + '<th style="padding:6px 10px;text-align:center">Rent</th>'
+    + '</tr></thead><tbody>' + (tbody || '<tr><td colspan="'+(labelCols+8)+'" style="padding:14px;color:var(--muted)">No ZIP data for this county.</td></tr>') + '</tbody></table></div>';
 }
 
 function _insLocRenderContent(){
@@ -48799,11 +48865,11 @@ function _insLocRenderContent(){
       const l=r.l, cc=r.cc;
       return '<tr style="border-bottom:1px solid rgba(148,163,184,0.12);cursor:pointer" onclick="(function(s){var sel=document.querySelector(\'#insights-location-body select\'); if(sel){sel.value=s;} _insLocPick(s);})(\''+r.c.key+'\')">'
         + '<td style="padding:8px 10px;font-weight:700;white-space:nowrap;color:#93c5fd">' + r.c.label + '</td>'
-        + '<td style="padding:8px 10px;text-align:right">' + _insCell((l.active_listing_count!=null? l.active_listing_count.toLocaleString():'—'), _insChgOf(l,'active_listing_count')) + '</td>'
-        + '<td style="padding:8px 10px;text-align:right">' + _insCell((l.pending_listing_count!=null? l.pending_listing_count.toLocaleString():'—'), _insChgOf(l,'pending_listing_count')) + '</td>'
-        + '<td style="padding:8px 10px;text-align:right">' + _insCell((l.median_days_on_market!=null? Math.round(l.median_days_on_market):'—'), _insChgOf(l,'median_days_on_market')) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + _insCell(_insNum(l.active_listing_count), _insChgOf(l,'active_listing_count')) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + _insCell(_insNum(l.pending_listing_count), _insChgOf(l,'pending_listing_count')) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + _insCell(_insNum(l.median_days_on_market), _insChgOf(l,'median_days_on_market')) + '</td>'
         + '<td style="padding:8px 10px;text-align:right">' + _insCell(_insFmtMoney(l.median_listing_price), _insChgOf(l,'median_listing_price')) + '</td>'
-        + '<td style="padding:8px 10px;text-align:right">' + _insCell((l.price_reduced_count!=null? l.price_reduced_count.toLocaleString():'—'), _insChgOf(l,'price_reduced_count')) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + _insCell(_insNum(l.price_reduced_count), _insChgOf(l,'price_reduced_count')) + '</td>'
         + '<td style="padding:8px 10px;text-align:right">' + _insFmtPct(cc.vacancy_pct) + '</td>'
         + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(cc.median_home_value) + '</td>'
         + '</tr>';
@@ -48846,13 +48912,13 @@ function _insLocRenderContent(){
   if (window._insLocMode === 'city') {
     const cities = {};
     zarr.forEach(z => { const cn = _insTitleCase(zmap[z].city || '') || '(Unnamed area)'; (cities[cn] = cities[cn] || []).push(z); });
-    const rows = Object.keys(cities).map(cn => ({ label: cn, a: _insAggZips(cities[cn], L2, C2) }))
-      .sort((a,b)=> (b.a.active||0)-(a.a.active||0) || a.label.localeCompare(b.label));
-    html += _insBreakdownTable('City', rows);
+    const rows = Object.keys(cities).map(cn => ({ city: cn, a: _insAggZips(cities[cn], L2, C2) }))
+      .sort((a,b)=> (b.a.active||0)-(a.a.active||0) || a.city.localeCompare(b.city));
+    html += _insBreakdownTable('city', rows);
   } else {
-    const rows = zarr.map(z => ({ label: z + (zmap[z].city? ' <span style="color:var(--muted);font-weight:500;font-size:11px">'+_insTitleCase(zmap[z].city)+'</span>':''), a: _insAggZips([z], L2, C2) }))
+    const rows = zarr.map(z => ({ zip: z, city: _insTitleCase(zmap[z].city||''), a: _insAggZips([z], L2, C2) }))
       .sort((a,b)=> (b.a.active||0)-(a.a.active||0));
-    html += _insBreakdownTable('ZIP', rows);
+    html += _insBreakdownTable('zip', rows);
   }
   box.innerHTML = html;
 }

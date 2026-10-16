@@ -48701,9 +48701,24 @@ function _insKpiC(label, value, color, chgHtml){
     + '<div style="font-size:28px;font-weight:800;color:' + (color || 'var(--text)') + ';line-height:1.1">' + value + (chgHtml||'') + '</div>'
     + '<div style="color:var(--muted);font-size:12.5px;font-weight:600;margin-top:4px">' + label + '</div></div>';
 }
+function _insKpiGrowth(label, frac){
+  const v = (frac==null) ? '—' : ((frac>0?'+':'')+(frac*100).toFixed(1)+'%');
+  const col = (frac==null) ? 'var(--text)' : frac>0?'#22c55e':frac<0?'#ef4444':'var(--muted)';
+  return _insKpiC(label, v, col, '');
+}
 function _insCountyKpis(cd){
-  const l = (cd && cd.listings) || {}, c = (cd && cd.census) || {};
+  const l = (cd && cd.listings) || {}, c = (cd && cd.census) || {}, g = (cd && cd.growth) || {};
+  const grm = (c.median_home_value && c.median_rent) ? (c.median_home_value / (c.median_rent*12)) : null;
+  const pr = (l.pending_ratio!=null) ? l.pending_ratio
+           : (l.active_listing_count && l.pending_listing_count!=null ? l.pending_listing_count/l.active_listing_count : null);
   return '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
+    + _insKpiC('Pending / Listed', (pr!=null? Math.round(pr*100)+'%':'—'), '#22c55e')
+    + _insKpiC('List $/sqft', (l.median_listing_price_per_square_foot!=null? '$'+l.median_listing_price_per_square_foot.toFixed(0):'—'), '#3b82f6', _insChgOf(l,'median_listing_price_per_square_foot'))
+    + _insKpiC('Gross Rent Multiplier', (grm!=null? grm.toFixed(1):'—'), '#14b8a6')
+    + _insKpiGrowth('Population growth (yr)', g.pop_growth)
+    + _insKpiGrowth('Employment growth (yr)', g.emp_growth)
+    + '</div>'
+    + '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
     + _insKpiC('Active listings', (l.active_listing_count!=null? Math.round(l.active_listing_count).toLocaleString():'—'), '#3b82f6', _insChgOf(l,'active_listing_count'))
     + _insKpiC('Pending listings', (l.pending_listing_count!=null? Math.round(l.pending_listing_count).toLocaleString():'—'), '#22c55e', _insChgOf(l,'pending_listing_count'))
     + _insKpiC('Days on market', (l.median_days_on_market!=null? Math.round(l.median_days_on_market):'—'), '#a855f7', _insChgOf(l,'median_days_on_market'))

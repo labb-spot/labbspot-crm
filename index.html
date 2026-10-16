@@ -2001,17 +2001,13 @@
 <!-- SECTION: Insights -->
 <div id="section-insights" class="section-content p-6" style="display:none">
   <div style="max-width:1200px;margin:0 auto">
+    <!-- Insights sub-tabs (Location first) + Refresh, on one row -->
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px">
-      <div>
-        <h2 style="font-size:22px;font-weight:800;margin:0">📊 Insights</h2>
-        <div style="color:var(--muted);font-size:13px;margin-top:2px">Area &amp; portfolio insights built from your own data — properties, deals, buyers and flag hotspots.</div>
+      <div class="flex items-center gap-1 panel p-1 w-fit">
+        <div class="subtab active" id="ins-tab-location" onclick="goInsightsView('location')">📍 Location</div>
+        <div class="subtab" id="ins-tab-performance" onclick="goInsightsView('performance')">📈 Performance</div>
       </div>
       <button onclick="if(typeof refreshInsights==='function')refreshInsights()" style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);color:#93c5fd;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer">↻ Refresh</button>
-    </div>
-    <!-- Insights sub-tabs: Performance (own data) | Location (area/market data) -->
-    <div class="flex items-center gap-1 panel p-1 w-fit" style="margin-bottom:16px">
-      <div class="subtab active" id="ins-tab-performance" onclick="goInsightsView('performance')">📈 Performance</div>
-      <div class="subtab" id="ins-tab-location" onclick="goInsightsView('location')">📍 Location</div>
     </div>
     <div id="insights-body"><div style="color:var(--muted);padding:40px;text-align:center">Loading insights…</div></div>
     <div id="insights-location-body" style="display:none"></div>
@@ -48355,7 +48351,7 @@ async function renderInsights(){
 window.renderInsights = renderInsights;
 
 // Which Insights sub-tab is active: 'performance' | 'location'
-window._insightsView = window._insightsView || 'performance';
+window._insightsView = window._insightsView || 'location';
 function goInsightsView(v){
   window._insightsView = v;
   const perf = document.getElementById('insights-body');
@@ -48394,6 +48390,53 @@ function _insCollectZips(){
   return Object.entries(zips).sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
 }
 
+// County match key: "monroe, in" (strips "County"/punctuation).
+function _insCountyKey(name, state){
+  let n = String(name||'').toLowerCase().replace(/\b(county|parish|borough|census area)\b/g,'').replace(/[.,]/g,' ').replace(/\s+/g,' ').trim();
+  const st = String(state||'').toLowerCase().trim();
+  return n && st ? n+', '+st : '';
+}
+function _insCountyLabel(name, state){
+  let n = String(name||'').replace(/\s+/g,' ').trim();
+  if (!/county|parish|borough/i.test(n)) n += ' County';
+  return n + (state ? ', ' + String(state).toUpperCase() : '');
+}
+
+// Build the county universe for the Location tab:
+//   counties tracked in Marketing → Requests  (at minimum)
+//   UNION counties derived from your properties (via the city→county lookup)
+// Returns { list:[{key,name,state,label,propCount}], byKey:{key:{zips:Set,cities:{city:Set<zip>}}} }
+function _insBuildCounties(){
+  const countyMap = (typeof _gisBuildCountyLookup === 'function') ? _gisBuildCountyLookup() : new Map();
+  const list = {}; // key -> {key,name,state,label,propCount}
+  const byKey = {}; // key -> {zips:Set, cities:{cityName:Set}}
+  const ensure = (name, state) => {
+    const key = _insCountyKey(name, state);
+    if (!key) return null;
+    if (!list[key]) { list[key] = { key, name:String(name||'').replace(/\s*county\s*$/i,'').trim(), state:String(state||'').toUpperCase(), label:_insCountyLabel(name,state), propCount:0 }; byKey[key] = { zips:new Set(), cities:{} }; }
+    return key;
+  };
+  // 1) Marketing Requests counties (always tracked).
+  Object.values(cache.requests || {}).forEach(r => {
+    if (r && r.county && r.state) ensure(r.county, r.state);
+  });
+  // 2) Property-derived counties + the zip/city breakdown each county contains.
+  Object.values(cache.properties || {}).forEach(p => {
+    if (!p) return;
+    const city = String(p.city||'').trim(), state = String(p.state||'').trim();
+    const zip = String(p.zip||'').replace(/[^0-9]/g,'').slice(0,5);
+    let county = p.county || (city && state ? countyMap.get(state.toLowerCase()+':'+city.toLowerCase()) : '');
+    if (!county || !state) return;
+    const key = ensure(county, state);
+    if (!key) return;
+    list[key].propCount++;
+    if (zip.length===5) byKey[key].zips.add(zip);
+    if (city) { const cn=_insTitleCase(city); (byKey[key].cities[cn] = byKey[key].cities[cn] || new Set()); if (zip.length===5) byKey[key].cities[cn].add(zip); }
+  });
+  const arr = Object.values(list).sort((a,b)=> b.propCount-a.propCount || a.label.localeCompare(b.label));
+  return { list:arr, byKey };
+}
+
 function _insFmtMoney(n){ return (n==null) ? '—' : '$' + Math.round(n).toLocaleString(); }
 function _insFmtPct(n,d){ return (n==null) ? '—' : (n>=0?'':'') + n.toFixed(d==null?1:d) + '%'; }
 function _insYoy(n){ // n is a fraction like -0.29 => -29%
@@ -48409,22 +48452,29 @@ function _insSum(arr){ const v=arr.filter(x=>x!=null); return v.length? v.reduce
 async function renderInsightsLocation(force){
   const el = document.getElementById('insights-location-body');
   if (!el) return;
+  // County grouping needs the city→county lookup (gis_maps) and the tracked
+  // counties from Marketing → Requests.
+  if (typeof loadGisMaps === 'function' && !cache.gis_maps) { try { await loadGisMaps(); } catch(e){} }
+  if (typeof loadRequests === 'function' && !cache.requests) { try { await loadRequests(); } catch(e){} }
+
   const zips = _insCollectZips();
-  if (!zips.length) {
-    el.innerHTML = '<div class="panel" style="padding:20px;border-radius:12px;max-width:620px;color:var(--muted)">No ZIP codes found on your properties yet, so there\'s nothing to look up. Add properties with ZIPs and this tab will fill in.</div>';
+  const counties = _insBuildCounties();
+  const countyReq = counties.list.map(c => ({ name: c.name, state: c.state }));
+  if (!zips.length && !countyReq.length) {
+    el.innerHTML = '<div class="panel" style="padding:20px;border-radius:12px;max-width:620px;color:var(--muted)">No ZIP codes or tracked counties found yet. Add properties (with ZIPs) or cities in Marketing → Requests, and this tab will fill in.</div>';
     return;
   }
 
-  if (window._insLocData && !force) { _insRenderLocation(window._insLocData, zips); return; }
+  if (window._insLocData && !force) { _insRenderLocation(window._insLocData, zips, counties); return; }
 
-  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center">Pulling live market data for ' + zips.length + ' ZIP code' + (zips.length!==1?'s':'') + '… <div style="font-size:12px;margin-top:6px;opacity:0.8">(first pull of the month can take ~15s while it refreshes the listing file)</div></div>';
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center">Pulling live market data for ' + counties.list.length + ' count' + (counties.list.length!==1?'ies':'y') + ' and ' + zips.length + ' ZIP code' + (zips.length!==1?'s':'') + '… <div style="font-size:12px;margin-top:6px;opacity:0.8">(first pull of the month can take ~15s while it refreshes the listing file)</div></div>';
 
   try {
-    const { data, error } = await sb.functions.invoke('market-data', { body: { zips } });
+    const { data, error } = await sb.functions.invoke('market-data', { body: { zips, counties: countyReq } });
     if (error) throw error;
-    if (data && data.error === 'no_zips') throw new Error('No ZIPs sent.');
+    if (data && data.error === 'no_zips') throw new Error('No areas sent.');
     window._insLocData = data;
-    _insRenderLocation(data, zips);
+    _insRenderLocation(data, zips, counties);
   } catch (e) {
     const msg = (e && e.message) ? e.message : String(e);
     const notDeployed = /not found|404|Failed to send|fetch/i.test(msg);
@@ -48441,94 +48491,213 @@ async function renderInsightsLocation(force){
 }
 window.renderInsightsLocation = renderInsightsLocation;
 
-function _insRenderLocation(data, zips){
+window._insLocCounty = window._insLocCounty || 'all';
+window._insLocMode   = window._insLocMode   || 'zip';
+
+// Aggregate a set of ZIPs from the per-ZIP listing/census maps.
+function _insAggZips(zipArr, L, C){
+  const lv = zipArr.map(z=>L[z]).filter(Boolean);
+  const cv = zipArr.map(z=>C[z]).filter(Boolean);
+  return {
+    active:_insSum(lv.map(x=>x.active_listing_count)),
+    pending:_insSum(lv.map(x=>x.pending_listing_count)),
+    dom:_insAvg(lv.map(x=>x.median_days_on_market)),
+    list:_insAvg(lv.map(x=>x.median_listing_price)),
+    cuts:_insSum(lv.map(x=>x.price_reduced_count)),
+    vac:_insAvg(cv.map(x=>x.vacancy_pct)),
+    own:_insAvg(cv.map(x=>x.ownership_pct)),
+    val:_insAvg(cv.map(x=>x.median_home_value)),
+    rent:_insAvg(cv.map(x=>x.median_rent)),
+  };
+}
+
+function _insRenderLocation(data, zips, counties){
   const el = document.getElementById('insights-location-body');
   if (!el) return;
-  data = data || {};
-  const L = data.listings || {}, C = data.census || {}, N = data.national || {};
-  const haveZips = Object.keys(L).length ? Object.keys(L) : Object.keys(C);
-  const monthLabel = data.month ? (String(data.month).slice(0,4) + '-' + String(data.month).slice(4,6)) : null;
+  window._insLocData = data || {};
+  window._insLocCounties = counties || _insBuildCounties();
+  const N = (data && data.national) || {};
+  const monthLabel = data && data.month ? (String(data.month).slice(0,4) + '-' + String(data.month).slice(4,6)) : null;
+  const clist = window._insLocCounties.list;
+  // Default selection: keep prior choice if still valid, else 'all'.
+  if (window._insLocCounty !== 'all' && !clist.some(c=>c.key===window._insLocCounty)) window._insLocCounty = 'all';
 
-  // ---- Blended top-line cards across all covered ZIPs ----
-  const listVals = Object.values(L);
-  const censVals = Object.values(C);
-  const blendedActive = _insSum(listVals.map(x=>x.active_listing_count));
-  const blendedPending = _insSum(listVals.map(x=>x.pending_listing_count));
-  const blendedDom = _insAvg(listVals.map(x=>x.median_days_on_market));
-  const blendedList = _insAvg(listVals.map(x=>x.median_listing_price));
-  const blendedCut = _insSum(listVals.map(x=>x.price_reduced_count));
-  const blendedVac = _insAvg(censVals.map(x=>x.vacancy_pct));
-  const blendedOwn = _insAvg(censVals.map(x=>x.ownership_pct));
-  const blendedVal = _insAvg(censVals.map(x=>x.median_home_value));
-  const blendedRent = _insAvg(censVals.map(x=>x.median_rent));
-
-  let html = '';
-
-  // Header / data freshness note
-  html += '<div style="color:var(--muted);font-size:12.5px;margin-bottom:14px">Live market data across your <b>' + haveZips.length + '</b> covered ZIP' + (haveZips.length!==1?'s':'') + (monthLabel? ' · listings as of <b>'+monthLabel+'</b>' : '') + '. Free public sources (Realtor.com, U.S. Census, FRED).</div>';
-
-  // National economy row
+  // National economy (always on top)
+  let html = '<div style="color:var(--muted);font-size:12.5px;margin-bottom:14px">Live market data' + (monthLabel? ' · listings as of <b>'+monthLabel+'</b>' : '') + '. Free public sources (Realtor.com, U.S. Census, FRED).</div>';
   html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
     + _insKpi('Inflation (CPI, yr)', (N.inflation_yoy!=null? N.inflation_yoy.toFixed(1)+'%':'—'), '#f59e0b')
     + _insKpi('30-yr mortgage', (N.mortgage_30yr!=null? N.mortgage_30yr.toFixed(2)+'%':'—'), '#ef4444')
-    + _insKpi('Active listings', (blendedActive!=null? Math.round(blendedActive).toLocaleString():'—'), '#3b82f6')
-    + _insKpi('Pending listings', (blendedPending!=null? Math.round(blendedPending).toLocaleString():'—'), '#22c55e')
-    + _insKpi('Avg days on market', (blendedDom!=null? Math.round(blendedDom):'—'), '#a855f7')
     + '</div>';
 
-  html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
-    + _insKpi('Median list price', _insFmtMoney(blendedList), '#3b82f6')
-    + _insKpi('Price cuts (listings)', (blendedCut!=null? Math.round(blendedCut).toLocaleString():'—'), '#f59e0b')
-    + _insKpi('Vacancy rate', _insFmtPct(blendedVac), '#ef4444')
-    + _insKpi('Homeownership', _insFmtPct(blendedOwn), '#22c55e')
-    + _insKpi('Median home value', _insFmtMoney(blendedVal), '#a855f7')
+  // County picker + ZIP/City toggle
+  let opts = '<option value="all"' + (window._insLocCounty==='all'?' selected':'') + '>All counties (' + clist.length + ')</option>';
+  opts += clist.map(c => '<option value="'+c.key+'"'+(window._insLocCounty===c.key?' selected':'')+'>'+c.label+(c.propCount? ' · '+c.propCount+' props':' · tracked')+'</option>').join('');
+  html += '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">'
+    + '<label style="font-size:12.5px;color:var(--muted);font-weight:600">County</label>'
+    + '<select onchange="_insLocPick(this.value)" style="height:36px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;min-width:230px">' + opts + '</select>'
+    + '<div id="ins-loc-modewrap" class="flex items-center gap-1 panel p-1 w-fit" style="'+(window._insLocCounty==='all'?'display:none':'')+'">'
+    + '<div class="subtab'+(window._insLocMode==='zip'?' active':'')+'" onclick="_insLocSetMode(\'zip\')">By ZIP</div>'
+    + '<div class="subtab'+(window._insLocMode==='city'?' active':'')+'" onclick="_insLocSetMode(\'city\')">By City</div>'
+    + '</div></div>';
+
+  html += '<div id="ins-loc-content"></div>';
+  if (data && data.errors && data.errors.length) {
+    html += '<div style="margin-top:12px;color:var(--muted);font-size:11.5px;opacity:0.8">Some sources were unavailable: ' + data.errors.join(', ') + '</div>';
+  }
+  el.innerHTML = html;
+  _insLocRenderContent();
+}
+window._insRenderLocation = _insRenderLocation;
+
+async function _insLocPick(key){
+  window._insLocCounty = key;
+  const m=document.getElementById('ins-loc-modewrap'); if(m) m.style.display = (key==='all')?'none':'';
+  if (key !== 'all') {
+    window._insLocExpandCache = window._insLocExpandCache || {};
+    if (!window._insLocExpandCache[key]) {
+      const cObj = ((window._insLocCounties||{}).list||[]).find(c=>c.key===key);
+      const box = document.getElementById('ins-loc-content');
+      if (box) box.innerHTML = '<div style="color:var(--muted);padding:30px;text-align:center">Loading '+(cObj?cObj.label:'county')+' — every ZIP &amp; city…</div>';
+      try {
+        const { data, error } = await sb.functions.invoke('market-data', { body: { expand: { name: cObj.name, state: cObj.state } } });
+        if (error) throw error;
+        window._insLocExpandCache[key] = data;
+      } catch (e) {
+        if (box) box.innerHTML = '<div class="panel" style="padding:16px;border-radius:12px;color:#f59e0b">Couldn\'t load this county: ' + ((e&&e.message)||e) + '</div>';
+        return;
+      }
+    }
+  }
+  _insLocRenderContent();
+}
+function _insLocSetMode(mode){ window._insLocMode = mode; document.querySelectorAll('#ins-loc-modewrap .subtab').forEach(t=>t.classList.toggle('active', t.textContent.trim().toLowerCase()===('by '+mode))); _insLocRenderContent(); }
+window._insLocPick = _insLocPick; window._insLocSetMode = _insLocSetMode;
+
+function _insCountyKpis(cd){
+  const l = (cd && cd.listings) || {}, c = (cd && cd.census) || {};
+  return '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
+    + _insKpi('Active listings', (l.active_listing_count!=null? Math.round(l.active_listing_count).toLocaleString():'—'), '#3b82f6')
+    + _insKpi('Pending listings', (l.pending_listing_count!=null? Math.round(l.pending_listing_count).toLocaleString():'—'), '#22c55e')
+    + _insKpi('Days on market', (l.median_days_on_market!=null? Math.round(l.median_days_on_market):'—'), '#a855f7')
+    + _insKpi('Median list', _insFmtMoney(l.median_listing_price), '#3b82f6')
+    + _insKpi('Price cuts', (l.price_reduced_count!=null? Math.round(l.price_reduced_count).toLocaleString():'—'), '#f59e0b')
+    + '</div>'
+    + '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
+    + _insKpi('Vacancy rate', _insFmtPct(c.vacancy_pct), '#ef4444')
+    + _insKpi('Homeownership', _insFmtPct(c.ownership_pct), '#22c55e')
+    + _insKpi('Median home value', _insFmtMoney(c.median_home_value), '#a855f7')
+    + _insKpi('Median rent', _insFmtMoney(c.median_rent), '#14b8a6')
+    + _insKpi('Median income', _insFmtMoney(c.median_income), '#f59e0b')
     + '</div>';
+}
 
-  // Per-ZIP table
-  const rows = haveZips.map(z => {
-    const l = L[z] || {}, c = C[z] || {};
-    const cityName = (Object.values(cache.properties||{}).find(p => String(p.zip||'').replace(/[^0-9]/g,'').slice(0,5)===z && p.city) || {}).city || '';
-    return { z, cityName: _insTitleCase(cityName), l, c };
-  }).sort((a,b)=> (b.l.active_listing_count||0) - (a.l.active_listing_count||0));
-
+function _insBreakdownTable(labelHdr, rows){
+  // rows: [{label, a (agg obj)}]
   let tbody = rows.map(r => {
-    const l=r.l, c=r.c;
+    const a = r.a;
     return '<tr style="border-bottom:1px solid rgba(148,163,184,0.12)">'
-      + '<td style="padding:8px 10px;font-weight:700;white-space:nowrap">' + r.z + (r.cityName? ' <span style="color:var(--muted);font-weight:500;font-size:11px">'+r.cityName+'</span>':'') + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + (l.active_listing_count!=null? l.active_listing_count.toLocaleString():'—') + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + (l.pending_listing_count!=null? l.pending_listing_count.toLocaleString():'—') + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + (l.median_days_on_market!=null? Math.round(l.median_days_on_market):'—') + _insYoy(l.median_days_on_market_yy) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(l.median_listing_price) + _insYoy(l.median_listing_price_yy) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + (l.price_reduced_count!=null? l.price_reduced_count.toLocaleString():'—') + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + _insFmtPct(c.vacancy_pct) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(c.median_home_value) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(c.median_rent) + '</td>'
+      + '<td style="padding:8px 10px;font-weight:700;white-space:nowrap">' + r.label + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + (a.active!=null? Math.round(a.active).toLocaleString():'—') + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + (a.pending!=null? Math.round(a.pending).toLocaleString():'—') + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + (a.dom!=null? Math.round(a.dom):'—') + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(a.list) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + (a.cuts!=null? Math.round(a.cuts).toLocaleString():'—') + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + _insFmtPct(a.vac) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(a.val) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(a.rent) + '</td>'
       + '</tr>';
   }).join('');
-
-  html += '<div class="panel" style="padding:16px;border-radius:12px;overflow-x:auto">'
-    + '<div style="font-weight:800;font-size:14px;margin-bottom:12px">📍 By ZIP code</div>'
+  return '<div class="panel" style="padding:16px;border-radius:12px;overflow-x:auto">'
     + '<table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:820px">'
-    + '<thead><tr style="color:var(--muted);text-align:right;border-bottom:1px solid rgba(148,163,184,0.25)">'
-    + '<th style="padding:6px 10px;text-align:left">ZIP</th>'
+    + '<thead><tr style="color:var(--muted);border-bottom:1px solid rgba(148,163,184,0.25)">'
+    + '<th style="padding:6px 10px;text-align:left">' + labelHdr + '</th>'
     + '<th style="padding:6px 10px;text-align:right">Active</th>'
     + '<th style="padding:6px 10px;text-align:right">Pending</th>'
-    + '<th style="padding:6px 10px;text-align:right">Days on mkt</th>'
+    + '<th style="padding:6px 10px;text-align:right">Days</th>'
     + '<th style="padding:6px 10px;text-align:right">Median list</th>'
     + '<th style="padding:6px 10px;text-align:right">Price cuts</th>'
     + '<th style="padding:6px 10px;text-align:right">Vacancy</th>'
     + '<th style="padding:6px 10px;text-align:right">Home value</th>'
     + '<th style="padding:6px 10px;text-align:right">Rent</th>'
-    + '</tr></thead><tbody>' + (tbody || '<tr><td colspan="9" style="padding:14px;color:var(--muted)">No data returned for these ZIPs.</td></tr>') + '</tbody></table>'
-    + '</div>';
+    + '</tr></thead><tbody>' + (tbody || '<tr><td colspan="9" style="padding:14px;color:var(--muted)">No ZIP data for this county.</td></tr>') + '</tbody></table></div>';
+}
 
-  if (data.errors && data.errors.length) {
-    html += '<div style="margin-top:12px;color:var(--muted);font-size:11.5px;opacity:0.8">Some sources were unavailable: ' + data.errors.join(', ') + '</div>';
+function _insLocRenderContent(){
+  const box = document.getElementById('ins-loc-content');
+  if (!box) return;
+  const data = window._insLocData || {};
+  const counties = window._insLocCounties || _insBuildCounties();
+  const L = data.listings || {}, C = data.census || {}, CO = data.counties || {};
+  const sel = window._insLocCounty;
+
+  if (sel === 'all') {
+    // Overview: one row per county, county-level data, name clickable.
+    const rows = counties.list.map(c => {
+      const cd = CO[c.key] || {}; const l = cd.listings || {}, cc = cd.census || {};
+      return { c, l, cc };
+    }).sort((a,b)=> (b.l.active_listing_count||0)-(a.l.active_listing_count||0) || a.c.label.localeCompare(b.c.label));
+    let tbody = rows.map(r => {
+      const l=r.l, cc=r.cc;
+      return '<tr style="border-bottom:1px solid rgba(148,163,184,0.12);cursor:pointer" onclick="(function(s){var sel=document.querySelector(\'#insights-location-body select\'); if(sel){sel.value=s;} _insLocPick(s);})(\''+r.c.key+'\')">'
+        + '<td style="padding:8px 10px;font-weight:700;white-space:nowrap;color:#93c5fd">' + r.c.label + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + (l.active_listing_count!=null? l.active_listing_count.toLocaleString():'—') + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + (l.pending_listing_count!=null? l.pending_listing_count.toLocaleString():'—') + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + (l.median_days_on_market!=null? Math.round(l.median_days_on_market):'—') + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(l.median_listing_price) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + (l.price_reduced_count!=null? l.price_reduced_count.toLocaleString():'—') + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + _insFmtPct(cc.vacancy_pct) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + _insFmtMoney(cc.median_home_value) + '</td>'
+        + '</tr>';
+    }).join('');
+    box.innerHTML = '<div class="panel" style="padding:16px;border-radius:12px;overflow-x:auto">'
+      + '<div style="font-weight:800;font-size:14px;margin-bottom:4px">🗺️ All tracked counties</div>'
+      + '<div style="color:var(--muted);font-size:12px;margin-bottom:12px">Click a county to drill into its ZIPs or cities.</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:760px">'
+      + '<thead><tr style="color:var(--muted);border-bottom:1px solid rgba(148,163,184,0.25)">'
+      + '<th style="padding:6px 10px;text-align:left">County</th>'
+      + '<th style="padding:6px 10px;text-align:right">Active</th>'
+      + '<th style="padding:6px 10px;text-align:right">Pending</th>'
+      + '<th style="padding:6px 10px;text-align:right">Days</th>'
+      + '<th style="padding:6px 10px;text-align:right">Median list</th>'
+      + '<th style="padding:6px 10px;text-align:right">Price cuts</th>'
+      + '<th style="padding:6px 10px;text-align:right">Vacancy</th>'
+      + '<th style="padding:6px 10px;text-align:right">Home value</th>'
+      + '</tr></thead><tbody>' + (tbody || '<tr><td colspan="8" style="padding:14px;color:var(--muted)">No county data returned.</td></tr>') + '</tbody></table></div>';
+    return;
   }
 
-  el.innerHTML = html;
+  // Specific county — use the on-demand drill-down (every ZIP/city in the county).
+  const cObj = counties.list.find(c=>c.key===sel);
+  const ex = (window._insLocExpandCache || {})[sel];
+  const cd = (ex && ex.expand) ? ex.expand : (CO[sel] || {});
+  let html = _insCountyKpis(cd);
+
+  const zmap = (ex && ex.zips) ? ex.zips : {};
+  const zarr = Object.keys(zmap);
+  if (!zarr.length) {
+    html += '<div class="panel" style="padding:16px;border-radius:12px;color:var(--muted);font-size:13px">County-wide totals shown above. No ZIP-level breakdown is available for ' + (cObj? cObj.label : 'this county') + ' right now' + (ex ? '.' : ' (still loading or unavailable).') + '</div>';
+    box.innerHTML = html; return;
+  }
+  // Build per-ZIP maps from the drill-down for aggregation.
+  const L2 = {}, C2 = {};
+  zarr.forEach(z => { L2[z] = (zmap[z].listings)||{}; C2[z] = (zmap[z].census)||{}; });
+
+  html += '<div style="color:var(--muted);font-size:12px;margin-bottom:10px">' + zarr.length + ' ZIP code' + (zarr.length!==1?'s':'') + ' in ' + (cObj? cObj.label : 'this county') + '. Showing every area, not just yours.</div>';
+
+  if (window._insLocMode === 'city') {
+    const cities = {};
+    zarr.forEach(z => { const cn = _insTitleCase(zmap[z].city || '') || '(Unnamed area)'; (cities[cn] = cities[cn] || []).push(z); });
+    const rows = Object.keys(cities).map(cn => ({ label: cn, a: _insAggZips(cities[cn], L2, C2) }))
+      .sort((a,b)=> (b.a.active||0)-(a.a.active||0) || a.label.localeCompare(b.label));
+    html += _insBreakdownTable('City', rows);
+  } else {
+    const rows = zarr.map(z => ({ label: z + (zmap[z].city? ' <span style="color:var(--muted);font-weight:500;font-size:11px">'+_insTitleCase(zmap[z].city)+'</span>':''), a: _insAggZips([z], L2, C2) }))
+      .sort((a,b)=> (b.a.active||0)-(a.a.active||0));
+    html += _insBreakdownTable('ZIP', rows);
+  }
+  box.innerHTML = html;
 }
-window._insRenderLocation = _insRenderLocation;
+window._insLocRenderContent = _insLocRenderContent;
 
 function goSection(s, _opts) {
   // Track that the user (or a real navigation) has picked a section, so the
@@ -48630,7 +48799,7 @@ function goSection(s, _opts) {
       _uwSyncLeadContacts({ silent: true }).catch(() => {});
     }
   }
-  if (s === "insights"   && typeof goInsightsView        === "function") goInsightsView(window._insightsView || 'performance');
+  if (s === "insights"   && typeof goInsightsView        === "function") goInsightsView(window._insightsView || 'location');
   if (s === "holdings"   && typeof renderHoldingsList   === "function") renderHoldingsList();
   if (s === "photos"     && typeof loadPhotoSubmissions === "function") loadPhotoSubmissions();
   if (s === "map"        && typeof _mapSectionOpen       === "function") _mapSectionOpen();

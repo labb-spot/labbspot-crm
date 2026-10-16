@@ -48713,32 +48713,41 @@ function _insKpiGrowth(label, frac){
   const col = (frac==null) ? 'var(--text)' : frac>0?'#22c55e':frac<0?'#ef4444':'var(--muted)';
   return _insKpiC(label, v, col, '');
 }
+// Compact county KPI card + growth variant (smaller, grid-friendly).
+function _insKpiCS(label, value, color, chgHtml){
+  return '<div class="panel" style="padding:11px 13px;border-radius:10px">'
+    + '<div style="font-size:19px;font-weight:800;color:' + (color || 'var(--text)') + ';line-height:1.15">' + value + (chgHtml||'') + '</div>'
+    + '<div style="color:var(--muted);font-size:11px;font-weight:600;margin-top:3px">' + label + '</div></div>';
+}
+function _insKpiGrowthS(label, frac){
+  const v = (frac==null) ? '—' : ((frac>0?'+':'')+(frac*100).toFixed(1)+'%');
+  const col = (frac==null) ? 'var(--text)' : frac>0?'#22c55e':frac<0?'#ef4444':'var(--muted)';
+  return _insKpiCS(label, v, col, '');
+}
 function _insCountyKpis(cd){
   const l = (cd && cd.listings) || {}, c = (cd && cd.census) || {}, g = (cd && cd.growth) || {};
-  const grm = (c.median_home_value && c.median_rent) ? (c.median_home_value / (c.median_rent*12)) : null;
   const pr = (l.pending_ratio!=null) ? l.pending_ratio
            : (l.active_listing_count && l.pending_listing_count!=null ? l.pending_listing_count/l.active_listing_count : null);
-  return '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
-    + _insKpiC('Pending / Listed', (pr!=null? Math.round(pr*100)+'%':'—'), '#22c55e')
-    + _insKpiC('List $/sqft', (l.median_listing_price_per_square_foot!=null? '$'+l.median_listing_price_per_square_foot.toFixed(0):'—'), '#3b82f6', _insChgOf(l,'median_listing_price_per_square_foot'))
-    + _insKpiC('Gross Rent Multiplier', (grm!=null? grm.toFixed(1):'—'), '#14b8a6')
-    + _insKpiGrowth('Population growth (yr)', g.pop_growth)
-    + _insKpiGrowth('Employment growth (yr)', g.emp_growth)
-    + '</div>'
-    + '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
-    + _insKpiC('Active listings', (l.active_listing_count!=null? Math.round(l.active_listing_count).toLocaleString():'—'), '#3b82f6', _insChgOf(l,'active_listing_count'))
-    + _insKpiC('Pending listings', (l.pending_listing_count!=null? Math.round(l.pending_listing_count).toLocaleString():'—'), '#22c55e', _insChgOf(l,'pending_listing_count'))
-    + _insKpiC('Days on market', (l.median_days_on_market!=null? Math.round(l.median_days_on_market):'—'), '#a855f7', _insChgOf(l,'median_days_on_market'))
-    + _insKpiC('Median list', _insFmtMoney(l.median_listing_price), '#3b82f6', _insChgOf(l,'median_listing_price'))
-    + _insKpiC('Price cuts', (l.price_reduced_count!=null? Math.round(l.price_reduced_count).toLocaleString():'—'), '#f59e0b', _insChgOf(l,'price_reduced_count'))
-    + '</div>'
-    + '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
-    + _insKpi('Vacancy rate', _insFmtPct(c.vacancy_pct), '#ef4444')
-    + _insKpi('Homeownership', _insFmtPct(c.ownership_pct), '#22c55e')
-    + _insKpi('Median home value', _insFmtMoney(c.median_home_value), '#a855f7')
-    + _insKpi('Median rent', _insFmtMoney(c.median_rent), '#14b8a6')
-    + _insKpi('Median income', _insFmtMoney(c.median_income), '#f59e0b')
-    + '</div>';
+  const topCards = [
+    _insKpiCS('Active listings', (l.active_listing_count!=null? Math.round(l.active_listing_count).toLocaleString():'—'), '#3b82f6', _insChgOf(l,'active_listing_count')),
+    _insKpiCS('Pending listings', (l.pending_listing_count!=null? Math.round(l.pending_listing_count).toLocaleString():'—'), '#22c55e', _insChgOf(l,'pending_listing_count')),
+    _insKpiCS('Pending / Listed', (pr!=null? Math.round(pr*100)+'%':'—'), '#22c55e'),
+    _insKpiCS('Price cuts', (l.price_reduced_count!=null? Math.round(l.price_reduced_count).toLocaleString():'—'), '#f59e0b', _insChgOf(l,'price_reduced_count')),
+    _insKpiCS('Days on market', (l.median_days_on_market!=null? Math.round(l.median_days_on_market):'—'), '#a855f7', _insChgOf(l,'median_days_on_market')),
+    _insKpiCS('Vacancy rate', _insFmtPct(c.vacancy_pct), '#ef4444'),
+    _insKpiCS('Median rent', _insFmtMoney(c.median_rent), '#14b8a6'),
+  ];
+  const botCards = [
+    _insKpiCS('Median income', _insFmtMoney(c.median_income), '#f59e0b'),
+    _insKpiCS('Median home value', _insFmtMoney(c.median_home_value), '#a855f7'),
+    _insKpiCS('Median list', _insFmtMoney(l.median_listing_price), '#3b82f6', _insChgOf(l,'median_listing_price')),
+    _insKpiCS('List $/sqft', (l.median_listing_price_per_square_foot!=null? '$'+l.median_listing_price_per_square_foot.toFixed(0):'—'), '#3b82f6', _insChgOf(l,'median_listing_price_per_square_foot')),
+    _insKpiGrowthS('Population growth (yr)', g.pop_growth),
+    _insKpiGrowthS('Employment growth (yr)', g.emp_growth),
+    _insKpiCS('Homeownership', _insFmtPct(c.ownership_pct), '#22c55e'),
+  ];
+  const grid = (cards) => '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px">' + cards.join('') + '</div>';
+  return grid(topCards) + grid(botCards);
 }
 
 function _insBreakdownTable(labelHdr, rows){

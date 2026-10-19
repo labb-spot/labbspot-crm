@@ -32211,10 +32211,10 @@ function _holdScreen(a,u){
   add('Convictions (7 yrs)', 'None', a.convictions===true?('Reported'+(a.convictions_detail?' — '+a.convictions_detail:'')):(a.convictions===false?'None':'not given'), a.convictions===true?F:(a.convictions===false?P:N));
   // Employment tenure 12+ mo same employer
   var em=a.employer_months||'';
-  add('Employment', '12+ mo, same employer', em||'not given', (em==='1-2 years'||em==='3+ years')?P:(em==='Under 12 months'?F:N));
+  add('Employment', '12+ mo, same employer', em||'not given', (em==='1-2 years'||em==='2+ years'||em==='3+ years')?P:(em==='Under 12 months'?F:N));
   // Rental history 2+ yrs
   var rh=a.prev_address_time||'';
-  add('Rental history', '2+ years', rh||'not given', rh==='3+ years'?P:(rh==='1-2 years'?R:(rh==='Under 12 months'?F:N)));
+  add('Rental history', '2+ years', rh||'not given', (rh==='2+ years'||rh==='3+ years')?P:(rh==='1-2 years'?R:(rh==='Under 12 months'?F:N)));
   // Occupancy max 2 per bedroom + 1
   if(beds!=null){
     var occ=(Number(a.occupants_adults)||0)+(Number(a.occupants_kids)||0), max=2*beds+1;
@@ -68916,7 +68916,7 @@ window._uwOpenApplicantsModal = function(id, startView){
     var fld=function(l,inner,flex){ return '<div style="flex:'+(flex||'1 1 130px')+';min-width:120px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">'+l+'</label>'+inner+'</div>'; };
     var selYN=function(f,val){ var v=val===true?'true':(val===false?'false':''); return '<select data-f="'+f+'" style="'+_istyle+'"><option value="" '+(v===''?'selected':'')+'>—</option><option value="false" '+(v==='false'?'selected':'')+'>No</option><option value="true" '+(v==='true'?'selected':'')+'>Yes</option></select>'; };
     var selRange=function(f,val,opts){ return '<select data-f="'+f+'" style="'+_istyle+'"><option value="">—</option>'+opts.map(function(o){return '<option '+((val||'')===o?'selected':'')+'>'+o+'</option>';}).join('')+'</select>'; };
-    var CRED=['Under 550','550-600','600-650','650-700','700+'], TEN=['Under 12 months','1-2 years','3+ years'];
+    var CRED=['Under 550','550-600','600-650','650-700','700+'], TEN=['Under 12 months','1-2 years','2+ years'];
     var incVal=(a.monthly_income!=null&&a.monthly_income!=='')?('$'+Number(a.monthly_income).toLocaleString()):'';
     var moveBtn = locked ? ('<div style="margin:2px 0 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="appl-tostage" data-i="'+i+'" style="background:rgba(16,185,129,0.14);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-weight:700">🔓 Move to Reviewing</button><span style="font-size:11px;color:var(--text-dim)">Pre-screen submission — fields are locked until you move it to reviewing.</span></div>') : '';
     var h='<div class="appl-card" style="padding:4px 12px 12px 12px">'

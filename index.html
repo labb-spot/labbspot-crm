@@ -32005,7 +32005,22 @@ async function _holdLoadRentalApps(force){
 }
 function _holdAppsWindowMs(){ var el=document.getElementById('hold-apps-window'); var v=(el&&el.value)||'all'; return v==='all'?0:Number(v)*86400000; }
 function _holdInWindow(a){ var ms=_holdAppsWindowMs(); if(!ms) return true; var t=(a&&a.submitted_at)?new Date(a.submitted_at).getTime():0; return !!t && (Date.now()-t)<=ms; }
-function _holdPreAppsFor(u){ var k=String((u&&u.address)||'').trim().toLowerCase(); var all=(cache.rentalApps&&cache.rentalApps[k])||[]; return all.filter(_holdInWindow); }
+// Full, normalized address: "123 Main St, Evansville, IN, 47714".
+function _holdFullAddr(u){
+  if(!u) return '';
+  var d=u.data||{};
+  var street=u.address||d['uw-address']||d.address||'';
+  var city=u.city||d['uw-city']||d.city||'';
+  var state=u.state||d['uw-state']||d.state||'';
+  var zip=u.zip||d['uw-zip']||d.zip||'';
+  var base=[street,city,state].filter(Boolean).join(', ');
+  return base + (zip?(', '+zip):'');
+}
+function _holdZillowAuto(u){
+  var a=_holdFullAddr(u); if(!a) return '';
+  return 'https://www.zillow.com/homes/'+encodeURIComponent(a)+'_rb/';
+}
+function _holdPreAppsFor(u){ var k=_holdFullAddr(u).trim().toLowerCase(); var all=(cache.rentalApps&&cache.rentalApps[k])||[]; return all.filter(_holdInWindow); }
 // Count badge on the 📋 Applications pill — total new pre-apps in the window.
 function _holdUpdateAppsBadge(){
   var b=document.getElementById('hold-apps-badge'); if(!b) return;
@@ -32035,11 +32050,13 @@ function _holdRenderApplications(){
   if(!rows.length){ body.innerHTML='<div style="color:var(--text-dim);font-size:13px;padding:12px 0">'+(availOnly?'No homes marked available for rent yet.':'No holdings yet.')+'</div>'; return; }
   var esc=(typeof escapeHtml==='function')?escapeHtml:function(s){return String(s==null?'':s);};
   body.innerHTML = rows.map(function(u){
-    var addr=esc(u.address||(u.data&&u.data.address)||'(no address)');
+    var addr=esc(_holdFullAddr(u)||'(no address)');
     var apps=(u.data&&Array.isArray(u.data._applicants))?u.data._applicants.length:0;
     var pre=_holdPreAppsFor(u).length;
     var avail=!!u.data._forRent;
     var zurl=esc((u.data&&u.data._zillowUrl)||'');
+    var rentN=_holdNum(u.data&&u.data._rent); var rentStr=rentN!=null?('$'+rentN.toLocaleString()):'';
+    var sqN=_holdNum(u.data&&u.data['uw-sqft']);
     return '<div style="border:1px solid '+(avail?'rgba(34,197,94,0.4)':'var(--border)')+';background:'+(avail?'rgba(34,197,94,0.06)':'var(--panel-2)')+';border-radius:10px;margin-bottom:8px;padding:12px 14px">'
       +'<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">'
       +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap" title="List this home on your public application form"><input type="checkbox" '+(avail?'checked':'')+' onchange="_holdToggleForRent(\''+u.id+'\',this.checked)" style="width:17px;height:17px;accent-color:#22c55e;cursor:pointer"><span style="font-size:11.5px;font-weight:700;color:'+(avail?'#22c55e':'var(--text-dim)')+'">'+(avail?'Available':'List it')+'</span></label>'
@@ -32049,9 +32066,9 @@ function _holdRenderApplications(){
       +'<button onclick="_uwOpenApplicantsModal(\''+u.id+'\')" style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;border-radius:8px;padding:6px 13px;cursor:pointer;font-size:12.5px;font-weight:700;white-space:nowrap">Applicants →</button>'
       +'</div>'
       +(avail?('<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">'
-          +'<input type="number" placeholder="Rent $/mo" value="'+esc((u.data._rent!=null?u.data._rent:''))+'" onchange="_holdSaveRent(\''+u.id+'\',this.value)" title="Monthly rent — shown on the application form" style="width:120px;height:32px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;box-sizing:border-box">'
-          +'<input type="text" placeholder="🔗 Zillow listing link" value="'+zurl+'" onchange="_holdSaveZillow(\''+u.id+'\',this.value)" style="flex:1;min-width:160px;height:32px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;box-sizing:border-box">'
-          +'<span style="font-size:11px;color:var(--text-dim);align-self:center;white-space:nowrap">🛏 '+(u.data["uw-bed"]||"?")+' · 🛁 '+(u.data["uw-bath"]||"?")+' · '+(u.data["uw-sqft"]?Number(u.data["uw-sqft"]).toLocaleString()+" sqft":"? sqft")+'</span>'
+          +'<input type="text" inputmode="numeric" placeholder="Rent $/mo" value="'+esc(rentStr)+'" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')?(\'$\'+Number(this.value.replace(/[^0-9]/g,\'\')).toLocaleString()):\'\'" onchange="_holdSaveRent(\''+u.id+'\',this.value)" title="Monthly rent — shown on the application form" style="width:120px;height:32px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;box-sizing:border-box">'
+          +'<input type="text" placeholder="🔗 Zillow link (blank = auto from address)" value="'+zurl+'" onchange="_holdSaveZillow(\''+u.id+'\',this.value)" style="flex:1;min-width:160px;height:32px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;box-sizing:border-box">'
+          +'<span style="font-size:11px;color:var(--text-dim);align-self:center;white-space:nowrap">🛏 '+(u.data["uw-bed"]||"?")+' · 🛁 '+(u.data["uw-bath"]||"?")+' · '+(sqN!=null?sqN.toLocaleString()+" sqft":"? sqft")+'</span>'
           +'</div>'):'')
       +'</div>';
   }).join('');
@@ -32064,10 +32081,11 @@ function _holdNum(v){ if(v==null||v==='') return null; var n=parseFloat(String(v
 // Beds/baths/sqft pull straight from the deal; rent + zillow are set by you.
 async function _holdSyncListing(u){
   try{
-    if(typeof sb==='undefined'||!sb||!u||!u.address) return;
+    if(typeof sb==='undefined'||!sb||!u) return;
     var d=u.data||{};
+    var full=_holdFullAddr(u); if(!full) return;
     await sb.from('rental_listings').upsert({
-      address:u.address, zillow_url:d._zillowUrl||null,
+      address:full, zillow_url:(d._zillowUrl&&d._zillowUrl.trim())||_holdZillowAuto(u),
       rent:_holdNum(d._rent), beds:_holdNum(d['uw-bed']), baths:_holdNum(d['uw-bath']), sqft:_holdNum(d['uw-sqft']),
       status:d._forRent?'open':'closed', updated_at:new Date().toISOString()
     },{onConflict:'address'});

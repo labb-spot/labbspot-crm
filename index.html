@@ -32057,18 +32057,18 @@ function _holdRenderApplications(){
     var zurl=esc((u.data&&u.data._zillowUrl)||'');
     var rentN=_holdNum(u.data&&u.data._rent); var rentStr=rentN!=null?('$'+rentN.toLocaleString()):'';
     var sqN=_holdNum(u.data&&u.data['uw-sqft']);
-    return '<div style="border:1px solid '+(avail?'rgba(34,197,94,0.4)':'var(--border)')+';background:'+(avail?'rgba(34,197,94,0.06)':'var(--panel-2)')+';border-radius:10px;margin-bottom:8px;padding:12px 14px">'
-      +'<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">'
+    var zurlAuto=((u.data&&u.data._zillowUrl&&u.data._zillowUrl.trim())||_holdZillowAuto(u));
+    var gUrl='https://www.google.com/search?q='+encodeURIComponent(_holdFullAddr(u));
+    return '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid '+(avail?'rgba(34,197,94,0.4)':'var(--border)')+';background:'+(avail?'rgba(34,197,94,0.06)':'var(--panel-2)')+';border-radius:10px;margin-bottom:8px;padding:11px 14px">'
       +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap" title="List this home on your public application form"><input type="checkbox" '+(avail?'checked':'')+' onchange="_holdToggleForRent(\''+u.id+'\',this.checked)" style="width:17px;height:17px;accent-color:#22c55e;cursor:pointer"><span style="font-size:11.5px;font-weight:700;color:'+(avail?'#22c55e':'var(--text-dim)')+'">'+(avail?'Available':'List it')+'</span></label>'
-      +'<div style="flex:1;min-width:140px"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+addr+'</div></div>'
-      +(pre?'<button onclick="_holdOpenPreApps(\''+u.id+'\')" style="background:rgba(234,179,8,0.15);border:1px solid rgba(234,179,8,0.5);color:#fcd34d;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">📥 '+pre+' new</button>':'')
+      +'<div style="flex:1;min-width:150px"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+addr+'</div></div>'
+      +'<span style="font-size:11px;color:var(--text-dim);white-space:nowrap">🛏 '+(u.data["uw-bed"]||"?")+' · 🛁 '+(u.data["uw-bath"]||"?")+' · '+(sqN!=null?sqN.toLocaleString()+" sqft":"? sqft")+'</span>'
+      +(pre?'<button onclick="_holdOpenPreApps(\''+u.id+'\')" style="background:rgba(234,179,8,0.15);border:1px solid rgba(234,179,8,0.5);color:#fcd34d;border-radius:8px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">📥 '+pre+' new</button>':'')
       +'<span style="font-size:11.5px;color:var(--text-dim);white-space:nowrap">👤 '+apps+'</span>'
-      +'<button onclick="_uwOpenApplicantsModal(\''+u.id+'\')" style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;border-radius:8px;padding:6px 13px;cursor:pointer;font-size:12.5px;font-weight:700;white-space:nowrap">Applicants →</button>'
-      +'</div>'
-      +(avail?('<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">'
-          +'<input type="text" inputmode="numeric" placeholder="Rent $/mo" value="'+esc(rentStr)+'" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')?(\'$\'+Number(this.value.replace(/[^0-9]/g,\'\')).toLocaleString()):\'\'" onchange="_holdSaveRent(\''+u.id+'\',this.value)" title="Monthly rent — shown on the application form" style="width:130px;height:32px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;box-sizing:border-box">'
-          +'<span style="flex:1;min-width:120px;font-size:11px;color:var(--text-dim);align-self:center;white-space:nowrap">🛏 '+(u.data["uw-bed"]||"?")+' · 🛁 '+(u.data["uw-bath"]||"?")+' · '+(sqN!=null?sqN.toLocaleString()+" sqft":"? sqft")+' · 🔗 Zillow auto</span>'
-          +'</div>'):'')
+      +'<button onclick="_uwOpenApplicantsModal(\''+u.id+'\')" style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12.5px;font-weight:700;white-space:nowrap">Applicants →</button>'
+      +(avail?('<input type="text" inputmode="numeric" placeholder="Rent $/mo" value="'+esc(rentStr)+'" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')?(\'$\'+Number(this.value.replace(/[^0-9]/g,\'\')).toLocaleString()):\'\'" onchange="_holdSaveRent(\''+u.id+'\',this.value)" title="Monthly rent — shown on the application form" style="width:110px;height:32px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;box-sizing:border-box">'
+          +'<a href="'+gUrl+'" target="_blank" rel="noopener" title="Google this address" style="text-decoration:none;background:rgba(66,133,244,0.12);border:1px solid rgba(66,133,244,0.4);color:#8ab4f8;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;white-space:nowrap">G</a>'
+          +'<a href="'+esc(zurlAuto)+'" target="_blank" rel="noopener" title="View on Zillow" style="text-decoration:none;background:rgba(0,106,255,0.14);border:1px solid rgba(0,106,255,0.5);color:#5b9dff;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;white-space:nowrap">Z</a>'):'')
       +'</div>';
   }).join('');
   _holdUpdateAppsBadge();

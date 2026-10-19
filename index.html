@@ -446,7 +446,7 @@
   input[id^="uw-"][id$="-date-to"] { display: none !important; }
   /* Uniform, roomier search bar across every Underwriting subtab: ~double width
      and a bit of left padding so the first character isn't jammed to the edge. */
-  input[id^="uw-"][id$="-search"], #reno-search, #hold-search, #reno-bids-search, #reno-invoices-search {
+  input[id^="uw-"][id$="-search"], #reno-search, #hold-search, #reno-bids-search, #reno-invoices-search, #hold-apps-search {
     width: 330px !important;
     min-width: 210px !important;
     height: 36px !important;
@@ -3533,6 +3533,17 @@
           <button type="button" data-dispo-stage-btn="hot"        onclick="uwSetDispoStage('hot')"        style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🔥 Hot</button>
           <button type="button" data-dispo-stage-btn="assigned"   onclick="uwSetDispoStage('assigned')"   style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">✅ Assigned</button>
           <button type="button" data-dispo-stage-btn="dead"       onclick="uwSetDispoStage('dead')"       style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;white-space:nowrap;flex-shrink:0">💀 Dead</button>
+        </div>
+        <!-- Holdings stage pill bar — shown when the deal is in Holdings. Mirrors
+             the dispo bar; click to move between rent-cycle stages. -->
+        <div id="uw-hold-stage-selector" style="display:none;align-items:center;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:11px;flex-wrap:wrap" title="Holdings stage — click to move this property between rent-cycle stages.">
+          <button type="button" data-hold-stage-btn="staging"    onclick="uwSetHoldingStageCurrent('staging')"    style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🪧 Listing</button>
+          <button type="button" data-hold-stage-btn="listed"     onclick="uwSetHoldingStageCurrent('listed')"     style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🔍 Screening</button>
+          <button type="button" data-hold-stage-btn="signing"    onclick="uwSetHoldingStageCurrent('signing')"    style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">✍️ Signing</button>
+          <button type="button" data-hold-stage-btn="moving-in"  onclick="uwSetHoldingStageCurrent('moving-in')"  style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">📦 Move-In</button>
+          <button type="button" data-hold-stage-btn="rented"     onclick="uwSetHoldingStageCurrent('rented')"     style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🔑 Rented</button>
+          <button type="button" data-hold-stage-btn="moving-out" onclick="uwSetHoldingStageCurrent('moving-out')" style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0">🚚 Move-Out</button>
+          <button type="button" data-hold-stage-btn="refreshing" onclick="uwSetHoldingStageCurrent('refreshing')" style="padding:6px 10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;white-space:nowrap;flex-shrink:0">🛠 Refreshing</button>
         </div>
         <!-- The "🔨 Add to Renovation" and "✕ Remove from Renovation" buttons
              both live OUTSIDE this row — absolutely positioned in the panel's
@@ -7581,7 +7592,7 @@
       <div class="subtab subtab-compact" data-hold-subtab="refreshing"  onclick="setHoldSubtab('refreshing')" title="Turning the unit — cleaning and repairs to get it rent-ready again.">🛠 Refreshing <span id="hold-count-refreshing" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
     </div>
     <div id="hold-propviews" class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
-      <div class="subtab subtab-compact" id="hold-applications-pill" onclick="holdOpenApplications()" title="Tenant applications across your holdings.">📋 Applications</div>
+      <div class="subtab subtab-compact" id="hold-applications-pill" onclick="holdOpenApplications()" title="Tenant applications across your holdings.">📋 Applications <span id="hold-apps-badge" class="badge warn" style="margin-left:4px;font-size:10px;display:none">0</span></div>
       <div class="subtab subtab-compact" id="hold-workorders-pill" onclick="holdOpenWorkOrders()" title="Maintenance work orders across your holdings.">🔧 Work Orders</div>
     </div>
     <div class="flex items-center gap-0 panel p-1" id="hold-connections-subnav" style="flex-shrink:0;width:fit-content;font-size:12px;display:none">
@@ -7594,8 +7605,22 @@
        moved here from Renovation at load; the Handyman rolodex lives below it. -->
   <div id="hold-applications-wrap" style="display:none">
     <div class="panel p-5">
-      <div class="font-semibold text-lg mb-2">📋 Applications</div>
-      <div class="text-sm text-[var(--text-dim)]">Tenant applications across your holdings will show here.</div>
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+        <div class="flex items-center gap-3" style="flex-wrap:nowrap;min-width:0">
+          <div class="font-semibold text-lg" style="white-space:nowrap">📋 Applications</div>
+          <input id="hold-apps-search" placeholder="Search by Street Address, City, or Contact Name" oninput="_holdRenderApplications()">
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <select id="hold-apps-window" onchange="_holdRenderApplications()" title="Show pre-applications from this window" style="height:34px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;font-weight:600;cursor:pointer">
+            <option value="all">All time</option>
+            <option value="1">Last 24 hours</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+          </select>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-dim);cursor:pointer;white-space:nowrap"><input type="checkbox" id="hold-apps-avail-only" onchange="_holdRenderApplications()" style="width:15px;height:15px;accent-color:#22c55e;cursor:pointer"> Show only available</label>
+        </div>
+      </div>
+      <div id="hold-applications-body"></div>
     </div>
   </div>
   <div id="hold-workorders-wrap" style="display:none">
@@ -30939,17 +30964,8 @@ function _uwUpdateRemoveRoutingButton() {
     // Holdings stage picker: only in Holdings. Build options once from
     // _HOLD_STAGES, then reflect the deal's current stage.
     const _ss = document.getElementById('uw-hold-stage-select');
-    if (_ss) {
-      if (_h === 'holding' && Array.isArray(_HOLD_STAGES)) {
-        if (!_ss.options.length) {
-          _ss.innerHTML = _HOLD_STAGES.map(function (s) { return '<option value="' + s[0] + '">' + s[1] + '</option>'; }).join('');
-        }
-        _ss.value = (_u.data._holdingStage) || 'staging';
-        _ss.style.display = '';
-      } else {
-        _ss.style.display = 'none';
-      }
-    }
+    if (_ss) _ss.style.display = 'none'; // retired — replaced by the pill bar below
+    _uwUpdateHoldStageBar();
   } catch (_) {}
   const btn = document.getElementById('uw-remove-routing-btn');
   if (!btn) return;
@@ -30981,8 +30997,38 @@ window.uwMoveCurrentToRenovation = function(){
 window.uwSetHoldingStageCurrent = function(stage){
   if (typeof _uwCurrentId !== 'undefined' && _uwCurrentId && typeof uwSetHoldingStage === 'function') {
     uwSetHoldingStage(_uwCurrentId, stage);
+    _uwUpdateHoldStageBar();
   }
 };
+
+// Show the Holdings stage pill bar when the open deal is a holding, and
+// highlight its current stage (mirrors the dispo stage bar).
+function _uwUpdateHoldStageBar(){
+  var bar = document.getElementById('uw-hold-stage-selector');
+  if (!bar) return;
+  var u = (typeof _uwCurrentId !== 'undefined' && _uwCurrentId) ? ((cache.underwrites||{})[_uwCurrentId]) : null;
+  var isHold = !!(u && u.data && u.data._holdingStatus === 'holding');
+  // Don't show while in dispo mode (that bar takes over).
+  if (window._dispoReturnTo === 'dispositions') isHold = false;
+  bar.style.display = isHold ? 'inline-flex' : 'none';
+  if (!isHold) return;
+  var cur = (u.data._holdingStage) || 'staging';
+  var btns = Array.prototype.slice.call(bar.querySelectorAll('[data-hold-stage-btn]'));
+  var activeIdx = -1;
+  btns.forEach(function(btn, i){
+    var on = (btn.getAttribute('data-hold-stage-btn') === cur);
+    btn.style.background = on ? 'rgba(34,197,94,0.18)' : 'transparent';
+    btn.style.color = on ? '#86efac' : 'var(--text-dim)';
+    btn.style.fontWeight = on ? '700' : '500';
+    btn.style.borderRightColor = 'var(--border)';
+    if (on) activeIdx = i;
+  });
+  if (activeIdx >= 0){
+    if (btns[activeIdx])   btns[activeIdx].style.borderRightColor = 'transparent';
+    if (btns[activeIdx-1]) btns[activeIdx-1].style.borderRightColor = 'transparent';
+  }
+}
+window._uwUpdateHoldStageBar = _uwUpdateHoldStageBar;
 
 // Click handler for Underwriting subview rows (Closed, Analyzing, etc.).
 // Stays inside Underwriting and switches to the calculator subtab.
@@ -31945,7 +31991,218 @@ function _holdOpenPropView(wrapId, pillId) {
   document.getElementById('hold-applications-pill')?.classList.toggle('active', pillId === 'hold-applications-pill');
   document.getElementById('hold-workorders-pill')?.classList.toggle('active', pillId === 'hold-workorders-pill');
 }
-function holdOpenApplications() { _holdOpenPropView('hold-applications-wrap', 'hold-applications-pill'); }
+function holdOpenApplications() { _holdOpenPropView('hold-applications-wrap', 'hold-applications-pill'); _holdLoadRentalApps().then(_holdRenderApplications); }
+
+// Public pre-applications (rental_applications), grouped by address (lowercased).
+async function _holdLoadRentalApps(force){
+  try{
+    if(typeof sb==='undefined'||!sb){ cache.rentalApps=cache.rentalApps||{}; return; }
+    if(cache.rentalApps && !force) return;
+    var r=await sb.from('rental_applications').select('*').order('submitted_at',{ascending:false});
+    cache.rentalApps={};
+    (r.data||[]).forEach(function(a){ var k=String(a.property_address||'').trim().toLowerCase(); (cache.rentalApps[k]=cache.rentalApps[k]||[]).push(a); });
+  }catch(e){ console.warn('load rental apps:',e); cache.rentalApps=cache.rentalApps||{}; }
+}
+function _holdAppsWindowMs(){ var el=document.getElementById('hold-apps-window'); var v=(el&&el.value)||'all'; return v==='all'?0:Number(v)*86400000; }
+function _holdInWindow(a){ var ms=_holdAppsWindowMs(); if(!ms) return true; var t=(a&&a.submitted_at)?new Date(a.submitted_at).getTime():0; return !!t && (Date.now()-t)<=ms; }
+function _holdPreAppsFor(u){ var k=String((u&&u.address)||'').trim().toLowerCase(); var all=(cache.rentalApps&&cache.rentalApps[k])||[]; return all.filter(_holdInWindow); }
+// Count badge on the 📋 Applications pill — total new pre-apps in the window.
+function _holdUpdateAppsBadge(){
+  var b=document.getElementById('hold-apps-badge'); if(!b) return;
+  var total=0;
+  Object.keys(cache.rentalApps||{}).forEach(function(k){ (cache.rentalApps[k]||[]).forEach(function(a){ if(_holdInWindow(a)) total++; }); });
+  b.textContent=total; b.style.display=total?'':'none';
+}
+window._holdUpdateAppsBadge=_holdUpdateAppsBadge;
+
+// Per-address Applications list: every holding, with an "Available for rent"
+// checkbox + Zillow link + its applicants + new public pre-applications.
+function _holdRenderApplications(){
+  var body=document.getElementById('hold-applications-body'); if(!body) return;
+  if(!cache.underwrites){ body.innerHTML='<div style="color:var(--text-dim);padding:16px 0"><span class="loader"></span> Loading…</div>'; if(typeof loadUnderwrites==='function') loadUnderwrites().then(_holdRenderApplications); return; }
+  var availOnly = !!(document.getElementById('hold-apps-avail-only') && document.getElementById('hold-apps-avail-only').checked);
+  var rows=Object.values(cache.underwrites).filter(function(u){ return u && u.data && u.data._holdingStatus==='holding'; });
+  if(availOnly) rows=rows.filter(function(u){ return !!u.data._forRent; });
+  var q=(document.getElementById('hold-apps-search')&&document.getElementById('hold-apps-search').value||'').trim().toLowerCase();
+  if(q) rows=rows.filter(function(u){
+    var hay=[u.address,(u.data&&u.data.address),(u.data&&Array.isArray(u.data._applicants)?u.data._applicants.map(function(a){return (a&&a.name)||'';}).join(' '):'')].join(' ').toLowerCase();
+    return hay.indexOf(q)>=0;
+  });
+  rows.sort(function(a,b){
+    var av=(b.data._forRent?1:0)-(a.data._forRent?1:0); if(av) return av;
+    return String(a.address||'').localeCompare(String(b.address||''));
+  });
+  if(!rows.length){ body.innerHTML='<div style="color:var(--text-dim);font-size:13px;padding:12px 0">'+(availOnly?'No homes marked available for rent yet.':'No holdings yet.')+'</div>'; return; }
+  var esc=(typeof escapeHtml==='function')?escapeHtml:function(s){return String(s==null?'':s);};
+  body.innerHTML = rows.map(function(u){
+    var addr=esc(u.address||(u.data&&u.data.address)||'(no address)');
+    var apps=(u.data&&Array.isArray(u.data._applicants))?u.data._applicants.length:0;
+    var pre=_holdPreAppsFor(u).length;
+    var avail=!!u.data._forRent;
+    var zurl=esc((u.data&&u.data._zillowUrl)||'');
+    return '<div style="border:1px solid '+(avail?'rgba(34,197,94,0.4)':'var(--border)')+';background:'+(avail?'rgba(34,197,94,0.06)':'var(--panel-2)')+';border-radius:10px;margin-bottom:8px;padding:12px 14px">'
+      +'<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">'
+      +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap" title="List this home on your public application form"><input type="checkbox" '+(avail?'checked':'')+' onchange="_holdToggleForRent(\''+u.id+'\',this.checked)" style="width:17px;height:17px;accent-color:#22c55e;cursor:pointer"><span style="font-size:11.5px;font-weight:700;color:'+(avail?'#22c55e':'var(--text-dim)')+'">'+(avail?'Available':'List it')+'</span></label>'
+      +'<div style="flex:1;min-width:140px"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+addr+'</div></div>'
+      +(pre?'<button onclick="_holdOpenPreApps(\''+u.id+'\')" style="background:rgba(234,179,8,0.15);border:1px solid rgba(234,179,8,0.5);color:#fcd34d;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">📥 '+pre+' new</button>':'')
+      +'<span style="font-size:11.5px;color:var(--text-dim);white-space:nowrap">👤 '+apps+'</span>'
+      +'<button onclick="_uwOpenApplicantsModal(\''+u.id+'\')" style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;border-radius:8px;padding:6px 13px;cursor:pointer;font-size:12.5px;font-weight:700;white-space:nowrap">Applicants →</button>'
+      +'</div>'
+      +(avail?('<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">'
+          +'<input type="number" placeholder="Rent $/mo" value="'+esc((u.data._rent!=null?u.data._rent:''))+'" onchange="_holdSaveRent(\''+u.id+'\',this.value)" title="Monthly rent — shown on the application form" style="width:120px;height:32px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;box-sizing:border-box">'
+          +'<input type="text" placeholder="🔗 Zillow listing link" value="'+zurl+'" onchange="_holdSaveZillow(\''+u.id+'\',this.value)" style="flex:1;min-width:160px;height:32px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;box-sizing:border-box">'
+          +'<span style="font-size:11px;color:var(--text-dim);align-self:center;white-space:nowrap">🛏 '+(u.data["uw-bed"]||"?")+' · 🛁 '+(u.data["uw-bath"]||"?")+' · '+(u.data["uw-sqft"]?Number(u.data["uw-sqft"]).toLocaleString()+" sqft":"? sqft")+'</span>'
+          +'</div>'):'')
+      +'</div>';
+  }).join('');
+  _holdUpdateAppsBadge();
+}
+window._holdRenderApplications=_holdRenderApplications;
+
+function _holdNum(v){ if(v==null||v==='') return null; var n=parseFloat(String(v).replace(/[^0-9.]/g,'')); return isFinite(n)?n:null; }
+// Upsert / retire the public listing row for a property (keyed by address).
+// Beds/baths/sqft pull straight from the deal; rent + zillow are set by you.
+async function _holdSyncListing(u){
+  try{
+    if(typeof sb==='undefined'||!sb||!u||!u.address) return;
+    var d=u.data||{};
+    await sb.from('rental_listings').upsert({
+      address:u.address, zillow_url:d._zillowUrl||null,
+      rent:_holdNum(d._rent), beds:_holdNum(d['uw-bed']), baths:_holdNum(d['uw-bath']), sqft:_holdNum(d['uw-sqft']),
+      status:d._forRent?'open':'closed', updated_at:new Date().toISOString()
+    },{onConflict:'address'});
+  }catch(e){ console.warn('sync listing:',e); }
+}
+
+async function _holdToggleForRent(id, checked){
+  var u=(cache.underwrites||{})[id];
+  try{
+    if(typeof sb==='undefined'||!sb) throw new Error('Not connected');
+    var sel=await sb.from('underwrites').select('data').eq('id',id).maybeSingle();
+    if(sel.error) throw sel.error;
+    var d=(sel.data&&sel.data.data&&typeof sel.data.data==='object')?sel.data.data:((u&&u.data)||{});
+    d._forRent=!!checked;
+    var upd=await sb.from('underwrites').update({data:d}).eq('id',id).select('id');
+    if(upd.error) throw upd.error;
+    if(u){ u.data=d; await _holdSyncListing(u); }
+    if(typeof toast==='function') toast(checked?'Listed for rent — now on your application form.':'Removed from the application form.','ok');
+    _holdRenderApplications();
+  }catch(e){
+    console.warn('toggle for-rent:',e);
+    if(typeof toast==='function') toast('Save failed: '+(e.message||e),'err');
+    _holdRenderApplications();
+  }
+}
+window._holdToggleForRent=_holdToggleForRent;
+
+// Save a property's Zillow link (+ update the public listing if it's live).
+async function _holdSaveZillow(id, url){
+  var u=(cache.underwrites||{})[id]; if(!u) return;
+  try{
+    if(typeof sb==='undefined'||!sb) throw new Error('Not connected');
+    var sel=await sb.from('underwrites').select('data').eq('id',id).maybeSingle();
+    if(sel.error) throw sel.error;
+    var d=(sel.data&&sel.data.data&&typeof sel.data.data==='object')?sel.data.data:(u.data||{});
+    d._zillowUrl=(url||'').trim();
+    var upd=await sb.from('underwrites').update({data:d}).eq('id',id).select('id');
+    if(upd.error) throw upd.error;
+    u.data=d; if(u.data._forRent) await _holdSyncListing(u);
+    if(typeof toast==='function') toast('Zillow link saved.','ok');
+  }catch(e){ console.warn('save zillow:',e); if(typeof toast==='function') toast('Save failed: '+(e.message||e),'err'); }
+}
+window._holdSaveZillow=_holdSaveZillow;
+
+// Save a property's monthly rent (+ update the public listing if it's live).
+async function _holdSaveRent(id, val){
+  var u=(cache.underwrites||{})[id]; if(!u) return;
+  try{
+    if(typeof sb==='undefined'||!sb) throw new Error('Not connected');
+    var sel=await sb.from('underwrites').select('data').eq('id',id).maybeSingle();
+    if(sel.error) throw sel.error;
+    var d=(sel.data&&sel.data.data&&typeof sel.data.data==='object')?sel.data.data:(u.data||{});
+    d._rent=(val||'').toString().replace(/[^0-9.]/g,'');
+    var upd=await sb.from('underwrites').update({data:d}).eq('id',id).select('id');
+    if(upd.error) throw upd.error;
+    u.data=d; if(u.data._forRent) await _holdSyncListing(u);
+    if(typeof toast==='function') toast('Rent saved.','ok');
+  }catch(e){ console.warn('save rent:',e); if(typeof toast==='function') toast('Save failed: '+(e.message||e),'err'); }
+}
+window._holdSaveRent=_holdSaveRent;
+
+// Review public pre-applications for a property; add any to its Applicants list.
+function _holdOpenPreApps(id){
+  var u=(cache.underwrites||{})[id]; if(!u) return;
+  var list=_holdPreAppsFor(u);
+  var esc=(typeof escapeHtml==='function')?escapeHtml:function(s){return String(s==null?'':s);};
+  var prev=document.getElementById('preapp-modal'); if(prev) prev.remove();
+  var ov=document.createElement('div'); ov.id='preapp-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:100000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 16px';
+  var card=function(a){
+    var yn=function(v){ return v===true?'Yes':v===false?'No':'—'; };
+    var row=function(l,v){ return v?('<div style="font-size:12.5px;padding:2px 0"><span style="color:var(--text-dim)">'+l+':</span> '+esc(v)+'</div>'):''; };
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;background:var(--panel-2)">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px"><div style="font-weight:800;font-size:14.5px">'+esc(a.applicant_name||'(no name)')+'</div>'
+      +'<button onclick="_holdImportPreApp(\''+id+'\',\''+a.id+'\')" style="background:rgba(16,185,129,0.14);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">+ Add to Applicants</button></div>'
+      +row('Phone',a.phone)+row('Email',a.email)+row('Move-in',a.move_in_date)
+      +row('Income',a.monthly_income!=null?('$'+Number(a.monthly_income).toLocaleString()+'/mo'):'')
+      +row('Credit',a.est_credit_score)+row('Employer',(a.employer||'')+(a.employer_months!=null?(' · '+a.employer_months+' mo'):''))
+      +row('Occupants',(a.occupants_adults!=null?a.occupants_adults+' adult(s)':'')+(a.occupants_kids!=null?', '+a.occupants_kids+' kid(s)':''))
+      +row('Smoker',yn(a.smoker))+row('Pets',a.pets)+row('Reason for moving',a.reason_moving)
+      +row('Time at residence',a.prev_address_time)
+      +row('Evictions (5y)',yn(a.evictions))
+      +row('Serious convictions (7y)',yn(a.convictions)+(a.convictions_detail?(' — '+a.convictions_detail):''))
+      +row('Landlord ref',[a.landlord_ref_name,a.landlord_ref_phone,a.landlord_ref_email].filter(Boolean).join(' · '))
+      +row('Employer ref',[a.employer_ref_name,a.employer_ref_phone,a.employer_ref_email].filter(Boolean).join(' · '))
+      +row('Notes',a.notes)
+      +'<div style="font-size:11px;color:var(--text-dim);margin-top:6px">Submitted '+esc(a.submitted_at?new Date(a.submitted_at).toLocaleString():'')+'</div>'
+      +'</div>';
+  };
+  ov.innerHTML='<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;width:min(640px,96vw);box-shadow:0 12px 40px rgba(0,0,0,0.45)">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-weight:800;font-size:16px">📥 New Pre-Applications</div><button onclick="document.getElementById(\'preapp-modal\').remove()" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.45);color:#f87171;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:15px;line-height:1">✕</button></div>'
+    +'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:12px">'+esc(u.address||'')+' — click <b>Add to Applicants</b> to move someone into your screening list.</div>'
+    +(list.length?list.map(card).join(''):'<div style="color:var(--text-dim);padding:12px 0">No new pre-applications.</div>')
+    +'</div>';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  document.body.appendChild(ov);
+}
+window._holdOpenPreApps=_holdOpenPreApps;
+
+// Copy a pre-application into the property's Applicants list, then mark it added.
+async function _holdImportPreApp(id, appId){
+  var u=(cache.underwrites||{})[id]; if(!u) return;
+  var list=_holdPreAppsFor(u); var a=list.find(function(x){ return String(x.id)===String(appId); }); if(!a) return;
+  try{
+    if(typeof sb==='undefined'||!sb) throw new Error('Not connected');
+    var sel=await sb.from('underwrites').select('data').eq('id',id).maybeSingle();
+    if(sel.error) throw sel.error;
+    var d=(sel.data&&sel.data.data&&typeof sel.data.data==='object')?sel.data.data:(u.data||{});
+    if(!Array.isArray(d._applicants)) d._applicants=[];
+    var noteBits=[];
+    if(a.monthly_income!=null) noteBits.push('Income $'+Number(a.monthly_income).toLocaleString()+'/mo');
+    if(a.est_credit_score!=null) noteBits.push('Credit '+a.est_credit_score);
+    if(a.employer) noteBits.push('Employer: '+a.employer+(a.employer_months!=null?(' ('+a.employer_months+'mo)'):''));
+    if(a.pets) noteBits.push('Pets: '+a.pets);
+    if(a.smoker===true) noteBits.push('Smoker');
+    if(a.reason_moving) noteBits.push('Moving: '+a.reason_moving);
+    if(a.evictions===true) noteBits.push('⚠ Eviction in last 5y');
+    if(a.convictions===true) noteBits.push('⚠ Conviction 7y'+(a.convictions_detail?(': '+a.convictions_detail):''));
+    if(a.prev_address_time) noteBits.push('At residence: '+a.prev_address_time);
+    var refs=[];
+    if(a.landlord_ref_name||a.landlord_ref_phone) refs.push({name:a.landlord_ref_name||'Landlord',phone:a.landlord_ref_phone||'',email:a.landlord_ref_email||'',relationship:'Landlord'});
+    if(a.employer_ref_name||a.employer_ref_phone) refs.push({name:a.employer_ref_name||'Employer',phone:a.employer_ref_phone||'',email:a.employer_ref_email||'',relationship:'Employer'});
+    d._applicants.push({ name:a.applicant_name||'', phone:a.phone||'', email:a.email||'', status:'Applied', moveIn:a.move_in_date||'', notes:(noteBits.join(' · ')+(a.notes?(' | '+a.notes):'')).trim(), references:refs, checklist:{applied:'green'} });
+    var upd=await sb.from('underwrites').update({data:d}).eq('id',id).select('id');
+    if(upd.error) throw upd.error;
+    u.data=d;
+    await sb.from('rental_applications').update({status:'added'}).eq('id',appId);
+    // Drop it from the local pre-app cache so counts update.
+    var k=String(u.address||'').trim().toLowerCase();
+    if(cache.rentalApps&&cache.rentalApps[k]) cache.rentalApps[k]=cache.rentalApps[k].filter(function(x){ return String(x.id)!==String(appId); });
+    if(typeof toast==='function') toast('Added to applicants.','ok');
+    _holdOpenPreApps(id); _holdRenderApplications();
+  }catch(e){ console.warn('import pre-app:',e); if(typeof toast==='function') toast('Add failed: '+(e.message||e),'err'); }
+}
+window._holdImportPreApp=_holdImportPreApp;
 function holdOpenWorkOrders() { _holdOpenPropView('hold-workorders-wrap', 'hold-workorders-pill'); }
 window.holdOpenApplications = holdOpenApplications;
 window.holdOpenWorkOrders = holdOpenWorkOrders;
@@ -32207,6 +32464,7 @@ function renderHoldingsList() {
     return;
   }
   if (typeof _holdUpdateSubtabCounts === 'function') _holdUpdateSubtabCounts();
+  if (typeof _holdLoadRentalApps === 'function') _holdLoadRentalApps().then(function(){ if(typeof _holdUpdateAppsBadge==='function') _holdUpdateAppsBadge(); });
   const rows = _hrFilteredRows('holding', 'hold-search');
   if (!rows.length) {
     tbody.innerHTML = '';
@@ -38642,6 +38900,7 @@ function uwToggleDispoStageBar() {
   const routeRm  = document.getElementById('uw-remove-routing-btn');
   if (dispoBar) dispoBar.style.display = isDispo ? 'inline-flex' : 'none';
   if (stageBar) stageBar.style.display = isDispo ? 'none' : '';
+  if (typeof _uwUpdateHoldStageBar === 'function') _uwUpdateHoldStageBar();
   if (isDispo && renoBar) renoBar.style.display = 'none';
   // Hide the Underwriting subtab row (GIS Maps / All / Help / Analyzing / etc.)
   // while in dispo mode — the user is conceptually in Dispositions, not Underwriting.

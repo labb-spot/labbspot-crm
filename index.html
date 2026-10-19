@@ -7618,7 +7618,7 @@
             <option value="7">Last 7 days</option>
             <option value="30">Last 30 days</option>
           </select>
-          <button id="hold-apps-refresh" type="button" onclick="_holdRefreshApps(this)" title="Refresh applications" style="height:34px;width:112px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);color:#93c5fd;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;flex:0 0 auto;white-space:nowrap;overflow:hidden">🔄 Refresh</button>
+          <button id="hold-apps-refresh" type="button" onclick="_holdRefreshApps(this)" title="Refresh applications" style="height:34px;width:112px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--panel-2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto;white-space:nowrap;overflow:hidden">🔄 Refresh</button>
         </div>
       </div>
       <div id="hold-applications-body"></div>
@@ -68743,11 +68743,14 @@ window._apCycleChk = function(el){
 // One reference row (name / phone / relationship + remove).
 window._apRefRowHtml = function(r){
   r=r||{}; var e=function(s){return String(s==null?'':s).replace(/"/g,'&quot;');};
+  var rel=(r.relationship||'').toLowerCase();
+  var relType=rel.indexOf('land')>=0?'Landlord':(rel.indexOf('emp')>=0?'Employer':(r.relationship||'Other'));
+  var opt=function(v){ return '<option'+(relType===v?' selected':'')+'>'+v+'</option>'; };
   return '<div class="appl-ref" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'
-    +'<input data-rf="company" placeholder="Company Name" value="'+e(r.company)+'" style="flex:2 1 160px;min-width:130px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
-    +'<input data-rf="name" placeholder="Contact Name" value="'+e(r.name)+'" style="flex:2 1 150px;min-width:120px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
+    +'<select data-rf="relationship" title="Reference type" style="flex:0 0 auto;width:110px;font-size:12px;padding:5px 7px;box-sizing:border-box;font-weight:700">'+opt('Landlord')+opt('Employer')+opt('Other')+'</select>'
+    +'<input data-rf="company" placeholder="Company Name" value="'+e(r.company)+'" style="flex:2 1 150px;min-width:120px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
+    +'<input data-rf="name" placeholder="Contact Name" value="'+e(r.name)+'" style="flex:2 1 140px;min-width:110px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
     +'<input data-rf="phone" type="tel" placeholder="Phone Number" value="'+e(r.phone)+'" style="flex:1 1 130px;min-width:120px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
-    +(r.relationship?'<input type="hidden" data-rf="relationship" value="'+e(r.relationship)+'">':'')
     +'<button type="button" title="Remove reference" onclick="var r=this.closest(\'.appl-ref\'); if(r) r.remove();" style="flex:0 0 auto;background:none;border:1px solid var(--border);color:#f87171;border-radius:6px;padding:5px 9px;cursor:pointer">✕</button>'
     +'</div>';
 };
@@ -68927,7 +68930,7 @@ window._uwOpenApplicantsModal = function(id, startView){
       +'</div>'
       +'<div style="margin-top:14px"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:7px"><span style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">Screening checklist</span><span style="font-size:11px;color:var(--text-dim)">Click to cycle: <span style="color:var(--text-dim)">⚪ not started</span> · <span style="color:#fbbf24">🟡 in progress</span> · <span style="color:#34d399">🟢 cleared</span> · <span style="color:#f87171">🔴 concern</span></span></div><div style="display:flex;flex-wrap:wrap">'+checks+'</div></div>'
       +'<div style="margin-top:14px"><div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600;margin-bottom:7px">Move-In Checklist</div><div style="display:flex;flex-wrap:wrap">'+moveins+'</div></div>'
-      +'<div style="margin-top:12px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Notes</label><textarea data-f="notes" rows="2" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.notes||'')+'</textarea></div>'
+      +'<div style="margin-top:12px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">My notes <span style="opacity:.7">(private)</span></label><textarea data-f="ownNotes" rows="2" placeholder="Your own notes about this applicant…" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.ownNotes||'')+'</textarea></div>'
       +'<details open style="margin-top:14px;border:1px solid #eab308;border-radius:10px;padding:10px 12px;background:rgba(234,179,8,0.06);box-shadow:0 0 0 1px rgba(234,179,8,0.35),0 0 14px rgba(234,179,8,0.28)"><summary style="cursor:pointer;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">Application details</summary>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:9px">'
         +fld('Yearly income','<input data-f="monthly_income" inputmode="numeric" value="'+_esc(incVal)+'" placeholder="$50,000" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')?(\'$\'+Number(this.value.replace(/[^0-9]/g,\'\')).toLocaleString()):\'\'" style="'+_istyle+'">')
@@ -68941,8 +68944,11 @@ window._uwOpenApplicantsModal = function(id, startView){
         +fld('Evictions (5y)',selYN('evictions',a.evictions),'1 1 90px')
         +fld('Convictions (7y)',selYN('convictions',a.convictions),'1 1 90px')
         +fld('Conviction detail','<input data-f="convictions_detail" value="'+_esc(a.convictions_detail||'')+'" placeholder="If yes, what" style="'+_istyle+'">','2 1 160px')
-      +'</div></details>'
-      +'<details style="margin-top:12px"'+((a.references&&a.references.length)?' open':'')+'><summary style="cursor:pointer;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">References'+((a.references&&a.references.length)?' ('+a.references.length+')':'')+'</summary><div style="margin-top:8px"><div class="appl-refs">'+((a.references&&a.references.length)?a.references.map(window._apRefRowHtml).join(''):'')+'</div><button type="button" onclick="_apAddRef(this)" style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600;margin-top:4px">+ Add reference</button></div></details>'
+      +'</div>'
+      +'<label style="display:block;margin-top:12px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Reason for moving</span><textarea data-f="reason_moving" rows="2" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.reason_moving||'')+'</textarea></label>'
+      +'<label style="display:block;margin-top:10px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Additional notes <span style="opacity:.7">(from applicant)</span></span><textarea data-f="notes" rows="2" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.notes||'')+'</textarea></label>'
+      +'</details>'
+      +'<details open style="margin-top:12px;border:1px solid #22c55e;border-radius:10px;padding:10px 12px;background:rgba(34,197,94,0.06);box-shadow:0 0 0 1px rgba(34,197,94,0.35),0 0 14px rgba(34,197,94,0.28)"><summary style="cursor:pointer;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">References'+((a.references&&a.references.length)?' ('+a.references.length+')':'')+'</summary><div style="margin-top:8px"><div class="appl-refs">'+((a.references&&a.references.length)?a.references.map(window._apRefRowHtml).join(''):'')+'</div><button type="button" onclick="_apAddRef(this)" style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600;margin-top:4px">+ Add reference</button></div></details>'
       +((typeof _holdScreenHtml==='function')?(function(){
         var vd=_holdVerdict(a,u);
         return '<details style="margin-top:12px;border:1px solid #6366f1;border-radius:10px;padding:10px 12px;background:rgba(99,102,241,0.06);box-shadow:0 0 0 1px rgba(99,102,241,0.35),0 0 14px rgba(99,102,241,0.30)"><summary style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">Against your criteria <span style="font-weight:800;color:'+vd.c+';text-transform:none;letter-spacing:0">'+vd.t+'</span><span style="color:var(--text-dim);font-weight:600;text-transform:none;letter-spacing:0">('+vd.pass+'✓ '+vd.fail+'✗ '+vd.rev+'~)</span></summary>'
@@ -69032,7 +69038,7 @@ window._uwOpenApplicantsModal = function(id, startView){
       collectOpen();
       // Only official (reviewing) applicants are persisted; still-locked pre-screens
       // stay as submissions until moved to Reviewing.
-      var cleaned=applicants.filter(function(a){return a && (a._deleted || a.stage!=='prescreen') && (a._deleted||a.name||a.phone||a.email||a.notes||a.monthly_income!=null||a.est_credit_score||a.employer||a.evictions!=null||a.convictions!=null||(a.checklist&&Object.keys(a.checklist).length)||(a.moveinChk&&Object.keys(a.moveinChk).length)||(a.references&&a.references.length));});
+      var cleaned=applicants.filter(function(a){return a && (a._deleted || a.stage!=='prescreen') && (a._deleted||a.name||a.phone||a.email||a.notes||a.ownNotes||a.reason_moving||a.monthly_income!=null||a.est_credit_score||a.employer||a.evictions!=null||a.convictions!=null||(a.checklist&&Object.keys(a.checklist).length)||(a.moveinChk&&Object.keys(a.moveinChk).length)||(a.references&&a.references.length));});
       var movedPreIds=cleaned.filter(function(a){return a._preappId;}).map(function(a){return a._preappId;});
       cleaned.forEach(function(a){ delete a._locked; delete a._preapp; });
       var saveBtn=box.querySelector('#appl-save'); if(saveBtn){ saveBtn.disabled=true; saveBtn.textContent='⏳ Saving…'; }

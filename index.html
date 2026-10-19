@@ -32068,7 +32068,8 @@ function _holdRenderApplications(){
       +'<button onclick="_uwOpenApplicantsModal(\''+u.id+'\')" style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12.5px;font-weight:700;white-space:nowrap">Applicants →</button>'
       +(avail?('<input type="text" inputmode="numeric" placeholder="Rent $/mo" value="'+esc(rentStr)+'" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')?(\'$\'+Number(this.value.replace(/[^0-9]/g,\'\')).toLocaleString()):\'\'" onchange="_holdSaveRent(\''+u.id+'\',this.value)" title="Monthly rent — shown on the application form" style="width:110px;height:32px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;box-sizing:border-box">'
           +'<a href="'+gUrl+'" target="_blank" rel="noopener" title="Google this address" style="text-decoration:none;background:rgba(66,133,244,0.12);border:1px solid rgba(66,133,244,0.4);color:#8ab4f8;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;white-space:nowrap">G</a>'
-          +'<a href="'+esc(zurlAuto)+'" target="_blank" rel="noopener" title="View on Zillow" style="text-decoration:none;background:rgba(0,106,255,0.14);border:1px solid rgba(0,106,255,0.5);color:#5b9dff;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;white-space:nowrap">Z</a>'):'')
+          +'<a href="'+esc(zurlAuto)+'" target="_blank" rel="noopener" title="View on Zillow" style="text-decoration:none;background:rgba(0,106,255,0.14);border:1px solid rgba(0,106,255,0.5);color:#5b9dff;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;white-space:nowrap">Z</a>'
+          +'<button onclick="_holdCopyApplyLink(\''+u.id+'\',this)" title="Copy this home\'s direct application link" style="background:rgba(234,88,12,0.12);border:1px solid rgba(234,88,12,0.5);color:#fb923c;border-radius:8px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">🔗 Link</button>'):'')
       +'</div>';
   }).join('');
   _holdUpdateAppsBadge();
@@ -32076,6 +32077,16 @@ function _holdRenderApplications(){
 window._holdRenderApplications=_holdRenderApplications;
 
 function _holdNum(v){ if(v==null||v==='') return null; var n=parseFloat(String(v).replace(/[^0-9.]/g,'')); return isFinite(n)?n:null; }
+function _holdSlug(s){ return String(s==null?'':s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+function _holdApplyLink(u){ return 'https://submit.labbllc.com/apply?home='+_holdSlug(_holdFullAddr(u)); }
+function _holdCopyApplyLink(id,btn){
+  var u=(cache.underwrites&&cache.underwrites[id])||Object.values(cache.underwrites||{}).filter(function(x){return x.id===id;})[0]; if(!u) return;
+  var link=_holdApplyLink(u);
+  var done=function(){ if(btn){ var t=btn.innerHTML; btn.innerHTML='✓ Copied'; setTimeout(function(){ btn.innerHTML=t; },1400); } };
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(done,function(){ prompt('Copy this home\'s application link:',link); }); }
+  else { prompt('Copy this home\'s application link:',link); }
+}
+window._holdCopyApplyLink=_holdCopyApplyLink;
 // Upsert / retire the public listing row for a property (keyed by address).
 // Beds/baths/sqft pull straight from the deal; rent + zillow are set by you.
 async function _holdSyncListing(u){
@@ -32147,6 +32158,72 @@ async function _holdSaveRent(id, val){
 window._holdSaveRent=_holdSaveRent;
 
 // Review public pre-applications for a property; add any to its Applicants list.
+// Auto-compare a pre-application against your screening criteria (window._AP_CRITERIA).
+// Only the data-backed criteria are scored; the rest need manual review.
+function _holdScreen(a,u){
+  var rent=_holdNum(u&&u.data&&u.data._rent);
+  var beds=parseFloat(u&&u.data&&u.data['uw-bed']); if(!isFinite(beds)) beds=null;
+  var P='pass',F='fail',R='review',N='na',out=[];
+  function add(l,s,d){ out.push({label:l,state:s,detail:d||''}); }
+  // Income >= 3x rent
+  if(a.monthly_income!=null && rent!=null){
+    var need=rent*3, ratio=a.monthly_income/rent;
+    add('Income ≥ 3× rent', a.monthly_income>=need?P:F, '$'+Number(a.monthly_income).toLocaleString()+'/mo vs $'+Number(need).toLocaleString()+' needed ('+ratio.toFixed(2)+'×)');
+  } else add('Income ≥ 3× rent', N, rent==null?'set a rent on this home first':'no income given');
+  // Credit 580+
+  var c=a.est_credit_score||'';
+  var cs = (c==='700+'||c==='650-700'||c==='600-650')?P : (c==='550-600'?R : (c==='Under 550'?F:N));
+  add('Credit 580+', cs, c?(c+(cs===R?' — 2-month-deposit range':'')):'not provided');
+  // Evictions / convictions
+  add('No evictions (5 yrs)', a.evictions===true?F:(a.evictions===false?P:N), a.evictions===true?'reported an eviction':'');
+  add('No serious convictions (7 yrs)', a.convictions===true?F:(a.convictions===false?P:N), a.convictions===true?('reported'+(a.convictions_detail?': '+a.convictions_detail:'')):'');
+  // Employment tenure 12+ mo same employer
+  var em=a.employer_months||'';
+  add('12+ mo, same employer', (em==='1-2 years'||em==='3+ years')?P:(em==='Under 12 months'?F:N), em||'not provided');
+  // Rental history 2+ yrs
+  var rh=a.prev_address_time||'';
+  add('2+ yrs rental history', rh==='3+ years'?P:(rh==='1-2 years'?R:(rh==='Under 12 months'?F:N)), rh?(rh+(rh==='1-2 years'?' — confirm ≥ 2':'')):'not provided');
+  // Occupancy max 2 per bedroom + 1
+  if(beds!=null){
+    var occ=(Number(a.occupants_adults)||0)+(Number(a.occupants_kids)||0), max=2*beds+1;
+    add('Occupancy ≤ 2/bed + 1', occ<=max?P:F, occ+' people vs '+max+' allowed');
+  }
+  // Smoking inside
+  add('No smoking inside', a.smoker===true?R:(a.smoker===false?P:N), a.smoker===true?'smoker — confirm outdoor-only':'');
+  return out;
+}
+function _holdDepositSuggest(a){
+  var c=a.est_credit_score||'';
+  if(c==='Under 550') return '3 months (credit under 550)';
+  if(c==='550-600')  return '2 months (credit 550–600)';
+  if(!c)             return '—';
+  return '1 month (standard)';
+}
+function _holdScreenHtml(a,u,esc){
+  var checks=_holdScreen(a,u);
+  var pass=checks.filter(function(x){return x.state==='pass';}).length;
+  var fail=checks.filter(function(x){return x.state==='fail';}).length;
+  var rev =checks.filter(function(x){return x.state==='review';}).length;
+  var verdict = fail>0 ? {t:'Does not meet',c:'#f87171',b:'rgba(239,68,68,0.14)'} : (rev>0 ? {t:'Review needed',c:'#fcd34d',b:'rgba(234,179,8,0.14)'} : {t:'Meets criteria',c:'#22c55e',b:'rgba(34,197,94,0.14)'});
+  var line=function(x){
+    var col = x.state==='pass'?'#22c55e':x.state==='fail'?'#f87171':x.state==='review'?'#fcd34d':'#94a3b8';
+    var bg  = x.state==='pass'?'rgba(34,197,94,0.12)':x.state==='fail'?'rgba(239,68,68,0.12)':x.state==='review'?'rgba(234,179,8,0.12)':'rgba(148,163,184,0.12)';
+    var mk  = x.state==='pass'?'✓':x.state==='fail'?'✗':x.state==='review'?'~':'–';
+    return '<div style="display:flex;align-items:baseline;gap:7px;padding:2px 0;font-size:12px">'
+      +'<span style="flex:0 0 auto;width:17px;height:17px;border-radius:5px;background:'+bg+';color:'+col+';display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;position:relative;top:2px">'+mk+'</span>'
+      +'<span style="font-weight:600">'+esc(x.label)+'</span>'
+      +(x.detail?'<span style="color:var(--text-dim);font-size:11px">— '+esc(x.detail)+'</span>':'')
+      +'</div>';
+  };
+  return '<div style="border:1px solid var(--border);border-radius:9px;padding:11px 12px;margin-bottom:10px;background:var(--panel)">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">'
+      +'<div style="font-size:11.5px;font-weight:800;letter-spacing:0.3px;color:var(--text-dim);text-transform:uppercase">Against your criteria</div>'
+      +'<span style="font-size:11.5px;font-weight:800;color:'+verdict.c+';background:'+verdict.b+';border:1px solid '+verdict.c+';border-radius:999px;padding:2px 10px">'+verdict.t+' · '+pass+'✓ '+fail+'✗ '+rev+'~</span>'
+    +'</div>'
+    +checks.map(line).join('')
+    +'<div style="font-size:10.5px;color:var(--text-dim);margin-top:8px;line-height:1.5;border-top:1px solid var(--border);padding-top:7px">Suggested deposit: <b style="color:var(--text)">'+esc(_holdDepositSuggest(a))+'</b>. Still verify manually: collections / bankruptcy, on-time-payment history, photo ID, landlord reference, and application truthfulness.</div>'
+  +'</div>';
+}
 function _holdOpenPreApps(id){
   var u=(cache.underwrites||{})[id]; if(!u) return;
   var list=_holdPreAppsFor(u);
@@ -32160,6 +32237,7 @@ function _holdOpenPreApps(id){
     return '<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;background:var(--panel-2)">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px"><div style="font-weight:800;font-size:14.5px">'+esc(a.applicant_name||'(no name)')+'</div>'
       +'<button onclick="_holdImportPreApp(\''+id+'\',\''+a.id+'\')" style="background:rgba(16,185,129,0.14);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">+ Add to Applicants</button></div>'
+      +_holdScreenHtml(a,u,esc)
       +row('Phone',a.phone)+row('Email',a.email)+row('Move-in',a.move_in_date)
       +row('Income',a.monthly_income!=null?('$'+Number(a.monthly_income).toLocaleString()+'/mo'):'')
       +row('Credit',a.est_credit_score)+row('Employer',(a.employer||'')+(a.employer_months!=null?(' · '+a.employer_months+' mo'):''))

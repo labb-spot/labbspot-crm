@@ -7592,8 +7592,8 @@
       <div class="subtab subtab-compact" data-hold-subtab="refreshing"  onclick="setHoldSubtab('refreshing')" title="Turning the unit — cleaning and repairs to get it rent-ready again.">🛠 Refreshing <span id="hold-count-refreshing" class="badge warn" style="margin-left:4px;font-size:10px">–</span></div>
     </div>
     <div id="hold-propviews" class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
-      <div class="subtab subtab-compact" id="hold-applications-pill" onclick="holdOpenApplications()" title="Tenant applications across your holdings.">📋 Applications <span id="hold-apps-badge" class="badge warn" style="margin-left:4px;font-size:10px;display:none">0</span></div>
-      <div class="subtab subtab-compact" id="hold-workorders-pill" onclick="holdOpenWorkOrders()" title="Maintenance work orders across your holdings.">🔧 Work Orders</div>
+      <div class="subtab subtab-compact" id="hold-applications-pill" onclick="holdOpenApplications()" title="Tenant applications across your holdings.">📋 Applications <span id="hold-apps-badge" class="badge warn" style="margin-left:4px;font-size:10px">0</span></div>
+      <div class="subtab subtab-compact" id="hold-workorders-pill" onclick="holdOpenWorkOrders()" title="Maintenance work orders across your holdings.">🔧 Work Orders <span id="hold-wo-badge" class="badge warn" style="margin-left:4px;font-size:10px">0</span></div>
     </div>
     <div class="flex items-center gap-0 panel p-1" id="hold-connections-subnav" style="flex-shrink:0;width:fit-content;font-size:12px;display:none">
       <div class="subtab subtab-compact" data-holdview="managers" onclick="setHoldView('managers')" title="Property Managers rolodex.">🏠 Managers <span id="hold-conn-count-managers" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
@@ -7610,14 +7610,15 @@
           <div class="font-semibold text-lg" style="white-space:nowrap">📋 Applications</div>
           <input id="hold-apps-search" placeholder="Search by Street Address, City, or Contact Name" oninput="_holdRenderApplications()">
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <select id="hold-apps-window" onchange="_holdRenderApplications()" title="Show pre-applications from this window" style="height:34px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;font-weight:600;cursor:pointer">
+        <div class="flex items-center gap-2" style="flex-wrap:nowrap">
+          <button id="hold-apps-active" type="button" onclick="_holdCycleActive()" title="Filter by availability — click to cycle All / Active / Inactive" style="height:34px;width:104px;padding:0 13px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;text-align:center;flex:0 0 auto">All</button>
+          <select id="hold-apps-window" onchange="_holdRenderApplications()" title="Show pre-applications from this window" style="height:34px;width:140px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto">
             <option value="all">All time</option>
             <option value="1">Last 24 hours</option>
             <option value="7">Last 7 days</option>
             <option value="30">Last 30 days</option>
           </select>
-          <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-dim);cursor:pointer;white-space:nowrap"><input type="checkbox" id="hold-apps-avail-only" onchange="_holdRenderApplications()" style="width:15px;height:15px;accent-color:#22c55e;cursor:pointer"> Show only available</label>
+          <button id="hold-apps-refresh" type="button" onclick="_holdRefreshApps(this)" title="Refresh applications" style="height:34px;width:40px;display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:15px;cursor:pointer;flex:0 0 auto">↻</button>
         </div>
       </div>
       <div id="hold-applications-body"></div>
@@ -31992,6 +31993,18 @@ function _holdOpenPropView(wrapId, pillId) {
   document.getElementById('hold-workorders-pill')?.classList.toggle('active', pillId === 'hold-workorders-pill');
 }
 function holdOpenApplications() { _holdOpenPropView('hold-applications-wrap', 'hold-applications-pill'); _holdLoadRentalApps().then(_holdRenderApplications); }
+function _holdRefreshApps(btn){
+  if(btn){ btn.disabled=true; btn.style.opacity='0.5'; btn.textContent='…'; }
+  var jobs=[];
+  if(typeof _holdLoadRentalApps==='function') jobs.push(_holdLoadRentalApps(true));
+  if(typeof loadUnderwrites==='function'){ try{ var r=loadUnderwrites(true); if(r&&r.then) jobs.push(r); }catch(_){} }
+  Promise.all(jobs).then(function(){
+    if(typeof _holdRenderApplications==='function') _holdRenderApplications();
+    if(typeof _holdUpdateAppsBadge==='function') _holdUpdateAppsBadge();
+    if(btn){ btn.disabled=false; btn.style.opacity=''; btn.textContent='↻'; }
+  }).catch(function(){ if(btn){ btn.disabled=false; btn.style.opacity=''; btn.textContent='↻'; } });
+}
+window._holdRefreshApps=_holdRefreshApps;
 
 // Public pre-applications (rental_applications), grouped by address (lowercased).
 async function _holdLoadRentalApps(force){
@@ -32004,6 +32017,9 @@ async function _holdLoadRentalApps(force){
   }catch(e){ console.warn('load rental apps:',e); cache.rentalApps=cache.rentalApps||{}; }
 }
 function _holdAppsWindowMs(){ var el=document.getElementById('hold-apps-window'); var v=(el&&el.value)||'all'; return v==='all'?0:Number(v)*86400000; }
+window._holdApptActive='all';
+function _holdCycleActive(){ var o=['all','active','inactive']; window._holdApptActive=o[(o.indexOf(window._holdApptActive)+1)%o.length]; var b=document.getElementById('hold-apps-active'); if(b) b.textContent=window._holdApptActive==='active'?'Active':(window._holdApptActive==='inactive'?'Inactive':'All'); _holdRenderApplications(); }
+window._holdCycleActive=_holdCycleActive;
 function _holdInWindow(a){ var ms=_holdAppsWindowMs(); if(!ms) return true; var t=(a&&a.submitted_at)?new Date(a.submitted_at).getTime():0; return !!t && (Date.now()-t)<=ms; }
 // Full, normalized address: "123 Main St, Evansville, IN, 47714".
 function _holdFullAddr(u){
@@ -32020,13 +32036,28 @@ function _holdZillowAuto(u){
   var a=_holdFullAddr(u); if(!a) return '';
   return 'https://www.zillow.com/homes/'+encodeURIComponent(a)+'_rb/';
 }
-function _holdPreAppsFor(u){ var k=_holdFullAddr(u).trim().toLowerCase(); var all=(cache.rentalApps&&cache.rentalApps[k])||[]; return all.filter(_holdInWindow); }
+function _holdPreAppsFor(u){ var k=_holdFullAddr(u).trim().toLowerCase(); var all=(cache.rentalApps&&cache.rentalApps[k])||[]; return all.filter(function(a){ return a && a.status!=='added' && _holdInWindow(a); }); }
+// Map a public pre-application into the applicant shape used by the Applicants
+// modal, so pre-screen entries render in the exact same card (locked fields).
+window._holdPreAppToApplicant=function(p){
+  var refs=[];
+  if(p.landlord_ref_name||p.landlord_ref_phone||p.landlord_ref_company) refs.push({company:p.landlord_ref_company||'',name:p.landlord_ref_name||'',phone:p.landlord_ref_phone||'',relationship:'Landlord'});
+  if(p.employer_ref_name||p.employer_ref_phone||p.employer_ref_company) refs.push({company:p.employer_ref_company||'',name:p.employer_ref_name||'',phone:p.employer_ref_phone||'',relationship:'Employer'});
+  var _xr=p.extra_refs; if(typeof _xr==='string'){ try{ _xr=JSON.parse(_xr); }catch(_){ _xr=null; } }
+  if(Array.isArray(_xr)) _xr.forEach(function(r){ if(r&&(r.name||r.phone||r.company)) refs.push({company:r.company||'',name:r.name||'',phone:r.phone||'',relationship:r.relationship||'Reference'}); });
+  return { name:p.applicant_name||'', phone:p.phone||'', email:p.email||'', status:'Applied', moveIn:p.move_in_date||'',
+    monthly_income:p.monthly_income, est_credit_score:p.est_credit_score, employer:p.employer, employer_months:p.employer_months,
+    prev_address_time:p.prev_address_time, occupants_adults:p.occupants_adults, occupants_kids:p.occupants_kids,
+    smoker:p.smoker, evictions:p.evictions, convictions:p.convictions, convictions_detail:p.convictions_detail,
+    pets:p.pets, reason_moving:p.reason_moving, notes:p.notes||'', references:refs,
+    stage:'prescreen', _locked:true, _preappId:p.id, _preapp:p, submitted_at:p.submitted_at };
+};
 // Count badge on the 📋 Applications pill — total new pre-apps in the window.
 function _holdUpdateAppsBadge(){
   var b=document.getElementById('hold-apps-badge'); if(!b) return;
   var total=0;
   Object.keys(cache.rentalApps||{}).forEach(function(k){ (cache.rentalApps[k]||[]).forEach(function(a){ if(_holdInWindow(a)) total++; }); });
-  b.textContent=total; b.style.display=total?'':'none';
+  b.textContent=total; b.style.display='';
 }
 window._holdUpdateAppsBadge=_holdUpdateAppsBadge;
 
@@ -32038,6 +32069,9 @@ function _holdRenderApplications(){
   var availOnly = !!(document.getElementById('hold-apps-avail-only') && document.getElementById('hold-apps-avail-only').checked);
   var rows=Object.values(cache.underwrites).filter(function(u){ return u && u.data && u.data._holdingStatus==='holding'; });
   if(availOnly) rows=rows.filter(function(u){ return !!u.data._forRent; });
+  var _act=window._holdApptActive||'all';
+  if(_act==='active') rows=rows.filter(function(u){ return !!u.data._forRent; });
+  else if(_act==='inactive') rows=rows.filter(function(u){ return !u.data._forRent; });
   var q=(document.getElementById('hold-apps-search')&&document.getElementById('hold-apps-search').value||'').trim().toLowerCase();
   if(q) rows=rows.filter(function(u){
     var hay=[u.address,(u.data&&u.data.address),(u.data&&Array.isArray(u.data._applicants)?u.data._applicants.map(function(a){return (a&&a.name)||'';}).join(' '):'')].join(' ').toLowerCase();
@@ -32051,7 +32085,7 @@ function _holdRenderApplications(){
   var esc=(typeof escapeHtml==='function')?escapeHtml:function(s){return String(s==null?'':s);};
   body.innerHTML = rows.map(function(u){
     var addr=esc(_holdFullAddr(u)||'(no address)');
-    var apps=(u.data&&Array.isArray(u.data._applicants))?u.data._applicants.length:0;
+    var apps=(u.data&&Array.isArray(u.data._applicants))?u.data._applicants.filter(function(x){return x&&!x._deleted;}).length:0;
     var pre=_holdPreAppsFor(u).length;
     var avail=!!u.data._forRent;
     var zurl=esc((u.data&&u.data._zillowUrl)||'');
@@ -32059,17 +32093,16 @@ function _holdRenderApplications(){
     var sqN=_holdNum(u.data&&u.data['uw-sqft']);
     var zurlAuto=((u.data&&u.data._zillowUrl&&u.data._zillowUrl.trim())||_holdZillowAuto(u));
     var gUrl='https://www.google.com/search?q='+encodeURIComponent(_holdFullAddr(u));
-    return '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid '+(avail?'rgba(34,197,94,0.4)':'var(--border)')+';background:'+(avail?'rgba(34,197,94,0.06)':'var(--panel-2)')+';border-radius:10px;margin-bottom:8px;padding:11px 14px">'
-      +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap" title="List this home on your public application form"><input type="checkbox" '+(avail?'checked':'')+' onchange="_holdToggleForRent(\''+u.id+'\',this.checked)" style="width:17px;height:17px;accent-color:#22c55e;cursor:pointer"><span style="font-size:11.5px;font-weight:700;color:'+(avail?'#22c55e':'var(--text-dim)')+'">'+(avail?'Available':'List it')+'</span></label>'
+    return '<div onclick="_uwOpenApplicantsModal(\''+u.id+'\')" title="Open applicants" style="cursor:pointer;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid '+(avail?'rgba(34,197,94,0.4)':'var(--border)')+';background:'+(avail?'rgba(34,197,94,0.06)':'var(--panel-2)')+';border-radius:10px;margin-bottom:8px;padding:11px 14px">'
+      +'<label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap" title="List this home on your public application form"><input type="checkbox" '+(avail?'checked':'')+' onchange="_holdToggleForRent(\''+u.id+'\',this.checked)" style="width:17px;height:17px;accent-color:#22c55e;cursor:pointer"><span style="font-size:11.5px;font-weight:700;display:inline-block;width:62px;color:'+(avail?'#22c55e':'var(--text-dim)')+'">'+(avail?'Available':'List it')+'</span></label>'
       +'<div style="flex:1;min-width:150px"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+addr+'</div></div>'
       +'<span style="font-size:11px;color:var(--text-dim);white-space:nowrap">🛏 '+(u.data["uw-bed"]||"?")+' · 🛁 '+(u.data["uw-bath"]||"?")+' · '+(sqN!=null?sqN.toLocaleString()+" sqft":"? sqft")+'</span>'
-      +(pre?'<button onclick="_holdOpenPreApps(\''+u.id+'\')" style="background:rgba(234,179,8,0.15);border:1px solid rgba(234,179,8,0.5);color:#fcd34d;border-radius:8px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">📥 '+pre+' new</button>':'')
-      +'<span style="font-size:11.5px;color:var(--text-dim);white-space:nowrap">👤 '+apps+'</span>'
-      +'<button onclick="_uwOpenApplicantsModal(\''+u.id+'\')" style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12.5px;font-weight:700;white-space:nowrap">Applicants →</button>'
-      +(avail?('<input type="text" inputmode="numeric" placeholder="Rent $/mo" value="'+esc(rentStr)+'" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')?(\'$\'+Number(this.value.replace(/[^0-9]/g,\'\')).toLocaleString()):\'\'" onchange="_holdSaveRent(\''+u.id+'\',this.value)" title="Monthly rent — shown on the application form" style="width:110px;height:32px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;box-sizing:border-box">'
-          +'<a href="'+gUrl+'" target="_blank" rel="noopener" title="Google this address" style="text-decoration:none;background:rgba(66,133,244,0.12);border:1px solid rgba(66,133,244,0.4);color:#8ab4f8;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;white-space:nowrap">G</a>'
-          +'<a href="'+esc(zurlAuto)+'" target="_blank" rel="noopener" title="View on Zillow" style="text-decoration:none;background:rgba(0,106,255,0.14);border:1px solid rgba(0,106,255,0.5);color:#5b9dff;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;white-space:nowrap">Z</a>'
-          +'<button onclick="_holdCopyApplyLink(\''+u.id+'\',this)" title="Copy this home\'s direct application link" style="background:rgba(234,88,12,0.12);border:1px solid rgba(234,88,12,0.5);color:#fb923c;border-radius:8px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">🔗 Link</button>'):'')
+      +(pre?'<button onclick="event.stopPropagation();_holdOpenPreApps(\''+u.id+'\')" style="background:rgba(234,179,8,0.15);border:1px solid rgba(234,179,8,0.5);color:#fcd34d;border-radius:8px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">📥 '+pre+' new</button>':'')
+      +'<input type="text" inputmode="numeric" placeholder="Rent $/mo" value="'+esc(rentStr)+'" onclick="event.stopPropagation()" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')?(\'$\'+Number(this.value.replace(/[^0-9]/g,\'\')).toLocaleString()):\'\'" onchange="_holdSaveRent(\''+u.id+'\',this.value)" title="Monthly rent — shown on the application form" style="width:110px;height:32px;padding:0 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;box-sizing:border-box">'
+      +'<button onclick="event.stopPropagation();_holdCopyApplyLink(\''+u.id+'\',this)" title="Copy this home\'s direct application link" style="background:rgba(234,88,12,0.12);border:1px solid rgba(234,88,12,0.5);color:#fb923c;border-radius:8px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;width:82px;text-align:center;box-sizing:border-box">🔗 Link</button>'
+      +'<a href="'+gUrl+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Google this address" style="text-decoration:none;background:rgba(66,133,244,0.12);border:1px solid rgba(66,133,244,0.4);color:#8ab4f8;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;white-space:nowrap">G</a>'
+      +'<a href="'+esc(zurlAuto)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="View on Zillow" style="text-decoration:none;background:rgba(0,106,255,0.14);border:1px solid rgba(0,106,255,0.5);color:#5b9dff;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;white-space:nowrap">Z</a>'
+      +'<button onclick="event.stopPropagation();_uwOpenApplicantsModal(\''+u.id+'\')" style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12.5px;font-weight:700;white-space:nowrap">Applicants ('+(apps+pre)+') →</button>'
       +'</div>';
   }).join('');
   _holdUpdateAppsBadge();
@@ -32164,32 +32197,33 @@ function _holdScreen(a,u){
   var rent=_holdNum(u&&u.data&&u.data._rent);
   var beds=parseFloat(u&&u.data&&u.data['uw-bed']); if(!isFinite(beds)) beds=null;
   var P='pass',F='fail',R='review',N='na',out=[];
-  function add(l,s,d){ out.push({label:l,state:s,detail:d||''}); }
+  // Each row: subject (what it is), req (your criteria), val (what they gave), state.
+  function add(subject,req,val,state){ out.push({subject:subject,req:req,val:val||'—',state:state}); }
   // Income >= 3x rent
   if(a.monthly_income!=null && rent!=null){
     var need=rent*3, ratio=a.monthly_income/rent;
-    add('Income ≥ 3× rent', a.monthly_income>=need?P:F, '$'+Number(a.monthly_income).toLocaleString()+'/mo vs $'+Number(need).toLocaleString()+' needed ('+ratio.toFixed(2)+'×)');
-  } else add('Income ≥ 3× rent', N, rent==null?'set a rent on this home first':'no income given');
+    add('Income', '3× rent = $'+Number(need).toLocaleString()+'/mo', '$'+Number(a.monthly_income).toLocaleString()+'/mo ('+ratio.toFixed(2)+'×)', a.monthly_income>=need?P:F);
+  } else add('Income','3× rent', rent==null?'set a rent first':(a.monthly_income!=null?('$'+Number(a.monthly_income).toLocaleString()+'/mo'):'not given'), N);
   // Credit 580+
   var c=a.est_credit_score||'';
   var cs = (c==='700+'||c==='650-700'||c==='600-650')?P : (c==='550-600'?R : (c==='Under 550'?F:N));
-  add('Credit 580+', cs, c?(c+(cs===R?' — 2-month-deposit range':'')):'not provided');
+  add('Credit', '580+', c?(c+(cs===R?' (2-mo deposit)':'')):'not given', cs);
   // Evictions / convictions
-  add('No evictions (5 yrs)', a.evictions===true?F:(a.evictions===false?P:N), a.evictions===true?'reported an eviction':'');
-  add('No serious convictions (7 yrs)', a.convictions===true?F:(a.convictions===false?P:N), a.convictions===true?('reported'+(a.convictions_detail?': '+a.convictions_detail:'')):'');
+  add('Evictions (5 yrs)', 'None', a.evictions===true?'Reported':(a.evictions===false?'None':'not given'), a.evictions===true?F:(a.evictions===false?P:N));
+  add('Convictions (7 yrs)', 'None', a.convictions===true?('Reported'+(a.convictions_detail?' — '+a.convictions_detail:'')):(a.convictions===false?'None':'not given'), a.convictions===true?F:(a.convictions===false?P:N));
   // Employment tenure 12+ mo same employer
   var em=a.employer_months||'';
-  add('12+ mo, same employer', (em==='1-2 years'||em==='3+ years')?P:(em==='Under 12 months'?F:N), em||'not provided');
+  add('Employment', '12+ mo, same employer', em||'not given', (em==='1-2 years'||em==='3+ years')?P:(em==='Under 12 months'?F:N));
   // Rental history 2+ yrs
   var rh=a.prev_address_time||'';
-  add('2+ yrs rental history', rh==='3+ years'?P:(rh==='1-2 years'?R:(rh==='Under 12 months'?F:N)), rh?(rh+(rh==='1-2 years'?' — confirm ≥ 2':'')):'not provided');
+  add('Rental history', '2+ years', rh||'not given', rh==='3+ years'?P:(rh==='1-2 years'?R:(rh==='Under 12 months'?F:N)));
   // Occupancy max 2 per bedroom + 1
   if(beds!=null){
     var occ=(Number(a.occupants_adults)||0)+(Number(a.occupants_kids)||0), max=2*beds+1;
-    add('Occupancy ≤ 2/bed + 1', occ<=max?P:F, occ+' people vs '+max+' allowed');
+    add('Occupancy', '≤ '+max+' (2/bed + 1)', occ+' people', occ<=max?P:F);
   }
   // Smoking inside
-  add('No smoking inside', a.smoker===true?R:(a.smoker===false?P:N), a.smoker===true?'smoker — confirm outdoor-only':'');
+  add('Smoking', 'None inside', a.smoker===true?'Smoker':(a.smoker===false?'Non-smoker':'not given'), a.smoker===true?R:(a.smoker===false?P:N));
   return out;
 }
 function _holdDepositSuggest(a){
@@ -32199,31 +32233,73 @@ function _holdDepositSuggest(a){
   if(!c)             return '—';
   return '1 month (standard)';
 }
-function _holdScreenHtml(a,u,esc){
+function _holdVerdict(a,u){
   var checks=_holdScreen(a,u);
   var pass=checks.filter(function(x){return x.state==='pass';}).length;
   var fail=checks.filter(function(x){return x.state==='fail';}).length;
   var rev =checks.filter(function(x){return x.state==='review';}).length;
-  var verdict = fail>0 ? {t:'Does not meet',c:'#f87171',b:'rgba(239,68,68,0.14)'} : (rev>0 ? {t:'Review needed',c:'#fcd34d',b:'rgba(234,179,8,0.14)'} : {t:'Meets criteria',c:'#22c55e',b:'rgba(34,197,94,0.14)'});
-  var line=function(x){
+  var v = fail>0 ? {t:'Does not meet',c:'#f87171',b:'rgba(239,68,68,0.12)'} : (rev>0 ? {t:'Review needed',c:'#fcd34d',b:'rgba(234,179,8,0.12)'} : {t:'Meets criteria',c:'#22c55e',b:'rgba(34,197,94,0.12)'});
+  v.pass=pass; v.fail=fail; v.rev=rev; v.checks=checks; return v;
+}
+function _holdScreenHtml(a,u,esc,noHeader){
+  var vd=_holdVerdict(a,u), checks=vd.checks;
+  var tr=function(x){
     var col = x.state==='pass'?'#22c55e':x.state==='fail'?'#f87171':x.state==='review'?'#fcd34d':'#94a3b8';
     var bg  = x.state==='pass'?'rgba(34,197,94,0.12)':x.state==='fail'?'rgba(239,68,68,0.12)':x.state==='review'?'rgba(234,179,8,0.12)':'rgba(148,163,184,0.12)';
     var mk  = x.state==='pass'?'✓':x.state==='fail'?'✗':x.state==='review'?'~':'–';
-    return '<div style="display:flex;align-items:baseline;gap:7px;padding:2px 0;font-size:12px">'
-      +'<span style="flex:0 0 auto;width:17px;height:17px;border-radius:5px;background:'+bg+';color:'+col+';display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;position:relative;top:2px">'+mk+'</span>'
-      +'<span style="font-weight:600">'+esc(x.label)+'</span>'
-      +(x.detail?'<span style="color:var(--text-dim);font-size:11px">— '+esc(x.detail)+'</span>':'')
-      +'</div>';
+    var word= x.state==='pass'?'Meets':x.state==='fail'?'Fails':x.state==='review'?'Review':'N/A';
+    return '<tr style="border-top:1px solid var(--border)">'
+      +'<td style="padding:7px 10px;vertical-align:top"><div style="font-weight:700">'+esc(x.subject)+'</div><div style="color:var(--text-dim);font-size:11px;margin-top:1px">'+esc(x.req)+'</div></td>'
+      +'<td style="padding:7px 10px;vertical-align:top;font-weight:600">'+esc(x.val)+'</td>'
+      +'<td style="padding:7px 10px;vertical-align:top;text-align:right;white-space:nowrap">'
+        +'<span style="display:inline-flex;align-items:center;gap:5px;font-weight:800;color:'+col+';background:'+bg+';border:1px solid '+col+';border-radius:999px;padding:1px 9px;font-size:11px"><span>'+mk+'</span>'+word+'</span>'
+      +'</td></tr>';
   };
-  return '<div style="border:1px solid var(--border);border-radius:9px;padding:11px 12px;margin-bottom:10px;background:var(--panel)">'
-    +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">'
-      +'<div style="font-size:11.5px;font-weight:800;letter-spacing:0.3px;color:var(--text-dim);text-transform:uppercase">Against your criteria</div>'
-      +'<span style="font-size:11.5px;font-weight:800;color:'+verdict.c+';background:'+verdict.b+';border:1px solid '+verdict.c+';border-radius:999px;padding:2px 10px">'+verdict.t+' · '+pass+'✓ '+fail+'✗ '+rev+'~</span>'
-    +'</div>'
-    +checks.map(line).join('')
-    +'<div style="font-size:10.5px;color:var(--text-dim);margin-top:8px;line-height:1.5;border-top:1px solid var(--border);padding-top:7px">Suggested deposit: <b style="color:var(--text)">'+esc(_holdDepositSuggest(a))+'</b>. Still verify manually: collections / bankruptcy, on-time-payment history, photo ID, landlord reference, and application truthfulness.</div>'
+  return '<div style="margin-top:14px">'
+    +(noHeader?'':'<div style="font-size:11px;font-weight:800;letter-spacing:0.4px;color:var(--text-dim);text-transform:uppercase;margin-bottom:6px">Against your criteria</div>')
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      +'<thead><tr style="text-align:left;color:var(--text-dim);font-size:10px;text-transform:uppercase;letter-spacing:0.4px"><th style="padding:0 10px 4px;font-weight:700">Criteria</th><th style="padding:0 10px 4px;font-weight:700">Applicant</th><th style="padding:0 10px 4px;font-weight:700;text-align:right">Status</th></tr></thead>'
+      +'<tbody>'+checks.map(tr).join('')+'</tbody>'
+    +'</table>'
+    +'<div style="font-size:10.5px;color:var(--text-dim);margin-top:9px;line-height:1.5">Suggested deposit: <b style="color:var(--text)">'+esc(_holdDepositSuggest(a))+'</b>. Still verify manually: collections / bankruptcy, on-time-payment history, photo ID, landlord reference, application truthfulness.</div>'
   +'</div>';
 }
+// One submission (pre-application) card — used by the pre-apps popup and the
+// Submissions tab of the Applicants modal.
+window._holdPreAppCard=function(a,u,id,esc){
+  esc=esc||function(s){return String(s==null?'':s);};
+  var yn=function(v){ return v===true?'Yes':v===false?'No':'—'; };
+  var fact=function(l,v,wide){ if(v==null||v==='') return ''; return '<div style="'+(wide?'grid-column:1/-1;':'')+'min-width:0">'
+    +'<div style="font-size:10px;font-weight:700;letter-spacing:0.4px;color:var(--text-dim);text-transform:uppercase;margin-bottom:1px">'+l+'</div>'
+    +'<div style="font-size:13px;font-weight:600;word-break:break-word">'+esc(v)+'</div></div>'; };
+  var vd=_holdVerdict(a,u);
+  var occ=[(a.occupants_adults!=null?a.occupants_adults+' adult'+(a.occupants_adults==1?'':'s'):''),(a.occupants_kids!=null?a.occupants_kids+' kid'+(a.occupants_kids==1?'':'s'):'')].filter(Boolean).join(', ');
+  var llref=[a.landlord_ref_name,a.landlord_ref_phone,a.landlord_ref_email].filter(Boolean).join('  ·  ');
+  var erref=[a.employer_ref_name,a.employer_ref_phone,a.employer_ref_email].filter(Boolean).join('  ·  ');
+  return '<div style="border:1px solid var(--border);border-radius:12px;margin-bottom:12px;background:var(--panel-2);overflow:hidden">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:14px 16px 12px">'
+      +'<div style="min-width:0"><div style="font-weight:800;font-size:16px;line-height:1.2">'+esc(a.applicant_name||'(no name)')+'</div>'
+      +'<div style="font-size:11px;color:var(--text-dim);margin-top:2px">Submitted '+esc(a.submitted_at?new Date(a.submitted_at).toLocaleString():'')+'</div></div>'
+      +'<button onclick="_holdImportPreApp(\''+id+'\',\''+a.id+'\')" style="background:rgba(16,185,129,0.14);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:6px 13px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;flex:0 0 auto">Move to Reviewing →</button>'
+    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:10px;padding:9px 16px;background:'+vd.b+';border-top:1px solid var(--border);border-bottom:1px solid var(--border)">'
+      +'<span style="font-size:13px;font-weight:800;color:'+vd.c+'">'+vd.t+'</span>'
+      +'<span style="font-size:11.5px;color:var(--text-dim);margin-left:auto">'+vd.pass+' meet · '+vd.fail+' fail · '+vd.rev+' review</span>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px 18px;padding:14px 16px">'
+      +fact('Phone',a.phone)+fact('Move-in',a.move_in_date)+fact('Email',a.email,true)
+      +fact('Income',a.monthly_income!=null?('$'+Number(a.monthly_income).toLocaleString()+'/mo'):'')
+      +fact('Credit',a.est_credit_score)+fact('Employer',(a.employer||'')+(a.employer_months?(' · '+a.employer_months):''))
+      +fact('Occupants',occ)+fact('Time at residence',a.prev_address_time)
+      +fact('Smoker',a.smoker!=null?yn(a.smoker):'')+fact('Pets',a.pets,true)
+      +fact('Reason for moving',a.reason_moving,true)
+      +fact('Evictions (5y)',a.evictions!=null?yn(a.evictions):'')
+      +fact('Serious convictions (7y)',a.convictions!=null?(yn(a.convictions)+(a.convictions_detail?(' — '+a.convictions_detail):'')):'')
+      +fact('Landlord reference',llref,true)+fact('Employer reference',erref,true)+fact('Notes',a.notes,true)
+    +'</div>'
+    +'<div style="padding:0 16px 16px">'+_holdScreenHtml(a,u,esc)+'</div>'
+  +'</div>';
+};
 function _holdOpenPreApps(id){
   var u=(cache.underwrites||{})[id]; if(!u) return;
   var list=_holdPreAppsFor(u);
@@ -32231,27 +32307,7 @@ function _holdOpenPreApps(id){
   var prev=document.getElementById('preapp-modal'); if(prev) prev.remove();
   var ov=document.createElement('div'); ov.id='preapp-modal';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:100000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 16px';
-  var card=function(a){
-    var yn=function(v){ return v===true?'Yes':v===false?'No':'—'; };
-    var row=function(l,v){ return v?('<div style="font-size:12.5px;padding:2px 0"><span style="color:var(--text-dim)">'+l+':</span> '+esc(v)+'</div>'):''; };
-    return '<div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;background:var(--panel-2)">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px"><div style="font-weight:800;font-size:14.5px">'+esc(a.applicant_name||'(no name)')+'</div>'
-      +'<button onclick="_holdImportPreApp(\''+id+'\',\''+a.id+'\')" style="background:rgba(16,185,129,0.14);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">+ Add to Applicants</button></div>'
-      +_holdScreenHtml(a,u,esc)
-      +row('Phone',a.phone)+row('Email',a.email)+row('Move-in',a.move_in_date)
-      +row('Income',a.monthly_income!=null?('$'+Number(a.monthly_income).toLocaleString()+'/mo'):'')
-      +row('Credit',a.est_credit_score)+row('Employer',(a.employer||'')+(a.employer_months!=null?(' · '+a.employer_months+' mo'):''))
-      +row('Occupants',(a.occupants_adults!=null?a.occupants_adults+' adult(s)':'')+(a.occupants_kids!=null?', '+a.occupants_kids+' kid(s)':''))
-      +row('Smoker',yn(a.smoker))+row('Pets',a.pets)+row('Reason for moving',a.reason_moving)
-      +row('Time at residence',a.prev_address_time)
-      +row('Evictions (5y)',yn(a.evictions))
-      +row('Serious convictions (7y)',yn(a.convictions)+(a.convictions_detail?(' — '+a.convictions_detail):''))
-      +row('Landlord ref',[a.landlord_ref_name,a.landlord_ref_phone,a.landlord_ref_email].filter(Boolean).join(' · '))
-      +row('Employer ref',[a.employer_ref_name,a.employer_ref_phone,a.employer_ref_email].filter(Boolean).join(' · '))
-      +row('Notes',a.notes)
-      +'<div style="font-size:11px;color:var(--text-dim);margin-top:6px">Submitted '+esc(a.submitted_at?new Date(a.submitted_at).toLocaleString():'')+'</div>'
-      +'</div>';
-  };
+  var card=function(a){ return window._holdPreAppCard(a,u,id,esc); };
   ov.innerHTML='<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;width:min(640px,96vw);box-shadow:0 12px 40px rgba(0,0,0,0.45)">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-weight:800;font-size:16px">📥 New Pre-Applications</div><button onclick="document.getElementById(\'preapp-modal\').remove()" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.45);color:#f87171;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:15px;line-height:1">✕</button></div>'
     +'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:12px">'+esc(u.address||'')+' — click <b>Add to Applicants</b> to move someone into your screening list.</div>'
@@ -32283,9 +32339,16 @@ async function _holdImportPreApp(id, appId){
     if(a.convictions===true) noteBits.push('⚠ Conviction 7y'+(a.convictions_detail?(': '+a.convictions_detail):''));
     if(a.prev_address_time) noteBits.push('At residence: '+a.prev_address_time);
     var refs=[];
-    if(a.landlord_ref_name||a.landlord_ref_phone) refs.push({name:a.landlord_ref_name||'Landlord',phone:a.landlord_ref_phone||'',email:a.landlord_ref_email||'',relationship:'Landlord'});
-    if(a.employer_ref_name||a.employer_ref_phone) refs.push({name:a.employer_ref_name||'Employer',phone:a.employer_ref_phone||'',email:a.employer_ref_email||'',relationship:'Employer'});
-    d._applicants.push({ name:a.applicant_name||'', phone:a.phone||'', email:a.email||'', status:'Applied', moveIn:a.move_in_date||'', notes:(noteBits.join(' · ')+(a.notes?(' | '+a.notes):'')).trim(), references:refs, checklist:{applied:'green'} });
+    if(a.landlord_ref_name||a.landlord_ref_phone||a.landlord_ref_company) refs.push({company:a.landlord_ref_company||'',name:a.landlord_ref_name||'',phone:a.landlord_ref_phone||'',relationship:'Landlord'});
+    if(a.employer_ref_name||a.employer_ref_phone||a.employer_ref_company) refs.push({company:a.employer_ref_company||'',name:a.employer_ref_name||'',phone:a.employer_ref_phone||'',relationship:'Employer'});
+    var _xr2=a.extra_refs; if(typeof _xr2==='string'){ try{ _xr2=JSON.parse(_xr2); }catch(_){ _xr2=null; } }
+    if(Array.isArray(_xr2)) _xr2.forEach(function(r){ if(r&&(r.name||r.phone||r.company)) refs.push({company:r.company||'',name:r.name||'',phone:r.phone||'',relationship:r.relationship||'Reference'}); });
+    d._applicants.push({ name:a.applicant_name||'', phone:a.phone||'', email:a.email||'', status:'Applied', moveIn:a.move_in_date||'',
+      monthly_income:a.monthly_income, est_credit_score:a.est_credit_score, employer:a.employer, employer_months:a.employer_months,
+      prev_address_time:a.prev_address_time, occupants_adults:a.occupants_adults, occupants_kids:a.occupants_kids,
+      smoker:a.smoker, evictions:a.evictions, convictions:a.convictions, convictions_detail:a.convictions_detail,
+      stage:'reviewing',
+      notes:(noteBits.join(' · ')+(a.notes?(' | '+a.notes):'')).trim(), references:refs, checklist:{applied:'green'}, _preapp:a });
     var upd=await sb.from('underwrites').update({data:d}).eq('id',id).select('id');
     if(upd.error) throw upd.error;
     u.data=d;
@@ -32294,7 +32357,9 @@ async function _holdImportPreApp(id, appId){
     var k=String(u.address||'').trim().toLowerCase();
     if(cache.rentalApps&&cache.rentalApps[k]) cache.rentalApps[k]=cache.rentalApps[k].filter(function(x){ return String(x.id)!==String(appId); });
     if(typeof toast==='function') toast('Added to applicants.','ok');
-    _holdOpenPreApps(id); _holdRenderApplications();
+    _holdRenderApplications();
+    if(document.getElementById('preapp-modal')) _holdOpenPreApps(id);
+    var _am=document.getElementById('appl-modal'); if(_am){ _am.remove(); if(typeof window._uwOpenApplicantsModal==='function') window._uwOpenApplicantsModal(id,'prescreen'); }
   }catch(e){ console.warn('import pre-app:',e); if(typeof toast==='function') toast('Add failed: '+(e.message||e),'err'); }
 }
 window._holdImportPreApp=_holdImportPreApp;
@@ -68681,9 +68746,10 @@ window._apCycleChk = function(el){
 window._apRefRowHtml = function(r){
   r=r||{}; var e=function(s){return String(s==null?'':s).replace(/"/g,'&quot;');};
   return '<div class="appl-ref" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'
+    +'<input data-rf="company" placeholder="Company Name" value="'+e(r.company)+'" style="flex:2 1 160px;min-width:130px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
     +'<input data-rf="name" placeholder="Name" value="'+e(r.name)+'" style="flex:2 1 150px;min-width:120px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
-    +'<input data-rf="phone" type="tel" placeholder="Phone" value="'+e(r.phone)+'" style="flex:1 1 120px;min-width:110px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
-    +'<input data-rf="relationship" placeholder="Relationship (e.g. prior landlord)" value="'+e(r.relationship)+'" style="flex:2 1 180px;min-width:150px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
+    +'<input data-rf="phone" type="tel" placeholder="Phone Number" value="'+e(r.phone)+'" style="flex:1 1 130px;min-width:120px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
+    +(r.relationship?'<input type="hidden" data-rf="relationship" value="'+e(r.relationship)+'">':'')
     +'<button type="button" title="Remove reference" onclick="var r=this.closest(\'.appl-ref\'); if(r) r.remove();" style="flex:0 0 auto;background:none;border:1px solid var(--border);color:#f87171;border-radius:6px;padding:5px 9px;cursor:pointer">✕</button>'
     +'</div>';
 };
@@ -68793,14 +68859,36 @@ function _apDownloadCriteria(){
 }
 window._apDownloadCriteria=_apDownloadCriteria;
 
-window._uwOpenApplicantsModal = function(id){
+// Small in-app confirmation dialog (native confirm() is blocked in the app webview).
+window._apConfirmDialog=function(msg,yesLabel,onYes){
+  var esc=function(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});};
+  var prev=document.getElementById('ap-confirm'); if(prev) prev.remove();
+  var ov=document.createElement('div'); ov.id='ap-confirm';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100002;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML='<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;width:min(420px,94vw);box-shadow:0 12px 40px rgba(0,0,0,0.5)">'
+    +'<div style="font-size:14px;line-height:1.55;color:var(--text);margin-bottom:16px;white-space:pre-line">'+esc(msg||'Are you sure?')+'</div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px"><button id="apc-cancel" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600">Cancel</button><button id="apc-yes" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:700">'+esc(yesLabel||'Delete')+'</button></div>'
+  +'</div>';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  document.body.appendChild(ov);
+  ov.querySelector('#apc-cancel').onclick=function(){ ov.remove(); };
+  ov.querySelector('#apc-yes').onclick=function(){ ov.remove(); if(typeof onYes==='function') onYes(); };
+};
+window._uwOpenApplicantsModal = function(id, startView){
   var u = (typeof cache!=='undefined' && cache.underwrites) ? cache.underwrites[id] : null;
   if(!u) return;
   if(!u.data) u.data={};
+  var _apFilter = (startView==='prescreen'||startView==='reviewing'||startView==='all') ? startView : 'all';
   var _esc = (typeof _maEsc==='function') ? _maEsc : function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
   var CHECK = [['interested','Interested'],['applied','Applied'],['credit','Credit'],['background','Background'],['income','Income'],['pets','Pets'],['smoker','Smoker'],['identification','Identification'],['references','References'],['toured','Toured'],['character','Character']];
   var MOVEIN = [['lease','Lease'],['deposit','Deposit'],['inspection','Inspection'],['rent','Rent'],['water','Water'],['electric','Electric'],['gas','Gas'],['insurance','Insurance'],['keys','Keys']];
   var applicants = Array.isArray(u.data._applicants) ? JSON.parse(JSON.stringify(u.data._applicants)) : [];
+  // Merge in public pre-applications as locked "Pre-Screen" cards (same format).
+  (function(){
+    var seen={}; applicants.forEach(function(a){ if(a&&a._preappId) seen[a._preappId]=1; });
+    var pre=(typeof _holdPreAppsFor==='function')?_holdPreAppsFor(u):[];
+    pre.forEach(function(p){ if(seen[p.id]) return; applicants.push(window._holdPreAppToApplicant(p)); });
+  })();
   var prev=document.getElementById('appl-modal'); if(prev) prev.remove();
   var ov=document.createElement('div'); ov.id='appl-modal';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:100000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 16px';
@@ -68811,8 +68899,8 @@ window._uwOpenApplicantsModal = function(id){
   ov.onclick=function(e){ if(e.target===ov) close(); };
   var openIdx = -1;  // start collapsed — list shows names only; click a name to open its card
   // The editable detail body for the currently-open applicant.
-  function bodyHtml(a){
-    a=a||{}; var cl=a.checklist||{};
+  function bodyHtml(a,i){
+    a=a||{}; var cl=a.checklist||{}; var locked=(a.stage==='prescreen');
     var checks = CHECK.map(function(c){
       var st=cl[c[0]]||'';
       return '<span class="appl-chk" data-chk="'+c[0]+'" data-state="'+st+'" onclick="_apCycleChk(this)" title="Click to cycle: blank → 🟡 yellow → 🟢 green → 🔴 red" style="'+window._apChipCss(st)+'">'+c[1]+'</span>';
@@ -68823,7 +68911,15 @@ window._uwOpenApplicantsModal = function(id){
       return '<span class="appl-mi" data-mi="'+c[0]+'" data-state="'+st+'" onclick="_apCycleChk(this)" title="Click to cycle: blank → 🟡 yellow → 🟢 green → 🔴 red" style="'+window._apChipCss(st)+'">'+c[1]+'</span>';
     }).join('');
     var statusOpts=['Applied','Approved','Denied'].map(function(s){return '<option '+((a.status||'')===s?'selected':'')+'>'+s+'</option>';}).join('');
-    return '<div class="appl-card" style="padding:4px 12px 12px 12px">'
+    var _istyle='width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box';
+    var fld=function(l,inner,flex){ return '<div style="flex:'+(flex||'1 1 130px')+';min-width:120px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">'+l+'</label>'+inner+'</div>'; };
+    var selYN=function(f,val){ var v=val===true?'true':(val===false?'false':''); return '<select data-f="'+f+'" style="'+_istyle+'"><option value="" '+(v===''?'selected':'')+'>—</option><option value="false" '+(v==='false'?'selected':'')+'>No</option><option value="true" '+(v==='true'?'selected':'')+'>Yes</option></select>'; };
+    var selRange=function(f,val,opts){ return '<select data-f="'+f+'" style="'+_istyle+'"><option value="">—</option>'+opts.map(function(o){return '<option '+((val||'')===o?'selected':'')+'>'+o+'</option>';}).join('')+'</select>'; };
+    var CRED=['Under 550','550-600','600-650','650-700','700+'], TEN=['Under 12 months','1-2 years','3+ years'];
+    var incVal=(a.monthly_income!=null&&a.monthly_income!=='')?('$'+Number(a.monthly_income).toLocaleString()):'';
+    var moveBtn = locked ? ('<div style="margin:2px 0 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="appl-tostage" data-i="'+i+'" style="background:rgba(16,185,129,0.14);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-weight:700">🔓 Move to Reviewing</button><span style="font-size:11px;color:var(--text-dim)">Pre-screen submission — fields are locked until you move it to reviewing.</span></div>') : '';
+    var h='<div class="appl-card" style="padding:4px 12px 12px 12px">'
+      +moveBtn
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
       +'<div style="flex:2 1 160px;min-width:130px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Name</label><input data-f="name" value="'+_esc(a.name||'')+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"></div>'
       +'<div style="flex:1 1 120px;min-width:120px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Phone</label><input data-f="phone" type="tel" value="'+_esc(a.phone||'')+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"></div>'
@@ -68834,8 +68930,30 @@ window._uwOpenApplicantsModal = function(id){
       +'<div style="margin-top:14px"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:7px"><span style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">Screening checklist</span><span style="font-size:11px;color:var(--text-dim)">Click to cycle: <span style="color:var(--text-dim)">⚪ not started</span> · <span style="color:#fbbf24">🟡 in progress</span> · <span style="color:#34d399">🟢 cleared</span> · <span style="color:#f87171">🔴 concern</span></span></div><div style="display:flex;flex-wrap:wrap">'+checks+'</div></div>'
       +'<div style="margin-top:14px"><div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600;margin-bottom:7px">Move-In Checklist</div><div style="display:flex;flex-wrap:wrap">'+moveins+'</div></div>'
       +'<div style="margin-top:12px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Notes</label><textarea data-f="notes" rows="2" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.notes||'')+'</textarea></div>'
+      +'<details open style="margin-top:14px;border:1px solid #eab308;border-radius:10px;padding:10px 12px;background:rgba(234,179,8,0.06);box-shadow:0 0 0 1px rgba(234,179,8,0.35),0 0 14px rgba(234,179,8,0.28)"><summary style="cursor:pointer;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">Application details</summary>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:9px">'
+        +fld('Yearly income','<input data-f="monthly_income" inputmode="numeric" value="'+_esc(incVal)+'" placeholder="$50,000" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')?(\'$\'+Number(this.value.replace(/[^0-9]/g,\'\')).toLocaleString()):\'\'" style="'+_istyle+'">')
+        +fld('Credit score',selRange('est_credit_score',a.est_credit_score,CRED))
+        +fld('Employer','<input data-f="employer" value="'+_esc(a.employer||'')+'" style="'+_istyle+'">','2 1 160px')
+        +fld('Employer tenure',selRange('employer_months',a.employer_months,TEN))
+        +fld('Rental history',selRange('prev_address_time',a.prev_address_time,TEN))
+        +fld('18+ occupants','<input data-f="occupants_adults" type="number" min="0" value="'+_esc(a.occupants_adults!=null?a.occupants_adults:'')+'" style="'+_istyle+'">','1 1 90px')
+        +fld('Children','<input data-f="occupants_kids" type="number" min="0" value="'+_esc(a.occupants_kids!=null?a.occupants_kids:'')+'" style="'+_istyle+'">','1 1 90px')
+        +fld('Smoker',selYN('smoker',a.smoker),'1 1 90px')
+        +fld('Evictions (5y)',selYN('evictions',a.evictions),'1 1 90px')
+        +fld('Convictions (7y)',selYN('convictions',a.convictions),'1 1 90px')
+        +fld('Conviction detail','<input data-f="convictions_detail" value="'+_esc(a.convictions_detail||'')+'" placeholder="If yes, what" style="'+_istyle+'">','2 1 160px')
+      +'</div></details>'
       +'<details style="margin-top:12px"'+((a.references&&a.references.length)?' open':'')+'><summary style="cursor:pointer;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">References'+((a.references&&a.references.length)?' ('+a.references.length+')':'')+'</summary><div style="margin-top:8px"><div class="appl-refs">'+((a.references&&a.references.length)?a.references.map(window._apRefRowHtml).join(''):'')+'</div><button type="button" onclick="_apAddRef(this)" style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600;margin-top:4px">+ Add reference</button></div></details>'
+      +((typeof _holdScreenHtml==='function')?(function(){
+        var vd=_holdVerdict(a,u);
+        return '<details style="margin-top:12px;border:1px solid #6366f1;border-radius:10px;padding:10px 12px;background:rgba(99,102,241,0.06);box-shadow:0 0 0 1px rgba(99,102,241,0.35),0 0 14px rgba(99,102,241,0.30)"><summary style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">Against your criteria <span style="font-weight:800;color:'+vd.c+';text-transform:none;letter-spacing:0">'+vd.t+'</span><span style="color:var(--text-dim);font-weight:600;text-transform:none;letter-spacing:0">('+vd.pass+'✓ '+vd.fail+'✗ '+vd.rev+'~)</span></summary>'
+          +'<div style="font-size:10.5px;color:var(--text-dim);margin:6px 0 2px">Recalculates when you reopen this card after editing the fields above.</div>'
+          +_holdScreenHtml(a,u,_esc,true)+'</details>';
+      })():'')
       +'</div>';
+    if(locked){ h=h.replace(/<input /g,'<input disabled ').replace(/<select /g,'<select disabled ').replace(/<textarea /g,'<textarea disabled ').replace(/onclick="_apCycleChk\(this\)"/g,'').replace('onclick="_apAddRef(this)"','disabled'); }
+    return h;
   }
   // One collapsed/expanded list item (header always; body only when open).
   function itemHtml(a,i){
@@ -68843,17 +68961,26 @@ window._uwOpenApplicantsModal = function(id){
     var nm=(a.name&&a.name.trim())||('Applicant '+(i+1));
     var st=a.status||'';
     var stColor=st==='Approved'?'#10b981':(st==='Denied'?'#f87171':(st==='Applied'?'#fbbf24':'var(--text-dim)'));
+    var stage=a.stage||'reviewing'; if(stage!=='prescreen'&&stage!=='qualified'&&stage!=='unqualified') stage='reviewing';
+    var _sm={prescreen:{t:'🔒 Pre-Screen',c:'#fcd34d',b:'rgba(234,179,8,0.15)',bd:'rgba(234,179,8,0.5)'},reviewing:{t:'Reviewing',c:'#a5b4fc',b:'rgba(99,102,241,0.14)',bd:'rgba(99,102,241,0.5)'},qualified:{t:'Qualified',c:'#34d399',b:'rgba(34,197,94,0.14)',bd:'rgba(34,197,94,0.5)'},unqualified:{t:'Unqualified',c:'#f87171',b:'rgba(239,68,68,0.14)',bd:'rgba(239,68,68,0.5)'}}[stage];
+    var stagePill='<button type="button" class="appl-stagecycle" data-i="'+i+'" title="Click to change stage" style="cursor:pointer;font-size:10px;font-weight:800;padding:3px 10px;border-radius:999px;white-space:nowrap;color:'+_sm.c+';background:'+_sm.b+';border:1px solid '+_sm.bd+'">'+_sm.t+'</button>';
     var done=a.checklist?Object.keys(a.checklist).filter(function(k){return a.checklist[k]==='green';}).length:0;
     var open=(i===openIdx);
     return '<div style="border:1px solid '+(open?'#6366f1':'var(--border)')+';border-radius:9px;margin-bottom:8px;overflow:hidden;background:var(--panel-2)">'
       +'<div class="appl-hdr" data-i="'+i+'" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer">'
       +'<span style="font-size:12px;color:var(--text-dim);flex-shrink:0">'+(open?'▲':'▼')+'</span>'
       +'<span style="font-weight:600;font-size:13.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(nm)+'</span>'
-      +(st?'<span style="font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;color:'+stColor+';background:rgba(148,163,184,0.14)">'+_esc(st)+'</span>':'')
-      +'<span style="font-size:11px;color:'+(done===CHECK.length?'#34d399':'var(--text-dim)')+';white-space:nowrap;font-weight:600">🟢 '+done+' / '+CHECK.length+' cleared</span>'
-      +'<button type="button" class="appl-remove" data-i="'+i+'" title="Remove this applicant" style="flex-shrink:0;background:none;border:1px solid var(--border);color:#f87171;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">✕ Remove</button>'
+      +stagePill
+      +((stage!=='prescreen' && !a._preappId && !st)
+          ? '<span title="Added manually (did not apply online)" style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;color:#34d399;background:rgba(34,197,94,0.14);border:1px solid rgba(34,197,94,0.45)">Manual</span>'
+          : (st?'<span style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;color:'+stColor+';background:transparent;border:1px solid '+stColor+'">'+_esc(st)+'</span>':''))
+      +(stage==='prescreen'||a._deleted?'':'<span style="font-size:11px;color:'+(done===CHECK.length?'#34d399':'var(--text-dim)')+';white-space:nowrap;font-weight:600">🟢 '+done+' / '+CHECK.length+' cleared</span>')
+      +(a._deleted
+          ? '<button type="button" class="appl-restore" data-i="'+i+'" title="Restore this applicant" style="flex-shrink:0;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.5);color:#34d399;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:700">♻ Restore</button>'
+            +'<button type="button" class="appl-purge" data-i="'+i+'" title="Delete forever" style="flex-shrink:0;background:none;border:1px solid var(--border);color:#f87171;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">🗑 Delete forever</button>'
+          : '<button type="button" class="appl-remove" data-i="'+i+'" title="Move to Trash (keeps their info)" style="flex-shrink:0;background:none;border:1px solid var(--border);color:#f87171;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">🗑 Delete</button>')
       +'</div>'
-      +(open?bodyHtml(a):'')
+      +(open?bodyHtml(a,i):'')
       +'</div>';
   }
   // Save edits from the one open detail card back into the array.
@@ -68862,6 +68989,9 @@ window._uwOpenApplicantsModal = function(id){
     var card=box.querySelector('.appl-card'); if(!card) return;
     var a={};
     Array.prototype.forEach.call(card.querySelectorAll('[data-f]'),function(el){ a[el.getAttribute('data-f')]=(el.value||'').trim(); });
+    // Convert the criteria fields to the shapes _holdScreen expects.
+    ['evictions','convictions','smoker'].forEach(function(f){ if(a[f]==='true') a[f]=true; else if(a[f]==='false') a[f]=false; else delete a[f]; });
+    ['monthly_income','occupants_adults','occupants_kids'].forEach(function(f){ if(a[f]!=null&&a[f]!==''){ var n=Number(String(a[f]).replace(/[^0-9.]/g,'')); a[f]=isFinite(n)?n:null; } else delete a[f]; });
     var chk={};
     Array.prototype.forEach.call(card.querySelectorAll('.appl-chk'),function(el){ var s=el.getAttribute('data-state')||''; if(s) chk[el.getAttribute('data-chk')]=s; });
     a.checklist=chk;
@@ -68869,23 +68999,44 @@ window._uwOpenApplicantsModal = function(id){
     Array.prototype.forEach.call(card.querySelectorAll('.appl-mi'),function(el){ var s=el.getAttribute('data-state')||''; if(s) mi[el.getAttribute('data-mi')]=s; });
     a.moveinChk=mi;
     var refs=[];
-    Array.prototype.forEach.call(card.querySelectorAll('.appl-ref'),function(rw){ var r={}; Array.prototype.forEach.call(rw.querySelectorAll('[data-rf]'),function(el){ r[el.getAttribute('data-rf')]=(el.value||'').trim(); }); if(r.name||r.phone||r.relationship) refs.push(r); });
+    Array.prototype.forEach.call(card.querySelectorAll('.appl-ref'),function(rw){ var r={}; Array.prototype.forEach.call(rw.querySelectorAll('[data-rf]'),function(el){ r[el.getAttribute('data-rf')]=(el.value||'').trim(); }); if(r.name||r.phone||r.relationship||r.company) refs.push(r); });
     a.references=refs;
+    var _pv=applicants[openIdx]||{};
+    ['_preapp','_preappId','submitted_at','stage','_locked'].forEach(function(f){ if(a[f]==null && _pv[f]!=null) a[f]=_pv[f]; });
     applicants[openIdx]=a;
   }
   function render(){
-    box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="font-weight:800;font-size:16px">👤 Applicants</div><div style="display:flex;align-items:center;gap:8px"><button id="appl-criteria" title="Screening criteria" style="background:rgba(234,179,8,0.15);border:1px solid rgba(234,179,8,0.4);color:#fcd34d;border-radius:8px;padding:5px 11px;cursor:pointer;font-size:13px;font-weight:700">📋 Criteria</button><button id="appl-x" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.45);color:#f87171;font-size:15px;cursor:pointer;line-height:1;border-radius:8px;padding:5px 10px">✕</button></div></div>'
-      +'<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Tenant applicants + screening checklist for '+_esc(u.address||(u.data&&u.data.address)||'this property')+'. Click a name to open it. Saved with the deal.</div>'
-      +'<div id="appl-list">'+(applicants.length?applicants.map(itemHtml).join(''):'<div style="color:var(--text-dim);font-size:13px;padding:10px 0">No applicants yet — click “+ Add Applicant”.</div>')+'</div>'
-      +'<button id="appl-add" type="button" style="background:rgba(16,185,129,0.12);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600">+ Add Applicant</button>'
+    var _stageOf=function(a){ var s=a.stage||'reviewing'; return (s==='prescreen'||s==='qualified'||s==='unqualified')?s:'reviewing'; };
+    var cnt=function(s){ return applicants.filter(function(a){return !a._deleted && _stageOf(a)===s;}).length; };
+    var liveCount=applicants.filter(function(a){return !a._deleted;}).length;
+    var trashCount=applicants.filter(function(a){return !!a._deleted;}).length;
+    var fbtn=function(v,label,n){ var on=_apFilter===v; return '<button data-apfilter="'+v+'" style="border:none;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;'+(on?'background:var(--brand,#6366f1);color:#fff;':'background:transparent;color:var(--text-dim);')+'">'+label+' <span style="opacity:.8">('+n+')</span></button>'; };
+    var filterCtl='<div style="display:inline-flex;flex-wrap:wrap;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:3px;gap:3px">'+fbtn('all','All',liveCount)+fbtn('prescreen','Pre-Screen',cnt('prescreen'))+fbtn('reviewing','Reviewing',cnt('reviewing'))+fbtn('qualified','Qualified',cnt('qualified'))+fbtn('unqualified','Unqualified',cnt('unqualified'))+fbtn('trash','🗑 Trash',trashCount)+'</div>';
+    var passF=function(a){ if(_apFilter==='trash') return !!a._deleted; if(a._deleted) return false; return _apFilter==='all' ? true : _stageOf(a)===_apFilter; };
+    var listItems=applicants.map(function(a,i){ return passF(a)?itemHtml(a,i):''; }).join('');
+    var anyShown=applicants.some(passF);
+    var emptyMsg=!anyShown?('<div style="color:var(--text-dim);font-size:13px;padding:10px 0">'+(_apFilter==='trash'?'Trash is empty.':_apFilter==='qualified'?'No qualified applicants yet.':_apFilter==='unqualified'?'No unqualified applicants.':_apFilter==='prescreen'?'No pre-screen submissions yet.':_apFilter==='reviewing'?'No one in review yet.':'No applicants yet.')+'</div>'):'';
+    box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap"><div style="font-weight:800;font-size:16px">👤 Applicants</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+filterCtl+'<button id="appl-criteria" title="Screening criteria" style="background:rgba(234,179,8,0.15);border:1px solid rgba(234,179,8,0.4);color:#fcd34d;border-radius:8px;padding:5px 11px;cursor:pointer;font-size:13px;font-weight:700">📋 Criteria</button><button id="appl-x" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.45);color:#f87171;font-size:15px;cursor:pointer;line-height:1;border-radius:8px;padding:5px 10px">✕</button></div></div>'
+      +'<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Pre-Screen are public submissions (locked). Move one to Reviewing once they complete a real application. Saved with the deal.</div>'
+      +emptyMsg
+      +'<div id="appl-list">'+listItems+'</div>'
+      +(_apFilter==='reviewing'?'<button id="appl-add" type="button" style="background:rgba(16,185,129,0.12);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600">+ Add Applicant</button>':'')
       +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><button id="appl-cancel" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:9px 16px;cursor:pointer">Cancel</button><button id="appl-save" style="background:var(--brand,#6366f1);color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700">Save</button></div>';
     box.querySelector('#appl-x').onclick=close;
-    box.querySelector('#appl-cancel').onclick=close;
+    Array.prototype.forEach.call(box.querySelectorAll('.appl-tostage'),function(b){ b.onclick=function(e){ e.stopPropagation(); var i=parseInt(b.getAttribute('data-i'),10); var a=applicants[i]; if(!a) return; if(a._preappId && typeof window._holdImportPreApp==='function'){ window._holdImportPreApp(id, a._preappId); return; } a.stage='reviewing'; a._locked=false; openIdx=i; render(); }; });
+    // Click the stage pill to cycle: Pre-Screen moves to Reviewing (saved now), then Reviewing → Qualified → Unqualified → Reviewing.
+    Array.prototype.forEach.call(box.querySelectorAll('.appl-stagecycle'),function(b){ b.onclick=function(e){ e.stopPropagation(); collectOpen(); var i=parseInt(b.getAttribute('data-i'),10); var a=applicants[i]; if(!a) return; if((a.stage||'')==='prescreen'){ if(a._preappId && typeof window._holdImportPreApp==='function'){ window._holdImportPreApp(id, a._preappId); return; } a.stage='reviewing'; a._locked=false; } else { var ord=['reviewing','qualified','unqualified']; var cur=ord.indexOf(a.stage); a.stage=ord[(cur+1)%ord.length]; } render(); }; });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-apfilter]'),function(b){ b.onclick=function(){ var v=b.getAttribute('data-apfilter'); if(v===_apFilter) return; collectOpen(); _apFilter=v; render(); }; });
     var _critBtn=box.querySelector('#appl-criteria'); if(_critBtn) _critBtn.onclick=function(){ if(typeof _apShowCriteria==='function') _apShowCriteria(); };
-    box.querySelector('#appl-add').onclick=function(){ collectOpen(); applicants.push({}); openIdx=applicants.length-1; render(); };
+    box.querySelector('#appl-cancel').onclick=close;
+    var _addBtn=box.querySelector('#appl-add'); if(_addBtn) _addBtn.onclick=function(){ collectOpen(); applicants.push({stage:'reviewing'}); openIdx=applicants.length-1; if(_apFilter!=='all'&&_apFilter!=='reviewing') _apFilter='reviewing'; render(); };
     box.querySelector('#appl-save').onclick=async function(){
       collectOpen();
-      var cleaned=applicants.filter(function(a){return a && (a.name||a.phone||a.email||a.notes||(a.checklist&&Object.keys(a.checklist).length)||(a.moveinChk&&Object.keys(a.moveinChk).length)||(a.references&&a.references.length));});
+      // Only official (reviewing) applicants are persisted; still-locked pre-screens
+      // stay as submissions until moved to Reviewing.
+      var cleaned=applicants.filter(function(a){return a && (a._deleted || a.stage!=='prescreen') && (a._deleted||a.name||a.phone||a.email||a.notes||a.monthly_income!=null||a.est_credit_score||a.employer||a.evictions!=null||a.convictions!=null||(a.checklist&&Object.keys(a.checklist).length)||(a.moveinChk&&Object.keys(a.moveinChk).length)||(a.references&&a.references.length));});
+      var movedPreIds=cleaned.filter(function(a){return a._preappId;}).map(function(a){return a._preappId;});
+      cleaned.forEach(function(a){ delete a._locked; delete a._preapp; });
       var saveBtn=box.querySelector('#appl-save'); if(saveBtn){ saveBtn.disabled=true; saveBtn.textContent='⏳ Saving…'; }
       // Save DIRECTLY to THIS property's row (not the open-calculator deal). Read
       // the row's current data, merge in applicants, write back, confirm.
@@ -68899,6 +69050,15 @@ window._uwOpenApplicantsModal = function(id){
         if (upd.error) throw upd.error;
         if (!upd.data || !upd.data.length) throw new Error('property row not found');
         u.data = d;  // keep cache in sync
+        // Mark any pre-apps that were moved to Reviewing as processed so they
+        // stop showing as pre-screen submissions.
+        if(movedPreIds.length){
+          try{ await sb.from('rental_applications').update({status:'added'}).in('id',movedPreIds); }catch(_){}
+          var _k=String(u.address||'').trim().toLowerCase();
+          if(cache.rentalApps&&cache.rentalApps[_k]) cache.rentalApps[_k]=cache.rentalApps[_k].map(function(x){ if(movedPreIds.indexOf(x.id)>=0) x.status='added'; return x; });
+          if(typeof _holdRenderApplications==='function') _holdRenderApplications();
+          if(typeof _holdUpdateAppsBadge==='function') _holdUpdateAppsBadge();
+        }
         if (typeof toast==='function') toast('Applicants saved — visible to the whole team.','ok');
         close();
       } catch(e) {
@@ -68907,14 +69067,31 @@ window._uwOpenApplicantsModal = function(id){
         if (typeof toast==='function') toast('Save failed: ' + (e.message||e), 'err');
       }
     };
+    // Soft delete → moves to Trash (keeps all their info). Asks for confirmation.
     Array.prototype.forEach.call(box.querySelectorAll('.appl-remove'),function(btn){
-      btn.onclick=function(e){ e.stopPropagation(); var i=parseInt(btn.getAttribute('data-i'),10); if(openIdx===i) collectOpen(); applicants.splice(i,1); if(openIdx===i) openIdx=-1; else if(openIdx>i) openIdx--; render(); };
+      btn.onclick=function(e){ e.stopPropagation(); var i=parseInt(btn.getAttribute('data-i'),10); var nm=(applicants[i]&&applicants[i].name)||'this applicant'; window._apConfirmDialog('Move '+nm+' to Trash?\n\nTheir information is kept — you can restore them from the Trash tab.','Move to Trash',function(){ if(openIdx===i) collectOpen(); if(applicants[i]){ applicants[i]._deleted=true; } if(openIdx===i) openIdx=-1; render(); }); };
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('.appl-restore'),function(btn){
+      btn.onclick=function(e){ e.stopPropagation(); var i=parseInt(btn.getAttribute('data-i'),10); if(applicants[i]){ applicants[i]._deleted=false; } render(); };
+    });
+    // Permanent delete from Trash.
+    Array.prototype.forEach.call(box.querySelectorAll('.appl-purge'),function(btn){
+      btn.onclick=function(e){ e.stopPropagation(); var i=parseInt(btn.getAttribute('data-i'),10); var nm=(applicants[i]&&applicants[i].name)||'this applicant'; window._apConfirmDialog('Permanently delete '+nm+'?\n\nThis cannot be undone.','Delete forever',function(){ if(openIdx===i) collectOpen(); applicants.splice(i,1); if(openIdx===i) openIdx=-1; else if(openIdx>i) openIdx--; render(); }); };
     });
     Array.prototype.forEach.call(box.querySelectorAll('.appl-hdr'),function(hdr){
       hdr.onclick=function(){ var i=parseInt(hdr.getAttribute('data-i'),10); collectOpen(); openIdx=(openIdx===i?-1:i); render(); };
     });
   }
   render();
+  // If pre-apps aren't loaded yet, fetch them, then merge + re-render.
+  if((typeof cache==='undefined'||!cache.rentalApps) && typeof _holdLoadRentalApps==='function'){
+    _holdLoadRentalApps().then(function(){
+      var seen={}; applicants.forEach(function(a){ if(a&&a._preappId) seen[a._preappId]=1; });
+      var pre=(typeof _holdPreAppsFor==='function')?_holdPreAppsFor(u):[];
+      pre.forEach(function(p){ if(!seen[p.id]) applicants.push(window._holdPreAppToApplicant(p)); });
+      render();
+    });
+  }
 };
 
 // Fill Lender Company Name / Phone / Email from a saved lender (Connections tab).

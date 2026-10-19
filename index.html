@@ -32208,7 +32208,7 @@ function _holdScreen(a,u){
   add('Credit', '580+', c?(c+(cs===R?' (2-mo deposit)':'')):'not given', cs);
   // Evictions / convictions
   add('Evictions (5 yrs)', 'None', a.evictions===true?'Reported':(a.evictions===false?'None':'not given'), a.evictions===true?F:(a.evictions===false?P:N));
-  add('Convictions (7 yrs)', 'None', a.convictions===true?('Reported'+(a.convictions_detail?' — '+a.convictions_detail:'')):(a.convictions===false?'None':'not given'), a.convictions===true?F:(a.convictions===false?P:N));
+  add('Convictions (7 yrs)', 'None', a.convictions===true?'Reported':(a.convictions===false?'None':'not given'), a.convictions===true?F:(a.convictions===false?P:N));
   // Employment tenure 12+ mo same employer
   var em=a.employer_months||'';
   add('Employment', '12+ mo, same employer', em||'not given', (em==='1-2 years'||em==='2+ years'||em==='3+ years')?P:(em==='Under 12 months'?F:N));
@@ -68913,7 +68913,7 @@ window._uwOpenApplicantsModal = function(id, startView){
     }).join('');
     var statusOpts=['Applied','Approved','Denied'].map(function(s){return '<option '+((a.status||'')===s?'selected':'')+'>'+s+'</option>';}).join('');
     var _istyle='width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box';
-    var fld=function(l,inner,flex){ return '<div style="flex:'+(flex||'1 1 130px')+';min-width:120px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">'+l+'</label>'+inner+'</div>'; };
+    var fld=function(l,inner,flex){ return '<div style="flex:'+(flex||'1 1 180px')+';min-width:150px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">'+l+'</label>'+inner+'</div>'; };
     var selYN=function(f,val){ var v=val===true?'true':(val===false?'false':''); return '<select data-f="'+f+'" style="'+_istyle+'"><option value="" '+(v===''?'selected':'')+'>—</option><option value="false" '+(v==='false'?'selected':'')+'>No</option><option value="true" '+(v==='true'?'selected':'')+'>Yes</option></select>'; };
     var selRange=function(f,val,opts){ return '<select data-f="'+f+'" style="'+_istyle+'"><option value="">—</option>'+opts.map(function(o){return '<option '+((val||'')===o?'selected':'')+'>'+o+'</option>';}).join('')+'</select>'; };
     var CRED=['Under 550','550-600','600-650','650-700','700+'], TEN=['Under 12 months','1-2 years','2+ years'];
@@ -68943,8 +68943,8 @@ window._uwOpenApplicantsModal = function(id, startView){
         +fld('Smoker',selYN('smoker',a.smoker),'1 1 90px')
         +fld('Evictions (5y)',selYN('evictions',a.evictions),'1 1 90px')
         +fld('Convictions (7y)',selYN('convictions',a.convictions),'1 1 90px')
-        +fld('Conviction detail','<input data-f="convictions_detail" value="'+_esc(a.convictions_detail||'')+'" placeholder="If yes, what" style="'+_istyle+'">','2 1 160px')
       +'</div>'
+      +'<label style="display:block;margin-top:12px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Conviction detail</span><textarea data-f="convictions_detail" rows="2" placeholder="If yes, what" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.convictions_detail||'')+'</textarea></label>'
       +'<label style="display:block;margin-top:12px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Reason for moving</span><textarea data-f="reason_moving" rows="2" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.reason_moving||'')+'</textarea></label>'
       +'<label style="display:block;margin-top:10px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Pets</span><textarea data-f="pets" rows="2" placeholder="Type / breed / weight — or none" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.pets||'')+'</textarea></label>'
       +'<label style="display:block;margin-top:10px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Additional notes <span style="opacity:.7">(from applicant)</span></span><textarea data-f="notes" rows="2" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.notes||'')+'</textarea></label>'

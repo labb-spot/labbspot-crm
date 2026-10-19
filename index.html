@@ -7618,7 +7618,7 @@
             <option value="7">Last 7 days</option>
             <option value="30">Last 30 days</option>
           </select>
-          <button id="hold-apps-refresh" type="button" onclick="_holdRefreshApps(this)" title="Refresh applications" style="height:34px;width:40px;display:flex;align-items:center;justify-content:center;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:15px;cursor:pointer;flex:0 0 auto">↻</button>
+          <button id="hold-apps-refresh" type="button" onclick="_holdRefreshApps(this)" title="Refresh applications" style="height:34px;width:112px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);color:#93c5fd;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;flex:0 0 auto;white-space:nowrap;overflow:hidden">🔄 Refresh</button>
         </div>
       </div>
       <div id="hold-applications-body"></div>
@@ -31994,15 +31994,13 @@ function _holdOpenPropView(wrapId, pillId) {
 }
 function holdOpenApplications() { _holdOpenPropView('hold-applications-wrap', 'hold-applications-pill'); _holdLoadRentalApps().then(_holdRenderApplications); }
 function _holdRefreshApps(btn){
-  if(btn){ btn.disabled=true; btn.style.opacity='0.5'; btn.textContent='…'; }
+  if(btn){ btn.disabled=true; btn._orig=btn.innerHTML; btn.innerHTML='<span class="loader" style="width:14px;height:14px;border-width:2px"></span> Refresh'; }
+  var done=function(){ if(typeof _holdRenderApplications==='function') _holdRenderApplications(); if(typeof _holdUpdateAppsBadge==='function') _holdUpdateAppsBadge(); if(btn){ btn.disabled=false; btn.innerHTML=btn._orig||'🔄 Refresh'; } };
   var jobs=[];
+  // Force-refetch so new public submissions show up (not cache).
   if(typeof _holdLoadRentalApps==='function') jobs.push(_holdLoadRentalApps(true));
   if(typeof loadUnderwrites==='function'){ try{ var r=loadUnderwrites(true); if(r&&r.then) jobs.push(r); }catch(_){} }
-  Promise.all(jobs).then(function(){
-    if(typeof _holdRenderApplications==='function') _holdRenderApplications();
-    if(typeof _holdUpdateAppsBadge==='function') _holdUpdateAppsBadge();
-    if(btn){ btn.disabled=false; btn.style.opacity=''; btn.textContent='↻'; }
-  }).catch(function(){ if(btn){ btn.disabled=false; btn.style.opacity=''; btn.textContent='↻'; } });
+  Promise.all(jobs).then(done).catch(done);
 }
 window._holdRefreshApps=_holdRefreshApps;
 
@@ -69083,9 +69081,9 @@ window._uwOpenApplicantsModal = function(id, startView){
     });
   }
   render();
-  // If pre-apps aren't loaded yet, fetch them, then merge + re-render.
-  if((typeof cache==='undefined'||!cache.rentalApps) && typeof _holdLoadRentalApps==='function'){
-    _holdLoadRentalApps().then(function(){
+  // Always re-fetch submissions on open so brand-new ones appear (not stale cache).
+  if(typeof _holdLoadRentalApps==='function'){
+    _holdLoadRentalApps(true).then(function(){
       var seen={}; applicants.forEach(function(a){ if(a&&a._preappId) seen[a._preappId]=1; });
       var pre=(typeof _holdPreAppsFor==='function')?_holdPreAppsFor(u):[];
       pre.forEach(function(p){ if(!seen[p.id]) applicants.push(window._holdPreAppToApplicant(p)); });

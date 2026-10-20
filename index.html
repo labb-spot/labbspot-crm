@@ -14526,7 +14526,9 @@ function uwComputeExits(ctx) {
   // Lender funds 70% of APPRAISED VALUE (ARV) — no purchase-price cap.
   const _tkFinCap        = _tkFinLtvCapLoan;
   const _tkFinLoanSmart  = Math.min(_tkFinLoanNeeded, _tkFinCap);
-  const tkFinLoan        = Math.max(0, _tkFinLoanSmart * (1 - finDownPct / 100));
+  const tkFinDownPct     = 20; // Turn-Key: 20% down on the purchase → loan is 80%.
+  const tkFinDownAmt     = Math.max(0, _tkFinLoanSmart * (tkFinDownPct / 100));
+  const tkFinLoan        = Math.max(0, _tkFinLoanSmart * (1 - tkFinDownPct / 100));
   const tkFinPi          = finRate > 0 ? tkFinLoan * (finRate * Math.pow(1 + finRate, finN)) / (Math.pow(1 + finRate, finN) - 1) : 0;
   const tkFinInterest    = tkFinLoan * finRate;
   const tkFinPrincipal   = Math.max(0, tkFinPi - tkFinInterest);
@@ -14540,6 +14542,8 @@ function uwComputeExits(ctx) {
   const tkFinDscrRes     = tkFinMonthlyExp > 0 ? rent / tkFinMonthlyExp : 0;
   const tkFinOrig        = tkFinLoan * (finOrigPct / 100);
   const tkFinCloseCost   = tkFinLoan * (tkFinClosePct / 100);
+  // Actual cash out of pocket at closing (down + any over-cap overage + fees).
+  const tkFinCapitalToClose = tkFinDownAmt + Math.max(0, buyPrice - _tkFinLtvCapLoan) + tkFinCloseCost + tkFinOrig + uwAppraisalFee;
   const tkFinNetCashFromLoan = tkFinLoan - tkFinOrig - tkFinCloseCost - uwAppraisalFee;
   const tkFinCashOut     = Math.max(0, tkFinNetCashFromLoan - tkFinCashPutUp);
   // If you finance all the way up to the 70% ARV cap, this is the extra cash
@@ -15711,17 +15715,19 @@ function uwComputeExits(ctx) {
           ['DSCR Loan Cap (LTV)', fmt(_tkFinLtvCapLoan)],
           ['DSCR Loan Cap ($200/m)', finTargetLoan > 0 ? fmt(finTargetLoan) : '— (not reachable)'],
           ['Purchase price', fmt(buyPrice)],
+          ['Down Payment (' + tkFinDownPct + '% of purchase)', '−' + fmt(tkFinDownAmt)],
           ['DSCR Loan Size ' + (buyPrice <= _tkFinLtvCapLoan ? '✓' : '✗ over 70% cap'), fmt(tkFinLoan), (buyPrice <= _tkFinLtvCapLoan) ? 'greenhl' : 'redhl'],
           ['DSCR Loan Cap Left', ((_tkFinLtvCapLoan - buyPrice) >= 0 ? '+' : '−') + fmt(Math.abs(_tkFinLtvCapLoan - buyPrice)), 'profit'],
           ['DSCR Cashflow Cap Left', finTargetLoan > 0 ? (((finTargetLoan - buyPrice) >= 0 ? '+' : '−') + fmt(Math.abs(finTargetLoan - buyPrice))) : '—', 'profit'],
           ['Rehab reserve (5% of ARV)', fmt(tkRehab), 'orange'],
           ['💵 Cash to Close', '', 'head'],
+          ['Down Payment (' + tkFinDownPct + '% of purchase)', fmt(tkFinDownAmt)],
           ['DSCR Purchase Closing (' + tkFinClosePct + '% of loan)', fmt(tkFinCloseCost)],
           ['DSCR origination (' + finOrigPct + '% of loan)', fmt(tkFinOrig)],
           ['DSCR Underwriting & Appraisal Fee', fmt(uwAppraisalFee)],
           ['DSCR Loan Cap Overage', fmt(Math.max(0, buyPrice - _tkFinLtvCapLoan))],
           ['DSCR Cashflow Cap Overage', finTargetLoan > 0 ? fmt(Math.max(0, buyPrice - finTargetLoan)) : '—'],
-          ['💰 Capital Required to Close', fmt(Math.max(0, buyPrice - _tkFinLtvCapLoan) + tkFinCloseCost + tkFinOrig + uwAppraisalFee), 'redhl'],
+          ['💰 Capital Required to Close', fmt(tkFinCapitalToClose), 'redhl'],
           ['DSCR (PITI) — must be ≥ 1.25', tkFinDscr > 0 ? tkFinDscr.toFixed(2) : '—', tkFinDscr >= 1.25 ? 'cyangreen' : 'cyanred'],
           ['DSCR (PITI + Reserves)', tkFinDscrRes > 0 ? tkFinDscrRes.toFixed(2) : '—', tkFinDscrRes >= 1.0 ? 'profit' : 'cost'],
         ]},
@@ -15758,7 +15764,8 @@ function uwComputeExits(ctx) {
         ]},
         { title: '📈 Equity Gain', rows: [
           ['Day-1 forced equity (ARV − Cash In)', fmt(Math.max(0, arv - tkFinCashPutUp))],
-          ['Day-1 leveraged equity (ARV − Loan − Cash)', fmt(Math.max(0, arv - tkFinLoan) - tkFinExtraDownInCap), 'blue'],
+          ['Day-1 leveraged equity — actual cash in (ARV − Loan − Cash to Close)', fmt(Math.max(0, arv - tkFinLoan) - tkFinCapitalToClose), 'blue'],
+          ['Day-1 leveraged equity — cashflow leave-in (ARV − Loan − Leave-In)', fmt(Math.max(0, arv - tkFinLoan) - tkFinExtraDownInCap), 'blue'],
           ['Year-1 loan paydown (principal × 12)', fmt(tkFinPrincipal * 12)],
           ['Year-1 appreciation (' + RT_PROP_APPR_PCT + '%/yr × ARV)', fmt(rtAnnualAppreciation)],
           ['Year-1 total equity gain', fmt(Math.max(0, arv - tkFinCashPutUp) + (tkFinPrincipal * 12) + rtAnnualAppreciation), 'profit'],
@@ -18849,7 +18856,7 @@ const UW_FIELDS = [
   'uw-rt-down-pct','uw-rt-vac-pct','uw-rt-maint-pct','uw-rt-capex-pct','uw-rt-pm-pct','uw-rt-appr-pct',
   'uw-rt-br-ltv','uw-rt-br-rate','uw-rt-br-yrs',
   'uw-rt-rf-hm-ltv','uw-rt-rf-hm-rate','uw-rt-rf-hm-orig','uw-rt-rf-stab-mo','uw-rt-rf-close-pct','uw-rt-rf-purch-fin-pct','uw-rt-rf-reno-fin-pct',
-  'uw-rt-dscr-orig-pct','uw-rt-uw-appraisal-fee','uw-rt-dscr-ltv-cap',
+  'uw-rt-dscr-orig-pct','uw-rt-uw-appraisal-fee','uw-rt-dscr-ltv-cap','uw-rt-loan-override',
   'uw-rt-reno-mo','uw-rt-rent-mo',
   'uw-prop-type','uw-units','uw-pics','uw-videos','uw-main-pic','uw-offer-status','uw-deal-notes',
   'uw-ifp-slider', // Ideal Flip Profit slider position (0–120)
@@ -32047,6 +32054,7 @@ window._holdPreAppToApplicant=function(p){
     monthly_income:p.monthly_income, est_credit_score:p.est_credit_score, employer:p.employer, employer_months:p.employer_months,
     prev_address_time:p.prev_address_time, occupants_adults:p.occupants_adults, occupants_kids:p.occupants_kids,
     smoker:p.smoker, evictions:p.evictions, convictions:p.convictions, convictions_detail:p.convictions_detail,
+    credit_explain:p.credit_explain||'',
     pets:p.pets, reason_moving:p.reason_moving, notes:p.notes||'', references:refs,
     stage:'prescreen', _locked:true, _preappId:p.id, _preapp:p, submitted_at:p.submitted_at };
 };
@@ -68944,7 +68952,8 @@ window._uwOpenApplicantsModal = function(id, startView){
         +fld('Evictions (5y)',selYN('evictions',a.evictions),'1 1 90px')
         +fld('Convictions (7y)',selYN('convictions',a.convictions),'1 1 90px')
       +'</div>'
-      +'<label style="display:block;margin-top:12px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Conviction detail</span><textarea data-f="convictions_detail" rows="2" placeholder="If yes, what" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.convictions_detail||'')+'</textarea></label>'
+      +'<label style="display:block;margin-top:12px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Background Details</span><textarea data-f="convictions_detail" rows="2" placeholder="Anything to explain on a background check" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.convictions_detail||'')+'</textarea></label>'
+      +'<label style="display:block;margin-top:12px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Credit Details</span><textarea data-f="credit_explain" rows="2" placeholder="Anything to explain on a credit report" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.credit_explain||'')+'</textarea></label>'
       +'<label style="display:block;margin-top:12px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Reason for moving</span><textarea data-f="reason_moving" rows="2" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.reason_moving||'')+'</textarea></label>'
       +'<label style="display:block;margin-top:10px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Pets</span><textarea data-f="pets" rows="2" placeholder="Type / breed / weight — or none" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.pets||'')+'</textarea></label>'
       +'<label style="display:block;margin-top:10px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Additional notes <span style="opacity:.7">(from applicant)</span></span><textarea data-f="notes" rows="2" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.notes||'')+'</textarea></label>'

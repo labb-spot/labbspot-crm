@@ -69030,19 +69030,17 @@ window._uwOpenApplicantsModal = function(id, startView){
     var listItems=applicants.map(function(a,i){ return passF(a)?itemHtml(a,i):''; }).join('');
     var anyShown=applicants.some(passF);
     var emptyMsg=!anyShown?('<div style="color:var(--text-dim);font-size:13px;padding:10px 0">'+(_apFilter==='trash'?'Trash is empty.':_apFilter==='qualified'?'No qualified applicants yet.':_apFilter==='unqualified'?'No unqualified applicants.':_apFilter==='prescreen'?'No pre-screen submissions yet.':_apFilter==='reviewing'?'No one in review yet.':'No applicants yet.')+'</div>'):'';
-    box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap"><div style="font-weight:800;font-size:16px">👤 Applicants</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+filterCtl+'<button id="appl-criteria" title="Screening criteria" style="background:rgba(234,179,8,0.15);border:1px solid rgba(234,179,8,0.4);color:#fcd34d;border-radius:8px;padding:5px 11px;cursor:pointer;font-size:13px;font-weight:700">📋 Criteria</button><button id="appl-x" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.45);color:#f87171;font-size:15px;cursor:pointer;line-height:1;border-radius:8px;padding:5px 10px">✕</button></div></div>'
-      +'<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Pre-Screen are public submissions (locked). Move one to Reviewing once they complete a real application. Saved with the deal.</div>'
+    box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap"><div style="font-weight:800;font-size:16px">👤 Applicants</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+filterCtl+'<button id="appl-criteria" title="Screening criteria" style="background:rgba(234,179,8,0.15);border:1px solid rgba(234,179,8,0.4);color:#fcd34d;border-radius:8px;padding:5px 11px;cursor:pointer;font-size:13px;font-weight:700">📋 Criteria</button><button id="appl-save" title="Save (stays open)" style="width:84px;background:var(--brand,#6366f1);color:#fff;border:none;border-radius:8px;padding:6px 0;cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px">Save</button><button id="appl-x" title="Close" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.45);color:#f87171;font-size:15px;cursor:pointer;line-height:1;border-radius:8px;padding:5px 10px">✕</button></div></div>'
+      +'<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Pre-Screen are public submissions (locked). Move one to Reviewing once they complete a real application. Save keeps your changes; the ✕ closes.</div>'
       +emptyMsg
       +'<div id="appl-list">'+listItems+'</div>'
-      +(_apFilter==='reviewing'?'<button id="appl-add" type="button" style="background:rgba(16,185,129,0.12);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600">+ Add Applicant</button>':'')
-      +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><button id="appl-cancel" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:9px 16px;cursor:pointer">Cancel</button><button id="appl-save" style="background:var(--brand,#6366f1);color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700">Save</button></div>';
+      +(_apFilter==='reviewing'?'<button id="appl-add" type="button" style="background:rgba(16,185,129,0.12);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600">+ Add Applicant</button>':'');
     box.querySelector('#appl-x').onclick=close;
     Array.prototype.forEach.call(box.querySelectorAll('.appl-tostage'),function(b){ b.onclick=function(e){ e.stopPropagation(); var i=parseInt(b.getAttribute('data-i'),10); var a=applicants[i]; if(!a) return; if(a._preappId && typeof window._holdImportPreApp==='function'){ window._holdImportPreApp(id, a._preappId); return; } a.stage='reviewing'; a._locked=false; openIdx=i; render(); }; });
     // Click the stage pill to cycle: Pre-Screen moves to Reviewing (saved now), then Reviewing → Qualified → Unqualified → Reviewing.
     Array.prototype.forEach.call(box.querySelectorAll('.appl-stagecycle'),function(b){ b.onclick=function(e){ e.stopPropagation(); collectOpen(); var i=parseInt(b.getAttribute('data-i'),10); var a=applicants[i]; if(!a) return; if((a.stage||'')==='prescreen'){ if(a._preappId && typeof window._holdImportPreApp==='function'){ window._holdImportPreApp(id, a._preappId); return; } a.stage='reviewing'; a._locked=false; } else { var ord=['reviewing','qualified','unqualified']; var cur=ord.indexOf(a.stage); a.stage=ord[(cur+1)%ord.length]; } render(); }; });
     Array.prototype.forEach.call(box.querySelectorAll('[data-apfilter]'),function(b){ b.onclick=function(){ var v=b.getAttribute('data-apfilter'); if(v===_apFilter) return; collectOpen(); _apFilter=v; render(); }; });
     var _critBtn=box.querySelector('#appl-criteria'); if(_critBtn) _critBtn.onclick=function(){ if(typeof _apShowCriteria==='function') _apShowCriteria(); };
-    box.querySelector('#appl-cancel').onclick=close;
     var _addBtn=box.querySelector('#appl-add'); if(_addBtn) _addBtn.onclick=function(){ collectOpen(); applicants.push({stage:'reviewing'}); openIdx=applicants.length-1; if(_apFilter!=='all'&&_apFilter!=='reviewing') _apFilter='reviewing'; render(); };
     box.querySelector('#appl-save').onclick=async function(){
       collectOpen();
@@ -69051,7 +69049,7 @@ window._uwOpenApplicantsModal = function(id, startView){
       var cleaned=applicants.filter(function(a){return a && (a._deleted || a.stage!=='prescreen') && (a._deleted||a.name||a.phone||a.email||a.notes||a.ownNotes||a.reason_moving||a.monthly_income!=null||a.est_credit_score||a.employer||a.evictions!=null||a.convictions!=null||(a.checklist&&Object.keys(a.checklist).length)||(a.moveinChk&&Object.keys(a.moveinChk).length)||(a.references&&a.references.length));});
       var movedPreIds=cleaned.filter(function(a){return a._preappId;}).map(function(a){return a._preappId;});
       cleaned.forEach(function(a){ delete a._locked; delete a._preapp; });
-      var saveBtn=box.querySelector('#appl-save'); if(saveBtn){ saveBtn.disabled=true; saveBtn.textContent='⏳ Saving…'; }
+      var saveBtn=box.querySelector('#appl-save'); if(saveBtn){ saveBtn.disabled=true; saveBtn.innerHTML='<span class="loader" style="width:14px;height:14px;border-width:2px"></span>'; }
       // Save DIRECTLY to THIS property's row (not the open-calculator deal). Read
       // the row's current data, merge in applicants, write back, confirm.
       try {
@@ -69074,10 +69072,10 @@ window._uwOpenApplicantsModal = function(id, startView){
           if(typeof _holdUpdateAppsBadge==='function') _holdUpdateAppsBadge();
         }
         if (typeof toast==='function') toast('Applicants saved — visible to the whole team.','ok');
-        close();
+        if (saveBtn){ saveBtn.disabled=false; saveBtn.innerHTML='✓ Saved'; setTimeout(function(){ if(saveBtn) saveBtn.innerHTML='Save'; }, 1400); }
       } catch(e) {
         console.warn('applicants save:', e);
-        if (saveBtn){ saveBtn.disabled=false; saveBtn.textContent='Save'; }
+        if (saveBtn){ saveBtn.disabled=false; saveBtn.innerHTML='Save'; }
         if (typeof toast==='function') toast('Save failed: ' + (e.message||e), 'err');
       }
     };

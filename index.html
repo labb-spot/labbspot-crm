@@ -32225,7 +32225,7 @@ function _holdScreen(a,u){
   add('Rental history', '2+ years', rh||'not given', (rh==='2+ years'||rh==='3+ years')?P:(rh==='1-2 years'?R:(rh==='Under 12 months'?F:N)));
   // Desired lease term (12+ months passes)
   var lt=a.lease_term||'';
-  add('Lease term', '12+ months', lt||'not given', (lt==='12 months'||lt==='18 months')?P:(lt==='6 months'?F:N));
+  add('Lease term', '12+ months', lt||'not given', (lt==='12 months'||lt==='18 months'||lt==='24 months')?P:(lt==='6 months'?F:N));
   // Occupancy max 2 per bedroom + 1
   if(beds!=null){
     var occ=(Number(a.occupants_adults)||0)+(Number(a.occupants_kids)||0), max=2*beds+1;
@@ -68944,14 +68944,14 @@ window._uwOpenApplicantsModal = function(id, startView){
       +'<div style="margin-top:12px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">My notes <span style="opacity:.7">(private)</span></label><textarea data-f="ownNotes" rows="2" placeholder="Your own notes about this applicant…" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.ownNotes||'')+'</textarea></div>'
       +'<details open style="margin-top:14px;border:1px solid #eab308;border-radius:10px;padding:10px 12px;background:rgba(234,179,8,0.06);box-shadow:0 0 0 1px rgba(234,179,8,0.35),0 0 14px rgba(234,179,8,0.28)"><summary style="cursor:pointer;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">Application details</summary>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:9px">'
-        +fld('Yearly income','<input data-f="monthly_income" inputmode="numeric" value="'+_esc(incVal)+'" placeholder="$50,000" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')?(\'$\'+Number(this.value.replace(/[^0-9]/g,\'\')).toLocaleString()):\'\'" style="'+_istyle+'">')
+        +fld('Monthly income','<input data-f="monthly_income" inputmode="numeric" value="'+_esc(incVal)+'" placeholder="$4,167" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')?(\'$\'+Number(this.value.replace(/[^0-9]/g,\'\')).toLocaleString()):\'\'" style="'+_istyle+'">')
         +fld('Credit score',selRange('est_credit_score',a.est_credit_score,CRED))
         +fld('Employer','<input data-f="employer" value="'+_esc(a.employer||'')+'" style="'+_istyle+'">','2 1 160px')
         +fld('Employer tenure',selRange('employer_months',a.employer_months,TEN))
         +fld('Rental history',selRange('prev_address_time',a.prev_address_time,TEN))
         +fld('18+ occupants','<input data-f="occupants_adults" type="number" min="0" value="'+_esc(a.occupants_adults!=null?a.occupants_adults:'')+'" style="'+_istyle+'">','1 1 90px')
         +fld('Total occupants','<input data-f="occupants_total" type="number" min="0" value="'+_esc((a.occupants_adults!=null||a.occupants_kids!=null)?((Number(a.occupants_adults)||0)+(Number(a.occupants_kids)||0)):'')+'" style="'+_istyle+'">','1 1 110px')
-        +fld('Lease term',selRange('lease_term',a.lease_term,['6 months','12 months','18 months']),'1 1 120px')
+        +fld('Lease term',selRange('lease_term',a.lease_term,['12 months','18 months','24 months']),'1 1 120px')
         +fld('Smoker',selYN('smoker',a.smoker),'1 1 90px')
         +fld('Evictions (5y)',selYN('evictions',a.evictions),'1 1 90px')
         +fld('Convictions (7y)',selYN('convictions',a.convictions),'1 1 90px')

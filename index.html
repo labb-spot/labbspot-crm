@@ -32208,7 +32208,7 @@ function _holdScreen(a,u){
   // Income >= 3x rent
   if(a.monthly_income!=null && rent!=null){
     var need=rent*3, ratio=a.monthly_income/rent;
-    add('Income', '3× rent = $'+Number(need).toLocaleString()+'/mo', '$'+Number(a.monthly_income).toLocaleString()+'/mo ('+ratio.toFixed(2)+'×)', a.monthly_income>=need?P:F);
+    add('Income', '3× rent = $'+Number(need).toLocaleString()+'/mo', '$'+Number(a.monthly_income).toLocaleString()+'/mo ('+ratio.toFixed(2)+'×)', a.monthly_income>=need?P:(ratio>=2.75?R:F));
   } else add('Income','3× rent', rent==null?'set a rent first':(a.monthly_income!=null?('$'+Number(a.monthly_income).toLocaleString()+'/mo'):'not given'), N);
   // Credit 580+
   var c=a.est_credit_score||'';
@@ -68929,8 +68929,11 @@ window._uwOpenApplicantsModal = function(id, startView){
     var selRange=function(f,val,opts){ return '<select data-f="'+f+'" style="'+_istyle+'"><option value="">—</option>'+opts.map(function(o){return '<option '+((val||'')===o?'selected':'')+'>'+o+'</option>';}).join('')+'</select>'; };
     var CRED=['Under 550','550-600','600-650','650-700','700+'], TEN=['Under 12 months','1-2 years','2+ years'];
     var incVal=(a.monthly_income!=null&&a.monthly_income!=='')?('$'+Number(a.monthly_income).toLocaleString()):'';
-    var moveBtn = locked ? ('<div style="margin:2px 0 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="appl-tostage" data-i="'+i+'" style="background:rgba(16,185,129,0.14);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-weight:700">🔓 Move to Reviewing</button><span style="font-size:11px;color:var(--text-dim)">Pre-screen submission — fields are locked until you move it to reviewing.</span></div>') : '';
+    var moveBtn = locked ? ('<div style="margin:2px 0 12px"><button class="appl-tostage" data-i="'+i+'" style="background:rgba(16,185,129,0.14);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-weight:700">🔓 Move to Reviewing</button></div>') : '';
+    var _ghlDone=!!a._ghlAdded;
+    var ghlBtn='<div style="margin:2px 0 12px"><button class="appl-ghl" data-i="'+i+'" title="'+(_ghlDone?'Already added to GoHighLevel — click to re-send':'Create/update this person in GoHighLevel and start the leasing workflow')+'" style="'+(_ghlDone?'background:rgba(34,197,94,0.14);border:1px solid #22c55e;color:#34d399':'background:rgba(59,130,246,0.15);border:1px solid #3b82f6;color:#93c5fd')+';border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-weight:700">'+(_ghlDone?'✓ Added to GHL':'➕ Add as Applicant')+'</button></div>';
     var h='<div class="appl-card" style="padding:4px 12px 12px 12px">'
+      +ghlBtn
       +moveBtn
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
       +'<div style="flex:2 1 160px;min-width:130px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Name</label><input data-f="name" value="'+_esc(a.name||'')+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"></div>'
@@ -68992,6 +68995,7 @@ window._uwOpenApplicantsModal = function(id, startView){
       +((stage!=='prescreen' && !a._preappId && !st)
           ? '<span title="Added manually (did not apply online)" style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;color:#34d399;background:rgba(34,197,94,0.14);border:1px solid rgba(34,197,94,0.45)">Manual</span>'
           : (st?'<span style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;color:'+stColor+';background:transparent;border:1px solid '+stColor+'">'+_esc(st)+'</span>':''))
+      +(a._ghlAdded?'<span title="Added to GoHighLevel" style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;color:#34d399;background:rgba(34,197,94,0.14);border:1px solid rgba(34,197,94,0.45);white-space:nowrap">✓ GHL</span>':'')
       +(stage==='prescreen'||a._deleted?'':'<span style="font-size:11px;color:'+(done===CHECK.length?'#34d399':'var(--text-dim)')+';white-space:nowrap;font-weight:600">🟢 '+done+' / '+CHECK.length+' cleared</span>')
       +(a._deleted
           ? '<button type="button" class="appl-restore" data-i="'+i+'" title="Restore this applicant" style="flex-shrink:0;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.5);color:#34d399;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:700">♻ Restore</button>'
@@ -69022,7 +69026,7 @@ window._uwOpenApplicantsModal = function(id, startView){
     Array.prototype.forEach.call(card.querySelectorAll('.appl-ref'),function(rw){ var r={}; Array.prototype.forEach.call(rw.querySelectorAll('[data-rf]'),function(el){ r[el.getAttribute('data-rf')]=(el.value||'').trim(); }); if(r.name||r.phone||r.relationship||r.company) refs.push(r); });
     a.references=refs;
     var _pv=applicants[openIdx]||{};
-    ['_preapp','_preappId','submitted_at','stage','_locked'].forEach(function(f){ if(a[f]==null && _pv[f]!=null) a[f]=_pv[f]; });
+    ['_preapp','_preappId','submitted_at','stage','_locked','_ghlAdded'].forEach(function(f){ if(a[f]==null && _pv[f]!=null) a[f]=_pv[f]; });
     applicants[openIdx]=a;
   }
   function render(){
@@ -69048,6 +69052,8 @@ window._uwOpenApplicantsModal = function(id, startView){
     Array.prototype.forEach.call(box.querySelectorAll('[data-apfilter]'),function(b){ b.onclick=function(){ var v=b.getAttribute('data-apfilter'); if(v===_apFilter) return; collectOpen(); _apFilter=v; render(); }; });
     var _critBtn=box.querySelector('#appl-criteria'); if(_critBtn) _critBtn.onclick=function(){ if(typeof _apShowCriteria==='function') _apShowCriteria(); };
     var _addBtn=box.querySelector('#appl-add'); if(_addBtn) _addBtn.onclick=function(){ collectOpen(); applicants.push({stage:'reviewing'}); openIdx=applicants.length-1; if(_apFilter!=='all'&&_apFilter!=='reviewing') _apFilter='reviewing'; render(); };
+    // Add to GoHighLevel (via the ghl-contact edge function) + tag → your workflow runs.
+    Array.prototype.forEach.call(box.querySelectorAll('.appl-ghl'),function(b){ b.onclick=function(e){ e.stopPropagation(); collectOpen(); var i=parseInt(b.getAttribute('data-i'),10); var a=applicants[i]; if(!a) return; if(!(a.name||a.phone||a.email)){ if(typeof toast==='function') toast('Add a name, phone, or email first.','warn'); return; } b.disabled=true; var _o=b.innerHTML; b.innerHTML='<span class="loader" style="width:13px;height:13px;border-width:2px"></span> Adding…'; (async function(){ try{ if(typeof sb==='undefined'||!sb) throw new Error('Not connected'); var r=await sb.functions.invoke('ghl-contact-tenant',{body:{name:a.name||'',email:a.email||'',phone:a.phone||'',address:((typeof _holdFullAddr==='function'?_holdFullAddr(u):'')||u.address||(u.data&&u.data.address)||'')}}); if(r.error) throw r.error; var d=r.data||{}; if(d&&d.error) throw new Error(d.error); if(applicants[i]) applicants[i]._ghlAdded=true; if(typeof toast==='function') toast('Added to GHL.','ok'); render(); }catch(err){ b.disabled=false; b.innerHTML=_o; if(typeof toast==='function') toast('GHL add failed: '+(err.message||err),'err'); } })(); }; });
     box.querySelector('#appl-save').onclick=async function(){
       collectOpen();
       // Only official (reviewing) applicants are persisted; still-locked pre-screens

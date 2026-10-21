@@ -68962,7 +68962,7 @@ window._uwOpenApplicantsModal = function(id, startView){
     // Pull the primary's employer + the household landlord reference (as parts).
     var _refObj=function(relKey,forPrimary){ var rs=(a.references||[]).filter(function(r){ var rel=(r.relationship||'').toLowerCase(); if(rel.indexOf(relKey)<0) return false; if(forPrimary && r.forName && a.name && r.forName!==a.name) return false; return true; }); return rs[0]||{}; };
     var primEmpRef=_refObj('emp',true);
-    var landlordRef=_refObj('land',false);
+    var landlordRefs=(a.references||[]).filter(function(r){ return (r.relationship||'').toLowerCase().indexOf('land')>=0 && (r.company||r.name||r.phone); });
     var moveBtn = locked ? ('<button class="appl-tostage" data-i="'+i+'" style="background:rgba(16,185,129,0.14);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-weight:700">🔓 Move to Reviewing</button>') : '';
     // Per-person "Add to GHL" button (one per adult), shown in each section's corner.
     // Added-state persists in localStorage (keyed by property) so it survives reloads;
@@ -68976,6 +68976,15 @@ window._uwOpenApplicantsModal = function(id, startView){
     var _sub=function(t,first){ return '<div style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#93c5fd;text-transform:uppercase;margin:'+(first?'4px':'16px')+' 0 8px'+(first?'':';border-top:1px solid var(--border);padding-top:12px')+'">'+t+'</div>'; };
     var _grid=function(inner){ return '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'+inner+'</div>'; };
     var _ta=function(l,f,ph,val){ return '<label style="display:block;margin-top:10px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">'+l+'</span><textarea data-f="'+f+'" rows="2"'+(ph?' placeholder="'+ph+'"':'')+' style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(val||'')+'</textarea></label>'; };
+    // Landlord reference block(s) for Household (defined here so _grid/fld exist).
+    var landlordRefsHtml=(function(){ var lrs=landlordRefs.length?landlordRefs:[{}]; return lrs.map(function(lr,li){
+      return '<div style="font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--text-dim);text-transform:uppercase;margin:'+(li===0?'14px':'12px')+' 0 2px">Landlord reference'+(lrs.length>1?(' '+(li+1)):'')+'</div>'
+        +_grid(
+          fld('Company','<input readonly value="'+_esc(lr.company||'')+'" style="'+_istyle+'">','1 1 130px')
+          +fld('Contact name','<input readonly value="'+_esc(lr.name||'')+'" style="'+_istyle+'">','1 1 130px')
+          +fld('Phone','<input readonly value="'+_esc(lr.phone||'')+'" style="'+_istyle+'">','1 1 120px')
+        );
+    }).join(''); })();
     var coHtml=(a.co_applicants&&a.co_applicants.length)?(function(){
       // Read-only field box styled to match the Primary applicant inputs exactly
       // (same <input> element + _istyle, just readonly so it isn't edited/collected).
@@ -69058,12 +69067,7 @@ window._uwOpenApplicantsModal = function(id, startView){
       +_ta('Credit Details','credit_explain','Anything to explain on a credit report',a.credit_explain)
       +_ta('Reason for moving','reason_moving','',a.reason_moving)
       +_ta('Additional notes (from applicant)','notes','',a.notes)
-      +'<div style="font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--text-dim);text-transform:uppercase;margin:14px 0 2px">Landlord reference</div>'
-      +_grid(
-        fld('Company','<input readonly value="'+_esc(landlordRef.company||'')+'" style="'+_istyle+'">','1 1 130px')
-        +fld('Contact name','<input readonly value="'+_esc(landlordRef.name||'')+'" style="'+_istyle+'">','1 1 130px')
-        +fld('Phone','<input readonly value="'+_esc(landlordRef.phone||'')+'" style="'+_istyle+'">','1 1 120px')
-      )
+      +landlordRefsHtml
       +'</div>'
       +'</div>';
     if(locked){ h=h.replace(/<input /g,'<input disabled ').replace(/<select /g,'<select disabled ').replace(/<textarea /g,'<textarea disabled ').replace(/onclick="_apCycleChk\(this\)"/g,'').replace('onclick="_apAddRef(this)"','disabled'); }

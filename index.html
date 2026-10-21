@@ -68964,8 +68964,15 @@ window._uwOpenApplicantsModal = function(id, startView){
     var primEmpRef=_refObj('emp',true);
     var landlordRef=_refObj('land',false);
     var moveBtn = locked ? ('<button class="appl-tostage" data-i="'+i+'" style="background:rgba(16,185,129,0.14);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-weight:700">🔓 Move to Reviewing</button>') : '';
-    var _ghlDone=!!a._ghlAdded;
-    var ghlBtn='<button class="appl-ghl" data-i="'+i+'" title="'+(_ghlDone?'Already added to GoHighLevel — click to re-send':'Create/update this person in GoHighLevel and start the leasing workflow')+'" style="'+(_ghlDone?'background:rgba(34,197,94,0.14);border:1px solid #22c55e;color:#34d399':'background:rgba(59,130,246,0.15);border:1px solid #3b82f6;color:#93c5fd')+';border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-weight:700">'+(_ghlDone?'✓ Added to GHL':'➕ Add as Applicant')+'</button>';
+    // Per-person "Add to GHL" button (one per adult), shown in each section's corner.
+    // Added-state persists in localStorage (keyed by property) so it survives reloads;
+    // the button is still clickable afterward to re-send.
+    var _ghlKey='ghl_added_'+id;
+    var _ghlNames=(function(){ try{ return JSON.parse(localStorage.getItem(_ghlKey)||'[]'); }catch(_){ return []; } })();
+    var ghlPersonBtn=function(pname,pidx){
+      var done=_ghlNames.indexOf(pname)>=0;
+      return '<button class="appl-ghl" data-i="'+i+'" data-person="'+pidx+'" data-pname="'+_esc(pname)+'" title="'+(done?'Already added to GoHighLevel — click to re-send':'Add this person to GoHighLevel and start the leasing workflow')+'" style="flex:0 0 auto;'+(done?'background:rgba(34,197,94,0.14);border:1px solid #22c55e;color:#34d399':'background:rgba(59,130,246,0.15);border:1px solid #3b82f6;color:#93c5fd')+';border-radius:8px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">'+(done?'✓ Added':'➕ Add')+'</button>';
+    };
     var _sub=function(t,first){ return '<div style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#93c5fd;text-transform:uppercase;margin:'+(first?'4px':'16px')+' 0 8px'+(first?'':';border-top:1px solid var(--border);padding-top:12px')+'">'+t+'</div>'; };
     var _grid=function(inner){ return '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'+inner+'</div>'; };
     var _ta=function(l,f,ph,val){ return '<label style="display:block;margin-top:10px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">'+l+'</span><textarea data-f="'+f+'" rows="2"'+(ph?' placeholder="'+ph+'"':'')+' style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(val||'')+'</textarea></label>'; };
@@ -68974,11 +68981,11 @@ window._uwOpenApplicantsModal = function(id, startView){
       // (same <input> element + _istyle, just readonly so it isn't edited/collected).
       // Same field wrapper + sizes as the Primary applicant (readonly, not collected).
       var rf=function(l,v,flex,minw){ return '<div style="flex:'+(flex||'1 1 180px')+';min-width:'+(minw||'150px')+'"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">'+l+'</label><input readonly value="'+_esc((v==null||v==='')?'':v)+'" style="'+_istyle+'"></div>'; };
-      var row=function(c,n){
+      var row=function(c,n,pidx){
         var incM=c.income_yearly!=null?('$'+Number(Math.round(c.income_yearly/12)).toLocaleString()+' /mo'):'';
         var erref=[c.employer_ref_company,c.employer_ref_name,c.employer_ref_phone].filter(Boolean).join('  ·  ');
         return '<div style="border:1px solid #3b82f6;border-radius:9px;background:rgba(59,130,246,0.05);padding:11px 12px;margin-top:10px">'
-          +'<div style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#93c5fd;text-transform:uppercase;margin-bottom:8px">'+_esc(c.name||('Co-applicant '+n))+'</div>'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><div style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#93c5fd;text-transform:uppercase">'+_esc(c.name||('Co-applicant '+n))+'</div>'+ghlPersonBtn((c.name&&c.name.trim())||('Co-applicant '+n),pidx)+'</div>'
           +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
             +rf('Name',c.name,'2 1 160px','130px')+rf('Phone',c.phone,'1 1 120px','120px')+rf('Email',c.email,'2 1 170px','150px')
           +'</div>'
@@ -68991,10 +68998,10 @@ window._uwOpenApplicantsModal = function(id, startView){
           +'</div>'
         +'</div>';
       };
-      return '<div style="margin-bottom:14px;border:1px solid #3b82f6;border-radius:12px;padding:12px 14px;background:rgba(59,130,246,0.05);box-shadow:0 0 0 1px rgba(59,130,246,0.25)"><div style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#93c5fd;text-transform:uppercase">Co-applicants ('+a.co_applicants.length+')</div>'+a.co_applicants.map(function(c,i){return row(c,i+2);}).join('')+'</div>';
+      return '<div style="margin-bottom:14px;border:1px solid #3b82f6;border-radius:12px;padding:12px 14px;background:rgba(59,130,246,0.05);box-shadow:0 0 0 1px rgba(59,130,246,0.25)"><div style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#93c5fd;text-transform:uppercase">Co-applicants ('+a.co_applicants.length+')</div>'+a.co_applicants.map(function(c,k){return row(c,k+2,k+1);}).join('')+'</div>';
     })():'';
     var h='<div class="appl-card" style="padding:4px 12px 12px 12px">'
-      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 12px">'+ghlBtn+moveBtn+'</div>'
+      +(moveBtn?('<div style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 12px">'+moveBtn+'</div>'):'')
       // ===== Screening + your notes (at the very top) =====
       +'<div style="margin-bottom:14px">'
       +_sub('Screening &amp; notes',true)
@@ -69011,7 +69018,7 @@ window._uwOpenApplicantsModal = function(id, startView){
       })():'')
       // ===== Primary applicant =====
       +'<div style="border:1px solid #a855f7;border-radius:12px;padding:12px 14px;margin-bottom:14px;background:rgba(168,85,247,0.05);box-shadow:0 0 0 1px rgba(168,85,247,0.25)">'
-      +_sub('Primary applicant',true)
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'+_sub('Primary applicant',true)+ghlPersonBtn((a.name&&a.name.trim())||'Primary applicant',0)+'</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
         +'<div style="flex:2 1 160px;min-width:130px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Name</label><input data-f="name" value="'+_esc(a.name||'')+'" style="'+_istyle+'"></div>'
         +'<div style="flex:1 1 120px;min-width:120px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Phone</label><input data-f="phone" type="tel" value="'+_esc(a.phone||'')+'" style="'+_istyle+'"></div>'
@@ -69065,7 +69072,9 @@ window._uwOpenApplicantsModal = function(id, startView){
   // One collapsed/expanded list item (header always; body only when open).
   function itemHtml(a,i){
     a=a||{};
-    var nm=(a.name&&a.name.trim())||('Applicant '+(i+1));
+    // Title lists every adult (primary + co-applicants): "Log, Tim, and Harry".
+    var _allNames=[(a.name&&a.name.trim())||''].concat((Array.isArray(a.co_applicants)?a.co_applicants:[]).map(function(c){return (c&&c.name||'').trim();})).filter(Boolean);
+    var nm = _allNames.length ? (_allNames.length===1?_allNames[0]:(_allNames.length===2?(_allNames[0]+' and '+_allNames[1]):(_allNames.slice(0,-1).join(', ')+', and '+_allNames[_allNames.length-1]))) : ('Applicant '+(i+1));
     var st=a.status||'';
     var stColor=st==='Approved'?'#10b981':(st==='Denied'?'#f87171':(st==='Applied'?'#fbbf24':'var(--text-dim)'));
     var stage=a.stage||'reviewing'; if(stage!=='prescreen'&&stage!=='qualified'&&stage!=='unqualified') stage='reviewing';
@@ -69081,7 +69090,7 @@ window._uwOpenApplicantsModal = function(id, startView){
       +((stage!=='prescreen' && !a._preappId && !st)
           ? '<span title="Added manually (did not apply online)" style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;color:#34d399;background:rgba(34,197,94,0.14);border:1px solid rgba(34,197,94,0.45)">Manual</span>'
           : (st?'<span style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;color:'+stColor+';background:transparent;border:1px solid '+stColor+'">'+_esc(st)+'</span>':''))
-      +(a._ghlAdded?'<span title="Added to GoHighLevel" style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;color:#34d399;background:rgba(34,197,94,0.14);border:1px solid rgba(34,197,94,0.45);white-space:nowrap">✓ GHL</span>':'')
+      +((function(){ var added=0,tot=_allNames.length; try{ var _set=JSON.parse(localStorage.getItem('ghl_added_'+id)||'[]'); added=_allNames.filter(function(n){return _set.indexOf(n)>=0;}).length; }catch(_){ } if(!added) return ''; var lbl=(added>=tot&&tot>0)?'✓ GHL':('✓ GHL '+added+'/'+tot); return '<span title="Added to GoHighLevel" style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;color:#34d399;background:rgba(34,197,94,0.14);border:1px solid rgba(34,197,94,0.45);white-space:nowrap">'+lbl+'</span>'; })())
       +(stage==='prescreen'||a._deleted?'':'<span style="font-size:11px;color:'+(done===CHECK.length?'#34d399':'var(--text-dim)')+';white-space:nowrap;font-weight:600">🟢 '+done+' / '+CHECK.length+' cleared</span>')
       +(a._deleted
           ? '<button type="button" class="appl-restore" data-i="'+i+'" title="Restore this applicant" style="flex-shrink:0;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.5);color:#34d399;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:700">♻ Restore</button>'
@@ -69141,7 +69150,7 @@ window._uwOpenApplicantsModal = function(id, startView){
     var _critBtn=box.querySelector('#appl-criteria'); if(_critBtn) _critBtn.onclick=function(){ if(typeof _apShowCriteria==='function') _apShowCriteria(); };
     var _addBtn=box.querySelector('#appl-add'); if(_addBtn) _addBtn.onclick=function(){ collectOpen(); applicants.push({stage:'reviewing'}); openIdx=applicants.length-1; if(_apFilter!=='all'&&_apFilter!=='reviewing') _apFilter='reviewing'; render(); };
     // Add to GoHighLevel (via the ghl-contact edge function) + tag → your workflow runs.
-    Array.prototype.forEach.call(box.querySelectorAll('.appl-ghl'),function(b){ b.onclick=function(e){ e.stopPropagation(); collectOpen(); var i=parseInt(b.getAttribute('data-i'),10); var a=applicants[i]; if(!a) return; if(!(a.name||a.phone||a.email)){ if(typeof toast==='function') toast('Add a name, phone, or email first.','warn'); return; } b.disabled=true; var _o=b.innerHTML; b.innerHTML='<span class="loader" style="width:13px;height:13px;border-width:2px"></span> Adding…'; (async function(){ try{ if(typeof sb==='undefined'||!sb) throw new Error('Not connected'); var _addr2=((typeof _holdFullAddr==='function'?_holdFullAddr(u):'')||u.address||(u.data&&u.data.address)||''); var _people=[{name:a.name||'',email:a.email||'',phone:a.phone||''}]; if(Array.isArray(a.co_applicants)) a.co_applicants.forEach(function(c){ if(c&&(c.name||c.phone||c.email)) _people.push({name:c.name||'',email:c.email||'',phone:c.phone||''}); }); for(var _pi=0;_pi<_people.length;_pi++){ var r=await sb.functions.invoke('ghl-contact-tenant',{body:{name:_people[_pi].name,email:_people[_pi].email,phone:_people[_pi].phone,address:_addr2}}); if(r.error) throw r.error; var d=r.data||{}; if(d&&d.error) throw new Error(d.error); } if(applicants[i]) applicants[i]._ghlAdded=true; if(typeof toast==='function') toast('Added to GHL.','ok'); render(); }catch(err){ b.disabled=false; b.innerHTML=_o; if(typeof toast==='function') toast('GHL add failed: '+(err.message||err),'err'); } })(); }; });
+    Array.prototype.forEach.call(box.querySelectorAll('.appl-ghl'),function(b){ b.onclick=function(e){ e.stopPropagation(); collectOpen(); var i=parseInt(b.getAttribute('data-i'),10); var a=applicants[i]; if(!a) return; var pidx=parseInt(b.getAttribute('data-person'),10)||0; var pname=b.getAttribute('data-pname')||''; var person = pidx===0 ? {name:a.name||'',email:a.email||'',phone:a.phone||''} : ((Array.isArray(a.co_applicants)&&a.co_applicants[pidx-1])?{name:a.co_applicants[pidx-1].name||'',email:a.co_applicants[pidx-1].email||'',phone:a.co_applicants[pidx-1].phone||''}:null); if(!person||!(person.name||person.phone||person.email)){ if(typeof toast==='function') toast('This person needs a name, phone, or email first.','warn'); return; } b.disabled=true; var _o=b.innerHTML; b.innerHTML='<span class="loader" style="width:13px;height:13px;border-width:2px"></span> Adding…'; (async function(){ try{ if(typeof sb==='undefined'||!sb) throw new Error('Not connected'); var _addr2=((typeof _holdFullAddr==='function'?_holdFullAddr(u):'')||u.address||(u.data&&u.data.address)||''); var r=await sb.functions.invoke('ghl-contact-tenant',{body:{name:person.name,email:person.email,phone:person.phone,address:_addr2}}); if(r.error) throw r.error; var d=r.data||{}; if(d&&d.error) throw new Error(d.error); try{ var _k='ghl_added_'+id; var _set=JSON.parse(localStorage.getItem(_k)||'[]'); if(_set.indexOf(pname)<0) _set.push(pname); localStorage.setItem(_k, JSON.stringify(_set)); }catch(_){} if(typeof toast==='function') toast('Added '+(person.name||'contact')+' to GHL.','ok'); render(); }catch(err){ b.disabled=false; b.innerHTML=_o; if(typeof toast==='function') toast('GHL add failed: '+(err.message||err),'err'); } })(); }; });
     box.querySelector('#appl-save').onclick=async function(){
       collectOpen();
       // Only official (reviewing) applicants are persisted; still-locked pre-screens

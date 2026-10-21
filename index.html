@@ -145,6 +145,17 @@
   #uw-ifp-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 40px; margin-top: 4px; border-radius: 6px; background: #fff; box-shadow: 0 0 0 2px #a855f7, 0 2px 6px rgba(0,0,0,0.35); cursor: pointer; }
   #uw-ifp-slider::-moz-range-thumb { width: 12px; height: 40px; border: none; border-radius: 6px; background: #fff; box-shadow: 0 0 0 2px #a855f7, 0 2px 6px rgba(0,0,0,0.35); cursor: pointer; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand); }
+  /* Applicants modal: keep readonly/disabled fields the same grey box + white text
+     as editable ones, so every field looks consistent. */
+  #appl-modal input[readonly], #appl-modal input:read-only,
+  #appl-modal input[disabled], #appl-modal select[disabled], #appl-modal textarea[disabled],
+  #appl-modal textarea:read-only {
+    background: var(--panel-2) !important;
+    color: var(--text) !important;
+    -webkit-text-fill-color: var(--text) !important;
+    opacity: 1 !important;
+    cursor: default;
+  }
   /* Compact "Choose File" button so file inputs render at the same height
      as regular text inputs (the native button chrome would otherwise add
      ~10px of extra height). */
@@ -32045,11 +32056,13 @@ function _holdPreAppsFor(u){ var k=_holdFullAddr(u).trim().toLowerCase(); var al
 // Map a public pre-application into the applicant shape used by the Applicants
 // modal, so pre-screen entries render in the exact same card (locked fields).
 window._holdPreAppToApplicant=function(p){
-  var refs=[];
-  if(p.landlord_ref_name||p.landlord_ref_phone||p.landlord_ref_company) refs.push({company:p.landlord_ref_company||'',name:p.landlord_ref_name||'',phone:p.landlord_ref_phone||'',relationship:'Landlord'});
-  if(p.employer_ref_name||p.employer_ref_phone||p.employer_ref_company) refs.push({company:p.employer_ref_company||'',name:p.employer_ref_name||'',phone:p.employer_ref_phone||'',relationship:'Employer'});
+  var refs=[]; var _pn=p.applicant_name||'Primary applicant';
+  if(p.landlord_ref_name||p.landlord_ref_phone||p.landlord_ref_company) refs.push({company:p.landlord_ref_company||'',name:p.landlord_ref_name||'',phone:p.landlord_ref_phone||'',relationship:'Landlord',forName:_pn});
+  if(p.employer_ref_name||p.employer_ref_phone||p.employer_ref_company) refs.push({company:p.employer_ref_company||'',name:p.employer_ref_name||'',phone:p.employer_ref_phone||'',relationship:'Employer',forName:_pn});
   var _xr=p.extra_refs; if(typeof _xr==='string'){ try{ _xr=JSON.parse(_xr); }catch(_){ _xr=null; } }
-  if(Array.isArray(_xr)) _xr.forEach(function(r){ if(r&&(r.name||r.phone||r.company)) refs.push({company:r.company||'',name:r.name||'',phone:r.phone||'',relationship:r.relationship||'Reference'}); });
+  if(Array.isArray(_xr)) _xr.forEach(function(r){ if(r&&(r.name||r.phone||r.company)) refs.push({company:r.company||'',name:r.name||'',phone:r.phone||'',relationship:r.relationship||'Reference',forName:_pn}); });
+  // Co-applicants' employer references, tagged with each co-applicant's name.
+  (function(){ var cos=p.co_applicants; if(typeof cos==='string'){ try{ cos=JSON.parse(cos); }catch(_){ cos=null; } } if(Array.isArray(cos)) cos.forEach(function(c){ if(c&&(c.employer_ref_name||c.employer_ref_phone||c.employer_ref_company)) refs.push({company:c.employer_ref_company||'',name:c.employer_ref_name||'',phone:c.employer_ref_phone||'',relationship:'Employer',forName:c.name||'Co-applicant'}); }); })();
   return { name:p.applicant_name||'', phone:p.phone||'', email:p.email||'', status:'Applied', moveIn:p.move_in_date||'',
     monthly_income:p.monthly_income, est_credit_score:p.est_credit_score, employer:p.employer, employer_months:p.employer_months,
     prev_address_time:p.prev_address_time, occupants_adults:p.occupants_adults, occupants_kids:p.occupants_kids,
@@ -32206,21 +32219,31 @@ function _holdScreen(a,u){
   var P='pass',F='fail',R='review',N='na',out=[];
   // Each row: subject (what it is), req (your criteria), val (what they gave), state.
   function add(subject,req,val,state){ out.push({subject:subject,req:req,val:val||'—',state:state}); }
+  // When there are co-applicants, Credit + Employment grade on the WEAKEST adult
+  // (every adult is screened, so the lowest band is what matters).
+  var _cos=(a.co_applicants&&a.co_applicants.length)?a.co_applicants:[];
+  function _worst(vals,rank){ var best=null,bi=Infinity; vals.forEach(function(v){ if(v==null||v==='') return; var r=rank.indexOf(v); if(r<0) return; if(r<bi){bi=r;best=v;} }); return best; }
+  var _CREDRANK=['Under 550','550-600','600-650','650-700','700+'];
+  var _TENRANK=['Under 12 months','1-2 years','2+ years','3+ years'];
+  var _credVals=[a.est_credit_score].concat(_cos.map(function(c){return c.credit;}));
+  var _empVals =[a.employer_months].concat(_cos.map(function(c){return c.employer_months;}));
+  var _worstCred=_worst(_credVals,_CREDRANK);
+  var _worstEmp =_worst(_empVals,_TENRANK);
   // Income >= 3x rent
   if(a.monthly_income!=null && rent!=null){
     var need=rent*3, ratio=a.monthly_income/rent;
     add('Income', '3× rent = $'+Number(need).toLocaleString()+'/mo', '$'+Number(a.monthly_income).toLocaleString()+'/mo ('+ratio.toFixed(2)+'×)', a.monthly_income>=need?P:(ratio>=2.75?R:F));
   } else add('Income','3× rent', rent==null?'set a rent first':(a.monthly_income!=null?('$'+Number(a.monthly_income).toLocaleString()+'/mo'):'not given'), N);
-  // Credit 580+
-  var c=a.est_credit_score||'';
+  // Credit 580+ (lowest band across all adults)
+  var c=_worstCred||a.est_credit_score||'';
   var cs = (c==='700+'||c==='650-700'||c==='600-650')?P : (c==='550-600'?R : (c==='Under 550'?F:N));
-  add('Credit', '580+', c?(c+(cs===R?' (2-mo deposit)':'')):'not given', cs);
+  add('Credit', '580+', c?(c+(_cos.length?' (lowest)':'')+(cs===R?' (2-mo deposit)':'')):'not given', cs);
   // Evictions / convictions
   add('Evictions (5 yrs)', 'None', a.evictions===true?'Reported':(a.evictions===false?'None':'not given'), a.evictions===true?F:(a.evictions===false?P:N));
   add('Convictions (7 yrs)', 'None', a.convictions===true?'Reported':(a.convictions===false?'None':'not given'), a.convictions===true?F:(a.convictions===false?P:N));
-  // Employment tenure 12+ mo same employer
-  var em=a.employer_months||'';
-  add('Employment', '12+ mo, same employer', em||'not given', (em==='1-2 years'||em==='2+ years'||em==='3+ years')?P:(em==='Under 12 months'?F:N));
+  // Employment tenure 12+ mo same employer (shortest tenure across all adults)
+  var em=_worstEmp||a.employer_months||'';
+  add('Employment', '12+ mo, same employer', (em||'not given')+(em&&_cos.length?' (lowest)':''), (em==='1-2 years'||em==='2+ years'||em==='3+ years')?P:(em==='Under 12 months'?F:N));
   // Rental history 2+ yrs
   var rh=a.prev_address_time||'';
   add('Rental history', '2+ years', rh||'not given', (rh==='2+ years'||rh==='3+ years')?P:(rh==='1-2 years'?R:(rh==='Under 12 months'?F:N)));
@@ -32348,11 +32371,12 @@ async function _holdImportPreApp(id, appId){
     if(a.evictions===true) noteBits.push('⚠ Eviction in last 5y');
     if(a.convictions===true) noteBits.push('⚠ Conviction 7y'+(a.convictions_detail?(': '+a.convictions_detail):''));
     if(a.prev_address_time) noteBits.push('At residence: '+a.prev_address_time);
-    var refs=[];
-    if(a.landlord_ref_name||a.landlord_ref_phone||a.landlord_ref_company) refs.push({company:a.landlord_ref_company||'',name:a.landlord_ref_name||'',phone:a.landlord_ref_phone||'',relationship:'Landlord'});
-    if(a.employer_ref_name||a.employer_ref_phone||a.employer_ref_company) refs.push({company:a.employer_ref_company||'',name:a.employer_ref_name||'',phone:a.employer_ref_phone||'',relationship:'Employer'});
+    var refs=[]; var _apn=a.applicant_name||'Primary applicant';
+    if(a.landlord_ref_name||a.landlord_ref_phone||a.landlord_ref_company) refs.push({company:a.landlord_ref_company||'',name:a.landlord_ref_name||'',phone:a.landlord_ref_phone||'',relationship:'Landlord',forName:_apn});
+    if(a.employer_ref_name||a.employer_ref_phone||a.employer_ref_company) refs.push({company:a.employer_ref_company||'',name:a.employer_ref_name||'',phone:a.employer_ref_phone||'',relationship:'Employer',forName:_apn});
     var _xr2=a.extra_refs; if(typeof _xr2==='string'){ try{ _xr2=JSON.parse(_xr2); }catch(_){ _xr2=null; } }
-    if(Array.isArray(_xr2)) _xr2.forEach(function(r){ if(r&&(r.name||r.phone||r.company)) refs.push({company:r.company||'',name:r.name||'',phone:r.phone||'',relationship:r.relationship||'Reference'}); });
+    if(Array.isArray(_xr2)) _xr2.forEach(function(r){ if(r&&(r.name||r.phone||r.company)) refs.push({company:r.company||'',name:r.name||'',phone:r.phone||'',relationship:r.relationship||'Reference',forName:_apn}); });
+    (function(){ var cos=a.co_applicants; if(typeof cos==='string'){ try{ cos=JSON.parse(cos); }catch(_){ cos=null; } } if(Array.isArray(cos)) cos.forEach(function(c){ if(c&&(c.employer_ref_name||c.employer_ref_phone||c.employer_ref_company)) refs.push({company:c.employer_ref_company||'',name:c.employer_ref_name||'',phone:c.employer_ref_phone||'',relationship:'Employer',forName:c.name||'Co-applicant'}); }); })();
     d._applicants.push({ name:a.applicant_name||'', phone:a.phone||'', email:a.email||'', status:'Applied', moveIn:a.move_in_date||'',
       monthly_income:a.monthly_income, est_credit_score:a.est_credit_score, employer:a.employer, employer_months:a.employer_months,
       prev_address_time:a.prev_address_time, occupants_adults:a.occupants_adults, occupants_kids:a.occupants_kids,
@@ -68737,7 +68761,7 @@ window._uwOpenAccountsModal=_uwOpenAccountsModal;
 window._apChkColor = function(s){ return s==='yellow'?'#fbbf24':(s==='green'?'#10b981':(s==='red'?'#ef4444':'transparent')); };
 // Full chip style for a given state — the whole pill is colored, word inside.
 window._apChipCss = function(s){
-  var base='display:inline-flex;align-items:center;padding:6px 16px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;user-select:none;margin:4px 9px 4px 0;border:1px solid;white-space:nowrap';
+  var base='display:inline-flex;align-items:center;padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;user-select:none;margin:3px 7px 3px 0;border:1px solid;white-space:nowrap';
   var c;
   if(s==='yellow') c='background:rgba(251,191,36,0.22);border-color:#fbbf24;color:#fbbf24';
   else if(s==='green') c='background:rgba(16,185,129,0.22);border-color:#10b981;color:#34d399';
@@ -68760,6 +68784,7 @@ window._apRefRowHtml = function(r){
   var opt=function(v){ return '<option'+(relType===v?' selected':'')+'>'+v+'</option>'; };
   return '<div class="appl-ref" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'
     +'<select data-rf="relationship" title="Reference type" style="flex:0 0 auto;width:110px;font-size:12px;padding:5px 7px;box-sizing:border-box;font-weight:700">'+opt('Landlord')+opt('Employer')+opt('Other')+'</select>'
+    +'<input data-rf="forName" placeholder="For (applicant)" value="'+e(r.forName)+'" title="Which applicant this reference is for" style="flex:1 1 120px;min-width:100px;font-size:12.5px;padding:5px 7px;box-sizing:border-box;font-weight:600">'
     +'<input data-rf="company" placeholder="Company Name" value="'+e(r.company)+'" style="flex:2 1 150px;min-width:120px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
     +'<input data-rf="name" placeholder="Contact Name" value="'+e(r.name)+'" style="flex:2 1 140px;min-width:110px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
     +'<input data-rf="phone" type="tel" placeholder="Phone Number" value="'+e(r.phone)+'" style="flex:1 1 130px;min-width:120px;font-size:12.5px;padding:5px 7px;box-sizing:border-box">'
@@ -68930,54 +68955,109 @@ window._uwOpenApplicantsModal = function(id, startView){
     var selRange=function(f,val,opts){ return '<select data-f="'+f+'" style="'+_istyle+'"><option value="">—</option>'+opts.map(function(o){return '<option '+((val||'')===o?'selected':'')+'>'+o+'</option>';}).join('')+'</select>'; };
     var CRED=['Under 550','550-600','600-650','650-700','700+'], TEN=['Under 12 months','1-2 years','2+ years'];
     var incVal=(a.monthly_income!=null&&a.monthly_income!=='')?('$'+Number(a.monthly_income).toLocaleString()):'';
-    var moveBtn = locked ? ('<div style="margin:2px 0 12px"><button class="appl-tostage" data-i="'+i+'" style="background:rgba(16,185,129,0.14);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-weight:700">🔓 Move to Reviewing</button></div>') : '';
+    // Primary's own monthly income = combined household − co-applicants' monthly.
+    var _coMoSum=(a.co_applicants||[]).reduce(function(s,c){return s+(c.income_yearly!=null?Math.round(c.income_yearly/12):0);},0);
+    var _primMo=(a.monthly_income!=null&&a.monthly_income!=='')?Math.max(0,Number(a.monthly_income)-_coMoSum):null;
+    var primMoVal=_primMo!=null?('$'+Number(_primMo).toLocaleString()+' /mo'):'';
+    // Pull the primary's employer + the household landlord reference (as parts).
+    var _refObj=function(relKey,forPrimary){ var rs=(a.references||[]).filter(function(r){ var rel=(r.relationship||'').toLowerCase(); if(rel.indexOf(relKey)<0) return false; if(forPrimary && r.forName && a.name && r.forName!==a.name) return false; return true; }); return rs[0]||{}; };
+    var primEmpRef=_refObj('emp',true);
+    var landlordRef=_refObj('land',false);
+    var moveBtn = locked ? ('<button class="appl-tostage" data-i="'+i+'" style="background:rgba(16,185,129,0.14);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-weight:700">🔓 Move to Reviewing</button>') : '';
     var _ghlDone=!!a._ghlAdded;
-    var ghlBtn='<div style="margin:2px 0 12px"><button class="appl-ghl" data-i="'+i+'" title="'+(_ghlDone?'Already added to GoHighLevel — click to re-send':'Create/update this person in GoHighLevel and start the leasing workflow')+'" style="'+(_ghlDone?'background:rgba(34,197,94,0.14);border:1px solid #22c55e;color:#34d399':'background:rgba(59,130,246,0.15);border:1px solid #3b82f6;color:#93c5fd')+';border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-weight:700">'+(_ghlDone?'✓ Added to GHL':'➕ Add as Applicant')+'</button></div>';
+    var ghlBtn='<button class="appl-ghl" data-i="'+i+'" title="'+(_ghlDone?'Already added to GoHighLevel — click to re-send':'Create/update this person in GoHighLevel and start the leasing workflow')+'" style="'+(_ghlDone?'background:rgba(34,197,94,0.14);border:1px solid #22c55e;color:#34d399':'background:rgba(59,130,246,0.15);border:1px solid #3b82f6;color:#93c5fd')+';border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12.5px;font-weight:700">'+(_ghlDone?'✓ Added to GHL':'➕ Add as Applicant')+'</button>';
+    var _sub=function(t,first){ return '<div style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#93c5fd;text-transform:uppercase;margin:'+(first?'4px':'16px')+' 0 8px'+(first?'':';border-top:1px solid var(--border);padding-top:12px')+'">'+t+'</div>'; };
+    var _grid=function(inner){ return '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'+inner+'</div>'; };
+    var _ta=function(l,f,ph,val){ return '<label style="display:block;margin-top:10px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">'+l+'</span><textarea data-f="'+f+'" rows="2"'+(ph?' placeholder="'+ph+'"':'')+' style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(val||'')+'</textarea></label>'; };
+    var coHtml=(a.co_applicants&&a.co_applicants.length)?(function(){
+      // Read-only field box styled to match the Primary applicant inputs exactly
+      // (same <input> element + _istyle, just readonly so it isn't edited/collected).
+      // Same field wrapper + sizes as the Primary applicant (readonly, not collected).
+      var rf=function(l,v,flex,minw){ return '<div style="flex:'+(flex||'1 1 180px')+';min-width:'+(minw||'150px')+'"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">'+l+'</label><input readonly value="'+_esc((v==null||v==='')?'':v)+'" style="'+_istyle+'"></div>'; };
+      var row=function(c,n){
+        var incM=c.income_yearly!=null?('$'+Number(Math.round(c.income_yearly/12)).toLocaleString()+' /mo'):'';
+        var erref=[c.employer_ref_company,c.employer_ref_name,c.employer_ref_phone].filter(Boolean).join('  ·  ');
+        return '<div style="border:1px solid #3b82f6;border-radius:9px;background:rgba(59,130,246,0.05);padding:11px 12px;margin-top:10px">'
+          +'<div style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#93c5fd;text-transform:uppercase;margin-bottom:8px">'+_esc(c.name||('Co-applicant '+n))+'</div>'
+          +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
+            +rf('Name',c.name,'2 1 160px','130px')+rf('Phone',c.phone,'1 1 120px','120px')+rf('Email',c.email,'2 1 170px','150px')
+          +'</div>'
+          +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:8px">'
+            +rf('Credit score',c.credit,'1 1 130px')+rf('Employer',c.employer,'1 1 150px')+rf('Employer tenure',c.employer_months,'1 1 130px')+rf('Monthly income',incM,'1 1 130px')
+          +'</div>'
+          +'<div style="font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--text-dim);text-transform:uppercase;margin:12px 0 2px">Employer reference</div>'
+          +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
+            +rf('Company',c.employer_ref_company,'1 1 130px')+rf('Contact name',c.employer_ref_name,'1 1 130px')+rf('Phone',c.employer_ref_phone,'1 1 120px')
+          +'</div>'
+        +'</div>';
+      };
+      return '<div style="margin-bottom:14px;border:1px solid #3b82f6;border-radius:12px;padding:12px 14px;background:rgba(59,130,246,0.05);box-shadow:0 0 0 1px rgba(59,130,246,0.25)"><div style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#93c5fd;text-transform:uppercase">Co-applicants ('+a.co_applicants.length+')</div>'+a.co_applicants.map(function(c,i){return row(c,i+2);}).join('')+'</div>';
+    })():'';
     var h='<div class="appl-card" style="padding:4px 12px 12px 12px">'
-      +ghlBtn
-      +moveBtn
-      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
-      +'<div style="flex:2 1 160px;min-width:130px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Name</label><input data-f="name" value="'+_esc(a.name||'')+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"></div>'
-      +'<div style="flex:1 1 120px;min-width:120px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Phone</label><input data-f="phone" type="tel" value="'+_esc(a.phone||'')+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"></div>'
-      +'<div style="flex:2 1 170px;min-width:150px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Email</label><input data-f="email" type="email" value="'+_esc(a.email||'')+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"></div>'
-      +'<div style="flex:1 1 110px;min-width:110px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Status</label><select data-f="status" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"><option value="">—</option>'+statusOpts+'</select></div>'
-      +'<div style="flex:1 1 130px;min-width:120px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Move-in date</label><input data-f="moveIn" type="date" value="'+_esc(a.moveIn||'')+'" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box"></div>'
-      +'</div>'
-      +'<div style="margin-top:14px"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:7px"><span style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">Screening checklist</span><span style="font-size:11px;color:var(--text-dim)">Click to cycle: <span style="color:var(--text-dim)">⚪ not started</span> · <span style="color:#fbbf24">🟡 in progress</span> · <span style="color:#34d399">🟢 cleared</span> · <span style="color:#f87171">🔴 concern</span></span></div><div style="display:flex;flex-wrap:wrap">'+checks+'</div></div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 12px">'+ghlBtn+moveBtn+'</div>'
+      // ===== Screening + your notes (at the very top) =====
+      +'<div style="margin-bottom:14px">'
+      +_sub('Screening &amp; notes',true)
+      +'<div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:7px"><span style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">Screening checklist</span><span style="font-size:11px;color:var(--text-dim)">Click to cycle: <span style="color:var(--text-dim)">⚪ not started</span> · <span style="color:#fbbf24">🟡 in progress</span> · <span style="color:#34d399">🟢 cleared</span> · <span style="color:#f87171">🔴 concern</span></span></div><div style="display:flex;flex-wrap:wrap">'+checks+'</div></div>'
       +'<div style="margin-top:14px"><div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600;margin-bottom:7px">Move-In Checklist</div><div style="display:flex;flex-wrap:wrap">'+moveins+'</div></div>'
       +'<div style="margin-top:12px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">My notes <span style="opacity:.7">(private)</span></label><textarea data-f="ownNotes" rows="2" placeholder="Your own notes about this applicant…" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.ownNotes||'')+'</textarea></div>'
-      +'<details open style="margin-top:14px;border:1px solid #eab308;border-radius:10px;padding:10px 12px;background:rgba(234,179,8,0.06);box-shadow:0 0 0 1px rgba(234,179,8,0.35),0 0 14px rgba(234,179,8,0.28)"><summary style="cursor:pointer;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">Application details</summary>'
-      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:9px">'
-        +fld('Monthly income','<input data-f="monthly_income" inputmode="numeric" value="'+_esc(incVal)+'" placeholder="$4,167" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')?(\'$\'+Number(this.value.replace(/[^0-9]/g,\'\')).toLocaleString()):\'\'" style="'+_istyle+'">')
-        +fld('Credit score',selRange('est_credit_score',a.est_credit_score,CRED))
-        +fld('Employer','<input data-f="employer" value="'+_esc(a.employer||'')+'" style="'+_istyle+'">','2 1 160px')
-        +fld('Employer tenure',selRange('employer_months',a.employer_months,TEN))
-        +fld('Rental history',selRange('prev_address_time',a.prev_address_time,TEN))
-        +fld('18+ occupants','<input data-f="occupants_adults" type="number" min="0" value="'+_esc(a.occupants_adults!=null?a.occupants_adults:'')+'" style="'+_istyle+'">','1 1 90px')
-        +fld('Total occupants','<input data-f="occupants_total" type="number" min="0" value="'+_esc((a.occupants_adults!=null||a.occupants_kids!=null)?((Number(a.occupants_adults)||0)+(Number(a.occupants_kids)||0)):'')+'" style="'+_istyle+'">','1 1 110px')
-        +fld('Lease term',selRange('lease_term',a.lease_term,['12 months','18 months','24 months']),'1 1 120px')
-        +fld('Smoker',selYN('smoker',a.smoker),'1 1 90px')
-        +fld('Evictions (5y)',selYN('evictions',a.evictions),'1 1 90px')
-        +fld('Convictions (7y)',selYN('convictions',a.convictions),'1 1 90px')
       +'</div>'
-      +'<label style="display:block;margin-top:12px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Background Details</span><textarea data-f="convictions_detail" rows="2" placeholder="Anything to explain on a background check" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.convictions_detail||'')+'</textarea></label>'
-      +'<label style="display:block;margin-top:12px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Credit Details</span><textarea data-f="credit_explain" rows="2" placeholder="Anything to explain on a credit report" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.credit_explain||'')+'</textarea></label>'
-      +'<label style="display:block;margin-top:12px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Reason for moving</span><textarea data-f="reason_moving" rows="2" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.reason_moving||'')+'</textarea></label>'
-      +'<label style="display:block;margin-top:10px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Pets</span><textarea data-f="pets" rows="2" placeholder="Type / breed / weight — or none" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.pets||'')+'</textarea></label>'
-      +'<label style="display:block;margin-top:10px"><span style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Additional notes <span style="opacity:.7">(from applicant)</span></span><textarea data-f="notes" rows="2" style="width:100%;font-size:12.5px;padding:5px 7px;box-sizing:border-box;resize:vertical">'+_esc(a.notes||'')+'</textarea></label>'
-      +'</details>'
-      +((a.co_applicants&&a.co_applicants.length)?(function(){
-        var row=function(c,n){ var bits=[(c.credit?'Credit '+c.credit:''),(c.income_yearly!=null?'$'+Number(c.income_yearly).toLocaleString()+'/yr':''),(c.employer?'Employer: '+c.employer+(c.employer_months?(' ('+c.employer_months+')'):''):'')].filter(Boolean).join(' · ');
-          return '<div style="border-top:1px solid var(--border);padding:7px 0;font-size:12px"><div style="font-weight:700">'+_esc(c.name||('Co-applicant '+n))+'</div>'+((c.phone||c.email)?'<div style="color:var(--text-dim);font-size:11px">'+_esc([c.phone,c.email].filter(Boolean).join(' · '))+'</div>':'')+(bits?'<div style="color:var(--text-dim);font-size:11px;margin-top:1px">'+_esc(bits)+'</div>':'')+'</div>'; };
-        return '<div style="margin-top:12px;border:1px solid #6366f1;border-radius:10px;padding:10px 12px;background:rgba(99,102,241,0.06)"><div style="font-size:11px;font-weight:800;letter-spacing:.4px;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px">Co-applicants ('+a.co_applicants.length+')</div>'+a.co_applicants.map(function(c,i){return row(c,i+2);}).join('')+'<div style="font-size:10.5px;color:var(--text-dim);margin-top:6px">Income is combined into the household total above. Each adult should be screened individually.</div></div>';
-      })():'')
-      +'<details open style="margin-top:12px;border:1px solid #22c55e;border-radius:10px;padding:10px 12px;background:rgba(34,197,94,0.06);box-shadow:0 0 0 1px rgba(34,197,94,0.35),0 0 14px rgba(34,197,94,0.28)"><summary style="cursor:pointer;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">References'+((a.references&&a.references.length)?' ('+a.references.length+')':'')+'</summary><div style="margin-top:8px"><div class="appl-refs">'+((a.references&&a.references.length)?a.references.map(window._apRefRowHtml).join(''):'')+'</div><button type="button" onclick="_apAddRef(this)" style="background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:600;margin-top:4px">+ Add reference</button></div></details>'
+      // ===== Against your criteria (collapsed, at the top) =====
       +((typeof _holdScreenHtml==='function')?(function(){
         var vd=_holdVerdict(a,u);
-        return '<details style="margin-top:12px;border:1px solid #6366f1;border-radius:10px;padding:10px 12px;background:rgba(99,102,241,0.06);box-shadow:0 0 0 1px rgba(99,102,241,0.35),0 0 14px rgba(99,102,241,0.30)"><summary style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">Against your criteria <span style="font-weight:800;color:'+vd.c+';text-transform:none;letter-spacing:0">'+vd.t+'</span><span style="color:var(--text-dim);font-weight:600;text-transform:none;letter-spacing:0">('+vd.pass+'✓ '+vd.fail+'✗ '+vd.rev+'~)</span></summary>'
-          +'<div style="font-size:10.5px;color:var(--text-dim);margin:6px 0 2px">Recalculates when you reopen this card after editing the fields above.</div>'
+        return '<details style="margin-bottom:14px;border:1px solid #f59e0b;border-radius:10px;padding:10px 12px;background:rgba(245,158,11,0.06);box-shadow:0 0 0 1px rgba(245,158,11,0.35),0 0 14px rgba(245,158,11,0.30)"><summary style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.3px;font-weight:600">Against your criteria <span style="font-weight:800;color:'+vd.c+';text-transform:none;letter-spacing:0">'+vd.t+'</span><span style="color:var(--text-dim);font-weight:600;text-transform:none;letter-spacing:0">('+vd.pass+'✓ '+vd.fail+'✗ '+vd.rev+'~)</span></summary>'
+          +'<div style="font-size:10.5px;color:var(--text-dim);margin:6px 0 2px">Recalculates when you reopen this card after editing the fields below.</div>'
           +_holdScreenHtml(a,u,_esc,true)+'</details>';
       })():'')
+      // ===== Primary applicant =====
+      +'<div style="border:1px solid #a855f7;border-radius:12px;padding:12px 14px;margin-bottom:14px;background:rgba(168,85,247,0.05);box-shadow:0 0 0 1px rgba(168,85,247,0.25)">'
+      +_sub('Primary applicant',true)
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
+        +'<div style="flex:2 1 160px;min-width:130px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Name</label><input data-f="name" value="'+_esc(a.name||'')+'" style="'+_istyle+'"></div>'
+        +'<div style="flex:1 1 120px;min-width:120px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Phone</label><input data-f="phone" type="tel" value="'+_esc(a.phone||'')+'" style="'+_istyle+'"></div>'
+        +'<div style="flex:2 1 170px;min-width:150px"><label style="display:block;font-size:11px;color:var(--text-dim);margin-bottom:3px">Email</label><input data-f="email" type="email" value="'+_esc(a.email||'')+'" style="'+_istyle+'"></div>'
+      +'</div>'
+      +_grid(
+        fld('Credit score',selRange('est_credit_score',a.est_credit_score,CRED),'1 1 130px')
+        +fld('Employer','<input data-f="employer" value="'+_esc(a.employer||'')+'" style="'+_istyle+'">','1 1 150px')
+        +fld('Employer tenure',selRange('employer_months',a.employer_months,TEN),'1 1 130px')
+        +fld('Monthly income','<input readonly value="'+_esc(primMoVal)+'" style="'+_istyle+'">','1 1 130px')
+      )
+      +'<div style="font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--text-dim);text-transform:uppercase;margin:12px 0 2px">Employer reference</div>'
+      +_grid(
+        fld('Company','<input readonly value="'+_esc(primEmpRef.company||'')+'" style="'+_istyle+'">','1 1 130px')
+        +fld('Contact name','<input readonly value="'+_esc(primEmpRef.name||'')+'" style="'+_istyle+'">','1 1 130px')
+        +fld('Phone','<input readonly value="'+_esc(primEmpRef.phone||'')+'" style="'+_istyle+'">','1 1 120px')
+      )
+      +'</div>'
+      // ===== Co-applicants =====
+      +coHtml
+      // ===== Household (applies to everyone) =====
+      +'<div style="border:1px solid #ec4899;border-radius:12px;padding:12px 14px;margin-bottom:14px;background:rgba(236,72,153,0.05);box-shadow:0 0 0 1px rgba(236,72,153,0.25)">'
+      +_sub('Household',true)
+      +_grid(
+        fld('Monthly income <span style="opacity:.6">(combined)</span>','<input data-f="monthly_income" inputmode="numeric" value="'+_esc(incVal)+'" placeholder="$4,167" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')?(\'$\'+Number(this.value.replace(/[^0-9]/g,\'\')).toLocaleString()):\'\'" style="'+_istyle+'">','2 1 160px')
+        +fld('Move-in date','<input data-f="moveIn" type="date" value="'+_esc(a.moveIn||'')+'" style="'+_istyle+'">','1 1 140px')
+        +fld('18+ occupants','<input data-f="occupants_adults" type="number" min="0" value="'+_esc(a.occupants_adults!=null?a.occupants_adults:'')+'" style="'+_istyle+'">','1 1 100px')
+        +fld('Total occupants','<input data-f="occupants_total" type="number" min="0" value="'+_esc((a.occupants_adults!=null||a.occupants_kids!=null)?((Number(a.occupants_adults)||0)+(Number(a.occupants_kids)||0)):'')+'" style="'+_istyle+'">','1 1 110px')
+        +fld('Lease term',selRange('lease_term',a.lease_term,['12 months','18 months','24 months']),'1 1 120px')
+        +fld('Smoker',selYN('smoker',a.smoker),'1 1 100px')
+        +fld('Rental history',selRange('prev_address_time',a.prev_address_time,TEN),'1 1 130px')
+        +fld('Evictions (5y)',selYN('evictions',a.evictions),'1 1 110px')
+        +fld('Convictions (7y)',selYN('convictions',a.convictions),'1 1 110px')
+      )
+      +_ta('Pets','pets','Type / breed / weight — or none',a.pets)
+      +_ta('Background Details','convictions_detail','Anything to explain on a background check',a.convictions_detail)
+      +_ta('Credit Details','credit_explain','Anything to explain on a credit report',a.credit_explain)
+      +_ta('Reason for moving','reason_moving','',a.reason_moving)
+      +_ta('Additional notes (from applicant)','notes','',a.notes)
+      +'<div style="font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--text-dim);text-transform:uppercase;margin:14px 0 2px">Landlord reference</div>'
+      +_grid(
+        fld('Company','<input readonly value="'+_esc(landlordRef.company||'')+'" style="'+_istyle+'">','1 1 130px')
+        +fld('Contact name','<input readonly value="'+_esc(landlordRef.name||'')+'" style="'+_istyle+'">','1 1 130px')
+        +fld('Phone','<input readonly value="'+_esc(landlordRef.phone||'')+'" style="'+_istyle+'">','1 1 120px')
+      )
+      +'</div>'
       +'</div>';
     if(locked){ h=h.replace(/<input /g,'<input disabled ').replace(/<select /g,'<select disabled ').replace(/<textarea /g,'<textarea disabled ').replace(/onclick="_apCycleChk\(this\)"/g,'').replace('onclick="_apAddRef(this)"','disabled'); }
     return h;
@@ -68993,7 +69073,7 @@ window._uwOpenApplicantsModal = function(id, startView){
     var stagePill='<button type="button" class="appl-stagecycle" data-i="'+i+'" title="Click to change stage" style="cursor:pointer;font-size:10px;font-weight:800;padding:3px 10px;border-radius:999px;white-space:nowrap;color:'+_sm.c+';background:'+_sm.b+';border:1px solid '+_sm.bd+'">'+_sm.t+'</button>';
     var done=a.checklist?Object.keys(a.checklist).filter(function(k){return a.checklist[k]==='green';}).length:0;
     var open=(i===openIdx);
-    return '<div style="border:1px solid '+(open?'#6366f1':'var(--border)')+';border-radius:9px;margin-bottom:8px;overflow:hidden;background:var(--panel-2)">'
+    return '<div style="border:1px solid '+(open?'#ef4444':'var(--border)')+';border-radius:9px;margin-bottom:8px;overflow:hidden;background:var(--panel-2)">'
       +'<div class="appl-hdr" data-i="'+i+'" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer">'
       +'<span style="font-size:12px;color:var(--text-dim);flex-shrink:0">'+(open?'▲':'▼')+'</span>'
       +'<span style="font-weight:600;font-size:13.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_esc(nm)+'</span>'
@@ -69030,9 +69110,11 @@ window._uwOpenApplicantsModal = function(id, startView){
     a.moveinChk=mi;
     var refs=[];
     Array.prototype.forEach.call(card.querySelectorAll('.appl-ref'),function(rw){ var r={}; Array.prototype.forEach.call(rw.querySelectorAll('[data-rf]'),function(el){ r[el.getAttribute('data-rf')]=(el.value||'').trim(); }); if(r.name||r.phone||r.relationship||r.company) refs.push(r); });
-    a.references=refs;
+    // References are shown read-only in-card now (no editable rows), so only
+    // overwrite when editable rows exist — otherwise keep what's already there.
+    if(refs.length) a.references=refs;
     var _pv=applicants[openIdx]||{};
-    ['_preapp','_preappId','submitted_at','stage','_locked','_ghlAdded','co_applicants'].forEach(function(f){ if(a[f]==null && _pv[f]!=null) a[f]=_pv[f]; });
+    ['_preapp','_preappId','submitted_at','stage','_locked','_ghlAdded','co_applicants','references','status'].forEach(function(f){ if(a[f]==null && _pv[f]!=null) a[f]=_pv[f]; });
     applicants[openIdx]=a;
   }
   function render(){

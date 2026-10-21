@@ -69222,7 +69222,24 @@ window._uwOpenApplicantsModal = function(id, startView){
       +emptyMsg
       +'<div id="appl-list">'+listItems+'</div>'
       +(_apFilter==='reviewing'?'<button id="appl-add" type="button" style="background:rgba(16,185,129,0.12);border:1px solid #10b981;color:#10b981;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600">+ Add Applicant</button>':'');
-    box.querySelector('#appl-x').onclick=close;
+    box.querySelector('#appl-x').onclick=function(){
+      var dlg=document.createElement('div');
+      dlg.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;padding:20px';
+      dlg.innerHTML='<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px 22px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.5)">'
+        +'<div style="font-weight:800;font-size:15px;margin-bottom:6px">Close applicants</div>'
+        +'<div style="font-size:13px;color:var(--text-dim);margin-bottom:16px">Do you want to save your changes before exiting?</div>'
+        +'<div style="display:flex;flex-direction:column;gap:8px">'
+        +'<button data-act="save" style="background:var(--brand,#6366f1);color:#fff;border:none;border-radius:8px;padding:9px 0;cursor:pointer;font-size:13px;font-weight:700">💾 Save &amp; Exit</button>'
+        +'<button data-act="nosave" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.45);color:#f87171;border-radius:8px;padding:9px 0;cursor:pointer;font-size:13px;font-weight:700">Do Not Save &amp; Exit</button>'
+        +'<button data-act="cancel" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:8px 0;cursor:pointer;font-size:13px;font-weight:600">Cancel</button>'
+        +'</div></div>';
+      document.body.appendChild(dlg);
+      var kill=function(){ if(dlg&&dlg.parentNode) dlg.parentNode.removeChild(dlg); };
+      dlg.onclick=function(e){ if(e.target===dlg) kill(); };
+      dlg.querySelector('[data-act="cancel"]').onclick=kill;
+      dlg.querySelector('[data-act="nosave"]').onclick=function(){ kill(); close(); };
+      dlg.querySelector('[data-act="save"]').onclick=function(){ var b=this; b.disabled=true; b.innerHTML='<span class="loader" style="width:13px;height:13px;border-width:2px"></span> Saving…'; Promise.resolve(saveApplicants()).then(function(ok){ kill(); if(ok!==false) close(); }); };
+    };
     Array.prototype.forEach.call(box.querySelectorAll('.appl-tostage'),function(b){ b.onclick=function(e){ e.stopPropagation(); var i=parseInt(b.getAttribute('data-i'),10); var a=applicants[i]; if(!a) return; if(a._preappId && typeof window._holdImportPreApp==='function'){ window._holdImportPreApp(id, a._preappId); return; } a.stage='reviewing'; a._locked=false; openIdx=i; render(); }; });
     // Click the stage pill to cycle: Pre-Screen moves to Reviewing (saved now), then Reviewing → Qualified → Unqualified → Reviewing.
     Array.prototype.forEach.call(box.querySelectorAll('.appl-stagecycle'),function(b){ b.onclick=function(e){ e.stopPropagation(); collectOpen(); var i=parseInt(b.getAttribute('data-i'),10); var a=applicants[i]; if(!a) return; if((a.stage||'')==='prescreen'){ if(a._preappId && typeof window._holdImportPreApp==='function'){ window._holdImportPreApp(id, a._preappId); return; } a.stage='reviewing'; a._locked=false; } else { var ord=['reviewing','qualified','unqualified']; var cur=ord.indexOf(a.stage); a.stage=ord[(cur+1)%ord.length]; } render(); }; });
@@ -69232,7 +69249,7 @@ window._uwOpenApplicantsModal = function(id, startView){
     var _addBtn=box.querySelector('#appl-add'); if(_addBtn) _addBtn.onclick=function(){ collectOpen(); applicants.push({stage:'reviewing'}); openIdx=applicants.length-1; if(_apFilter!=='all'&&_apFilter!=='reviewing') _apFilter='reviewing'; render(); };
     // Add to GoHighLevel (via the ghl-contact edge function) + tag → your workflow runs.
     Array.prototype.forEach.call(box.querySelectorAll('.appl-ghl'),function(b){ b.onclick=function(e){ e.stopPropagation(); collectOpen(); var i=parseInt(b.getAttribute('data-i'),10); var a=applicants[i]; if(!a) return; var pidx=parseInt(b.getAttribute('data-person'),10)||0; var pname=b.getAttribute('data-pname')||''; var person = pidx===0 ? {name:a.name||'',email:a.email||'',phone:a.phone||''} : ((Array.isArray(a.co_applicants)&&a.co_applicants[pidx-1])?{name:a.co_applicants[pidx-1].name||'',email:a.co_applicants[pidx-1].email||'',phone:a.co_applicants[pidx-1].phone||''}:null); if(!person||!(person.name||person.phone||person.email)){ if(typeof toast==='function') toast('This person needs a name, phone, or email first.','warn'); return; } b.disabled=true; var _o=b.innerHTML; b.innerHTML='<span class="loader" style="width:13px;height:13px;border-width:2px"></span> Adding…'; (async function(){ try{ if(typeof sb==='undefined'||!sb) throw new Error('Not connected'); var _addr2=((typeof _holdFullAddr==='function'?_holdFullAddr(u):'')||u.address||(u.data&&u.data.address)||''); var r=await sb.functions.invoke('ghl-contact-tenant',{body:{name:person.name,email:person.email,phone:person.phone,address:_addr2}}); if(r.error) throw r.error; var d=r.data||{}; if(d&&d.error) throw new Error(d.error); try{ var _k='ghl_added_'+id; var _set=JSON.parse(localStorage.getItem(_k)||'[]'); if(_set.indexOf(pname)<0) _set.push(pname); localStorage.setItem(_k, JSON.stringify(_set)); }catch(_){} if(typeof toast==='function') toast('Added '+(person.name||'contact')+' to GHL.','ok'); render(); }catch(err){ b.disabled=false; b.innerHTML=_o; if(typeof toast==='function') toast('GHL add failed: '+(err.message||err),'err'); } })(); }; });
-    box.querySelector('#appl-save').onclick=async function(){
+    async function saveApplicants(){
       collectOpen();
       // Only official (reviewing) applicants are persisted; still-locked pre-screens
       // stay as submissions until moved to Reviewing.
@@ -69263,12 +69280,15 @@ window._uwOpenApplicantsModal = function(id, startView){
         }
         if (typeof toast==='function') toast('Applicants saved — visible to the whole team.','ok');
         if (saveBtn){ saveBtn.disabled=false; saveBtn.innerHTML='✓ Saved'; setTimeout(function(){ if(saveBtn) saveBtn.innerHTML='Save'; }, 1400); }
+        return true;
       } catch(e) {
         console.warn('applicants save:', e);
         if (saveBtn){ saveBtn.disabled=false; saveBtn.innerHTML='Save'; }
         if (typeof toast==='function') toast('Save failed: ' + (e.message||e), 'err');
+        return false;
       }
-    };
+    }
+    box.querySelector('#appl-save').onclick=saveApplicants;
     // Soft delete → moves to Trash (keeps all their info). Asks for confirmation.
     Array.prototype.forEach.call(box.querySelectorAll('.appl-remove'),function(btn){
       btn.onclick=function(e){ e.stopPropagation(); var i=parseInt(btn.getAttribute('data-i'),10); var nm=(applicants[i]&&applicants[i].name)||'this applicant'; window._apConfirmDialog('Move '+nm+' to Trash?\n\nTheir information is kept — you can restore them from the Trash tab.','Move to Trash',function(){ if(openIdx===i) collectOpen(); if(applicants[i]){ applicants[i]._deleted=true; } if(openIdx===i) openIdx=-1; render(); }); };

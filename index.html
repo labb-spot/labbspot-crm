@@ -69096,6 +69096,7 @@ window._uwOpenApplicantsModal = function(id, startView){
           : (st?'<span style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;color:'+stColor+';background:transparent;border:1px solid '+stColor+'">'+_esc(st)+'</span>':''))
       +((function(){ var added=0,tot=_allNames.length; try{ var _set=JSON.parse(localStorage.getItem('ghl_added_'+id)||'[]'); added=_allNames.filter(function(n){return _set.indexOf(n)>=0;}).length; }catch(_){ } if(!added) return ''; var lbl=(added>=tot&&tot>0)?'✓ GHL':('✓ GHL '+added+'/'+tot); return '<span title="Added to GoHighLevel" style="font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;color:#34d399;background:rgba(34,197,94,0.14);border:1px solid rgba(34,197,94,0.45);white-space:nowrap">'+lbl+'</span>'; })())
       +(stage==='prescreen'||a._deleted?'':'<span style="font-size:11px;color:'+(done===CHECK.length?'#34d399':'var(--text-dim)')+';white-space:nowrap;font-weight:600">🟢 '+done+' / '+CHECK.length+' cleared</span>')
+      +'<button type="button" class="appl-download" data-i="'+i+'" title="Download the full application (all applicants + all info)" style="flex-shrink:0;background:rgba(99,102,241,0.12);border:1px solid #6366f1;color:#a5b4fc;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:700">⬇ Download</button>'
       +(a._deleted
           ? '<button type="button" class="appl-restore" data-i="'+i+'" title="Restore this applicant" style="flex-shrink:0;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.5);color:#34d399;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:700">♻ Restore</button>'
             +'<button type="button" class="appl-purge" data-i="'+i+'" title="Delete forever" style="flex-shrink:0;background:none;border:1px solid var(--border);color:#f87171;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">🗑 Delete forever</button>'
@@ -69130,6 +69131,81 @@ window._uwOpenApplicantsModal = function(id, startView){
     ['_preapp','_preappId','submitted_at','stage','_locked','_ghlAdded','co_applicants','references','status'].forEach(function(f){ if(a[f]==null && _pv[f]!=null) a[f]=_pv[f]; });
     applicants[openIdx]=a;
   }
+  // Build + download the full application (all applicants + all info) as an HTML
+  // file the user can open or print to PDF.
+  function downloadApplication(i){
+    if(i===openIdx) collectOpen();
+    var a=applicants[i]; if(!a) return;
+    var E=function(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+    var addr=((typeof _holdFullAddr==='function'?_holdFullAddr(u):'')||u.address||(u.data&&u.data.address)||'');
+    var cos=Array.isArray(a.co_applicants)?a.co_applicants:[];
+    var allNames=[(a.name||'').trim()].concat(cos.map(function(c){return (c&&c.name||'').trim();})).filter(Boolean);
+    var title=allNames.length?allNames.join(', '):'Applicant';
+    var ynTxt=function(v){ return v===true?'Yes':(v===false?'No':'—'); };
+    var money=function(v){ return (v!=null&&v!=='')?('$'+Number(v).toLocaleString()):'—'; };
+    var dash=function(v){ return (v==null||v==='')?'—':E(v); };
+    var rowKV=function(k,v){ return '<tr><td class="k">'+E(k)+'</td><td class="v">'+(v==null?'—':v)+'</td></tr>'; };
+    var personBlock=function(label,p,extra){
+      var h='<h3>'+E(label)+'</h3><table class="kv">';
+      h+=rowKV('Name',dash(p.name));
+      h+=rowKV('Phone',dash(p.phone));
+      h+=rowKV('Email',dash(p.email));
+      h+=rowKV('Credit score',dash(p.credit||p.est_credit_score));
+      if(extra&&extra.monthly!=null) h+=rowKV('Monthly income',money(extra.monthly));
+      h+=rowKV('Employer',dash(p.employer));
+      h+=rowKV('Employer tenure',dash(p.employer_months));
+      var er=[p.employer_ref_company,p.employer_ref_name,p.employer_ref_phone].filter(Boolean).join(' · ');
+      h+=rowKV('Employer reference',er?E(er):'—');
+      h+='</table>';
+      return h;
+    };
+    var coMoSum=cos.reduce(function(s,c){return s+(c.income_yearly!=null?Math.round(c.income_yearly/12):0);},0);
+    var primMonthly=(a.monthly_income!=null&&a.monthly_income!=='')?Math.max(0,Number(a.monthly_income)-coMoSum):null;
+    var body='';
+    body+=personBlock('Primary applicant',{name:a.name,phone:a.phone,email:a.email,est_credit_score:a.est_credit_score,employer:a.employer,employer_months:a.employer_months},{monthly:primMonthly});
+    cos.forEach(function(c,k){ body+=personBlock('Co-applicant '+(k+1),{name:c.name,phone:c.phone,email:c.email,credit:c.credit,employer:c.employer,employer_months:c.employer_months,employer_ref_company:c.employer_ref_company,employer_ref_name:c.employer_ref_name,employer_ref_phone:c.employer_ref_phone},{monthly:(c.income_yearly!=null?Math.round(c.income_yearly/12):null)}); });
+    // Household
+    var hh='<h3>Household</h3><table class="kv">';
+    hh+=rowKV('Monthly income (combined)',money(a.monthly_income));
+    hh+=rowKV('Move-in date',dash(a.moveIn));
+    hh+=rowKV('Occupants 18+',dash(a.occupants_adults));
+    hh+=rowKV('Total occupants',((a.occupants_adults!=null||a.occupants_kids!=null)?((Number(a.occupants_adults)||0)+(Number(a.occupants_kids)||0)):'—'));
+    hh+=rowKV('Lease term',dash(a.lease_term));
+    hh+=rowKV('Smoker',ynTxt(a.smoker));
+    hh+=rowKV('Rental history',dash(a.prev_address_time));
+    hh+=rowKV('Evictions (5y)',ynTxt(a.evictions));
+    hh+=rowKV('Convictions (7y)',ynTxt(a.convictions));
+    hh+=rowKV('Pets',dash(a.pets));
+    hh+=rowKV('Background details',dash(a.convictions_detail));
+    hh+=rowKV('Credit details',dash(a.credit_explain));
+    hh+=rowKV('Reason for moving',dash(a.reason_moving));
+    hh+=rowKV('Additional notes',dash(a.notes));
+    (a.references||[]).filter(function(r){return (r.relationship||'').toLowerCase().indexOf('land')>=0 && (r.company||r.name||r.phone);}).forEach(function(lr,li){ hh+=rowKV('Landlord reference'+(li>0?(' '+(li+1)):''),E([lr.company,lr.name,lr.phone].filter(Boolean).join(' · '))||'—'); });
+    hh+='</table>';
+    body+=hh;
+    // Screening verdict
+    if(typeof _holdVerdict==='function'){ try{ var vd=_holdVerdict(a,u); var cr='<h3>Against your criteria — '+E(vd.t)+' ('+vd.pass+'✓ '+vd.fail+'✗ '+vd.rev+'~)</h3><table class="kv"><tr><th>Criteria</th><th>Required</th><th>Applicant</th><th>Status</th></tr>'; (vd.checks||[]).forEach(function(x){ var sl=x.state==='pass'?'Meets':(x.state==='fail'?'Fails':(x.state==='review'?'Review':'—')); cr+='<tr><td class="k">'+E(x.subject)+'</td><td>'+E(x.req)+'</td><td>'+E(x.val)+'</td><td>'+sl+'</td></tr>'; }); cr+='</table>'; body+=cr; }catch(_){} }
+    var doc='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Application — '+E(title)+'</title><style>'
+      +'body{font-family:-apple-system,Segoe UI,Arial,sans-serif;color:#111;max-width:820px;margin:28px auto;padding:0 20px;line-height:1.45}'
+      +'h1{font-size:20px;margin:0 0 2px}h2{font-size:13px;color:#555;font-weight:600;margin:0 0 18px}'
+      +'h3{font-size:14px;margin:22px 0 6px;border-bottom:2px solid #6366f1;padding-bottom:3px;color:#3730a3}'
+      +'table.kv{width:100%;border-collapse:collapse;font-size:13px}'
+      +'table.kv td,table.kv th{border:1px solid #ddd;padding:6px 9px;vertical-align:top;text-align:left}'
+      +'table.kv th{background:#f3f4f6;font-size:11px;text-transform:uppercase;letter-spacing:.3px}'
+      +'td.k{width:200px;font-weight:600;background:#fafafa}'
+      +'.meta{font-size:12px;color:#666;margin-bottom:10px}@media print{body{margin:0}}'
+      +'</style></head><body>'
+      +'<h1>Rental Application</h1><h2>'+E(title)+'</h2>'
+      +'<div class="meta">Property: '+E(addr||'—')+'<br>Submitted: '+E(a.submitted_at||'—')+'<br>Downloaded: '+E(new Date().toLocaleString())+'</div>'
+      +body
+      +'</body></html>';
+    var blob=new Blob([doc],{type:'text/html'});
+    var url=URL.createObjectURL(blob);
+    var fn='Application - '+(title||'applicant').replace(/[^\w ,.-]/g,'').slice(0,80)+'.html';
+    var link=document.createElement('a'); link.href=url; link.download=fn; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    setTimeout(function(){ URL.revokeObjectURL(url); },2000);
+    if(typeof toast==='function') toast('Application downloaded.','ok');
+  }
   function render(){
     var _stageOf=function(a){ var s=a.stage||'reviewing'; return (s==='prescreen'||s==='qualified'||s==='unqualified')?s:'reviewing'; };
     var cnt=function(s){ return applicants.filter(function(a){return !a._deleted && _stageOf(a)===s;}).length; };
@@ -69151,6 +69227,7 @@ window._uwOpenApplicantsModal = function(id, startView){
     // Click the stage pill to cycle: Pre-Screen moves to Reviewing (saved now), then Reviewing → Qualified → Unqualified → Reviewing.
     Array.prototype.forEach.call(box.querySelectorAll('.appl-stagecycle'),function(b){ b.onclick=function(e){ e.stopPropagation(); collectOpen(); var i=parseInt(b.getAttribute('data-i'),10); var a=applicants[i]; if(!a) return; if((a.stage||'')==='prescreen'){ if(a._preappId && typeof window._holdImportPreApp==='function'){ window._holdImportPreApp(id, a._preappId); return; } a.stage='reviewing'; a._locked=false; } else { var ord=['reviewing','qualified','unqualified']; var cur=ord.indexOf(a.stage); a.stage=ord[(cur+1)%ord.length]; } render(); }; });
     Array.prototype.forEach.call(box.querySelectorAll('[data-apfilter]'),function(b){ b.onclick=function(){ var v=b.getAttribute('data-apfilter'); if(v===_apFilter) return; collectOpen(); _apFilter=v; render(); }; });
+    Array.prototype.forEach.call(box.querySelectorAll('.appl-download'),function(b){ b.onclick=function(e){ e.stopPropagation(); var i=parseInt(b.getAttribute('data-i'),10); downloadApplication(i); }; });
     var _critBtn=box.querySelector('#appl-criteria'); if(_critBtn) _critBtn.onclick=function(){ if(typeof _apShowCriteria==='function') _apShowCriteria(); };
     var _addBtn=box.querySelector('#appl-add'); if(_addBtn) _addBtn.onclick=function(){ collectOpen(); applicants.push({stage:'reviewing'}); openIdx=applicants.length-1; if(_apFilter!=='all'&&_apFilter!=='reviewing') _apFilter='reviewing'; render(); };
     // Add to GoHighLevel (via the ghl-contact edge function) + tag → your workflow runs.

@@ -7585,10 +7585,9 @@
 
 <!-- SECTION: Holdings -->
 <div id="section-holdings" class="section-content p-6" style="display:none">
-  <!-- Calculator mount (see Renovation comment above). -->
-  <div id="hold-calc-mount"></div>
-
-  <!-- Top nav — Properties / Connections toggle + the Connections rolodex subnav. -->
+  <!-- Top nav — Properties / Connections toggle + the Connections rolodex subnav.
+       Kept ABOVE the calculator mount so it always stays at the top (and never
+       ends up stranded at the bottom when a deal is open). -->
   <div id="hold-top-nav" class="flex items-center gap-2 mb-4" style="flex-wrap:nowrap;min-width:0;overflow-x:auto">
     <div class="flex items-center gap-0 panel p-1" style="flex-shrink:0;width:fit-content;font-size:12px">
       <div class="subtab subtab-compact active" id="hold-properties-pill" onclick="holdOpenProperties()" title="Properties — your holdings by stage.">🏠 Properties</div>
@@ -7613,6 +7612,9 @@
       <div class="subtab subtab-compact" data-holdview="handyman" onclick="setHoldView('handyman')" title="Handyman rolodex.">🔧 Handyman <span id="hold-conn-count-handyman" class="badge brand" style="margin-left:4px;font-size:10px">–</span></div>
     </div>
   </div>
+
+  <!-- Calculator mount — a deal opens here, BELOW the nav bar. -->
+  <div id="hold-calc-mount"></div>
 
   <!-- Connections mode (hidden in Properties mode). The Managers rolodex is
        moved here from Renovation at load; the Handyman rolodex lives below it. -->
@@ -31461,6 +31463,8 @@ function _hrUnmountCalculator() {
   if (_hrCalcOriginalParent && calc.parentNode !== _hrCalcOriginalParent) {
     _hrCalcOriginalParent.insertBefore(calc, _hrCalcOriginalNextSibling || null);
   }
+  // Restore the Holdings nav bar (hidden while a deal was open).
+  const _tn = document.getElementById('hold-top-nav'); if (_tn) _tn.style.display = '';
   // Restore both H/R table panels (we don't know which one was hidden).
   const ht = document.getElementById('hold-table-wrap'); if (ht) ht.style.display = '';
   const rt = document.getElementById('reno-table-wrap'); if (rt) rt.style.display = '';
@@ -31993,6 +31997,9 @@ const _HOLD_VIEW_CONFIG = {
 };
 function _holdHideViews() {
   ['hold-table-wrap','hold-conn-wrap','hold-applications-wrap','hold-workorders-wrap'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+  // These run only when viewing Holdings content (not an open deal), so make
+  // sure the Holdings nav bar is visible here (it gets hidden while a deal is open).
+  const _tn = document.getElementById('hold-top-nav'); if (_tn) _tn.style.display = '';
 }
 function holdOpenProperties() {
   _holdHideViews();
@@ -49617,7 +49624,14 @@ function goSection(s, _opts) {
     }
   }
   if (s === "insights"   && typeof goInsightsView        === "function") goInsightsView(window._insightsView || 'location');
-  if (s === "holdings"   && typeof renderHoldingsList   === "function") renderHoldingsList();
+  if (s === "holdings") {
+    // If a deal is still mounted in Holdings, close it so we land on the list.
+    var _cm = document.getElementById('hold-calc-mount');
+    var _calc = document.getElementById('uwview-calculator');
+    if (_cm && _calc && _calc.parentNode === _cm && typeof _hrUnmountCalculator === 'function') { _hrUnmountCalculator(); _hrLastSection = null; }
+    var _tn = document.getElementById('hold-top-nav'); if (_tn) _tn.style.display = '';
+    if (typeof renderHoldingsList === "function") renderHoldingsList();
+  }
   if (s === "photos"     && typeof loadPhotoSubmissions === "function") loadPhotoSubmissions(true);
   if (s === "map"        && typeof _mapSectionOpen       === "function") _mapSectionOpen();
   if (s === "renovation" && typeof renderRenovationList === "function") renderRenovationList();

@@ -31028,6 +31028,9 @@ window.uwSetHoldingStageCurrent = function(stage){
   if (typeof _uwCurrentId !== 'undefined' && _uwCurrentId && typeof uwSetHoldingStage === 'function') {
     uwSetHoldingStage(_uwCurrentId, stage);
     _uwUpdateHoldStageBar();
+    // Refresh the top stage-tab counts immediately so the property shows as
+    // moved to its new stage right away (not only after you leave the deal).
+    if (typeof _holdUpdateSubtabCounts === 'function') _holdUpdateSubtabCounts();
   }
 };
 

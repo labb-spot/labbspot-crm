@@ -7637,8 +7637,15 @@
   </div>
   <div id="hold-workorders-wrap" style="display:none">
     <div class="panel p-5">
-      <div class="font-semibold text-lg mb-2">🔧 Work Orders</div>
-      <div class="text-sm text-[var(--text-dim)]">Maintenance work orders across your holdings will show here.</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <div class="font-semibold text-lg">🔧 Work Orders</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div id="wo-filters" style="display:inline-flex;flex-wrap:wrap;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:3px;gap:3px"></div>
+          <input id="wo-search" placeholder="🔍 Search address, name, issue" oninput="renderWorkOrders()" style="height:34px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12.5px;min-width:180px">
+          <button id="wo-refresh" type="button" onclick="_woRefresh(this)" title="Refresh work orders" style="height:34px;width:112px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--panel-2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto;white-space:nowrap">🔄 Refresh</button>
+        </div>
+      </div>
+      <div id="wo-list"><div class="text-sm text-[var(--text-dim)]" style="padding:8px 0">Loading…</div></div>
     </div>
   </div>
 
@@ -32397,9 +32404,92 @@ async function _holdImportPreApp(id, appId){
   }catch(e){ console.warn('import pre-app:',e); if(typeof toast==='function') toast('Add failed: '+(e.message||e),'err'); }
 }
 window._holdImportPreApp=_holdImportPreApp;
-function holdOpenWorkOrders() { _holdOpenPropView('hold-workorders-wrap', 'hold-workorders-pill'); }
+function holdOpenWorkOrders() { _holdOpenPropView('hold-workorders-wrap', 'hold-workorders-pill'); loadWorkOrders().then(renderWorkOrders); }
 window.holdOpenApplications = holdOpenApplications;
 window.holdOpenWorkOrders = holdOpenWorkOrders;
+
+// ===== Work Orders (tenant-submitted maintenance) =====
+var _woCache = null, _woFilter = 'all';
+async function loadWorkOrders(force){
+  try{
+    if(typeof sb==='undefined'||!sb){ _woCache=_woCache||[]; return; }
+    if(_woCache && !force) return;
+    var r=await sb.from('work_orders').select('*').order('created_at',{ascending:false});
+    if(r.error){ console.warn('load work_orders:',r.error); _woCache=_woCache||[]; return; }
+    _woCache=r.data||[];
+    _holdUpdateWoBadge();
+  }catch(e){ console.warn('loadWorkOrders:',e); _woCache=_woCache||[]; }
+}
+function _woRefresh(btn){
+  if(btn){ btn.disabled=true; btn._o=btn.innerHTML; btn.innerHTML='<span class="loader" style="width:14px;height:14px;border-width:2px"></span> Refresh'; }
+  loadWorkOrders(true).then(function(){ renderWorkOrders(); if(btn){ btn.disabled=false; btn.innerHTML=btn._o||'🔄 Refresh'; } });
+}
+window._woRefresh=_woRefresh;
+function _holdUpdateWoBadge(){
+  var b=document.getElementById('hold-wo-badge'); if(!b) return;
+  var n=(_woCache||[]).filter(function(w){ return (w.status||'open')!=='done'; }).length;
+  b.textContent=n;
+}
+function _woEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+async function _woSetStatus(id,status){
+  var w=(_woCache||[]).find(function(x){return x.id===id;}); if(w) w.status=status;
+  renderWorkOrders(); _holdUpdateWoBadge();
+  try{ if(sb){ var r=await sb.from('work_orders').update({status:status}).eq('id',id); if(r.error) throw r.error; if(typeof toast==='function') toast('Marked '+status.replace('_',' ')+'.','ok'); } }
+  catch(e){ if(typeof toast==='function') toast('Update failed: '+(e.message||e),'err'); }
+}
+window._woSetStatus=_woSetStatus;
+async function _woSaveNotes(id,el){
+  var v=(el.value||'').trim(); var w=(_woCache||[]).find(function(x){return x.id===id;}); if(w) w.internal_notes=v;
+  try{ if(sb){ await sb.from('work_orders').update({internal_notes:v}).eq('id',id); if(typeof toast==='function') toast('Notes saved.','ok'); } }catch(e){ if(typeof toast==='function') toast('Save failed: '+(e.message||e),'err'); }
+}
+window._woSaveNotes=_woSaveNotes;
+function _woDelete(id){
+  var go=function(){ (async function(){ try{ if(sb){ var r=await sb.from('work_orders').delete().eq('id',id); if(r.error) throw r.error; } _woCache=(_woCache||[]).filter(function(x){return x.id!==id;}); renderWorkOrders(); _holdUpdateWoBadge(); if(typeof toast==='function') toast('Work order deleted.','ok'); }catch(e){ if(typeof toast==='function') toast('Delete failed: '+(e.message||e),'err'); } })(); };
+  if(typeof window._apConfirmDialog==='function') window._apConfirmDialog('Delete this work order? This cannot be undone.','Delete',go); else if(confirm('Delete this work order?')) go();
+}
+window._woDelete=_woDelete;
+function renderWorkOrders(){
+  var list=document.getElementById('wo-list'); if(!list) return;
+  var all=_woCache||[];
+  var cnt=function(s){ return all.filter(function(w){ return s==='all'?true:((w.status||'open')===s); }).length; };
+  var fb=function(v,label){ var on=_woFilter===v; return '<button type="button" onclick="_woFilter=\''+v+'\';renderWorkOrders()" style="border:none;border-radius:7px;padding:5px 11px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;'+(on?'background:var(--brand,#6366f1);color:#fff;':'background:transparent;color:var(--text-dim);')+'">'+label+' <span style="opacity:.8">('+cnt(v==='all'?'all':v)+')</span></button>'; };
+  var fw=document.getElementById('wo-filters'); if(fw) fw.innerHTML=fb('all','All')+fb('open','Open')+fb('in_progress','In Progress')+fb('done','Done');
+  var q=((document.getElementById('wo-search')||{}).value||'').trim().toLowerCase();
+  var rows=all.filter(function(w){ return _woFilter==='all'?true:((w.status||'open')===_woFilter); });
+  if(q) rows=rows.filter(function(w){ return (((w.property_address||'')+' '+(w.city||'')+' '+(w.tenant_name||'')+' '+(w.category||'')+' '+(w.description||'')).toLowerCase().indexOf(q)>=0); });
+  if(!rows.length){ list.innerHTML='<div class="text-sm text-[var(--text-dim)]" style="padding:10px 0">'+(all.length?'No work orders match this filter.':'No work orders yet. Tenants submit them at submit.labbllc.com/workorder.')+'</div>'; return; }
+  var urgCol=function(u){ return u==='Emergency'?'#f87171':(u==='Urgent'?'#fbbf24':'#93c5fd'); };
+  var stMeta={open:{t:'Open',c:'#fbbf24',b:'rgba(234,179,8,0.14)',bd:'rgba(234,179,8,0.5)'},in_progress:{t:'In Progress',c:'#93c5fd',b:'rgba(59,130,246,0.14)',bd:'rgba(59,130,246,0.5)'},done:{t:'Done',c:'#34d399',b:'rgba(34,197,94,0.14)',bd:'rgba(34,197,94,0.5)'}};
+  list.innerHTML=rows.map(function(w){
+    var st=w.status||'open'; var sm=stMeta[st]||stMeta.open;
+    var addr=[w.property_address,w.unit?('('+w.unit+')'):'',w.city,w.state,w.zip].filter(Boolean).join(' ');
+    var when=w.submitted_at||w.created_at||''; try{ when=new Date(when).toLocaleString(); }catch(_){}
+    var sbtn=function(v,label){ var on=st===v; return '<button type="button" onclick="_woSetStatus(\''+w.id+'\',\''+v+'\')" style="border:1px solid '+(on?(stMeta[v].bd):'var(--border)')+';background:'+(on?stMeta[v].b:'transparent')+';color:'+(on?stMeta[v].c:'var(--text-dim)')+';border-radius:7px;padding:4px 10px;cursor:pointer;font-size:11.5px;font-weight:700">'+label+'</button>'; };
+    return '<details style="border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--panel-2);overflow:hidden">'
+      +'<summary style="list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:11px 13px;flex-wrap:wrap">'
+      +'<span style="font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;color:'+sm.c+';background:'+sm.b+';border:1px solid '+sm.bd+';white-space:nowrap">'+sm.t+'</span>'
+      +'<span style="font-weight:700;font-size:11px;color:'+urgCol(w.urgency)+'">'+_woEsc(w.urgency||'')+'</span>'
+      +'<span style="font-weight:700;font-size:13.5px;flex:1;min-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_woEsc(w.category||'Issue')+' — '+_woEsc(addr||'address?')+'</span>'
+      +'<span style="font-size:11.5px;color:var(--text-dim);white-space:nowrap">'+_woEsc(w.tenant_name||'')+'</span>'
+      +'<span style="font-size:11px;color:var(--text-dim);white-space:nowrap">'+_woEsc(when)+'</span>'
+      +'</summary>'
+      +'<div style="padding:4px 14px 14px;border-top:1px solid var(--border)">'
+      +'<div style="display:flex;gap:7px;flex-wrap:wrap;margin:10px 0">'+sbtn('open','Open')+sbtn('in_progress','In Progress')+sbtn('done','Done')+'<button type="button" onclick="_woDelete(\''+w.id+'\')" style="margin-left:auto;border:1px solid var(--border);background:none;color:#f87171;border-radius:7px;padding:4px 10px;cursor:pointer;font-size:11.5px;font-weight:600">🗑 Delete</button></div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:12.5px">'
+      +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-dim)">Tenant</div>'+_woEsc(w.tenant_name||'—')+'</div>'
+      +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-dim)">Phone</div>'+_woEsc(w.tenant_phone||'—')+'</div>'
+      +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-dim)">Email</div>'+_woEsc(w.tenant_email||'—')+'</div>'
+      +'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-dim)">Permission to enter</div>'+(w.permission_to_enter===true?'Yes':(w.permission_to_enter===false?'No':'—'))+'</div>'
+      +'<div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-dim)">Description</div>'+(_woEsc(w.description||'—').replace(/\n/g,'<br>'))+'</div>'
+      +'<div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-dim)">Access notes</div>'+(_woEsc(w.availability||'—').replace(/\n/g,'<br>'))+'</div>'
+      +(w.photo_link?('<div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px">Photos</div><div style="display:flex;flex-wrap:wrap;gap:8px">'+String(w.photo_link).split(/[\s\n]+/).filter(Boolean).map(function(ph){ return '<a href="'+_woEsc(ph)+'" target="_blank" rel="noopener" title="Open full size"><img src="'+_woEsc(ph)+'" style="width:88px;height:88px;object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block"></a>'; }).join('')+'</div></div>'):'')
+      +'</div>'
+      +'<div style="margin-top:12px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px">Internal notes (private)</div><textarea onchange="_woSaveNotes(\''+w.id+'\',this)" rows="2" placeholder="Who you assigned, parts ordered, scheduling…" style="width:100%;font-size:12.5px;padding:6px 8px;box-sizing:border-box;background:var(--panel);border:1px solid var(--border);border-radius:7px;color:var(--text);resize:vertical">'+_woEsc(w.internal_notes||'')+'</textarea></div>'
+      +'</div></details>';
+  }).join('');
+}
+window.renderWorkOrders=renderWorkOrders;
+window.loadWorkOrders=loadWorkOrders;
 function holdOpenConnections() { setHoldView(_holdLastConn || 'managers'); }
 window.holdOpenConnections = holdOpenConnections;
 function setHoldView(view) {

@@ -7633,6 +7633,7 @@
             <option value="7">Last 7 days</option>
             <option value="30">Last 30 days</option>
           </select>
+          <button id="hold-apps-prescreen" type="button" onclick="_psOpen()" title="Off-List: applications from the open form (any address, e.g. tenants in place at homes you're buying)" style="height:34px;padding:0 13px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(234,179,8,0.12);border:1px solid rgba(234,179,8,0.5);color:#fcd34d;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;flex:0 0 auto;white-space:nowrap">📥 Off-List</button>
           <button id="hold-apps-refresh" type="button" onclick="_holdRefreshApps(this)" title="Refresh applications" style="height:34px;width:112px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--panel-2);border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;flex:0 0 auto;white-space:nowrap;overflow:hidden">🔄 Refresh</button>
         </div>
       </div>
@@ -69667,6 +69668,55 @@ window._uwFillLongtermFromSaved=function(id){
     else if(view==='holdings'&&typeof renderHoldingsList==='function') renderHoldingsList();
   };
 })();
+</script>
+
+<script>
+/* ===== Open Pre-Screens (submit.labbllc.com/prescreen) — add-on, separate from per-home Applications ===== */
+var _PS_LINK='https://submit.labbllc.com/prescreen';
+function _psCopyLink(btn){
+  var done=function(){ if(btn){ var t=btn.innerHTML; btn.innerHTML='✓ Copied'; setTimeout(function(){ btn.innerHTML=t; },1400); } };
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(_PS_LINK).then(done,function(){ prompt('Copy the pre-screen link:',_PS_LINK); }); }
+  else { prompt('Copy the pre-screen link:',_PS_LINK); }
+}
+window._psCopyLink=_psCopyLink;
+function _psList(){
+  var out=[];
+  Object.keys(cache.rentalApps||{}).forEach(function(k){ (cache.rentalApps[k]||[]).forEach(function(a){ if(a && String(a.user_agent||'').indexOf('prescreen')===0 && a.status!=='added') out.push(a); }); });
+  out.sort(function(x,y){ return String(y.submitted_at||'').localeCompare(String(x.submitted_at||'')); });
+  return out;
+}
+async function _psOpen(force){
+  if(force || !cache.rentalApps){ if(typeof _holdLoadRentalApps==='function') await _holdLoadRentalApps(true); }
+  var esc=(typeof escapeHtml==='function')?escapeHtml:function(s){return String(s==null?'':s);};
+  var list=_psList();
+  var groups={}, order=[];
+  list.forEach(function(a){ var k=String(a.property_address||'(no address)').trim(); if(!groups[k]){ groups[k]=[]; order.push(k); } groups[k].push(a); });
+  var card=function(a){
+    var fakeU={id:'',address:a.property_address||'',data:{}};
+    var h=window._holdPreAppCard(a,fakeU,'',esc);
+    return h.replace(/<button onclick="_holdImportPreApp\([^"]*\)"[^>]*>[^<]*<\/button>/,'');
+  };
+  var prev=document.getElementById('prescreen-modal'); if(prev) prev.remove();
+  var ov=document.createElement('div'); ov.id='prescreen-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:100000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 16px';
+  var btnS='border-radius:8px;padding:6px 11px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap';
+  ov.innerHTML='<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;width:min(640px,96vw);box-shadow:0 12px 40px rgba(0,0,0,0.45)">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">'
+      +'<div style="font-weight:800;font-size:16px">📥 Off-List <span style="font-size:12px;color:var(--text-dim);font-weight:600">('+list.length+')</span></div>'
+      +'<div style="display:flex;gap:6px">'
+        +'<button onclick="_psCopyLink(this)" title="'+_PS_LINK+'" style="'+btnS+';background:rgba(234,88,12,0.12);border:1px solid rgba(234,88,12,0.5);color:#fb923c">🔗 Copy Form Link</button>'
+        +'<button onclick="_psOpen(true)" title="Refresh" style="'+btnS+';background:var(--panel-2);border:1px solid var(--border);color:var(--text)">🔄</button>'
+        +'<button onclick="document.getElementById(\'prescreen-modal\').remove()" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.45);color:#f87171;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:15px;line-height:1">✕</button>'
+      +'</div></div>'
+    +'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:14px">Submissions from the open form (any address). Send <b>'+_PS_LINK.replace('https://','')+'</b> to tenants at homes you don\'t own yet.</div>'
+    +(order.length?order.map(function(k){
+        return '<div style="font-weight:800;font-size:13.5px;margin:6px 0 8px;color:#fb923c">📍 '+esc(k)+' <span style="color:var(--text-dim);font-weight:600">('+groups[k].length+')</span></div>'+groups[k].map(card).join('');
+      }).join(''):'<div style="color:var(--text-dim);padding:12px 0">No off-list applications yet.</div>')
+    +'</div>';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  document.body.appendChild(ov);
+}
+window._psOpen=_psOpen;
 </script>
 </body>
 </html>

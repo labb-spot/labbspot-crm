@@ -6439,7 +6439,7 @@
       <div class="flex items-center gap-2 flex-wrap">
         <button id="reno-renovated-holdings-filter" data-val="" onclick="_renoCycleRenovatedFilter()" class="btn btn-ghost text-sm" style="display:none" title="Filter renovated deals — All / In Holdings / Non-Holdings">🏁 All Renovated</button>
         <button id="reno-cal-btn" class="btn btn-ghost text-sm" onclick="_hrToggleCalendar('renovation')" title="Toggle calendar view">📅 Calendar</button>
-        <button class="btn btn-ghost text-sm" onclick="renderRenovationList()" title="Refresh from cache">🔁 Refresh</button>
+        <button class="btn btn-ghost text-sm" onclick="_hrHardRefresh(this,renderRenovationList)" title="Pull the latest from the database">🔁 Refresh</button>
       </div>
     </div>
     <div id="reno-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -7745,7 +7745,7 @@
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         <button id="hold-cal-btn" class="btn btn-ghost text-sm" onclick="_hrToggleCalendar('holdings')" title="Toggle calendar view">📅 Calendar</button>
-        <button class="btn btn-ghost text-sm" onclick="renderHoldingsList()" title="Refresh from cache">🔁 Refresh</button>
+        <button class="btn btn-ghost text-sm" onclick="_hrHardRefresh(this,renderHoldingsList)" title="Pull the latest from the database">🔁 Refresh</button>
       </div>
     </div>
     <div id="hold-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none">
@@ -51522,6 +51522,7 @@ function openListMapper(headers, rows, fileName) {
   const auto = autoMap(headers);
   // Seed the mapper's flags from whatever was ticked in the Upload panel chips.
   const seededFlags = { ...(window._uploadFlags || {}) };
+  window._colPickQ={}; window._colPickOpen={};
   pendingUpload = { kind:'list', headers, rows, fileName, map: auto.map, phones: auto.phones, emails: auto.emails, selected: new Array(rows.length).fill(true), flags: seededFlags };
   document.getElementById('mapper-title').textContent = 'Map property list columns';
   document.getElementById('mapper-subtitle').textContent = 'We guessed the best match for each field. Adjust any that look wrong, then confirm.';
@@ -51568,6 +51569,7 @@ function toggleMapperFlag(flag) {
 
 function openSkipMapper(headers, rows, fileName, vendorId) {
   const auto = autoMap(headers);
+  window._colPickQ={}; window._colPickOpen={};
   pendingUpload = { kind:'skip', headers, rows, fileName, vendorId, map: auto.map, phones: auto.phones, emails: auto.emails, selected: new Array(rows.length).fill(true) };
   const vName = cache.vendors[vendorId]?.name || 'Unknown vendor';
   document.getElementById('mapper-title').textContent = 'Map skiptrace columns — ' + vName;
@@ -51606,16 +51608,16 @@ function renderMapperFields(fieldList) {
   <div class="md:col-span-2 mt-2">
     <div class="flex items-center justify-between mb-1">
       <label class="text-xs text-[var(--text-dim)]">Phone columns${pendingUpload.phones.length ? ` (${pendingUpload.phones.length} selected)` : ''}</label>
-      <button type="button" class="text-xs text-[var(--accent)]" style="background:none;border:none;cursor:pointer;padding:0" onclick="document.getElementById('phone-col-picker').style.display = document.getElementById('phone-col-picker').style.display==='none'?'':'none'">
+      <button type="button" class="text-xs text-[var(--accent)]" style="background:none;border:none;cursor:pointer;padding:0" onclick="_colPickToggle('phone')">
         ${pendingUpload.phones.length ? 'Edit' : '+ Add phone columns'}
       </button>
     </div>
     ${pendingUpload.phones.length ? `<div class="flex flex-wrap gap-1 mb-1">${pendingUpload.phones.map(i => `<span class="badge brand" style="font-size:12px">${escapeHtml(String(pendingUpload.headers[i]||'col '+(i+1)))} <span style="cursor:pointer;margin-left:4px" onclick="togglePhoneCol(${i},false);renderMapperFields()">✕</span></span>`).join('')}</div>` : ''}
-    <div id="phone-col-picker" class="panel-2 p-2 mt-1" style="display:none; max-height:160px; overflow:auto">
-      <div class="text-xs text-[var(--text-dim)] mb-2">Check columns that contain phone numbers:</div>
+    <div id="phone-col-picker" class="panel-2 p-2 mt-1" style="display:${(window._colPickOpen||{}).phone?'':'none'}; max-height:220px; overflow:auto">
+      <div style="position:sticky;top:-8px;z-index:1;background:var(--panel-2);padding:2px 0 6px;display:flex;align-items:center;gap:8px"><input type="text" placeholder="🔍 Search columns (e.g. Phone1, Mobile, Email)" value="${escapeHtml((window._colPickQ||{}).phone||'')}" oninput="_colPickFilter('phone',this.value)" style="flex:1;font-size:12px;height:28px;padding:0 8px"><span class="text-xs text-[var(--text-dim)]" style="white-space:nowrap">Check columns that contain phone numbers</span></div>
       <div class="grid grid-cols-2 md:grid-cols-3 gap-1">
         ${pendingUpload.headers.map((h,i)=>`
-          <label class="text-xs flex items-center gap-1">
+          <label class="text-xs flex items-center gap-1 colpick-phone" data-h="${escapeHtml(String(h||'').toLowerCase())}" style="${_colPickHide('phone',h)?'display:none':''}">
             <input type="checkbox" ${pendingUpload.phones.includes(i)?'checked':''} onchange="togglePhoneCol(${i}, this.checked); renderMapperFields()" style="width:auto" />
             <span>${escapeHtml(String(h||'(col '+(i+1)+')'))}</span>
           </label>`).join('')}
@@ -51625,16 +51627,16 @@ function renderMapperFields(fieldList) {
   <div class="md:col-span-2 mt-2">
     <div class="flex items-center justify-between mb-1">
       <label class="text-xs text-[var(--text-dim)]">Email columns${pendingUpload.emails.length ? ` (${pendingUpload.emails.length} selected)` : ''}</label>
-      <button type="button" class="text-xs text-[var(--accent)]" style="background:none;border:none;cursor:pointer;padding:0" onclick="document.getElementById('email-col-picker').style.display = document.getElementById('email-col-picker').style.display==='none'?'':'none'">
+      <button type="button" class="text-xs text-[var(--accent)]" style="background:none;border:none;cursor:pointer;padding:0" onclick="_colPickToggle('email')">
         ${pendingUpload.emails.length ? 'Edit' : '+ Add email columns'}
       </button>
     </div>
     ${pendingUpload.emails.length ? `<div class="flex flex-wrap gap-1 mb-1">${pendingUpload.emails.map(i => `<span class="badge brand" style="font-size:12px">${escapeHtml(String(pendingUpload.headers[i]||'col '+(i+1)))} <span style="cursor:pointer;margin-left:4px" onclick="toggleEmailCol(${i},false);renderMapperFields()">✕</span></span>`).join('')}</div>` : ''}
-    <div id="email-col-picker" class="panel-2 p-2 mt-1" style="display:none; max-height:160px; overflow:auto">
-      <div class="text-xs text-[var(--text-dim)] mb-2">Check columns that contain email addresses:</div>
+    <div id="email-col-picker" class="panel-2 p-2 mt-1" style="display:${(window._colPickOpen||{}).email?'':'none'}; max-height:220px; overflow:auto">
+      <div style="position:sticky;top:-8px;z-index:1;background:var(--panel-2);padding:2px 0 6px;display:flex;align-items:center;gap:8px"><input type="text" placeholder="🔍 Search columns (e.g. Phone1, Mobile, Email)" value="${escapeHtml((window._colPickQ||{}).email||'')}" oninput="_colPickFilter('email',this.value)" style="flex:1;font-size:12px;height:28px;padding:0 8px"><span class="text-xs text-[var(--text-dim)]" style="white-space:nowrap">Check columns that contain email addresses</span></div>
       <div class="grid grid-cols-2 md:grid-cols-3 gap-1">
         ${pendingUpload.headers.map((h,i)=>`
-          <label class="text-xs flex items-center gap-1">
+          <label class="text-xs flex items-center gap-1 colpick-email" data-h="${escapeHtml(String(h||'').toLowerCase())}" style="${_colPickHide('email',h)?'display:none':''}">
             <input type="checkbox" ${pendingUpload.emails.includes(i)?'checked':''} onchange="toggleEmailCol(${i}, this.checked); renderMapperFields()" style="width:auto" />
             <span>${escapeHtml(String(h||'(col '+(i+1)+')'))}</span>
           </label>`).join('')}
@@ -51643,6 +51645,18 @@ function renderMapperFields(fieldList) {
   </div>`;
 }
 
+
+// ---- Phone / Email column pickers: search box + stay open while checking ----
+window._colPickOpen=window._colPickOpen||{}; window._colPickQ=window._colPickQ||{};
+function _colPickToggle(kind){
+  var el=document.getElementById(kind+'-col-picker'); if(!el) return;
+  var open=el.style.display==='none'; el.style.display=open?'':'none'; window._colPickOpen[kind]=open;
+}
+function _colPickHide(kind,h){ var q=String(window._colPickQ[kind]||'').trim().toLowerCase(); if(!q) return false; return String(h||'').toLowerCase().indexOf(q)<0; }
+function _colPickFilter(kind,q){
+  window._colPickQ[kind]=q; var t=String(q||'').trim().toLowerCase();
+  document.querySelectorAll('.colpick-'+kind).forEach(function(l){ l.style.display=(!t||String(l.getAttribute('data-h')||'').indexOf(t)>=0)?'':'none'; });
+}
 function togglePhoneCol(idx, on) {
   const set = new Set(pendingUpload.phones);
   if (on) set.add(idx); else set.delete(idx);
@@ -69673,6 +69687,20 @@ window._uwFillLongtermFromSaved=function(id){
 </script>
 
 <script>
+
+/* Refresh buttons on Holdings / Renovation: re-pull properties from the database, then re-draw. */
+async function _hrHardRefresh(btn,renderFn){
+  var orig=btn?btn.innerHTML:''; if(btn){ btn.disabled=true; btn.innerHTML='<span class="loader" style="width:14px;height:14px;border-width:2px"></span> Refresh'; }
+  try{
+    if(typeof loadUnderwrites==='function') await loadUnderwrites();
+    if(typeof _holdLoadRentalApps==='function') await _holdLoadRentalApps(true);
+    if(typeof renderFn==='function') renderFn();
+    if(typeof _holdUpdateAppsBadge==='function') _holdUpdateAppsBadge();
+    if(typeof toast==='function') toast('Refreshed','ok');
+  }catch(e){ console.warn('refresh:',e); if(typeof toast==='function') toast('Refresh failed: '+(e.message||e),'err'); }
+  if(btn){ btn.disabled=false; btn.innerHTML=orig; }
+}
+window._hrHardRefresh=_hrHardRefresh;
 /* ===== Off-List applications (submit.labbllc.com/prescreen) — add-on view inside Applications ===== */
 var _PS_LINK='https://submit.labbllc.com/prescreen';
 window._psMode=false;

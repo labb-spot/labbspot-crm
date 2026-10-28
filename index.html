@@ -59583,6 +59583,13 @@ function _computeFilteredMarketingProps() {
         : (flagMode === 'and' ? hitCount === flagFilters.length : hitCount > 0);
       if (flagInMode === 'include' && !matched) continue;
       if (flagInMode === 'exclude' && matched) continue;
+    } else if (flagMin >= 1) {
+      // No flag chips picked: Stack ≥ N counts ALL of the property's flags.
+      const pf = p.flags || {};
+      const total = Object.keys(pf).filter(k => pf[k]).length;
+      const matched = total >= flagMin;
+      if (flagInMode === 'include' && !matched) continue;
+      if (flagInMode === 'exclude' && matched) continue;
     }
     // List filters with AND/OR mode + Include/Exclude (against p._lists membership)
     if (listFilters.length) {

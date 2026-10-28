@@ -6813,11 +6813,11 @@
       <div id="request-lists-container" style="margin-top:10px;display:none"></div>
 
       <div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <div style="font-weight:800;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">🔗 Connections</div>
-        <button type="button" onclick="_reqAddConnRow()" style="font-size:11px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;padding:5px 11px;cursor:pointer">+ Add Connection</button>
+        <div style="font-weight:800;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;display:none">🔗 Connections</div>
+        <button type="button" onclick="_reqAddConnRow()" style="display:none;font-size:11px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;padding:5px 11px;cursor:pointer">+ Add Connection</button>
       </div>
-      <div style="font-size:11.5px;color:var(--text-dim);margin-top:4px">Offices / people for this city — Recorder, Assessor, Clerk, etc.</div>
-      <div id="request-conns-container" style="margin-top:8px"></div>
+      <div style="display:none;font-size:11.5px;color:var(--text-dim);margin-top:4px">Offices / people for this city — Recorder, Assessor, Clerk, etc.</div>
+      <div id="request-conns-container" style="margin-top:8px;display:none"></div>
     </div>
   </div>
 
@@ -47257,14 +47257,19 @@ const _REQ_EMAIL_DEFAULT = {
   body: "Hi {name},\n\nI'm reaching out to request your {list_type} list for {city}. Could you let me know the process to receive it, any cost, and how often it's updated?\n\nIf possible, I'd like to be added to a recurring send so I get it each time it refreshes.\n\nThank you,\nLABB LLC"
 };
 function reqEmailTplStore(){ try { const m = cache && cache.config && cache.config.column_mappings && cache.config.column_mappings.request_email_templates; return (m && typeof m === 'object') ? m : {}; } catch(_){ return {}; } }
+const _REQ_OFFICE_EMAIL_DEFAULT = {
+  subject: 'Question for the {office} — {city}',
+  body: "Hi {name},\n\nI'm reaching out to the {office} in {city} with a quick question. Could you point me to the right person or process?\n\nThank you,\nLogan Betz\nLABB, LLC\n812-571-2453"
+};
 function reqEmailTplGet(type){
   const s = reqEmailTplStore(); const t = s[type] || null;
-  return { subject: (t && t.subject) ? t.subject : _REQ_EMAIL_DEFAULT.subject, body: (t && t.body != null) ? t.body : _REQ_EMAIL_DEFAULT.body };
+  const def = String(type||'').indexOf('🏛️ ')===0 ? _REQ_OFFICE_EMAIL_DEFAULT : _REQ_EMAIL_DEFAULT;
+  return { subject: (t && t.subject) ? t.subject : def.subject, body: (t && t.body != null) ? t.body : def.body };
 }
 function reqEmailTplFill(str, ctx){
   ctx = ctx || {};
-  const map = { '{name}': ctx.name || 'there', '{list_type}': ctx.list_type || 'records', '{city}': ctx.city || 'your area', '{county}': ctx.county || '' };
-  return String(str).replace(/\{(name|list_type|city|county)\}/g, m => map[m] != null ? map[m] : m);
+  const map = { '{name}': ctx.name || 'there', '{list_type}': ctx.list_type || 'records', '{office}': ctx.office || ctx.list_type || 'office', '{city}': ctx.city || 'your area', '{county}': ctx.county || '' };
+  return String(str).replace(/\{(name|list_type|office|city|county)\}/g, m => map[m] != null ? map[m] : m);
 }
 async function reqEmailTplSave(payload){
   if (typeof sb === 'undefined' || !sb) { if (typeof toast==='function') toast('Not connected.','err'); return false; }
@@ -47282,6 +47287,7 @@ async function reqEmailTplSave(payload){
 }
 function reqEmailTplOpen(){
   const types = _reqTypes().slice();
+  try { if (typeof _REQ_OFFICES !== 'undefined') _REQ_OFFICES.forEach(o => types.push('🏛️ ' + o[0])); } catch(_){}
   const prev = document.getElementById('req-eml-pop'); if (prev) prev.remove();
   const store = reqEmailTplStore();
   const draft = {}; types.forEach(t => { const g = reqEmailTplGet(t); draft[t] = { subject:g.subject, body:g.body }; });
@@ -47289,10 +47295,10 @@ function reqEmailTplOpen(){
   const ov = document.createElement('div');
   ov.id = 'req-eml-pop';
   ov.style.cssText = 'position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px';
-  const chips = ['{name}','{list_type}','{city}','{county}'].map(t => '<button type="button" class="reml-chip" data-tok="'+t+'" style="padding:3px 9px;font-size:11px;font-weight:600;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer">'+t+'</button>').join(' ');
+  const chips = ['{name}','{list_type}','{office}','{city}','{county}'].map(t => '<button type="button" class="reml-chip" data-tok="'+t+'" style="padding:3px 9px;font-size:11px;font-weight:600;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer">'+t+'</button>').join(' ');
   ov.innerHTML = '<div style="width:min(600px,96vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;box-shadow:0 16px 50px rgba(0,0,0,0.5)">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-weight:800;font-size:15px">✉️ Request Emails</div><button id="reml-x" style="background:none;border:none;color:var(--text-dim);font-size:22px;line-height:1;cursor:pointer">×</button></div>'
-    + '<label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:6px">LIST TYPE</label>'
+    + '<label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:6px">LIST TYPE / 🏛️ OFFICE</label>'
     + '<div id="reml-tabs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">' + types.map(t => '<button type="button" class="reml-tab" data-t="'+_reqEsc(t)+'" style="padding:6px 11px;font-size:12px;font-weight:700;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);border-radius:8px;cursor:pointer">'+_reqEsc(t)+'</button>').join('') + '</div>'
     + '<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">Click to insert: ' + chips + '</div>'
     + '<label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:4px">SUBJECT</label>'
@@ -47319,6 +47325,22 @@ function reqEmailTplOpen(){
   ov.addEventListener('click', e=>{ if (e.target===ov) close(); });
   ov.querySelector('#reml-save').onclick = async function(){ this.disabled=true; this.textContent='Saving…'; const ok = await reqEmailTplSave(draft); if (ok){ if (typeof toast==='function') toast('✉️ Templates saved','ok'); close(); } else { this.disabled=false; this.textContent='💾 Save All'; } };
   which = types[0] || ''; paint();
+  // Two dropdowns (List Type / Office) instead of one long row of tabs.
+  try {
+    const tabs = ov.querySelector('#reml-tabs'); if (tabs) tabs.style.display = 'none';
+    const lt = types.filter(t => String(t).indexOf('🏛️ ') !== 0), of = types.filter(t => String(t).indexOf('🏛️ ') === 0);
+    const selCss = 'flex:1;min-width:180px;height:38px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);color:var(--text);font-size:13px';
+    const wrap = document.createElement('div'); wrap.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px';
+    wrap.innerHTML = '<label style="flex:1;min-width:180px;font-size:11px;font-weight:700;color:var(--text-dim)">LIST TYPE<select id="reml-sel-type" style="'+selCss+';display:block;width:100%;margin-top:4px"><option value="">—</option>' + lt.map(t => '<option value="'+_reqEsc(t)+'">'+_reqEsc(t)+'</option>').join('') + '</select></label>'
+      + '<label style="flex:1;min-width:180px;font-size:11px;font-weight:700;color:var(--text-dim)">🏛️ OFFICE<select id="reml-sel-office" style="'+selCss+';display:block;width:100%;margin-top:4px"><option value="">—</option>' + of.map(t => '<option value="'+_reqEsc(t)+'">'+_reqEsc(String(t).replace('🏛️ ',''))+'</option>').join('') + '</select></label>';
+    tabs.parentNode.insertBefore(wrap, tabs);
+    const lbl = tabs.previousElementSibling && tabs.previousElementSibling.previousElementSibling; if (lbl && lbl.tagName === 'LABEL') lbl.style.display = 'none';
+    const sT = wrap.querySelector('#reml-sel-type'), sO = wrap.querySelector('#reml-sel-office');
+    const pick = (v) => { const tb = Array.prototype.find.call(ov.querySelectorAll('.reml-tab'), x => x.getAttribute('data-t') === v); if (tb) tb.click(); };
+    sT.value = lt[0] || '';
+    sT.addEventListener('change', () => { if (!sT.value) return; sO.value = ''; pick(sT.value); });
+    sO.addEventListener('change', () => { if (!sO.value) return; sT.value = ''; pick(sO.value); });
+  } catch(_){}
 }
 window.reqEmailTplOpen = reqEmailTplOpen;
 function _reqEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -47649,13 +47671,12 @@ async function requestSaveNew(){
     state: ($('request-add-state')?.value || '').trim().toUpperCase() || null,
     priority: (document.getElementById('request-priority-btn') && document.getElementById('request-priority-btn').getAttribute('data-on') === '1'),
     links: _reqCollectLinks(),
-    connections: _reqCollectConns(),
     updated_at: new Date().toISOString()
   };
   try {
     if (typeof sb === 'undefined' || !sb) throw new Error('Not connected');
     // List types are edited on each department card now — never overwrite them here.
-    if (!editId) payload.lists = {};
+    if (!editId) { payload.lists = {}; payload.connections = []; }
     let data, error;
     if (editId) ({ data, error } = await sb.from('request_cities').update(payload).eq('id', editId).select().single());
     else ({ data, error } = await sb.from('request_cities').insert(payload).select().single());
@@ -69774,17 +69795,7 @@ function _reqDetailHtml(r){
     +'</div>'
     +(links?'<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:12px">'+links+'</div>':'')
     +'<div style="display:grid;gap:10px">'+cards+'</div>'
-    +(conns.length?'<div style="margin-top:14px;background:var(--panel);border:1px solid var(--border);border-left:4px solid #a78bfa;border-radius:10px;padding:12px 14px">'
-      +'<div style="font-weight:800;font-size:14px;margin-bottom:6px">🔗 Connections <span style="font-size:11.5px;font-weight:600;color:var(--text-dim)">('+conns.length+')</span></div>'
-      +conns.map(c=>'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:12.5px">'
-        +'<b style="flex:0 0 190px;min-width:0">'+E(c.role||'')+'</b><span style="flex:0 0 150px;min-width:0">'+E(c.name||'')+'</span>'
-        +'<span style="color:var(--text-dim);flex:1 1 200px;min-width:0;overflow:hidden;text-overflow:ellipsis">'+E(c.email||'')+'</span>'
-        +'<span style="color:var(--text-dim);flex:0 0 110px">'+E(c.phone||'')+'</span>'
-        +'<span style="flex:0 0 80px;display:flex;gap:4px;justify-content:flex-end">'
-        +(c.email?'<a href="mailto:'+E(c.email)+'" title="Email" style="'+btn+';color:#a78bfa">📧</a>':'')
-        +(c.phone?'<a href="tel:'+E(String(c.phone).replace(/[^0-9+]/g,''))+'" title="Call" style="'+btn+';color:#34d399">📞</a>':'')
-        +'</span></div>').join('')
-      +'<div style="font-size:11px;color:var(--text-dim);margin-top:6px">Edit connections with ✏️ Edit city.</div></div>':'')
+    +_reqOfficesHtml(r,btn)
   +'</div>';
 }
 window._reqDetailHtml=_reqDetailHtml;
@@ -69895,6 +69906,143 @@ function _reqMailType(id,t){
   const a=document.createElement('a'); a.href=href; a.click();
 }
 window._reqMailType=_reqMailType;
+
+// ===== Offices (Clerk, Auditor, …) — stored in request_cities.connections as
+// [{office,title,name,email,phone}] plus one {office,_meta:true,website,notes} per office.
+const _REQ_OFFICES=[
+  ['Clerk',['clerk']],
+  ['Auditor',['auditor']],
+  ['Treasurer',['treasurer']],
+  ['Recorder',['recorder']],
+  ['Assessor',['assessor']],
+  ['Planning & Zoning',['planning','zoning']],
+  ['Building & Code Enforcement',['code','building','enforcement','grass','nuisance','unsafe']],
+  ['Sheriff',['sheriff']],
+  ['Utilities (Water / Sewer)',['utilit','water','sewer']],
+  ['Fire Department',['fire']],
+  ['Health Department',['health']],
+  ['Public Works & Engineering',['public works','engineer','engeineer','street','drainage']],
+  ['Commissioners & City Council',['commission','council','mayor','land bank']]
+];
+const _REQ_OFFICE_RENAMED={'Building / Code Enforcement':'Building & Code Enforcement','Building & Code':'Building & Code Enforcement','Fire Marshal / Fire Dept':'Fire Department','Public Works / Engineering':'Public Works & Engineering','Commissioners / City Council':'Commissioners & City Council','Commissioners & Council':'Commissioners & City Council'};
+function _reqOfficeOf(c){
+  if(c&&c.office) return _REQ_OFFICE_RENAMED[c.office]||c.office;
+  const role=String((c&&c.role)||'').toLowerCase();
+  for(const [name,keys] of _REQ_OFFICES){ if(keys.some(k=>role.indexOf(k)>=0)) return name; }
+  return 'Other';
+}
+function _reqOfficeData(r){
+  const by={}; const add=(o)=>{ if(!by[o]) by[o]={contacts:[],website:'',notes:''}; return by[o]; };
+  (Array.isArray(r.connections)?r.connections:[]).forEach(c=>{
+    if(!c) return; const o=_reqOfficeOf(c); const b=add(o);
+    if(c._meta){ b.website=c.website||''; b.notes=c.notes||''; return; }
+    if(c.title||c.name||c.email||c.phone||c.role) b.contacts.push({title:c.title||(c.office?'':(c.role||'')),name:c.name||'',email:c.email||'',phone:c.phone||''});
+  });
+  return by;
+}
+function _reqOfficesHtml(r,btn){
+  const E=_reqEsc; const by=_reqOfficeData(r);
+  const names=_REQ_OFFICES.map(o=>o[0]);
+  Object.keys(by).forEach(k=>{ if(names.indexOf(k)<0 && k!=='Other') names.push(k); });
+  if(by['Other']) names.push('Other');
+  const filled=names.filter(n=>{ const b=by[n]; return b&&(b.contacts.length||b.website||b.notes); }).length;
+  return '<div style="margin-top:18px">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+      +'<div style="font-weight:800;font-size:15px;flex:1">🏛️ Offices <span style="font-size:11.5px;font-weight:600;color:var(--text-dim)">('+filled+' set up)</span></div>'
+      +'<button type="button" onclick="_reqAddOffice(\''+E(r.id)+'\')" style="height:30px;padding:0 12px;font-size:12px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;cursor:pointer">+ Office</button>'
+    +'</div>'
+    +'<div style="display:grid;gap:10px">'+names.map(n=>_reqOfficeCardHtml(r,n,by[n]||{contacts:[],website:'',notes:''},btn)).join('')+'</div>'
+  +'</div>';
+}
+function _reqOfficeCardHtml(r,o,b,btn){
+  const E=_reqEsc; const id=E(r.id); const oq=E(o).replace(/'/g,"\\'");
+  const tc='#a78bfa';
+  const key='O|'+r.id+'|'+o; const editing=window._reqEditKey===key; const open=!!(window._reqOpen&&window._reqOpen[key]);
+  const cs=b.contacts; const has=cs.length||b.website||b.notes; const emails=cs.filter(c=>c.email);
+  const head='<div '+(editing?'':'onclick="_reqToggleOffice(\''+id+'\',\''+oq+'\')" ')+'style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;'+(editing?'':'cursor:pointer;')+'margin-bottom:'+(editing||open?'8px':'0')+'">'
+    +(editing?'':'<span style="font-size:11px;color:var(--text-dim);width:12px;display:inline-block;transform:rotate('+(open?'90':'0')+'deg)">▶</span>')
+    +'<div style="font-weight:800;font-size:14px;flex:1;min-width:140px;color:'+(has?tc:'var(--text-dim)')+'">'+E(o)+(editing?'':' <span style="font-size:11px;font-weight:600;color:var(--text-dim)">'+(cs.length?cs.length+' contact'+(cs.length>1?'s':''):'')+'</span>')+'</div>'
+    +(editing?'':'<button type="button" onclick="event.stopPropagation();_reqMailOffice(\''+id+'\',\''+oq+'\')" '+(emails.length?'':'disabled ')+'style="'+btn+';color:#a78bfa;'+(emails.length?'':'opacity:.4;cursor:default')+'">📧 Email</button>'
+      +'<button type="button" onclick="event.stopPropagation();_reqOfficeEditStart(\''+id+'\',\''+oq+'\')" style="'+btn+';color:var(--text)">✏️ Edit</button>')
+    +'</div>';
+  if(editing){
+    const inp='height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box';
+    const row=(c)=>'<div class="rq-c-row" style="display:grid;grid-template-columns:1fr 1.1fr 1.5fr 1fr 30px;gap:6px;margin-bottom:6px">'
+      +'<input class="rq-c-title" placeholder="Title" value="'+E(c.title||'')+'" style="'+inp+'">'
+      +'<input class="rq-c-name" placeholder="Name" value="'+E(c.name||'')+'" style="'+inp+'">'
+      +'<input class="rq-c-email" type="email" placeholder="Email" value="'+E(c.email||'')+'" style="'+inp+'">'
+      +'<input class="rq-c-phone" placeholder="Phone" value="'+E(c.phone||'')+'" style="'+inp+'">'
+      +'<button type="button" title="Remove" onclick="this.closest(\'.rq-c-row\').remove()" style="height:34px;border:1px solid var(--border);background:transparent;color:#f87171;border-radius:7px;cursor:pointer;font-weight:700">×</button></div>';
+    return '<div class="rq-edit-card" style="background:var(--panel);border:1px solid '+tc+';border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px">'+head
+      +'<div style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Contacts</div>'
+      +'<div class="rq-c-list">'+((cs.length?cs:[{}]).map(row).join(''))+'</div>'
+      +'<button type="button" onclick="this.previousElementSibling.insertAdjacentHTML(\'beforeend\', _reqEditRowBlank())" style="height:30px;padding:0 12px;font-size:12px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;cursor:pointer;margin-bottom:10px">+ Contact</button>'
+      +'<label style="font-size:11.5px;color:var(--text-dim);display:block;margin-bottom:8px">Website<input class="rq-web" placeholder="https://…" value="'+E(b.website||'')+'" style="'+inp+';margin-top:3px"></label>'
+      +'<label style="font-size:11.5px;color:var(--text-dim);display:block;margin-bottom:10px">Notes<textarea class="rq-notes" rows="2" style="width:100%;box-sizing:border-box;font-size:13px;padding:6px 9px;margin-top:3px">'+E(b.notes||'')+'</textarea></label>'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end">'
+        +'<button type="button" class="btn btn-ghost text-sm" onclick="_reqEditCancel()">Cancel</button>'
+        +'<button type="button" class="btn btn-primary text-sm" onclick="_reqOfficeSave(this,\''+id+'\',\''+oq+'\')">💾 Save</button>'
+      +'</div></div>';
+  }
+  return '<div style="background:var(--panel);border:1px solid var(--border);border-left:4px solid '+(has?tc:'var(--border)')+';border-radius:10px;padding:12px 14px;'+(has?'':'opacity:.7')+'">'+head
+    +(open?'<div>'
+      +(cs.length?cs.map(c=>'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border)">'
+          +'<div style="flex:0 0 150px;min-width:0;font-size:12.5px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis">'+E(c.title||'')+'</div>'
+          +'<div style="flex:1 1 160px;min-width:0;font-weight:700;font-size:13px">'+E(c.name||'—')+'</div>'
+          +'<div style="flex:1 1 200px;min-width:0;font-size:12.5px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis">'+E(c.email||'')+'</div>'
+          +'<div style="flex:0 0 120px;font-size:12.5px;color:var(--text-dim)">'+E(c.phone||'')+'</div>'
+          +(c.email?'<button type="button" onclick="event.stopPropagation();_reqMailOffice(\''+id+'\',\''+oq+'\','+cs.indexOf(c)+')" style="'+btn+';color:#a78bfa">📧</button>':'')
+          +(c.phone?'<a href="tel:'+E(String(c.phone).replace(/[^0-9+]/g,''))+'" onclick="event.stopPropagation()" style="'+btn+';color:#34d399">📞</a>':'')
+        +'</div>').join(''):'')
+      +(b.website?'<div style="margin-top:6px"><a href="'+E(/^https?:\/\//i.test(b.website)?b.website:'https://'+b.website)+'" target="_blank" rel="noopener" style="color:#60a5fa;font-size:12.5px;text-decoration:none">🌐 '+E(b.website)+'</a></div>':'')
+      +(b.notes?'<div style="margin-top:6px;font-size:12.5px;color:var(--text-dim);white-space:pre-wrap">📝 '+E(b.notes)+'</div>':'')
+      +(has?'':'<div style="font-size:12px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px">Nothing here yet — click ✏️ Edit to add contacts.</div>')
+    +'</div>':'')+'</div>';
+}
+function _reqToggleOffice(id,o){ window._reqOpen=window._reqOpen||{}; const k='O|'+id+'|'+o; window._reqOpen[k]=!window._reqOpen[k]; renderRequestsList(); }
+function _reqOfficeEditStart(id,o){ window._reqEditKey='O|'+id+'|'+o; renderRequestsList(); }
+window._reqToggleOffice=_reqToggleOffice; window._reqOfficeEditStart=_reqOfficeEditStart;
+async function _reqOfficeSave(btnEl,id,o){
+  const card=btnEl.closest('.rq-edit-card'); if(!card) return;
+  const v=(sel)=>((card.querySelector(sel)||{}).value||'').trim();
+  const rows=[]; card.querySelectorAll('.rq-c-row').forEach(rw=>{ const g=(c)=>((rw.querySelector(c)||{}).value||'').trim(); const ti=g('.rq-c-title'),nm=g('.rq-c-name'),em=g('.rq-c-email'),ph=g('.rq-c-phone'); if(ti||nm||em||ph) rows.push({office:o,title:ti,name:nm,email:em,phone:ph}); });
+  const web=v('.rq-web'), notes=v('.rq-notes');
+  btnEl.disabled=true; btnEl.textContent='Saving…';
+  try{
+    if(typeof sb==='undefined'||!sb) throw new Error('Not connected');
+    const cur=await sb.from('request_cities').select('connections').eq('id',id).maybeSingle();
+    if(cur.error) throw cur.error;
+    const all=Array.isArray(cur.data&&cur.data.connections)?cur.data.connections:[];
+    const keep=all.filter(c=>c && _reqOfficeOf(c)!==o);
+    const next=keep.concat(rows); if(web||notes) next.push({office:o,_meta:true,website:web,notes:notes});
+    const up=await sb.from('request_cities').update({connections:next,updated_at:new Date().toISOString()}).eq('id',id).select().single();
+    if(up.error) throw up.error;
+    if(up.data){ if(!up.data.lists||typeof up.data.lists!=='object') up.data.lists={}; cache.requests[id]=up.data; }
+    window._reqEditKey=null; renderRequestsList();
+    if(typeof toast==='function') toast(o+' saved','ok');
+  }catch(e){ console.warn('office save:',e); btnEl.disabled=false; btnEl.textContent='💾 Save'; if(typeof toast==='function') toast('Save failed: '+(e.message||e),'err'); }
+}
+window._reqOfficeSave=_reqOfficeSave;
+function _reqMailOffice(id,o,oneIdx){
+  const r=(cache.requests||{})[id]; if(!r) return; const b=_reqOfficeData(r)[o]||{contacts:[]};
+  const list=(oneIdx!=null)?[b.contacts[oneIdx]].filter(Boolean):b.contacts;
+  const ems=list.map(c=>c.email).filter(Boolean);
+  if(!ems.length){ if(typeof toast==='function') toast('No email for '+o+'.','warn'); return; }
+  const first=list.find(c=>c.email)||{};
+  let href='mailto:'+ems.join(',');
+  try{ const tpl=reqEmailTplGet('🏛️ '+o); const ctx={name:ems.length===1?(first.name||''):'',list_type:o,office:o,city:r.city||'',county:r.county||''};
+    href+='?subject='+encodeURIComponent(reqEmailTplFill(tpl.subject,ctx))+'&body='+encodeURIComponent(reqEmailTplFill(tpl.body,ctx)); }catch(_){}
+  const a=document.createElement('a'); a.href=href; a.click();
+}
+window._reqMailOffice=_reqMailOffice;
+function _reqAddOffice(id){
+  const name=(prompt('New office name (e.g. Land Bank, Prosecutor):')||'').trim(); if(!name) return;
+  const r=(cache.requests||{})[id]; if(!r) return;
+  if(!Array.isArray(r.connections)) r.connections=[];
+  if(!_reqOfficeData(r)[name] && !_REQ_OFFICES.some(o=>o[0].toLowerCase()===name.toLowerCase())) r.connections.push({office:name,_meta:true,website:'',notes:''});
+  window._reqEditKey='O|'+id+'|'+name; renderRequestsList();
+}
+window._reqAddOffice=_reqAddOffice;
 window._reqOrigRender = window.renderRequestsList;
 window.renderRequestsList = _reqSplitRender;
 /* Refresh buttons on Holdings / Renovation: re-pull properties from the database, then re-draw. */

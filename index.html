@@ -2071,7 +2071,7 @@
           <button id="requests-refresh-btn" class="btn btn-ghost text-sm" onclick="requestsRefresh()" title="Reload from the cloud" style="height:38px;width:112px;justify-content:center;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden">🔁 Refresh</button>
         </div>
       </div>
-      <div class="text-sm text-[var(--text-dim)] mb-3">Your cities. Click a city to add the source contacts for each list type (Code Violations, Utility Liens, Fire Damage, Tax Delinquent) and track when you requested each list and last got it.</div>
+      <div class="text-sm text-[var(--text-dim)] mb-3">Pick a city on the left to see every list type's contacts. Use ✏️ Edit city to change them.</div>
       <div id="requests-empty" class="text-center text-[var(--text-dim)] py-8" style="display:none"></div>
       <div id="requests-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"></div>
     </div>
@@ -6806,11 +6806,11 @@
       <div style="font-size:11.5px;color:var(--text-dim);margin-top:4px">Name each link (e.g. “County Clerk”, “Record Request Form”) — the name shows on the city card.</div>
       <div id="request-links-container" style="margin-top:8px"></div>
 
-      <div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="margin-top:18px;display:none;align-items:center;justify-content:space-between;gap:10px">
         <div style="font-weight:800;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">List Types</div>
         <button type="button" onclick="requestAddType()" style="font-size:11px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;padding:5px 11px;cursor:pointer">+ List Type</button>
       </div>
-      <div id="request-lists-container" style="margin-top:10px"></div>
+      <div id="request-lists-container" style="margin-top:10px;display:none"></div>
 
       <div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:10px">
         <div style="font-weight:800;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">🔗 Connections</div>
@@ -47649,12 +47649,13 @@ async function requestSaveNew(){
     state: ($('request-add-state')?.value || '').trim().toUpperCase() || null,
     priority: (document.getElementById('request-priority-btn') && document.getElementById('request-priority-btn').getAttribute('data-on') === '1'),
     links: _reqCollectLinks(),
-    lists: _reqCollectLists(),
     connections: _reqCollectConns(),
     updated_at: new Date().toISOString()
   };
   try {
     if (typeof sb === 'undefined' || !sb) throw new Error('Not connected');
+    // List types are edited on each department card now — never overwrite them here.
+    if (!editId) payload.lists = {};
     let data, error;
     if (editId) ({ data, error } = await sb.from('request_cities').update(payload).eq('id', editId).select().single());
     else ({ data, error } = await sb.from('request_cities').insert(payload).select().single());
@@ -69696,6 +69697,206 @@ window._uwFillLongtermFromSaved=function(id){
 
 <script>
 
+
+/* ===== Requests: split view (cities list on the left, selected city's contacts on the right) ===== */
+window._reqSel = window._reqSel || null;
+function _reqLatest(r, key){ let best=''; Object.values((r&&r.lists)||{}).forEach(d=>{ const v=d&&d[key]; if(v && v>best) best=v; }); return best; }
+function _reqSelect(id){ window._reqSel=id; renderRequestsList(); }
+window._reqSelect=_reqSelect;
+function _reqMail(id,type,ci){
+  const r=(cache.requests||{})[id]; if(!r) return; const d=(r.lists||{})[type]||{}; const c=(d.contacts||[])[ci]||{};
+  if(!c.email){ if(typeof toast==='function') toast('No email on this contact.','warn'); return; }
+  let href='mailto:'+c.email;
+  try{ if(typeof reqEmailTplGet==='function'){ const tpl=reqEmailTplGet(type); const ctx={name:c.name||'',list_type:type,city:r.city||'',county:r.county||''};
+    href+='?subject='+encodeURIComponent(reqEmailTplFill(tpl.subject,ctx))+'&body='+encodeURIComponent(reqEmailTplFill(tpl.body,ctx)); } }catch(_){}
+  const a=document.createElement('a'); a.href=href; a.click();
+}
+window._reqMail=_reqMail;
+function _reqSplitRender(){
+  const grid=document.getElementById('requests-grid'); const empty=document.getElementById('requests-empty');
+  if(!grid) return;
+  if(!cache.requests){ loadRequests().then(renderRequestsList); return; }
+  const E=_reqEsc;
+  const q=(document.getElementById('requests-search')?.value||'').trim().toLowerCase();
+  let rows=Object.values(cache.requests).filter(r=>r&&r.city);
+  if(q) rows=rows.filter(r=>[r.city,r.county,JSON.stringify(r.lists||{})].map(v=>String(v||'').toLowerCase()).join(' | ').includes(q));
+  if((document.getElementById('requests-priority-filter')?.getAttribute('data-on'))==='1') rows=rows.filter(r=>!!r.priority);
+  grid.className='';
+  if(!rows.length){ grid.innerHTML=''; if(empty){ empty.style.display=''; empty.innerHTML=q?'No cities match your search.':'No cities yet — click <b>+ Add City</b> to start tracking list requests.'; } return; }
+  if(empty) empty.style.display='none';
+  const sortMode=(document.getElementById('requests-sort-btn')?.getAttribute('data-sort'))||'city';
+  const byName=(a,b)=>((b.priority?1:0)-(a.priority?1:0))||String(a.city||'').toLowerCase().localeCompare(String(b.city||'').toLowerCase());
+  if(!window._reqSel || !rows.some(r=>r.id===window._reqSel)){ const first=rows.slice().sort(byName)[0]; window._reqSel=first&&first.id; }
+  const item=(r)=>{
+    const on=r.id===window._reqSel; const rq=_reqLatest(r,'requested'), rc=_reqLatest(r,'received');
+    const cty=[r.county?(r.county+' County'):'', r.state||''].filter(Boolean).join(', ');
+    return '<div onclick="_reqSelect(\''+E(r.id)+'\')" style="cursor:pointer;display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:10px;margin-bottom:4px;'+(on?'background:rgba(99,102,241,0.14);border:1px solid #6366f1':'border:1px solid transparent')+'">'
+      +'<div style="flex:1;min-width:0">'
+        +'<div style="font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+E(r.city)+'</div>'
+        +'<div style="font-size:11.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(cty?E(cty):'No county')+'</div>'
+        +'<div style="font-size:11px;margin-top:3px;display:flex;gap:10px;flex-wrap:wrap">'
+          +'<span style="color:var(--text-dim)">Req <b style="color:var(--text)">'+(rq?E(_reqFmtDate(rq)):'—')+'</b></span>'
+          +'<span style="color:var(--text-dim)">Rcvd <b style="color:'+(rc?_reqRecencyColor(rc):'var(--text)')+'">'+(rc?E(_reqFmtDate(rc)):'—')+'</b></span>'
+        +'</div>'
+      +'</div>'
+      +'<div style="width:18px;flex:0 0 18px;text-align:center;font-size:15px" title="'+(r.priority?'Priority':'')+'">'+(r.priority?'⭐':'')+'</div>'
+    +'</div>';
+  };
+  let left='';
+  if(sortMode==='county'){
+    const groups={},order=[]; rows.forEach(r=>{ const c=(r.county||'').trim()||'No County'; if(!groups[c]){groups[c]=[];order.push(c);} groups[c].push(r); });
+    order.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));
+    left=order.map(c=>'<div style="font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#a5b4fc;padding:10px 12px 4px">📍 '+E(c)+(c!=='No County'?' County':'')+'</div>'+groups[c].sort(byName).map(item).join('')).join('');
+  } else left=rows.slice().sort(byName).map(item).join('');
+  const r=cache.requests[window._reqSel];
+  grid.innerHTML='<div style="display:grid;grid-template-columns:minmax(240px,300px) 1fr;gap:14px;align-items:start">'
+    +'<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:8px;max-height:calc(100vh - 130px);overflow-y:auto;position:sticky;top:10px">'
+      +'<div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-dim);padding:6px 12px 8px">Cities · '+rows.length+'</div>'+left+'</div>'
+    +'<div>'+(r?_reqDetailHtml(r):'')+'</div></div>';
+}
+function _reqDetailHtml(r){
+  const E=_reqEsc; const id=E(r.id);
+  const cty=[r.county?(r.county+' County'):'', r.state||''].filter(Boolean).join(', ');
+  const links=(Array.isArray(r.links)?r.links:[]).filter(l=>l&&(l.label||l.url)).map(l=>{ let u=String(l.url||''); if(u&&!/^https?:\/\//i.test(u)) u='https://'+u;
+    return '<a href="'+E(u)+'" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none;font-size:12.5px;font-weight:600">🌐 '+E(l.label||u)+'</a>'; }).join('');
+  const conns=(Array.isArray(r.connections)?r.connections:[]).filter(c=>c&&(c.name||c.email||c.phone||c.role));
+  const btn='height:30px;padding:0 10px;border:1px solid var(--border);background:var(--panel-2);border-radius:7px;cursor:pointer;font-size:12.5px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap';
+  const types=_reqTypes().slice(); Object.keys(r.lists||{}).forEach(k=>{ if(types.indexOf(k)<0) types.push(k); });
+  const _ORDER=['code violations','utility liens','tax redemption','fire damage','arrested','divorce','foreclosure','probate','eviction'];
+  const _rank=(t)=>{ const k=String(t).toLowerCase().trim(); const i=_ORDER.indexOf(k); return i<0?100:i; };
+  types.sort((a,b)=>(_rank(a)-_rank(b)));
+  const cards=types.map(t=>_reqTypeCardHtml(r,t,btn)).join('');
+  return '<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:16px">'
+    +'<div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:10px">'
+      +'<div style="flex:1;min-width:200px"><div style="font-size:20px;font-weight:800">🏙️ '+E(r.city)+(r.priority?' <span title="Priority">⭐</span>':'')+'</div>'
+      +'<div style="font-size:13px;color:var(--text-dim);margin-top:2px">📍 '+(cty?E(cty):'No county')+'</div></div>'
+      +'<button class="btn btn-ghost text-sm" onclick="requestOpenModal(\''+id+'\')">✏️ Edit city</button>'
+    +'</div>'
+    +(links?'<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:12px">'+links+'</div>':'')
+    +'<div style="display:grid;gap:10px">'+cards+'</div>'
+    +(conns.length?'<div style="margin-top:14px;background:var(--panel);border:1px solid var(--border);border-left:4px solid #a78bfa;border-radius:10px;padding:12px 14px">'
+      +'<div style="font-weight:800;font-size:14px;margin-bottom:6px">🔗 Connections <span style="font-size:11.5px;font-weight:600;color:var(--text-dim)">('+conns.length+')</span></div>'
+      +conns.map(c=>'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:12.5px">'
+        +'<b style="flex:0 0 190px;min-width:0">'+E(c.role||'')+'</b><span style="flex:0 0 150px;min-width:0">'+E(c.name||'')+'</span>'
+        +'<span style="color:var(--text-dim);flex:1 1 200px;min-width:0;overflow:hidden;text-overflow:ellipsis">'+E(c.email||'')+'</span>'
+        +'<span style="color:var(--text-dim);flex:0 0 110px">'+E(c.phone||'')+'</span>'
+        +'<span style="flex:0 0 80px;display:flex;gap:4px;justify-content:flex-end">'
+        +(c.email?'<a href="mailto:'+E(c.email)+'" title="Email" style="'+btn+';color:#a78bfa">📧</a>':'')
+        +(c.phone?'<a href="tel:'+E(String(c.phone).replace(/[^0-9+]/g,''))+'" title="Call" style="'+btn+';color:#34d399">📞</a>':'')
+        +'</span></div>').join('')
+      +'<div style="font-size:11px;color:var(--text-dim);margin-top:6px">Edit connections with ✏️ Edit city.</div></div>':'')
+  +'</div>';
+}
+window._reqDetailHtml=_reqDetailHtml;
+
+// ----- Per list-type card: view mode (Email / Edit) and inline edit mode -----
+window._reqEditKey = window._reqEditKey || null;   // "<cityId>|<type>" being edited
+const _REQ_TYPE_COLORS={'code violations':'#22c55e','utility liens':'#3b82f6','tax redemption':'#f97316','foreclosure':'#06b6d4','probate':'#a855f7','eviction':'#eab308','fire damage':'#ef4444','arrested':'#ec4899','divorce':'#c08457'};
+function _reqTypeColor(t){ return _REQ_TYPE_COLORS[String(t).toLowerCase().trim()]||'#94a3b8'; }
+window._reqTypeColor=_reqTypeColor;
+function _reqTypeCardHtml(r,t,btn){
+  const E=_reqEsc; const tc=_reqTypeColor(t); const id=E(r.id); const tq=E(t).replace(/'/g,"\\'");
+  const d=(r.lists&&r.lists[t])||{}; const cs=(d.contacts||[]).filter(c=>c&&(c.title||c.name||c.email||c.phone));
+  const has=cs.length||d.website||d.requested||d.received||d.notes;
+  const col=_reqRecencyColor(d.received);
+  const editing = window._reqEditKey===(r.id+'|'+t);
+  const emails=cs.filter(c=>c.email);
+  const okey=r.id+'|'+t; const open=!!(window._reqOpen&&window._reqOpen[okey]);
+  const head='<div '+(editing?'':'onclick="_reqToggleOpen(\''+id+'\',\''+tq+'\')" title="Click to '+(open?'collapse':'expand')+'" ')+'style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;'+(editing?'':'cursor:pointer;')+'margin-bottom:'+(editing||open?'8px':'0')+'">'
+      +(editing?'':'<span style="font-size:11px;color:var(--text-dim);width:12px;display:inline-block;transition:transform .15s;transform:rotate('+(open?'90':'0')+'deg)">▶</span>')
+      +'<div style="font-weight:800;font-size:14px;flex:1;min-width:140px;color:'+tc+'">'+E(t)+(editing?'':' <span style="font-size:11px;font-weight:600;color:var(--text-dim)">'+(cs.length?cs.length+' contact'+(cs.length>1?'s':''):'')+'</span>')+'</div>'
+      +(editing?'':'<span style="font-size:11.5px;color:var(--text-dim)">Requested <b style="color:var(--text)">'+(d.requested?E(_reqFmtDate(d.requested)):'—')+'</b></span>'
+      +'<span style="font-size:11.5px;color:var(--text-dim)">Received <b style="color:'+(d.received?col:'var(--text)')+'">'+(d.received?E(_reqFmtDate(d.received)):'—')+'</b></span>'
+      +'<button type="button" onclick="event.stopPropagation();_reqMailType(\''+id+'\',\''+tq+'\')" '+(emails.length?'':'disabled ')+'title="'+(emails.length?'Email '+emails.length+' contact'+(emails.length>1?'s':'')+' with your request template':'Add a contact email first')+'" style="'+btn+';color:#a78bfa;'+(emails.length?'':'opacity:.4;cursor:default')+'">📧 Email</button>'
+      +'<button type="button" onclick="event.stopPropagation();_reqEditStart(\''+id+'\',\''+tq+'\')" style="'+btn+';color:var(--text)">✏️ Edit</button>')
+    +'</div>';
+  if(editing){
+    const inp='height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box';
+    const row=(c)=>'<div class="rq-c-row" style="display:grid;grid-template-columns:1fr 1.1fr 1.5fr 1fr 30px;gap:6px;margin-bottom:6px">'
+      +'<input class="rq-c-title" placeholder="Title" value="'+E(c.title||'')+'" style="'+inp+'">'
+      +'<input class="rq-c-name" placeholder="Name" value="'+E(c.name||'')+'" style="'+inp+'">'
+      +'<input class="rq-c-email" type="email" placeholder="Email" value="'+E(c.email||'')+'" style="'+inp+'">'
+      +'<input class="rq-c-phone" placeholder="Phone" value="'+E(c.phone||'')+'" style="'+inp+'">'
+      +'<button type="button" title="Remove" onclick="this.closest(\'.rq-c-row\').remove()" style="height:34px;border:1px solid var(--border);background:transparent;color:#f87171;border-radius:7px;cursor:pointer;font-weight:700">×</button></div>';
+    const today=new Date(); const td=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+    return '<div class="rq-edit-card" style="background:var(--panel);border:1px solid '+tc+';border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px">'+head
+      +'<div style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Contacts</div>'
+      +'<div class="rq-c-list">'+((d.contacts&&d.contacts.length?d.contacts:[{}]).map(row).join(''))+'</div>'
+      +'<button type="button" onclick="this.previousElementSibling.insertAdjacentHTML(\'beforeend\', _reqEditRowBlank())" style="height:30px;padding:0 12px;font-size:12px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;cursor:pointer;margin-bottom:10px">+ Contact</button>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
+        +'<label style="font-size:11.5px;color:var(--text-dim)">Requested <span style="display:flex;gap:4px;margin-top:3px"><input class="rq-req" type="date" value="'+E(d.requested||'')+'" style="'+inp+'"><button type="button" title="Set to today" onclick="this.previousElementSibling.value=\''+td+'\'" style="'+btn+'">Today</button></span></label>'
+        +'<label style="font-size:11.5px;color:var(--text-dim)">Received <span style="display:flex;gap:4px;margin-top:3px"><input class="rq-rcv" type="date" value="'+E(d.received||'')+'" style="'+inp+'"><button type="button" title="Set to today" onclick="this.previousElementSibling.value=\''+td+'\'" style="'+btn+'">Today</button></span></label>'
+      +'</div>'
+      +'<label style="font-size:11.5px;color:var(--text-dim);display:block;margin-bottom:8px">Website<input class="rq-web" placeholder="https://…" value="'+E(d.website||'')+'" style="'+inp+';margin-top:3px"></label>'
+      +'<label style="font-size:11.5px;color:var(--text-dim);display:block;margin-bottom:10px">Notes<textarea class="rq-notes" rows="2" style="width:100%;box-sizing:border-box;font-size:13px;padding:6px 9px;margin-top:3px">'+E(d.notes||'')+'</textarea></label>'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end">'
+        +'<button type="button" class="btn btn-ghost text-sm" onclick="_reqEditCancel()">Cancel</button>'
+        +'<button type="button" class="btn btn-primary text-sm" onclick="_reqEditSave(this,\''+id+'\',\''+tq+'\')">💾 Save</button>'
+      +'</div></div>';
+  }
+  return '<div style="background:var(--panel);border:1px solid var(--border);border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px;'+(has?'':'opacity:.7')+'">'+head
+    +(open?'<div>'
+    +(cs.length?cs.map(c=>{ const realIdx=(d.contacts||[]).indexOf(c);
+        return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border)">'
+          +'<div style="flex:0 0 150px;min-width:0;font-size:12.5px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis">'+E(c.title||'')+'</div>'
+          +'<div style="flex:1 1 160px;min-width:0;font-weight:700;font-size:13px">'+E(c.name||'—')+'</div>'
+          +'<div style="flex:1 1 200px;min-width:0;font-size:12.5px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis">'+E(c.email||'')+'</div>'
+          +'<div style="flex:0 0 120px;font-size:12.5px;color:var(--text-dim)">'+E(c.phone||'')+'</div>'
+          +(c.email?'<button type="button" onclick="_reqMail(\''+id+'\',\''+tq+'\','+realIdx+')" style="'+btn+';color:#a78bfa">📧</button>':'')
+          +(c.phone?'<a href="tel:'+E(String(c.phone).replace(/[^0-9+]/g,''))+'" style="'+btn+';color:#34d399">📞</a>':'')
+        +'</div>'; }).join(''):(has?'<div style="font-size:12px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px">No contacts yet.</div>':''))
+    +(d.website?'<div style="margin-top:6px"><a href="'+E(/^https?:\/\//i.test(d.website)?d.website:'https://'+d.website)+'" target="_blank" rel="noopener" style="color:#60a5fa;font-size:12.5px;text-decoration:none">🌐 '+E(d.website)+'</a></div>':'')
+    +(d.notes?'<div style="margin-top:6px;font-size:12.5px;color:var(--text-dim);white-space:pre-wrap">📝 '+E(d.notes)+'</div>':'')
+    +(has?'':'<div style="font-size:12px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px">Nothing here yet — click ✏️ Edit to add contacts.</div>')
+    +'</div>':'')+'</div>';
+}
+function _reqToggleOpen(id,t){ window._reqOpen=window._reqOpen||{}; const k=id+'|'+t; window._reqOpen[k]=!window._reqOpen[k]; renderRequestsList(); }
+window._reqToggleOpen=_reqToggleOpen;
+function _reqEditRowBlank(){ return ('<div class="rq-c-row" style="display:grid;grid-template-columns:1fr 1.1fr 1.5fr 1fr 30px;gap:6px;margin-bottom:6px">'
+  +'<input class="rq-c-title" placeholder="Title" style="height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box">'
+  +'<input class="rq-c-name" placeholder="Name" style="height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box">'
+  +'<input class="rq-c-email" type="email" placeholder="Email" style="height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box">'
+  +'<input class="rq-c-phone" placeholder="Phone" style="height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box">'
+  +'<button type="button" title="Remove" onclick="this.closest(\'.rq-c-row\').remove()" style="height:34px;border:1px solid var(--border);background:transparent;color:#f87171;border-radius:7px;cursor:pointer;font-weight:700">×</button></div>'); }
+window._reqEditRowBlank=_reqEditRowBlank;
+function _reqEditStart(id,t){ window._reqEditKey=id+'|'+t; renderRequestsList(); }
+function _reqEditCancel(){ window._reqEditKey=null; renderRequestsList(); }
+window._reqEditStart=_reqEditStart; window._reqEditCancel=_reqEditCancel;
+async function _reqEditSave(btnEl,id,t){
+  const card=btnEl.closest('.rq-edit-card'); if(!card) return;
+  const v=(sel)=>((card.querySelector(sel)||{}).value||'').trim();
+  const contacts=[]; card.querySelectorAll('.rq-c-row').forEach(rw=>{ const ti=((rw.querySelector('.rq-c-title')||{}).value||'').trim(), nm=((rw.querySelector('.rq-c-name')||{}).value||'').trim(), em=((rw.querySelector('.rq-c-email')||{}).value||'').trim(), ph=((rw.querySelector('.rq-c-phone')||{}).value||'').trim(); if(ti||nm||em||ph) contacts.push({title:ti,name:nm,email:em,phone:ph}); });
+  const entry={contacts:contacts,website:v('.rq-web'),requested:v('.rq-req'),received:v('.rq-rcv'),notes:v('.rq-notes')};
+  btnEl.disabled=true; btnEl.textContent='Saving…';
+  try{
+    if(typeof sb==='undefined'||!sb) throw new Error('Not connected');
+    // Re-read the latest lists so other list types (or a teammate's edits) aren't overwritten.
+    const cur=await sb.from('request_cities').select('lists').eq('id',id).maybeSingle();
+    if(cur.error) throw cur.error;
+    const lists=(cur.data&&cur.data.lists&&typeof cur.data.lists==='object')?cur.data.lists:{};
+    if(contacts.length||entry.website||entry.requested||entry.received||entry.notes) lists[t]=entry; else delete lists[t];
+    const up=await sb.from('request_cities').update({lists:lists,updated_at:new Date().toISOString()}).eq('id',id).select().single();
+    if(up.error) throw up.error;
+    if(up.data){ if(!up.data.lists||typeof up.data.lists!=='object') up.data.lists={}; cache.requests[id]=up.data; }
+    window._reqEditKey=null; renderRequestsList();
+    if(typeof toast==='function') toast(t+' saved','ok');
+  }catch(e){ console.warn('req type save:',e); btnEl.disabled=false; btnEl.textContent='💾 Save'; if(typeof toast==='function') toast('Save failed: '+(e.message||e),'err'); }
+}
+window._reqEditSave=_reqEditSave;
+// Email every contact on a list type at once, using that type's request template.
+function _reqMailType(id,t){
+  const r=(cache.requests||{})[id]; if(!r) return; const d=(r.lists||{})[t]||{};
+  const ems=(d.contacts||[]).map(c=>c&&c.email).filter(Boolean);
+  if(!ems.length){ if(typeof toast==='function') toast('No contact email for '+t+'.','warn'); return; }
+  const first=(d.contacts||[]).find(c=>c&&c.email)||{};
+  let href='mailto:'+ems.join(',');
+  try{ if(typeof reqEmailTplGet==='function'){ const tpl=reqEmailTplGet(t); const ctx={name:ems.length===1?(first.name||''):'',list_type:t,city:r.city||'',county:r.county||''};
+    href+='?subject='+encodeURIComponent(reqEmailTplFill(tpl.subject,ctx))+'&body='+encodeURIComponent(reqEmailTplFill(tpl.body,ctx)); } }catch(_){}
+  const a=document.createElement('a'); a.href=href; a.click();
+}
+window._reqMailType=_reqMailType;
+window._reqOrigRender = window.renderRequestsList;
+window.renderRequestsList = _reqSplitRender;
 /* Refresh buttons on Holdings / Renovation: re-pull properties from the database, then re-draw. */
 async function _hrHardRefresh(btn,renderFn){
   var orig=btn?btn.innerHTML:''; if(btn){ btn.disabled=true; btn.innerHTML='<span class="loader" style="width:14px;height:14px;border-width:2px"></span> Refresh'; }

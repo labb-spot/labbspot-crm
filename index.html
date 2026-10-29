@@ -69736,6 +69736,12 @@ function _reqSelect(id){ window._reqSel=id; renderRequestsList(); }
 window._reqSelect=_reqSelect;
 function _reqSetListSort(v){ window._reqListSort=v; try{ localStorage.setItem('req_list_sort',v); }catch(_){} const l=document.getElementById('req-city-list'); if(l) l.scrollTop=0; renderRequestsList(); }
 window._reqSetListSort=_reqSetListSort;
+(function(){ if(document.getElementById('req-city-list-css')) return; const st=document.createElement('style'); st.id='req-city-list-css';
+  st.textContent='#req-city-list::-webkit-scrollbar{width:12px}'
+   +'#req-city-list::-webkit-scrollbar-track{background:transparent}'
+   +'#req-city-list::-webkit-scrollbar-thumb{background:#334155;border:2px solid #94a3b8;border-radius:8px}'
+   +'#req-city-list::-webkit-scrollbar-thumb:hover{background:#475569;border-color:#cbd5e1}';
+  document.head.appendChild(st); })();
 function _reqMail(id,type,ci){
   const r=(cache.requests||{})[id]; if(!r) return; const c=(_reqTypeContacts(r,type).cs)[ci]||{};
   if(!c.email){ if(typeof toast==='function') toast('No email on this contact.','warn'); return; }

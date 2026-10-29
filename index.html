@@ -69833,7 +69833,9 @@ function _reqTypeCardHtml(r,t,btn){
     +'</div>';
   if(editing){
     const inp='height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box';
-    const row=(c)=>'<div class="rq-c-row" style="display:grid;grid-template-columns:1fr 1.1fr 1.5fr 1fr 30px;gap:6px;margin-bottom:6px">'
+    const _pi=_reqPrimaryIdx(d.contacts||[]);
+    const row=(c,i)=>'<div class="rq-c-row" style="display:grid;grid-template-columns:24px 1fr 1.1fr 1.5fr 1fr 30px;align-items:center;gap:6px;margin-bottom:6px">'
+      +'<input type="checkbox" class="rq-c-pick" '+(i===_pi?'checked':'')+' title="Use this contact (shown + emailed)" onchange="if(this.checked){var me=this;this.closest(\'.rq-c-list\').querySelectorAll(\'.rq-c-pick\').forEach(function(x){if(x!==me)x.checked=false;});}" style="width:17px;height:17px;margin:0 auto;cursor:pointer;accent-color:#6366f1">'
       +'<input class="rq-c-title" placeholder="Title" value="'+E(c.title||'')+'" style="'+inp+'">'
       +'<input class="rq-c-name" placeholder="Name" value="'+E(c.name||'')+'" style="'+inp+'">'
       +'<input class="rq-c-email" type="email" placeholder="Email" value="'+E(c.email||'')+'" style="'+inp+'">'
@@ -69857,15 +69859,15 @@ function _reqTypeCardHtml(r,t,btn){
   }
   return '<div style="background:var(--panel);border:1px solid var(--border);border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px;'+(has?'':'opacity:.7')+'">'+head
     +(open?'<div>'
-    +(cs.length?cs.map(c=>{ const realIdx=(d.contacts||[]).indexOf(c);
+    +(cs.length?_reqContactsOrdered(cs,'D|'+r.id+'|'+t).map(c=>{ const realIdx=(d.contacts||[]).indexOf(c);
         return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border)">'
           +'<div style="flex:0 0 150px;min-width:0;font-size:12.5px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis">'+E(c.title||'')+'</div>'
-          +'<div style="flex:1 1 160px;min-width:0;font-weight:700;font-size:13px">'+E(c.name||'—')+'</div>'
+          +'<div style="flex:1 1 160px;min-width:0;font-weight:700;font-size:13px">'+E(c.name||'—')+(c._prim?' <span title="Used for emails" style="font-size:10px;font-weight:800;color:#a5b4fc;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.5);border-radius:999px;padding:1px 7px;margin-left:4px">✓ Main</span>':'')+'</div>'
           +'<div style="flex:1 1 200px;min-width:0;font-size:12.5px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis">'+E(c.email||'')+'</div>'
           +'<div style="flex:0 0 120px;font-size:12.5px;color:var(--text-dim)">'+E(c.phone||'')+'</div>'
           +(c.email?'<button type="button" onclick="_reqMail(\''+id+'\',\''+tq+'\','+realIdx+')" style="'+btn+';color:#a78bfa">📧</button>':'')
           +(c.phone?'<a href="tel:'+E(String(c.phone).replace(/[^0-9+]/g,''))+'" style="'+btn+';color:#34d399">📞</a>':'')
-        +'</div>'; }).join(''):(has?'<div style="font-size:12px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px">No contacts yet.</div>':''))
+        +'</div>'; }).join('')+_reqMoreToggle(cs,'D|'+r.id+'|'+t):(has?'<div style="font-size:12px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px">No contacts yet.</div>':''))
     +(d.website?'<div style="margin-top:6px"><a href="'+E(/^https?:\/\//i.test(d.website)?d.website:'https://'+d.website)+'" target="_blank" rel="noopener" style="color:#60a5fa;font-size:12.5px;text-decoration:none">🌐 '+E(d.website)+'</a></div>':'')
     +(d.notes?'<div style="margin-top:6px;font-size:12.5px;color:var(--text-dim);white-space:pre-wrap">📝 '+E(d.notes)+'</div>':'')
     +(has?'':'<div style="font-size:12px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px">Nothing here yet — click ✏️ Edit to add contacts.</div>')
@@ -69873,7 +69875,8 @@ function _reqTypeCardHtml(r,t,btn){
 }
 function _reqToggleOpen(id,t){ window._reqOpen=window._reqOpen||{}; const k=id+'|'+t; window._reqOpen[k]=!window._reqOpen[k]; renderRequestsList(); }
 window._reqToggleOpen=_reqToggleOpen;
-function _reqEditRowBlank(){ return ('<div class="rq-c-row" style="display:grid;grid-template-columns:1fr 1.1fr 1.5fr 1fr 30px;gap:6px;margin-bottom:6px">'
+function _reqEditRowBlank(){ return ('<div class="rq-c-row" style="display:grid;grid-template-columns:24px 1fr 1.1fr 1.5fr 1fr 30px;align-items:center;gap:6px;margin-bottom:6px">'
+  +'<input type="checkbox" class="rq-c-pick" '+(false?'checked':'')+' title="Use this contact (shown + emailed)" onchange="if(this.checked){var me=this;this.closest(\'.rq-c-list\').querySelectorAll(\'.rq-c-pick\').forEach(function(x){if(x!==me)x.checked=false;});}" style="width:17px;height:17px;margin:0 auto;cursor:pointer;accent-color:#6366f1">'
   +'<input class="rq-c-title" placeholder="Title" style="height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box">'
   +'<input class="rq-c-name" placeholder="Name" style="height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box">'
   +'<input class="rq-c-email" type="email" placeholder="Email" style="height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box">'
@@ -69886,7 +69889,7 @@ window._reqEditStart=_reqEditStart; window._reqEditCancel=_reqEditCancel;
 async function _reqEditSave(btnEl,id,t){
   const card=btnEl.closest('.rq-edit-card'); if(!card) return;
   const v=(sel)=>((card.querySelector(sel)||{}).value||'').trim();
-  const contacts=[]; card.querySelectorAll('.rq-c-row').forEach(rw=>{ const ti=((rw.querySelector('.rq-c-title')||{}).value||'').trim(), nm=((rw.querySelector('.rq-c-name')||{}).value||'').trim(), em=((rw.querySelector('.rq-c-email')||{}).value||'').trim(), ph=((rw.querySelector('.rq-c-phone')||{}).value||'').trim(); if(ti||nm||em||ph) contacts.push({title:ti,name:nm,email:em,phone:ph}); });
+  const contacts=[]; card.querySelectorAll('.rq-c-row').forEach(rw=>{ const ti=((rw.querySelector('.rq-c-title')||{}).value||'').trim(), nm=((rw.querySelector('.rq-c-name')||{}).value||'').trim(), em=((rw.querySelector('.rq-c-email')||{}).value||'').trim(), ph=((rw.querySelector('.rq-c-phone')||{}).value||'').trim(); const pk=!!((rw.querySelector('.rq-c-pick')||{}).checked); if(ti||nm||em||ph) contacts.push(Object.assign({title:ti,name:nm,email:em,phone:ph},pk?{primary:true}:{})); });
   const entry={contacts:contacts,website:v('.rq-web'),requested:v('.rq-req'),received:v('.rq-rcv'),notes:v('.rq-notes')};
   btnEl.disabled=true; btnEl.textContent='Saving…';
   try{
@@ -69907,9 +69910,10 @@ window._reqEditSave=_reqEditSave;
 // Email every contact on a list type at once, using that type's request template.
 function _reqMailType(id,t){
   const r=(cache.requests||{})[id]; if(!r) return; const d=(r.lists||{})[t]||{};
-  const ems=(d.contacts||[]).map(c=>c&&c.email).filter(Boolean);
+  const _all=(d.contacts||[]).filter(Boolean); const _p=_all[_reqPrimaryIdx(_all)];
+  const ems=(_p&&_p.email)?[_p.email]:_all.map(c=>c&&c.email).filter(Boolean).slice(0,1);
   if(!ems.length){ if(typeof toast==='function') toast('No contact email for '+t+'.','warn'); return; }
-  const first=(d.contacts||[]).find(c=>c&&c.email)||{};
+  const first=(_p&&_p.email)?_p:((d.contacts||[]).find(c=>c&&c.email)||{});
   let href='mailto:'+ems.join(',');
   try{ if(typeof reqEmailTplGet==='function'){ const tpl=reqEmailTplGet(t); const ctx={name:ems.length===1?(first.name||''):'',list_type:t,city:r.city||'',county:r.county||''};
     href+='?subject='+encodeURIComponent(reqEmailTplFill(tpl.subject,ctx))+'&body='+encodeURIComponent(reqEmailTplFill(tpl.body,ctx)); } }catch(_){}
@@ -69946,7 +69950,7 @@ function _reqOfficeData(r){
   (Array.isArray(r.connections)?r.connections:[]).forEach(c=>{
     if(!c) return; const o=_reqOfficeOf(c); const b=add(o);
     if(c._meta){ b.website=c.website||''; b.notes=c.notes||''; return; }
-    if(c.title||c.name||c.email||c.phone||c.role) b.contacts.push({title:c.title||(c.office?'':(c.role||'')),name:c.name||'',email:c.email||'',phone:c.phone||''});
+    if(c.title||c.name||c.email||c.phone||c.role) b.contacts.push({title:c.title||(c.office?'':(c.role||'')),name:c.name||'',email:c.email||'',phone:c.phone||'',primary:!!c.primary});
   });
   return by;
 }
@@ -69977,7 +69981,9 @@ function _reqOfficeCardHtml(r,o,b,btn){
     +'</div>';
   if(editing){
     const inp='height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box';
-    const row=(c)=>'<div class="rq-c-row" style="display:grid;grid-template-columns:1fr 1.1fr 1.5fr 1fr 30px;gap:6px;margin-bottom:6px">'
+    const _pi=_reqPrimaryIdx(cs);
+    const row=(c,i)=>'<div class="rq-c-row" style="display:grid;grid-template-columns:24px 1fr 1.1fr 1.5fr 1fr 30px;align-items:center;gap:6px;margin-bottom:6px">'
+      +'<input type="checkbox" class="rq-c-pick" '+(i===_pi?'checked':'')+' title="Use this contact (shown + emailed)" onchange="if(this.checked){var me=this;this.closest(\'.rq-c-list\').querySelectorAll(\'.rq-c-pick\').forEach(function(x){if(x!==me)x.checked=false;});}" style="width:17px;height:17px;margin:0 auto;cursor:pointer;accent-color:#6366f1">'
       +'<input class="rq-c-title" placeholder="Title" value="'+E(c.title||'')+'" style="'+inp+'">'
       +'<input class="rq-c-name" placeholder="Name" value="'+E(c.name||'')+'" style="'+inp+'">'
       +'<input class="rq-c-email" type="email" placeholder="Email" value="'+E(c.email||'')+'" style="'+inp+'">'
@@ -69996,14 +70002,14 @@ function _reqOfficeCardHtml(r,o,b,btn){
   }
   return '<div style="background:var(--panel);border:1px solid var(--border);border-left:4px solid '+(has?tc:'var(--border)')+';border-radius:10px;padding:12px 14px;'+(has?'':'opacity:.7')+'">'+head
     +(open?'<div>'
-      +(cs.length?cs.map(c=>'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border)">'
+      +(cs.length?_reqContactsOrdered(cs,'O|'+r.id+'|'+o).map(c=>'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border)">'
           +'<div style="flex:0 0 150px;min-width:0;font-size:12.5px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis">'+E(c.title||'')+'</div>'
-          +'<div style="flex:1 1 160px;min-width:0;font-weight:700;font-size:13px">'+E(c.name||'—')+'</div>'
+          +'<div style="flex:1 1 160px;min-width:0;font-weight:700;font-size:13px">'+E(c.name||'—')+(c._prim?' <span title="Used for emails" style="font-size:10px;font-weight:800;color:#a5b4fc;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.5);border-radius:999px;padding:1px 7px;margin-left:4px">✓ Main</span>':'')+'</div>'
           +'<div style="flex:1 1 200px;min-width:0;font-size:12.5px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis">'+E(c.email||'')+'</div>'
           +'<div style="flex:0 0 120px;font-size:12.5px;color:var(--text-dim)">'+E(c.phone||'')+'</div>'
           +(c.email?'<button type="button" onclick="event.stopPropagation();_reqMailOffice(\''+id+'\',\''+oq+'\','+cs.indexOf(c)+')" style="'+btn+';color:#a78bfa">📧</button>':'')
           +(c.phone?'<a href="tel:'+E(String(c.phone).replace(/[^0-9+]/g,''))+'" onclick="event.stopPropagation()" style="'+btn+';color:#34d399">📞</a>':'')
-        +'</div>').join(''):'')
+        +'</div>').join('')+_reqMoreToggle(cs,'O|'+r.id+'|'+o):'')
       +(b.website?'<div style="margin-top:6px"><a href="'+E(/^https?:\/\//i.test(b.website)?b.website:'https://'+b.website)+'" target="_blank" rel="noopener" style="color:#60a5fa;font-size:12.5px;text-decoration:none">🌐 '+E(b.website)+'</a></div>':'')
       +(b.notes?'<div style="margin-top:6px;font-size:12.5px;color:var(--text-dim);white-space:pre-wrap">📝 '+E(b.notes)+'</div>':'')
       +(has?'':'<div style="font-size:12px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px">Nothing here yet — click ✏️ Edit to add contacts.</div>')
@@ -70015,7 +70021,7 @@ window._reqToggleOffice=_reqToggleOffice; window._reqOfficeEditStart=_reqOfficeE
 async function _reqOfficeSave(btnEl,id,o){
   const card=btnEl.closest('.rq-edit-card'); if(!card) return;
   const v=(sel)=>((card.querySelector(sel)||{}).value||'').trim();
-  const rows=[]; card.querySelectorAll('.rq-c-row').forEach(rw=>{ const g=(c)=>((rw.querySelector(c)||{}).value||'').trim(); const ti=g('.rq-c-title'),nm=g('.rq-c-name'),em=g('.rq-c-email'),ph=g('.rq-c-phone'); if(ti||nm||em||ph) rows.push({office:o,title:ti,name:nm,email:em,phone:ph}); });
+  const rows=[]; card.querySelectorAll('.rq-c-row').forEach(rw=>{ const g=(c)=>((rw.querySelector(c)||{}).value||'').trim(); const ti=g('.rq-c-title'),nm=g('.rq-c-name'),em=g('.rq-c-email'),ph=g('.rq-c-phone'); const pk=!!((rw.querySelector('.rq-c-pick')||{}).checked); if(ti||nm||em||ph) rows.push(Object.assign({office:o,title:ti,name:nm,email:em,phone:ph},pk?{primary:true}:{})); });
   const web=v('.rq-web'), notes=v('.rq-notes');
   btnEl.disabled=true; btnEl.textContent='Saving…';
   try{
@@ -70035,7 +70041,7 @@ async function _reqOfficeSave(btnEl,id,o){
 window._reqOfficeSave=_reqOfficeSave;
 function _reqMailOffice(id,o,oneIdx){
   const r=(cache.requests||{})[id]; if(!r) return; const b=_reqOfficeData(r)[o]||{contacts:[]};
-  const list=(oneIdx!=null)?[b.contacts[oneIdx]].filter(Boolean):b.contacts;
+  const list=(oneIdx!=null)?[b.contacts[oneIdx]].filter(Boolean):(function(){ const p=b.contacts[_reqPrimaryIdx(b.contacts)]; return (p&&p.email)?[p]:b.contacts.filter(c=>c.email).slice(0,1); })();
   const ems=list.map(c=>c.email).filter(Boolean);
   if(!ems.length){ if(typeof toast==='function') toast('No email for '+o+'.','warn'); return; }
   const first=list.find(c=>c.email)||{};
@@ -70113,10 +70119,11 @@ window._reqDownloadForm=_reqDownloadForm;
 function _reqLinkKind(l){
   const t=String((l&&l.label)||''), u=String((l&&l.url)||'');
   const isFile=/\.(pdf|docx?)(\?|#|$)/i.test(u)||/documentcenter\/view/i.test(u);
-  if(l&&l.kind){ if(l.kind==='request') return (isFile||/form/i.test(t))?'form':'page'; return l.kind; }
+  // Request Form = an actual document to fill out (PDF / Word). Web pages are Request Pages.
+  if(l&&l.kind){ if(l.kind==='request') return isFile?'form':'page'; return l.kind; }
   if(/contact/i.test(t)) return 'contact';
-  if(isFile||/form/i.test(t)) return /record|request|apra|foia|form/i.test(t)||isFile?'form':'other';
-  if(/record|request|apra|foia/i.test(t)) return 'page';
+  if(isFile) return 'form';
+  if(/record|request|apra|foia|form/i.test(t)) return 'page';
   return 'other';
 }
 function _reqLinksNorm(r){
@@ -70187,6 +70194,21 @@ function _reqLinksOpen(id){
   document.body.appendChild(ov); paint();
 }
 window._reqLinksOpen=_reqLinksOpen;
+
+// ----- Main contact per department / office: checked one is shown + used by 📧 Email -----
+function _reqPrimaryIdx(cs){ cs=cs||[]; let i=cs.findIndex(c=>c&&c.primary); if(i<0) i=cs.findIndex(c=>c&&c.email); return i<0?0:i; }
+window._reqMore=window._reqMore||{};
+function _reqContactsOrdered(cs,key){
+  const pi=_reqPrimaryIdx(cs); const main=Object.assign({},cs[pi],{_prim:true});
+  if(!window._reqMore[key]) return [main];
+  return [main].concat(cs.filter((c,i)=>i!==pi));
+}
+function _reqMoreToggle(cs,key){
+  const n=cs.length-1; if(n<1) return '';
+  const on=!!window._reqMore[key];
+  return '<div style="padding-top:4px"><button type="button" onclick="event.stopPropagation();window._reqMore[\''+String(key).replace(/'/g,"\\'")+'\']=!window._reqMore[\''+String(key).replace(/'/g,"\\'")+'\'];renderRequestsList()" style="background:none;border:none;color:var(--text-dim);font-size:11.5px;font-weight:700;cursor:pointer;padding:2px 0">'+(on?'▲ Hide other contacts':'▼ Show '+n+' other contact'+(n>1?'s':''))+'</button></div>';
+}
+window._reqPrimaryIdx=_reqPrimaryIdx;
 window._reqOrigRender = window.renderRequestsList;
 window.renderRequestsList = _reqSplitRender;
 /* Refresh buttons on Holdings / Renovation: re-pull properties from the database, then re-draw. */

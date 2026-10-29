@@ -70121,6 +70121,7 @@ function _reqLinkKind(l){
   const isFile=/\.(pdf|docx?)(\?|#|$)/i.test(u)||/documentcenter\/view/i.test(u);
   // Request Form = an actual document to fill out (PDF / Word). Web pages are Request Pages.
   if(l&&l.kind){ if(l.kind==='request') return isFile?'form':'page'; return l.kind; }
+  if(/tax\s*sale/i.test(t)) return 'taxsale';
   if(/contact/i.test(t)) return 'contact';
   if(isFile) return 'form';
   if(/record|request|apra|foia|form/i.test(t)) return 'page';
@@ -70128,7 +70129,12 @@ function _reqLinkKind(l){
 }
 function _reqLinksNorm(r){
   const all=(Array.isArray(r&&r.links)?r.links:[]).filter(l=>l&&String(l.url||'').trim()).map(l=>Object.assign({},l,{kind:_reqLinkKind(l)}));
-  ['page','form','contact'].forEach(k=>{ const g=all.filter(l=>l.kind===k); if(g.length && !g.some(l=>l.show===true)) g[0].show=true; });
+  // Tax Sale Results: if no link saved yet, use the Treasurer's tax-sale website (from the MASTER sheet load).
+  if(!all.some(l=>l.kind==='taxsale')){
+    const tm=(Array.isArray(r&&r.connections)?r.connections:[]).find(c=>c&&c._meta&&c.office==='Treasurer'&&String(c.website||'').trim());
+    if(tm){ const key=_reqNormUrl2(tm.website).toLowerCase().replace(/\/+$/,''); if(!all.some(l=>_reqNormUrl2(l.url).toLowerCase().replace(/\/+$/,'')===key)) all.push({label:'County tax sale',url:tm.website,kind:'taxsale'}); }
+  }
+  ['page','form','taxsale','contact'].forEach(k=>{ const g=all.filter(l=>l.kind===k); if(g.length && !g.some(l=>l.show===true)) g[0].show=true; });
   return all;
 }
 function _reqNormUrl2(u){ u=String(u||'').trim(); if(u&&!/^https?:\/\//i.test(u)) u='https://'+u; return u; }
@@ -70138,7 +70144,7 @@ function _reqHeaderLinksHtml(r){
   const one=(k,title)=>{ const l=pick(k);
     if(!l) return '<span onclick="_reqLinksOpen(\''+E(r.id)+'\')" title="No '+title+' link picked yet — click to choose" style="color:var(--text-dim);opacity:.45;font-size:12.5px;font-weight:600;cursor:pointer">🌐 '+title+'</span>';
     return '<a href="'+E(_reqNormUrl2(l.url))+'" target="_blank" rel="noopener" title="'+E(l.label||l.url)+'" style="color:#60a5fa;text-decoration:none;font-size:12.5px;font-weight:600">🌐 '+title+'</a>'; };
-  return '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:12px">'+one('page','Request Page')+one('form','Request Form')+one('contact','Contact Us')+'</div>';
+  return '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:12px">'+one('page','Request Page')+one('form','Request Form')+one('taxsale','Tax Sale Results')+one('contact','Contact Us')+'</div>';
 }
 function _reqLinksOpen(id){
   const r=(cache.requests||{})[id]; if(!r) return;
@@ -70153,7 +70159,7 @@ function _reqLinksOpen(id){
       +'<input type="checkbox" data-pick="'+idx+'" '+(l.show?'checked':'')+' style="width:17px;height:17px;cursor:pointer;accent-color:#6366f1" title="Show this one">'
       +'<input data-lbl="'+idx+'" value="'+E(l.label||'')+'" placeholder="Name (e.g. City request page)" style="flex:0 0 180px;width:180px;height:30px;font-size:12.5px;padding:0 8px">'
       +'<input data-url="'+idx+'" value="'+E(l.url||'')+'" placeholder="https://…" style="flex:1 1 auto;width:auto;min-width:160px;height:30px;font-size:12.5px;padding:0 8px">'
-      +'<select data-kind="'+idx+'" style="flex:0 0 140px;width:140px;height:30px;font-size:12px;padding:0 6px"><option value="page" '+(l.kind==='page'?'selected':'')+'>Request Page</option><option value="form" '+(l.kind==='form'?'selected':'')+'>Request Form</option><option value="contact" '+(l.kind==='contact'?'selected':'')+'>Contact Us</option><option value="other" '+(l.kind==='other'?'selected':'')+'>Other</option></select>'
+      +'<select data-kind="'+idx+'" style="flex:0 0 140px;width:140px;height:30px;font-size:12px;padding:0 6px"><option value="page" '+(l.kind==='page'?'selected':'')+'>Request Page</option><option value="form" '+(l.kind==='form'?'selected':'')+'>Request Form</option><option value="taxsale" '+(l.kind==='taxsale'?'selected':'')+'>Tax Sale Results</option><option value="contact" '+(l.kind==='contact'?'selected':'')+'>Contact Us</option><option value="other" '+(l.kind==='other'?'selected':'')+'>Other</option></select>'
       +'<button type="button" data-open="'+idx+'" title="Open link" style="'+btn+';color:#60a5fa">🌐</button>'
       +'<button type="button" data-del="'+idx+'" title="Remove" style="'+btn+';color:#f87171;background:transparent">×</button>'
     +'</div>';
@@ -70167,7 +70173,7 @@ function _reqLinksOpen(id){
     ov.innerHTML='<div style="width:min(760px,96vw);background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;box-shadow:0 16px 50px rgba(0,0,0,0.5)">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-weight:800;font-size:15px">🔗 Links — '+E(r.city)+'</div><button type="button" data-close="1" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button></div>'
       +'<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Check the one to show on the city page. Unchecked links stay saved.</div>'
-      +grp('page','Request Page','— online request page, pick one to show')+grp('form','Request Form','— PDF / Word form, pick one to show')+grp('contact','Contact Us','— pick one to show')+grp('other','Other','— saved, not shown')
+      +grp('page','Request Page','— online request page, pick one to show')+grp('form','Request Form','— PDF / Word form, pick one to show')+grp('taxsale','Tax Sale Results','— pick one to show')+grp('contact','Contact Us','— pick one to show')+grp('other','Other','— saved, not shown')
       +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button type="button" class="btn btn-ghost text-sm" data-close="1">Cancel</button><button type="button" class="btn btn-primary text-sm" id="req-links-save">💾 Save</button></div></div>';
     ov.querySelectorAll('[data-pick]').forEach(cb=>cb.addEventListener('change',()=>{ sync(); const i=+cb.getAttribute('data-pick'); const k=draft[i].kind; draft.forEach((l,j)=>{ if(l.kind===k) l.show=false; }); draft[i].show=cb.checked; paint(); }));
     ov.querySelectorAll('[data-kind]').forEach(sel=>sel.addEventListener('change',()=>{ sync(); const i=+sel.getAttribute('data-kind'); draft[i].kind=sel.value; draft[i].show=false; paint(); }));

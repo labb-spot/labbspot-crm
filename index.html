@@ -69734,6 +69734,8 @@ window._reqSel = window._reqSel || null;
 function _reqLatest(r, key){ let best=''; Object.values((r&&r.lists)||{}).forEach(d=>{ const v=d&&d[key]; if(v && v>best) best=v; }); return best; }
 function _reqSelect(id){ window._reqSel=id; renderRequestsList(); }
 window._reqSelect=_reqSelect;
+function _reqSetListSort(v){ window._reqListSort=v; try{ localStorage.setItem('req_list_sort',v); }catch(_){} const l=document.getElementById('req-city-list'); if(l) l.scrollTop=0; renderRequestsList(); }
+window._reqSetListSort=_reqSetListSort;
 function _reqMail(id,type,ci){
   const r=(cache.requests||{})[id]; if(!r) return; const c=(_reqTypeContacts(r,type).cs)[ci]||{};
   if(!c.email){ if(typeof toast==='function') toast('No email on this contact.','warn'); return; }
@@ -69756,7 +69758,10 @@ function _reqSplitRender(){
   if(!rows.length){ grid.innerHTML=''; if(empty){ empty.style.display=''; empty.innerHTML=q?'No cities match your search.':'No cities yet — click <b>+ Add City</b> to start tracking list requests.'; } return; }
   if(empty) empty.style.display='none';
   const sortMode=(document.getElementById('requests-sort-btn')?.getAttribute('data-sort'))||'city';
-  const byName=(a,b)=>((b.priority?1:0)-(a.priority?1:0))||String(a.city||'').toLowerCase().localeCompare(String(b.city||'').toLowerCase());
+  const _alpha=(a,b)=>String(a.city||'').toLowerCase().localeCompare(String(b.city||'').toLowerCase());
+  let _ls='requested'; try{ _ls=window._reqListSort||localStorage.getItem('req_list_sort')||'requested'; }catch(_){ _ls=window._reqListSort||'requested'; }
+  const _byDate=(key)=>(a,b)=>{ const x=_reqLatest(a,key), y=_reqLatest(b,key); if(x&&!y) return -1; if(y&&!x) return 1; return (y>x?1:y<x?-1:0)||_alpha(a,b); };
+  const byName=_ls==='requested'?_byDate('requested'):_ls==='received'?_byDate('received'):_ls==='az'?_alpha:((a,b)=>((b.priority?1:0)-(a.priority?1:0))||_alpha(a,b));
   if(!window._reqSel || !rows.some(r=>r.id===window._reqSel)){ const first=rows.slice().sort(byName)[0]; window._reqSel=first&&first.id; }
   const item=(r)=>{
     const on=r.id===window._reqSel; const rq=_reqLatest(r,'requested'), rc=_reqLatest(r,'received');
@@ -69780,10 +69785,15 @@ function _reqSplitRender(){
     left=order.map(c=>'<div style="font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#a5b4fc;padding:10px 12px 4px">📍 '+E(c)+(c!=='No County'?' County':'')+'</div>'+groups[c].sort(byName).map(item).join(_reqSep)).join('');
   } else left=rows.slice().sort(byName).map(item).join(_reqSep);
   const r=cache.requests[window._reqSel];
+  const _prevList=document.getElementById('req-city-list'); const _prevTop=_prevList?_prevList.scrollTop:0;
   grid.innerHTML='<div style="display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:14px;align-items:start">'
-    +'<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:8px;max-height:calc(100vh - 130px);overflow-y:auto;position:sticky;top:10px">'
-      +'<div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-dim);padding:6px 12px 8px">Cities · '+rows.length+'</div>'+left+'</div>'
+    +'<div id="req-city-list" style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:8px;max-height:calc(100vh - 130px);overflow-y:auto;position:sticky;top:10px">'
+      +'<div style="display:flex;align-items:center;gap:8px;padding:6px 12px 8px"><div style="flex:1;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-dim)">Cities · '+rows.length+'</div>'
+        +'<select onchange="_reqSetListSort(this.value)" title="Sort cities" style="height:26px;font-size:11.5px;padding:0 6px;border-radius:7px;width:auto">'
+          +[['priority','⭐ Priority'],['requested','Requested (newest)'],['received','Received (newest)'],['az','A–Z']].map(o=>'<option value="'+o[0]+'" '+(_ls===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')
+        +'</select></div>'+left+'</div>'
     +'<div style="min-width:0">'+(r?_reqDetailHtml(r):'')+'</div></div>';
+  const _newList=document.getElementById('req-city-list'); if(_newList&&_prevTop) _newList.scrollTop=_prevTop;
 }
 function _reqDetailHtml(r){
   const E=_reqEsc; const id=E(r.id);

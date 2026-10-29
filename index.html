@@ -69735,7 +69735,7 @@ function _reqLatest(r, key){ let best=''; Object.values((r&&r.lists)||{}).forEac
 function _reqSelect(id){ window._reqSel=id; renderRequestsList(); }
 window._reqSelect=_reqSelect;
 function _reqMail(id,type,ci){
-  const r=(cache.requests||{})[id]; if(!r) return; const d=(r.lists||{})[type]||{}; const c=(d.contacts||[])[ci]||{};
+  const r=(cache.requests||{})[id]; if(!r) return; const c=(_reqTypeContacts(r,type).cs)[ci]||{};
   if(!c.email){ if(typeof toast==='function') toast('No email on this contact.','warn'); return; }
   let href='mailto:'+c.email;
   try{ if(typeof reqEmailTplGet==='function'){ const tpl=reqEmailTplGet(type); const ctx={name:c.name||'',list_type:type,city:r.city||'',county:r.county||''};
@@ -69773,17 +69773,17 @@ function _reqSplitRender(){
       +'<div style="width:18px;flex:0 0 18px;text-align:center;font-size:15px" title="'+(r.priority?'Priority':'')+'">'+(r.priority?'⭐':'')+'</div>'
     +'</div>';
   };
-  let left='';
+  let left=''; const _reqSep='<div style="height:1px;background:var(--border);margin:2px 12px 6px"></div>';
   if(sortMode==='county'){
     const groups={},order=[]; rows.forEach(r=>{ const c=(r.county||'').trim()||'No County'; if(!groups[c]){groups[c]=[];order.push(c);} groups[c].push(r); });
     order.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));
-    left=order.map(c=>'<div style="font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#a5b4fc;padding:10px 12px 4px">📍 '+E(c)+(c!=='No County'?' County':'')+'</div>'+groups[c].sort(byName).map(item).join('')).join('');
-  } else left=rows.slice().sort(byName).map(item).join('');
+    left=order.map(c=>'<div style="font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#a5b4fc;padding:10px 12px 4px">📍 '+E(c)+(c!=='No County'?' County':'')+'</div>'+groups[c].sort(byName).map(item).join(_reqSep)).join('');
+  } else left=rows.slice().sort(byName).map(item).join(_reqSep);
   const r=cache.requests[window._reqSel];
-  grid.innerHTML='<div style="display:grid;grid-template-columns:minmax(240px,300px) 1fr;gap:14px;align-items:start">'
+  grid.innerHTML='<div style="display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:14px;align-items:start">'
     +'<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:8px;max-height:calc(100vh - 130px);overflow-y:auto;position:sticky;top:10px">'
       +'<div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-dim);padding:6px 12px 8px">Cities · '+rows.length+'</div>'+left+'</div>'
-    +'<div>'+(r?_reqDetailHtml(r):'')+'</div></div>';
+    +'<div style="min-width:0">'+(r?_reqDetailHtml(r):'')+'</div></div>';
 }
 function _reqDetailHtml(r){
   const E=_reqEsc; const id=E(r.id);
@@ -69803,7 +69803,7 @@ function _reqDetailHtml(r){
       +'<div style="display:flex;gap:8px"><button class="btn btn-ghost text-sm" onclick="_reqLinksOpen(\''+id+'\')">🔗 Links</button><button class="btn btn-ghost text-sm" onclick="requestOpenModal(\''+id+'\')">✏️ Edit city</button></div>'
     +'</div>'
     +_reqHeaderLinksHtml(r)
-    +'<div style="display:grid;gap:10px">'+cards+'</div>'
+    +'<div style="display:grid;grid-template-columns:minmax(0,1fr);gap:10px">'+cards+'</div>'
     +_reqOfficesHtml(r,btn)
   +'</div>';
 }
@@ -69815,25 +69815,28 @@ const _REQ_TYPE_COLORS={'code violations':'#22c55e','utility liens':'#3b82f6','t
 function _reqTypeColor(t){ return _REQ_TYPE_COLORS[String(t).toLowerCase().trim()]||'#94a3b8'; }
 window._reqTypeColor=_reqTypeColor;
 function _reqTypeCardHtml(r,t,btn){
+  btn=btn+';flex:0 0 auto';
   const E=_reqEsc; const tc=_reqTypeColor(t); const id=E(r.id); const tq=E(t).replace(/'/g,"\\'");
-  const d=(r.lists&&r.lists[t])||{}; const cs=(d.contacts||[]).filter(c=>c&&(c.title||c.name||c.email||c.phone));
-  const has=cs.length||d.website||d.requested||d.received||d.notes;
+  const d=(r.lists&&r.lists[t])||{}; const _tc=_reqTypeContacts(r,t); const cs=_tc.cs.filter(c=>c&&(c.title||c.name||c.email||c.phone));
+  const has=cs.length||d.website||d.requested||d.received||d.notes||d.office;
   const col=_reqRecencyColor(d.received);
   const editing = window._reqEditKey===(r.id+'|'+t);
   const emails=cs.filter(c=>c.email);
   const okey=r.id+'|'+t; const open=!!(window._reqOpen&&window._reqOpen[okey]);
-  const head='<div '+(editing?'':'onclick="_reqToggleOpen(\''+id+'\',\''+tq+'\')" title="Click to '+(open?'collapse':'expand')+'" ')+'style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;'+(editing?'':'cursor:pointer;')+'margin-bottom:'+(editing||open?'8px':'0')+'">'
-      +(editing?'':'<span style="font-size:11px;color:var(--text-dim);width:12px;display:inline-block;transition:transform .15s;transform:rotate('+(open?'90':'0')+'deg)">▶</span>')
-      +'<div style="font-weight:800;font-size:14px;flex:1;min-width:140px;color:'+tc+'">'+E(t)+(editing?'':' <span style="font-size:11px;font-weight:600;color:var(--text-dim)">'+(cs.length?cs.length+' contact'+(cs.length>1?'s':''):'')+'</span>')+'</div>'
-      +(editing?'':'<span style="font-size:11.5px;color:var(--text-dim)">Requested <b style="color:var(--text)">'+(d.requested?E(_reqFmtDate(d.requested)):'—')+'</b></span>'
-      +'<span style="font-size:11.5px;color:var(--text-dim)">Received <b style="color:'+(d.received?col:'var(--text)')+'">'+(d.received?E(_reqFmtDate(d.received)):'—')+'</b></span>'
+  const head='<div '+(editing?'':'onclick="_reqToggleOpen(\''+id+'\',\''+tq+'\')" title="Click to '+(open?'collapse':'expand')+'" ')+'style="display:flex;align-items:center;gap:10px;flex-wrap:'+(editing?'wrap':'nowrap')+';'+(editing?'':'cursor:pointer;')+'margin-bottom:'+(editing||open?'8px':'0')+'">'
+      +(editing?'':'<span style="flex:0 0 12px;font-size:11px;color:var(--text-dim);width:12px;display:inline-block;transition:transform .15s;transform:rotate('+(open?'90':'0')+'deg)">▶</span>')
+      +'<div style="font-weight:800;font-size:14px;flex:1 1 auto;min-width:125px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:'+tc+'">'+E(t)+(editing?'':' <span style="font-size:11px;font-weight:600;color:var(--text-dim)">'+(cs.length?cs.length+' contact'+(cs.length>1?'s':''):'')+'</span>')+'</div>'
+      +(editing?'':'<label onclick="event.stopPropagation()" style="flex:0 1 auto;min-width:0;white-space:nowrap;font-size:11.5px;color:var(--text-dim);display:inline-flex;align-items:center;gap:5px" title="Requested">Req <input type="date" value="'+E(d.requested||'')+'" onchange="_reqSetDate(\''+id+'\',\''+tq+'\',\'requested\',this)" style="height:30px;width:126px;min-width:96px;flex:0 1 126px;font-size:12px;padding:0 6px;border-radius:7px;color:var(--text)"></label>'
+      +'<label onclick="event.stopPropagation()" style="flex:0 1 auto;min-width:0;white-space:nowrap;font-size:11.5px;color:var(--text-dim);display:inline-flex;align-items:center;gap:5px" title="Received">Rcvd <input type="date" value="'+E(d.received||'')+'" onchange="_reqSetDate(\''+id+'\',\''+tq+'\',\'received\',this)" style="height:30px;width:126px;min-width:96px;flex:0 1 126px;font-size:12px;padding:0 6px;border-radius:7px;color:'+(d.received?col:'var(--text)')+'"></label>'
+      +_reqConnSelectHtml(r,t)
       +(_reqFormFor(r,t)?'<button type="button" onclick="event.stopPropagation();_reqDownloadForm(\''+id+'\',\''+tq+'\',this)" title="Download this department\'s request form, filled in for today" style="'+btn+';color:#fbbf24">📄 Form</button>':'')
       +'<button type="button" onclick="event.stopPropagation();_reqMailType(\''+id+'\',\''+tq+'\')" '+(emails.length?'':'disabled ')+'title="'+(emails.length?'Email '+emails.length+' contact'+(emails.length>1?'s':'')+' with your request template':'Add a contact email first')+'" style="'+btn+';color:#a78bfa;'+(emails.length?'':'opacity:.4;cursor:default')+'">📧 Email</button>'
       +'<button type="button" onclick="event.stopPropagation();_reqEditStart(\''+id+'\',\''+tq+'\')" style="'+btn+';color:var(--text)">✏️ Edit</button>')
     +'</div>';
   if(editing){
     const inp='height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box';
-    const _pi=_reqPrimaryIdx(d.contacts||[]);
+    const _ecs=d.office?((_reqOfficeData(r)[d.office]||{}).contacts||[]):(d.contacts||[]);
+    const _pi=_reqPrimaryIdx(_ecs);
     const row=(c,i)=>'<div class="rq-c-row" style="display:grid;grid-template-columns:24px 1fr 1.1fr 1.5fr 1fr 30px;align-items:center;gap:6px;margin-bottom:6px">'
       +'<input type="checkbox" class="rq-c-pick" '+(i===_pi?'checked':'')+' title="Use this contact (shown + emailed)" onchange="if(this.checked){var me=this;this.closest(\'.rq-c-list\').querySelectorAll(\'.rq-c-pick\').forEach(function(x){if(x!==me)x.checked=false;});}" style="width:17px;height:17px;margin:0 auto;cursor:pointer;accent-color:#6366f1">'
       +'<input class="rq-c-title" placeholder="Title" value="'+E(c.title||'')+'" style="'+inp+'">'
@@ -69842,9 +69845,11 @@ function _reqTypeCardHtml(r,t,btn){
       +'<input class="rq-c-phone" placeholder="Phone" value="'+E(c.phone||'')+'" style="'+inp+'">'
       +'<button type="button" title="Remove" onclick="this.closest(\'.rq-c-row\').remove()" style="height:34px;border:1px solid var(--border);background:transparent;color:#f87171;border-radius:7px;cursor:pointer;font-weight:700">×</button></div>';
     const today=new Date(); const td=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-    return '<div class="rq-edit-card" style="background:var(--panel);border:1px solid '+tc+';border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px">'+head
-      +'<div style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Contacts</div>'
-      +'<div class="rq-c-list">'+((d.contacts&&d.contacts.length?d.contacts:[{}]).map(row).join(''))+'</div>'
+    return '<div class="rq-edit-card" data-office="'+E(d.office||'')+'" style="background:var(--panel);border:1px solid '+tc+';border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px">'+head
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:11.5px;color:var(--text-dim)">Contacts from:</span>'+_reqConnSelectHtml(r,t)
+        +(d.office?'<span style="font-size:11.5px;color:#a5b4fc">Shared with the <b>'+E(d.office)+'</b> connection — changes here update it everywhere it\'s used.</span>':'')+'</div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+(d.office?E(d.office)+' contacts':'Contacts')+'</div>'
+      +'<div class="rq-c-list">'+((_ecs.length?_ecs:[{}]).map(row).join(''))+'</div>'
       +'<button type="button" onclick="this.previousElementSibling.insertAdjacentHTML(\'beforeend\', _reqEditRowBlank())" style="height:30px;padding:0 12px;font-size:12px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;cursor:pointer;margin-bottom:10px">+ Contact</button>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
         +'<label style="font-size:11.5px;color:var(--text-dim)">Requested <span style="display:flex;gap:4px;margin-top:3px"><input class="rq-req" type="date" value="'+E(d.requested||'')+'" style="'+inp+'"><button type="button" title="Set to today" onclick="this.previousElementSibling.value=\''+td+'\'" style="'+btn+'">Today</button></span></label>'
@@ -69859,7 +69864,8 @@ function _reqTypeCardHtml(r,t,btn){
   }
   return '<div style="background:var(--panel);border:1px solid var(--border);border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px;'+(has?'':'opacity:.7')+'">'+head
     +(open?'<div>'
-    +(cs.length?_reqContactsOrdered(cs,'D|'+r.id+'|'+t).map(c=>{ const realIdx=(d.contacts||[]).indexOf(c);
+    +(_tc.office?'<div style="font-size:11.5px;color:#a5b4fc;padding:2px 0 6px">🔗 Using <b>'+E(_tc.office)+'</b> contacts from Connections</div>':'')
+    +(cs.length?_reqContactsOrdered(cs,'D|'+r.id+'|'+t).map(c=>{ const realIdx=_tc.cs.indexOf(c);
         return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border)">'
           +'<div style="flex:0 0 150px;min-width:0;font-size:12.5px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis">'+E(c.title||'')+'</div>'
           +'<div style="flex:1 1 160px;min-width:0;font-weight:700;font-size:13px">'+E(c.name||'—')+(c._prim?' <span title="Used for emails" style="font-size:10px;font-weight:800;color:#a5b4fc;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.5);border-radius:999px;padding:1px 7px;margin-left:4px">✓ Main</span>':'')+'</div>'
@@ -69895,11 +69901,20 @@ async function _reqEditSave(btnEl,id,t){
   try{
     if(typeof sb==='undefined'||!sb) throw new Error('Not connected');
     // Re-read the latest lists so other list types (or a teammate's edits) aren't overwritten.
-    const cur=await sb.from('request_cities').select('lists').eq('id',id).maybeSingle();
+    const cur=await sb.from('request_cities').select('lists,connections').eq('id',id).maybeSingle();
     if(cur.error) throw cur.error;
     const lists=(cur.data&&cur.data.lists&&typeof cur.data.lists==='object')?cur.data.lists:{};
-    if(contacts.length||entry.website||entry.requested||entry.received||entry.notes) lists[t]=entry; else delete lists[t];
-    const up=await sb.from('request_cities').update({lists:lists,updated_at:new Date().toISOString()}).eq('id',id).select().single();
+    const linked=card.getAttribute('data-office')||'';
+    const patch={};
+    if(linked){
+      // Contacts on screen belong to the connection: save them there, keep this type's own contacts untouched.
+      entry.office=linked; entry.contacts=(lists[t]&&Array.isArray(lists[t].contacts))?lists[t].contacts:[];
+      const all=Array.isArray(cur.data&&cur.data.connections)?cur.data.connections:[];
+      patch.connections=all.filter(c=>c&&(c._meta||_reqOfficeOf(c)!==linked)).concat(contacts.map(c=>Object.assign({office:linked},c)));
+    } else if(lists[t]&&lists[t].office) entry.office=lists[t].office;
+    if(entry.contacts.length||entry.website||entry.requested||entry.received||entry.notes||entry.office) lists[t]=entry; else delete lists[t];
+    patch.lists=lists; patch.updated_at=new Date().toISOString();
+    const up=await sb.from('request_cities').update(patch).eq('id',id).select().single();
     if(up.error) throw up.error;
     if(up.data){ if(!up.data.lists||typeof up.data.lists!=='object') up.data.lists={}; cache.requests[id]=up.data; }
     window._reqEditKey=null; renderRequestsList();
@@ -69909,7 +69924,7 @@ async function _reqEditSave(btnEl,id,t){
 window._reqEditSave=_reqEditSave;
 // Email every contact on a list type at once, using that type's request template.
 function _reqMailType(id,t){
-  const r=(cache.requests||{})[id]; if(!r) return; const d=(r.lists||{})[t]||{};
+  const r=(cache.requests||{})[id]; if(!r) return; const d={contacts:_reqTypeContacts(r,t).cs};
   const _all=(d.contacts||[]).filter(Boolean); const _p=_all[_reqPrimaryIdx(_all)];
   const ems=(_p&&_p.email)?[_p.email]:_all.map(c=>c&&c.email).filter(Boolean).slice(0,1);
   if(!ems.length){ if(typeof toast==='function') toast('No contact email for '+t+'.','warn'); return; }
@@ -69960,12 +69975,14 @@ function _reqOfficesHtml(r,btn){
   Object.keys(by).forEach(k=>{ if(names.indexOf(k)<0 && k!=='Other') names.push(k); });
   if(by['Other']) names.push('Other');
   const filled=names.filter(n=>{ const b=by[n]; return b&&(b.contacts.length||b.website||b.notes); }).length;
-  return '<div style="margin-top:18px">'
-    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
-      +'<div style="font-weight:800;font-size:15px;flex:1">🏛️ Offices <span style="font-size:11.5px;font-weight:600;color:var(--text-dim)">('+filled+' set up)</span></div>'
-      +'<button type="button" onclick="_reqAddOffice(\''+E(r.id)+'\')" style="height:30px;padding:0 12px;font-size:12px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;cursor:pointer">+ Office</button>'
+  const _open=!!window._reqOfficesOpen || String(window._reqEditKey||'').indexOf('O|'+r.id+'|')===0;
+  return '<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:12px">'
+    +'<div onclick="_reqToggleOffices()" title="Click to '+(_open?'collapse':'expand')+'" style="display:flex;align-items:center;gap:10px;margin-bottom:'+(_open?'8px':'0')+';cursor:pointer">'
+      +'<span style="font-size:11px;color:var(--text-dim);width:12px;display:inline-block;transform:rotate('+(_open?'90':'0')+'deg)">▶</span>'
+      +'<div style="font-weight:800;font-size:15px;flex:1">🏛️ Connections <span style="font-size:11.5px;font-weight:600;color:var(--text-dim)">('+filled+' set up)</span></div>'
+      +(_open?'<button type="button" onclick="event.stopPropagation();_reqAddOffice(\''+E(r.id)+'\')" style="height:30px;padding:0 12px;font-size:12px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;cursor:pointer">+ Office</button>':'')
     +'</div>'
-    +'<div style="display:grid;gap:10px">'+names.map(n=>_reqOfficeCardHtml(r,n,by[n]||{contacts:[],website:'',notes:''},btn)).join('')+'</div>'
+    +(_open?'<div style="display:grid;gap:10px">'+names.map(n=>_reqOfficeCardHtml(r,n,by[n]||{contacts:[],website:'',notes:''},btn)).join('')+'</div>':'')
   +'</div>';
 }
 function _reqOfficeCardHtml(r,o,b,btn){
@@ -70015,6 +70032,60 @@ function _reqOfficeCardHtml(r,o,b,btn){
       +(has?'':'<div style="font-size:12px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px">Nothing here yet — click ✏️ Edit to add contacts.</div>')
     +'</div>':'')+'</div>';
 }
+function _reqToggleOffices(){ window._reqOfficesOpen=!window._reqOfficesOpen; renderRequestsList(); }
+window._reqToggleOffices=_reqToggleOffices;
+// A list type can point at a Connection (office) instead of keeping its own contacts: lists[t].office
+function _reqTypeContacts(r,t){
+  const d=(r&&r.lists&&r.lists[t])||{};
+  if(d.office){ const b=_reqOfficeData(r)[d.office]; return {office:d.office,cs:(b&&b.contacts)||[]}; }
+  return {office:'',cs:(d.contacts||[]).filter(Boolean)};
+}
+window._reqTypeContacts=_reqTypeContacts;
+function _reqConnSelectHtml(r,t){
+  const E=_reqEsc; const d=(r.lists&&r.lists[t])||{}; const by=_reqOfficeData(r);
+  const opts=Object.keys(by).filter(o=>by[o].contacts.length);
+  if(d.office&&opts.indexOf(d.office)<0) opts.push(d.office);
+  const order=_REQ_OFFICES.map(o=>o[0]); opts.sort((a,b)=>{ const i=order.indexOf(a),j=order.indexOf(b); return (i<0?99:i)-(j<0?99:j); });
+  const lbl=(o)=>{ const cs=(by[o]&&by[o].contacts)||[]; const p=cs[_reqPrimaryIdx(cs)]; return o; };
+  return '<select onclick="event.stopPropagation()" onchange="_reqLinkOffice(\''+E(r.id)+'\',\''+E(t).replace(/'/g,"\\'")+'\',this)" title="Use a Connection\'s contacts for this list type" style="height:30px;flex:0 4 250px;width:250px;min-width:105px;font-size:12px;padding:0 6px;border-radius:7px;'+(d.office?'color:#a5b4fc;border-color:#6366f1':'color:var(--text-dim)')+'">'
+    +'<option value="">🔗 Own contacts</option>'
+    +opts.map(o=>'<option value="'+E(o)+'" '+(d.office===o?'selected':'')+'>🔗 '+E(lbl(o))+'</option>').join('')
+  +'</select>';
+}
+async function _reqLinkOffice(id,t,sel){
+  const val=sel.value; sel.disabled=true;
+  try{
+    if(typeof sb==='undefined'||!sb) throw new Error('Not connected');
+    const cur=await sb.from('request_cities').select('lists').eq('id',id).maybeSingle();
+    if(cur.error) throw cur.error;
+    const lists=(cur.data&&cur.data.lists&&typeof cur.data.lists==='object')?cur.data.lists:{};
+    const e=Object.assign({},lists[t]||{});
+    if(val) e.office=val; else delete e.office;
+    if(Object.keys(e).some(k=>{ const v=e[k]; return Array.isArray(v)?v.length:!!v; })) lists[t]=e; else delete lists[t];
+    const up=await sb.from('request_cities').update({lists:lists,updated_at:new Date().toISOString()}).eq('id',id).select().single();
+    if(up.error) throw up.error;
+    if(up.data){ if(!up.data.lists||typeof up.data.lists!=='object') up.data.lists={}; cache.requests[id]=up.data; }
+    renderRequestsList(); if(typeof toast==='function') toast(val?(t+' now uses '+val):(t+' uses its own contacts'),'ok');
+  }catch(err){ console.warn('link office:',err); sel.disabled=false; if(typeof toast==='function') toast('Save failed: '+(err.message||err),'err'); renderRequestsList(); }
+}
+window._reqLinkOffice=_reqLinkOffice;
+// Change a list type's Requested / Received date straight from its row.
+async function _reqSetDate(id,t,key,inp){
+  const val=String(inp.value||'').trim(); inp.disabled=true;
+  try{
+    if(typeof sb==='undefined'||!sb) throw new Error('Not connected');
+    const cur=await sb.from('request_cities').select('lists').eq('id',id).maybeSingle();
+    if(cur.error) throw cur.error;
+    const lists=(cur.data&&cur.data.lists&&typeof cur.data.lists==='object')?cur.data.lists:{};
+    const e=Object.assign({},lists[t]||{}); e[key]=val;
+    if(Object.keys(e).some(k=>{ const v=e[k]; return Array.isArray(v)?v.length:!!v; })) lists[t]=e; else delete lists[t];
+    const up=await sb.from('request_cities').update({lists:lists,updated_at:new Date().toISOString()}).eq('id',id).select().single();
+    if(up.error) throw up.error;
+    if(up.data){ if(!up.data.lists||typeof up.data.lists!=='object') up.data.lists={}; cache.requests[id]=up.data; }
+    renderRequestsList(); if(typeof toast==='function') toast(t+' '+(key==='requested'?'Requested':'Received')+' date saved','ok');
+  }catch(err){ console.warn('req date:',err); inp.disabled=false; if(typeof toast==='function') toast('Save failed: '+(err.message||err),'err'); renderRequestsList(); }
+}
+window._reqSetDate=_reqSetDate;
 function _reqToggleOffice(id,o){ window._reqOpen=window._reqOpen||{}; const k='O|'+id+'|'+o; window._reqOpen[k]=!window._reqOpen[k]; renderRequestsList(); }
 function _reqOfficeEditStart(id,o){ window._reqEditKey='O|'+id+'|'+o; renderRequestsList(); }
 window._reqToggleOffice=_reqToggleOffice; window._reqOfficeEditStart=_reqOfficeEditStart;

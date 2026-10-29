@@ -6799,12 +6799,12 @@
           <input type="text" id="request-add-state" maxlength="2" placeholder="IN" style="width:100%;margin-top:8px;height:44px;font-size:15px;padding:0 14px;text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z]/g,'').toUpperCase().slice(0,2)">
         </label>
       </div>
-      <div style="margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="margin-top:16px;display:none;align-items:center;justify-content:space-between;gap:10px">
         <div style="font-weight:800;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">🌐 Website Links</div>
         <button type="button" onclick="_reqAddLinkRow()" style="font-size:11px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;padding:5px 11px;cursor:pointer">+ Add Link</button>
       </div>
-      <div style="font-size:11.5px;color:var(--text-dim);margin-top:4px">Name each link (e.g. “County Clerk”, “Record Request Form”) — the name shows on the city card.</div>
-      <div id="request-links-container" style="margin-top:8px"></div>
+      <div style="display:none;font-size:11.5px;color:var(--text-dim);margin-top:4px">Name each link (e.g. “County Clerk”, “Record Request Form”) — the name shows on the city card.</div>
+      <div id="request-links-container" style="margin-top:8px;display:none"></div>
 
       <div style="margin-top:18px;display:none;align-items:center;justify-content:space-between;gap:10px">
         <div style="font-weight:800;font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px">List Types</div>
@@ -47670,13 +47670,12 @@ async function requestSaveNew(){
     county: ($('request-add-county')?.value || '').trim() || null,
     state: ($('request-add-state')?.value || '').trim().toUpperCase() || null,
     priority: (document.getElementById('request-priority-btn') && document.getElementById('request-priority-btn').getAttribute('data-on') === '1'),
-    links: _reqCollectLinks(),
     updated_at: new Date().toISOString()
   };
   try {
     if (typeof sb === 'undefined' || !sb) throw new Error('Not connected');
     // List types are edited on each department card now — never overwrite them here.
-    if (!editId) { payload.lists = {}; payload.connections = []; }
+    if (!editId) { payload.lists = {}; payload.connections = []; payload.links = []; }
     let data, error;
     if (editId) ({ data, error } = await sb.from('request_cities').update(payload).eq('id', editId).select().single());
     else ({ data, error } = await sb.from('request_cities').insert(payload).select().single());
@@ -69789,8 +69788,7 @@ function _reqSplitRender(){
 function _reqDetailHtml(r){
   const E=_reqEsc; const id=E(r.id);
   const cty=[r.county?(r.county+' County'):'', r.state||''].filter(Boolean).join(', ');
-  const links=(Array.isArray(r.links)?r.links:[]).filter(l=>l&&(l.label||l.url)).map(l=>{ let u=String(l.url||''); if(u&&!/^https?:\/\//i.test(u)) u='https://'+u;
-    return '<a href="'+E(u)+'" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none;font-size:12.5px;font-weight:600">🌐 '+E(l.label||u)+'</a>'; }).join('');
+  const links='';
   const conns=(Array.isArray(r.connections)?r.connections:[]).filter(c=>c&&(c.name||c.email||c.phone||c.role));
   const btn='height:30px;padding:0 10px;border:1px solid var(--border);background:var(--panel-2);border-radius:7px;cursor:pointer;font-size:12.5px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap';
   const types=_reqTypes().slice(); Object.keys(r.lists||{}).forEach(k=>{ if(types.indexOf(k)<0) types.push(k); });
@@ -69802,15 +69800,9 @@ function _reqDetailHtml(r){
     +'<div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:10px">'
       +'<div style="flex:1;min-width:200px"><div style="font-size:20px;font-weight:800">🏙️ '+E(r.city)+(r.priority?' <span title="Priority">⭐</span>':'')+'</div>'
       +'<div style="font-size:13px;color:var(--text-dim);margin-top:2px">📍 '+(cty?E(cty):'No county')+'</div></div>'
-      +'<button class="btn btn-ghost text-sm" onclick="requestOpenModal(\''+id+'\')">✏️ Edit city</button>'
+      +'<div style="display:flex;gap:8px"><button class="btn btn-ghost text-sm" onclick="_reqLinksOpen(\''+id+'\')">🔗 Links</button><button class="btn btn-ghost text-sm" onclick="requestOpenModal(\''+id+'\')">✏️ Edit city</button></div>'
     +'</div>'
-    +(function(){
-      const all=(Array.isArray(r.links)?r.links:[]).filter(l=>l&&(l.label||l.url));
-      const isForm=(l)=>/record|request|apra|foia/i.test(String(l.label||''));
-      const hasForm=all.some(l=>isForm(l)&&String(l.url||'').trim());
-      const grey='<span title="No records request link yet — add one with ✏️ Edit city" style="color:var(--text-dim);opacity:.45;font-size:12.5px;font-weight:600;cursor:default">🌐 Records Request Form</span>';
-      return '<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:12px">'+(hasForm?'':grey)+links+'</div>';
-    })()
+    +_reqHeaderLinksHtml(r)
     +'<div style="display:grid;gap:10px">'+cards+'</div>'
     +_reqOfficesHtml(r,btn)
   +'</div>';
@@ -70114,6 +70106,79 @@ async function _reqDownloadForm(id,t,btnEl){
   if(btnEl){ btnEl.disabled=false; btnEl.innerHTML=orig; }
 }
 window._reqDownloadForm=_reqDownloadForm;
+
+// ===== City links: pick one Records Request + one Contact Us to show =====
+// Each link: {label,url,kind:'request'|'contact'|'other',show:bool}. Older links without kind/show
+// are sorted by their label; the first of each kind shows until you pick another.
+function _reqLinkKind(l){ if(l&&l.kind) return l.kind; const t=String((l&&l.label)||''); if(/contact/i.test(t)) return 'contact'; if(/record|request|apra|foia|form/i.test(t)) return 'request'; return 'other'; }
+function _reqLinksNorm(r){
+  const all=(Array.isArray(r&&r.links)?r.links:[]).filter(l=>l&&String(l.url||'').trim()).map(l=>Object.assign({},l,{kind:_reqLinkKind(l)}));
+  ['request','contact'].forEach(k=>{ const g=all.filter(l=>l.kind===k); if(g.length && !g.some(l=>l.show===true)) g[0].show=true; });
+  return all;
+}
+function _reqNormUrl2(u){ u=String(u||'').trim(); if(u&&!/^https?:\/\//i.test(u)) u='https://'+u; return u; }
+function _reqHeaderLinksHtml(r){
+  const E=_reqEsc; const all=_reqLinksNorm(r);
+  const pick=(k)=>all.find(l=>l.kind===k&&l.show);
+  const one=(k,title)=>{ const l=pick(k);
+    if(!l) return '<span onclick="_reqLinksOpen(\''+E(r.id)+'\')" title="No '+title+' link picked yet — click to choose" style="color:var(--text-dim);opacity:.45;font-size:12.5px;font-weight:600;cursor:pointer">🌐 '+title+'</span>';
+    return '<a href="'+E(_reqNormUrl2(l.url))+'" target="_blank" rel="noopener" title="'+E(l.label||l.url)+'" style="color:#60a5fa;text-decoration:none;font-size:12.5px;font-weight:600">🌐 '+title+'</a>'; };
+  return '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:12px">'+one('request','Records Request')+one('contact','Contact Us')+'</div>';
+}
+function _reqLinksOpen(id){
+  const r=(cache.requests||{})[id]; if(!r) return;
+  const E=_reqEsc;
+  let draft=_reqLinksNorm(r);
+  const prev=document.getElementById('req-links-pop'); if(prev) prev.remove();
+  const ov=document.createElement('div'); ov.id='req-links-pop';
+  ov.style.cssText='position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,0.55);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:40px 16px';
+  const btn='height:28px;padding:0 9px;border:1px solid var(--border);background:var(--panel-2);border-radius:7px;cursor:pointer;font-size:12px';
+  function rowHtml(l,idx){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)">'
+      +'<input type="checkbox" data-pick="'+idx+'" '+(l.show?'checked':'')+' style="width:17px;height:17px;cursor:pointer;accent-color:#6366f1" title="Show this one">'
+      +'<input data-lbl="'+idx+'" value="'+E(l.label||'')+'" placeholder="Name (e.g. City request page)" style="flex:0 0 180px;width:180px;height:30px;font-size:12.5px;padding:0 8px">'
+      +'<input data-url="'+idx+'" value="'+E(l.url||'')+'" placeholder="https://…" style="flex:1 1 auto;width:auto;min-width:160px;height:30px;font-size:12.5px;padding:0 8px">'
+      +'<select data-kind="'+idx+'" style="flex:0 0 140px;width:140px;height:30px;font-size:12px;padding:0 6px"><option value="request" '+(l.kind==='request'?'selected':'')+'>Records Request</option><option value="contact" '+(l.kind==='contact'?'selected':'')+'>Contact Us</option><option value="other" '+(l.kind==='other'?'selected':'')+'>Other</option></select>'
+      +'<button type="button" data-open="'+idx+'" title="Open link" style="'+btn+';color:#60a5fa">🌐</button>'
+      +'<button type="button" data-del="'+idx+'" title="Remove" style="'+btn+';color:#f87171;background:transparent">×</button>'
+    +'</div>';
+  }
+  function sync(){ ov.querySelectorAll('[data-lbl]').forEach(el=>{ draft[+el.getAttribute('data-lbl')].label=el.value; }); ov.querySelectorAll('[data-url]').forEach(el=>{ draft[+el.getAttribute('data-url')].url=el.value; }); }
+  function paint(){
+    const grp=(k,title,hint)=>{ const items=draft.map((l,i)=>({l,i})).filter(o=>o.l.kind===k);
+      return '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-dim)">'+title+' <span style="font-weight:600;text-transform:none;letter-spacing:0">'+hint+'</span></div>'
+        +(items.length?items.map(o=>rowHtml(o.l,o.i)).join(''):'<div style="font-size:12px;color:var(--text-dim);padding:6px 0">None yet.</div>')
+        +'<button type="button" data-add="'+k+'" style="margin-top:6px;height:28px;padding:0 11px;font-size:12px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;cursor:pointer">+ Add</button></div>'; };
+    ov.innerHTML='<div style="width:min(760px,96vw);background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;box-shadow:0 16px 50px rgba(0,0,0,0.5)">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-weight:800;font-size:15px">🔗 Links — '+E(r.city)+'</div><button type="button" data-close="1" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button></div>'
+      +'<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Check the one to show on the city page. Unchecked links stay saved.</div>'
+      +grp('request','Records Request','— pick one to show')+grp('contact','Contact Us','— pick one to show')+grp('other','Other','— saved, not shown')
+      +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button type="button" class="btn btn-ghost text-sm" data-close="1">Cancel</button><button type="button" class="btn btn-primary text-sm" id="req-links-save">💾 Save</button></div></div>';
+    ov.querySelectorAll('[data-pick]').forEach(cb=>cb.addEventListener('change',()=>{ sync(); const i=+cb.getAttribute('data-pick'); const k=draft[i].kind; draft.forEach((l,j)=>{ if(l.kind===k) l.show=false; }); draft[i].show=cb.checked; paint(); }));
+    ov.querySelectorAll('[data-kind]').forEach(sel=>sel.addEventListener('change',()=>{ sync(); const i=+sel.getAttribute('data-kind'); draft[i].kind=sel.value; draft[i].show=false; paint(); }));
+    ov.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ sync(); draft.splice(+b.getAttribute('data-del'),1); paint(); }));
+    ov.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>{ sync(); const u=_reqNormUrl2(draft[+b.getAttribute('data-open')].url); if(u) window.open(u,'_blank','noopener'); }));
+    ov.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>{ sync(); const k=b.getAttribute('data-add'); draft.push({label:'',url:'',kind:k,show:!draft.some(l=>l.kind===k&&l.show)&&k!=='other'}); paint(); }));
+    ov.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>ov.remove()));
+    ov.querySelector('#req-links-save').addEventListener('click',async function(){
+      sync(); const btnEl=this; btnEl.disabled=true; btnEl.textContent='Saving…';
+      // Clean: drop empty rows and duplicate URLs (first one wins).
+      const seen={}; const out=[];
+      draft.forEach(l=>{ const u=String(l.url||'').trim(); if(!u) return; const key=_reqNormUrl2(u).toLowerCase().replace(/\/+$/,''); if(seen[key]) return; seen[key]=1;
+        out.push({label:String(l.label||'').trim(),url:u,kind:l.kind,show:!!l.show&&l.kind!=='other'}); });
+      try{
+        if(typeof sb==='undefined'||!sb) throw new Error('Not connected');
+        const up=await sb.from('request_cities').update({links:out,updated_at:new Date().toISOString()}).eq('id',id).select().single();
+        if(up.error) throw up.error;
+        if(up.data){ if(!up.data.lists||typeof up.data.lists!=='object') up.data.lists={}; cache.requests[id]=up.data; }
+        ov.remove(); renderRequestsList(); if(typeof toast==='function') toast('Links saved','ok');
+      }catch(e){ console.warn('links save:',e); btnEl.disabled=false; btnEl.textContent='💾 Save'; if(typeof toast==='function') toast('Save failed: '+(e.message||e),'err'); }
+    });
+  }
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov); paint();
+}
+window._reqLinksOpen=_reqLinksOpen;
 window._reqOrigRender = window.renderRequestsList;
 window.renderRequestsList = _reqSplitRender;
 /* Refresh buttons on Holdings / Renovation: re-pull properties from the database, then re-draw. */

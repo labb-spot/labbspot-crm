@@ -69871,6 +69871,11 @@ function _reqTypeCardHtml(r,t,btn){
       +(_reqFormFor(r,t)?'<button type="button" onclick="event.stopPropagation();_reqDownloadForm(\''+id+'\',\''+tq+'\',this)" title="Download this department\'s request form, filled in for today" style="'+btn+';color:#fbbf24">📄 Form</button>':'<button type="button" onclick="event.stopPropagation();_reqCFSetup(\''+id+'\',\''+tq+'\')" title="No form yet — click to set one up" style="'+btn+';color:var(--text-dim);opacity:.45">📄 Form</button>')
       +'<button type="button" onclick="event.stopPropagation();_reqMailType(\''+id+'\',\''+tq+'\')" '+(emails.length?'':'disabled ')+'title="'+(emails.length?'Email '+emails.length+' contact'+(emails.length>1?'s':'')+' with your request template':'Add a contact email first')+'" style="'+btn+';color:#a78bfa;'+(emails.length?'':'opacity:.4;cursor:default')+'">📧 Email</button>'
       +'<button type="button" onclick="event.stopPropagation();_reqEditStart(\''+id+'\',\''+tq+'\')" title="Edit" style="'+btn+';color:var(--text)">✏️</button>')
+    +(editing?'<div style="display:flex;gap:8px;margin-left:auto">'
+        +'<button type="button" class="btn btn-ghost text-sm" onclick="_reqCFSetup(\''+id+'\',\''+tq+'\')" title="Upload / change this department\'s request form">📄 '+(_reqFormFor(r,t)?'Change form':'Set up form')+'</button>'
+        +'<button type="button" class="btn btn-primary text-sm" onclick="_reqEditSave(this,\''+id+'\',\''+tq+'\')">💾 Save</button>'
+        +'<button type="button" class="btn btn-ghost text-sm" onclick="_reqEditCancel()" style="border:1px solid #ef4444;color:#f87171">Cancel</button>'
+      +'</div>':'')
     +'</div>';
   if(editing){
     const inp='height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box';
@@ -69896,11 +69901,7 @@ function _reqTypeCardHtml(r,t,btn){
       +'</div>'
       +'<label style="font-size:11.5px;color:var(--text-dim);display:block;margin-bottom:8px">Website<input class="rq-web" placeholder="https://…" value="'+E(d.website||'')+'" style="'+inp+';margin-top:3px"></label>'
       +'<label style="font-size:11.5px;color:var(--text-dim);display:block;margin-bottom:10px">Notes<textarea class="rq-notes" rows="2" style="width:100%;box-sizing:border-box;font-size:13px;padding:6px 9px;margin-top:3px">'+E(d.notes||'')+'</textarea></label>'
-      +'<div style="display:flex;gap:8px;justify-content:flex-end">'
-        +'<button type="button" class="btn btn-ghost text-sm" onclick="_reqCFSetup(\''+id+'\',\''+tq+'\')" title="Upload / change this department\'s request form">📄 '+(_reqFormFor(r,t)?'Change form':'Set up form')+'</button>'
-        +'<button type="button" class="btn btn-primary text-sm" onclick="_reqEditSave(this,\''+id+'\',\''+tq+'\')">💾 Save</button>'
-        +'<button type="button" class="btn btn-ghost text-sm" onclick="_reqEditCancel()">Cancel</button>'
-      +'</div></div>';
+      +'</div>';
   }
   return '<div style="background:var(--panel);border:1px solid var(--border);border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px;'+(has?'':'opacity:.7')+'">'+head
     +(open?'<div>'
@@ -69941,10 +69942,25 @@ function _reqEditDirty(card){
     else if(el.type!=='file' && el.value!==el.defaultValue) dirty=true; });
   return dirty;
 }
+// Small yes/no box in the bottom-right corner (same spot as the toasts).
+function _reqConfirmBR(msg,yesLbl,noLbl,onYes){
+  const old=document.getElementById('req-confirm-br'); if(old) old.remove();
+  const box=document.createElement('div'); box.id='req-confirm-br';
+  box.style.cssText='position:fixed;right:20px;bottom:20px;z-index:100010;background:var(--panel);border:1px solid #ef4444;border-radius:12px;padding:14px 16px;box-shadow:0 12px 40px rgba(0,0,0,.55);max-width:340px;font-size:13.5px';
+  box.innerHTML='<div style="font-weight:700;margin-bottom:10px">⚠️ '+_reqEsc(msg)+'</div><div style="display:flex;gap:8px;justify-content:flex-end">'
+    +'<button type="button" class="btn btn-ghost text-sm" data-no="1">'+_reqEsc(noLbl)+'</button>'
+    +'<button type="button" class="btn text-sm" data-yes="1" style="background:#ef4444;color:#fff;border:1px solid #ef4444">'+_reqEsc(yesLbl)+'</button></div>';
+  document.body.appendChild(box);
+  box.querySelector('[data-no]').onclick=function(){ box.remove(); };
+  box.querySelector('[data-yes]').onclick=function(){ box.remove(); onYes(); };
+  box.querySelector('[data-yes]').focus();
+}
+window._reqConfirmBR=_reqConfirmBR;
 function _reqEditCancel(){
   const card=document.querySelector('.rq-edit-card');
-  if(_reqEditDirty(card) && !confirm('Are you sure you want to cancel without saving?')) return;
-  window._reqEditKey=null; renderRequestsList();
+  const done=function(){ window._reqEditKey=null; renderRequestsList(); };
+  if(!_reqEditDirty(card)) return done();
+  _reqConfirmBR('Are you sure you want to cancel without saving?','Discard changes','Keep editing',done);
 }
 window._reqEditStart=_reqEditStart; window._reqEditCancel=_reqEditCancel;
 async function _reqEditSave(btnEl,id,t){
@@ -70050,6 +70066,10 @@ function _reqOfficeCardHtml(r,o,b,btn){
     +'<div style="font-weight:800;font-size:14px;flex:1;min-width:140px;color:'+(has?tc:'var(--text-dim)')+'">'+E(o)+(editing?'':' <span style="font-size:11px;font-weight:600;color:var(--text-dim)">'+(cs.length?cs.length+' contact'+(cs.length>1?'s':''):'')+'</span>')+'</div>'
     +(editing?'':'<button type="button" onclick="event.stopPropagation();_reqMailOffice(\''+id+'\',\''+oq+'\')" '+(emails.length?'':'disabled ')+'style="'+btn+';color:#a78bfa;'+(emails.length?'':'opacity:.4;cursor:default')+'">📧 Email</button>'
       +'<button type="button" onclick="event.stopPropagation();_reqOfficeEditStart(\''+id+'\',\''+oq+'\')" style="'+btn+';color:var(--text)">✏️ Edit</button>')
+    +(editing?'<div style="display:flex;gap:8px;margin-left:auto">'
+        +'<button type="button" class="btn btn-primary text-sm" onclick="_reqOfficeSave(this,\''+id+'\',\''+oq+'\')">💾 Save</button>'
+        +'<button type="button" class="btn btn-ghost text-sm" onclick="_reqEditCancel()" style="border:1px solid #ef4444;color:#f87171">Cancel</button>'
+      +'</div>':'')
     +'</div>';
   if(editing){
     const inp='height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box';
@@ -70067,10 +70087,7 @@ function _reqOfficeCardHtml(r,o,b,btn){
       +'<button type="button" onclick="this.previousElementSibling.insertAdjacentHTML(\'beforeend\', _reqEditRowBlank())" style="height:30px;padding:0 12px;font-size:12px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;cursor:pointer;margin-bottom:10px">+ Contact</button>'
       +'<label style="font-size:11.5px;color:var(--text-dim);display:block;margin-bottom:8px">Website<input class="rq-web" placeholder="https://…" value="'+E(b.website||'')+'" style="'+inp+';margin-top:3px"></label>'
       +'<label style="font-size:11.5px;color:var(--text-dim);display:block;margin-bottom:10px">Notes<textarea class="rq-notes" rows="2" style="width:100%;box-sizing:border-box;font-size:13px;padding:6px 9px;margin-top:3px">'+E(b.notes||'')+'</textarea></label>'
-      +'<div style="display:flex;gap:8px;justify-content:flex-end">'
-        +'<button type="button" class="btn btn-ghost text-sm" onclick="_reqEditCancel()">Cancel</button>'
-        +'<button type="button" class="btn btn-primary text-sm" onclick="_reqOfficeSave(this,\''+id+'\',\''+oq+'\')">💾 Save</button>'
-      +'</div></div>';
+      +'</div>';
   }
   return '<div style="background:var(--panel);border:1px solid var(--border);border-left:4px solid '+(has?tc:'var(--border)')+';border-radius:10px;padding:12px 14px;'+(has?'':'opacity:.7')+'">'+head
     +(open?'<div>'

@@ -22834,6 +22834,11 @@ window._rcReleaseEditLock = function(){
 };
 
 async function uwLoadById(id) {
+  // RACE GUARD: every open gets a ticket. If you click another deal before this
+  // one finishes loading, this (older) load stops instead of painting its data
+  // over the newer deal — that's how the top card could say one property while
+  // the form showed another.
+  const _myLoad = (window._uwLoadSeq = (window._uwLoadSeq || 0) + 1);
   // Release the lock on the PREVIOUS deal (switching deals without ← Back) and
   // clear any View-Only state from the deal we're leaving.
   try { _uwExitViewOnly(); if(_uwCurrentId && _uwCurrentId!==id) _uwReleaseLock(_uwCurrentId); } catch(_){}
@@ -22855,6 +22860,7 @@ async function uwLoadById(id) {
   // fetch fails and we have a cached copy.
   {
     const { data, error } = await sb.from('underwrites').select('*').eq('id', id).maybeSingle();
+    if (_myLoad !== window._uwLoadSeq) { try { console.warn('[uwLoad] skipped stale load of', id); } catch(_){} return; }
     if (!error && data) {
       if (!cache.underwrites) cache.underwrites = {};
       cache.underwrites[id] = data;
@@ -22875,7 +22881,15 @@ async function uwLoadById(id) {
   // subtab the user clicked from (offered, inspection, contracted, closed, etc.).
   // Overwriting it to analyzing/analyzed sent Back to the wrong tab.
   goUwView('calculator');
-  _uwApply(u.data);
+  try { _uwApply(u.data); }
+  catch (e) {
+    // A half-applied deal is how the screen ends up mixed. Leave no save target
+    // and tell the user to reopen, instead of pointing saves at this id.
+    try { console.error('[uwLoad] apply failed for', id, e); } catch(_){}
+    _uwCurrentId = null;
+    if (typeof toast === 'function') toast('⚠ This deal didn\'t load fully — click ← Back and reopen it.', 'err');
+    return;
+  }
   _uwCurrentId = id;
   // Baseline snapshot for MERGE saves (only write fields I actually change).
   try { _uwBaseline = (u.data && typeof u.data==='object') ? JSON.parse(JSON.stringify(u.data)) : {}; } catch(_){ _uwBaseline = {}; }

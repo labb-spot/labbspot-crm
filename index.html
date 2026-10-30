@@ -70414,6 +70414,20 @@ async function _reqCFSetup(id,t){
   const builtIn=!!_REQ_FORMS[String(r.city||'').toLowerCase().trim()+'|'+String(t||'').toLowerCase().trim()];
   const st={ bytes:null, fileName:'', cfg:{ me:Object.assign({},_REQ_CF_ME), request:_REQ_CF_REQ, fields:{}, spots:[] }, info:[], pageSizes:[], kindNext:'name', textNext:'' };
   if(existing&&existing.config) st.cfg=Object.assign({me:Object.assign({},_REQ_CF_ME),request:_REQ_CF_REQ,fields:{},spots:[]},JSON.parse(JSON.stringify(existing.config)));
+  // Built-in form (Evansville, Greensburg, Newburgh…): open it with everything already placed,
+  // turned into editable settings. Dates stay automatic ({today}/{time}/{start}/{end}).
+  const bi=(!existing&&builtIn)?_REQ_FORMS[String(r.city||'').toLowerCase().trim()+'|'+String(t||'').toLowerCase().trim()]:null;
+  if(bi){
+    try{
+      const b64=((document.getElementById(bi.blob)||{}).textContent||'').trim();
+      if(b64){ st.bytes=_reqB64ToBytes(b64); st.fileName=(bi.file||'form')+'.pdf'; }
+      const tk={date:'{today}',time:'{time}',from:'{start}',to:'{end}'};
+      if(typeof bi.fill==='function'){ const v=bi.fill(tk); Object.keys(v).forEach(function(n){ st.cfg.fields[n]={kind:'text',text:String(v[n])}; }); }
+      if(typeof bi.draw==='function'){ bi.draw(tk).forEach(function(d){ st.cfg.spots.push({page:0,x:d.x,y:d.y,kind:'text',text:String(d.text),size:d.size||10,w:d.maxW}); }); }
+      (bi.marks||[]).forEach(function(m){ st.cfg.spots.push({page:0,x:m[0],y:m[1],kind:'x',size:10}); });
+      if(bi.sign) st.cfg.spots.push({page:0,x:bi.sign.x,y:bi.sign.y+2,kind:'sign',h:bi.sign.h||22});
+    }catch(e){ console.warn('built-in form load',e); }
+  }
   const prev=document.getElementById('req-cf-pop'); if(prev) prev.remove();
   const ov=document.createElement('div'); ov.id='req-cf-pop';
   ov.style.cssText='position:fixed;inset:0;z-index:100003;background:rgba(0,0,0,0.6);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px';
@@ -70421,13 +70435,13 @@ async function _reqCFSetup(id,t){
   const kindOpts=(sel,allowSign)=>_REQ_CF_KINDS.filter(k=>allowSign||k[0]!=='sign').map(k=>'<option value="'+k[0]+'" '+(sel===k[0]?'selected':'')+'>'+E(k[1])+'</option>').join('');
   ov.innerHTML='<div style="width:min(1120px,98vw);background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 16px 50px rgba(0,0,0,0.5)">'
     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><div style="font-weight:800;font-size:15px;flex:1">📄 Request form — '+E(r.city)+' · '+E(t)+'</div><button type="button" data-x="1" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button></div>'
-    +(builtIn&&!existing?'<div style="font-size:12px;color:#fbbf24;margin-bottom:8px">This one already has a built-in form. Saving here replaces it with yours.</div>':'')
+    +(builtIn&&!existing?'<div style="font-size:12px;color:#fbbf24;margin-bottom:8px">This is the built-in form, loaded so you can see and change it. Nothing changes unless you hit Save — then your version is used from now on.</div>':'')
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
       +'<label class="btn btn-ghost text-sm" style="cursor:pointer">📎 '+(existing?'Replace PDF':'Choose blank PDF')+'<input type="file" accept="application/pdf,.pdf" id="req-cf-file" style="display:none"></label>'
-      +'<span id="req-cf-fname" style="font-size:12.5px;color:var(--text-dim)">'+(existing?E(existing.file_name||'saved form'):'No file yet')+'</span>'
+      +'<span id="req-cf-fname" style="font-size:12.5px;color:var(--text-dim)">'+(existing?E(existing.file_name||'saved form'):(st.fileName?E(st.fileName):'No file yet'))+'</span>'
     +'</div>'
     +'<div id="req-cf-body" style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start">'
-      +'<div id="req-cf-pages" style="max-height:72vh;overflow:auto;background:#525659;border-radius:8px;padding:10px;text-align:center;color:#ddd;font-size:13px">'+(existing?'Loading…':'Choose the city’s blank form (PDF) to start.')+'</div>'
+      +'<div id="req-cf-pages" style="max-height:72vh;overflow:auto;background:#525659;border-radius:8px;padding:10px;text-align:center;color:#ddd;font-size:13px">'+((existing||st.bytes)?'Loading…':'Choose the city’s blank form (PDF) to start.')+'</div>'
       +'<div style="display:flex;flex-direction:column;gap:10px;max-height:72vh;overflow:auto">'
         +'<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:10px"><div style="font-weight:800;font-size:12px;margin-bottom:6px">✍️ Add text by clicking the form</div>'
           +'<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:6px">Pick what to add, then click on the line where it goes. Click a marker to remove it.</div>'
@@ -70505,6 +70519,7 @@ async function _reqCFSetup(id,t){
   $('#req-cf-file').addEventListener('change',async function(){ const f=this.files&&this.files[0]; if(!f) return;
     if(f.size>6*1024*1024){ if(typeof toast==='function') toast('That PDF is over 6 MB — too big to store.','err'); return; }
     st.bytes=new Uint8Array(await f.arrayBuffer()); st.fileName=f.name; $('#req-cf-fname').textContent=f.name; await showPdf(st.bytes); });
+  if(!existing&&st.bytes){ await showPdf(st.bytes); }
   if(existing){ try{ const q=await sb.from('request_forms').select('pdf_b64').eq('id',existing.id).maybeSingle(); if(q.data&&q.data.pdf_b64){ st.bytes=_reqB64ToBytes(q.data.pdf_b64); st.fileName=existing.file_name||''; await showPdf(st.bytes); } }catch(e){ console.warn(e); } }
   $('#req-cf-test').addEventListener('click',async function(){ if(!st.bytes){ if(typeof toast==='function') toast('Choose the PDF first.','warn'); return; } syncSide();
     try{ const out=await _reqCFBuild(st.bytes,st.cfg); window.open(URL.createObjectURL(new Blob([out.bytes],{type:'application/pdf'})),'_blank'); }catch(e){ if(typeof toast==='function') toast('Preview failed: '+(e.message||e),'err'); } });

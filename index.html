@@ -70477,7 +70477,7 @@ async function _reqCFSetup(id,t){
     box.querySelectorAll('[data-fk]').forEach(sel=>sel.addEventListener('change',function(){ const n=this.getAttribute('data-fk'); st.cfg.fields[n]=Object.assign(st.cfg.fields[n]||{},{kind:this.value}); if(!this.value) delete st.cfg.fields[n]; const ti=box.querySelector('[data-ft="'+CSS.escape(n)+'"]'); if(ti) ti.style.display=this.value==='text'?'':'none'; paintMarks(); liveFill(); }));
     box.querySelectorAll('[data-ft]').forEach(ti=>ti.addEventListener('input',function(){ const n=this.getAttribute('data-ft'); st.cfg.fields[n]=Object.assign(st.cfg.fields[n]||{kind:'text'},{text:this.value}); liveFill(); }));
   }
-  const SCALE=1.35;
+  let SCALE=1.35;   // set to fit the preview's width when the PDF loads
   function paintMarks(){
     ov.querySelectorAll('.req-cf-mk').forEach(m=>m.remove());
     st.pageSizes.forEach((ps,pi)=>{ const wrap=ov.querySelector('[data-page="'+pi+'"]'); if(!wrap) return;
@@ -70512,6 +70512,7 @@ async function _reqCFSetup(id,t){
       const PDFLib=await _reqLoadPdfLib();
       const doc=await PDFLib.PDFDocument.load(bytes,{ignoreEncryption:true});
       st.info=_reqCFFieldInfo(doc); st.pageSizes=doc.getPages().map(p=>({w:p.getWidth(),h:p.getHeight()}));
+      { const avail=Math.max(300,(holder.clientWidth||800)-28); const maxW=Math.max.apply(null,st.pageSizes.map(z=>z.w).concat([1])); SCALE=Math.min(1.6,avail/maxW); }
       Object.keys(st.cfg.fields).forEach(n=>{ if(!st.info.some(f=>f.name===n)) delete st.cfg.fields[n]; });
       const pdfjs=await _reqCFLoadPdfJs();
       const pdf=await pdfjs.getDocument({data:bytes.slice()}).promise;

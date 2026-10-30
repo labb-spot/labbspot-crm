@@ -69884,7 +69884,7 @@ function _reqTypeCardHtml(r,t,btn){
       +'<input class="rq-c-phone" placeholder="Phone" value="'+E(c.phone||'')+'" style="'+inp+'">'
       +'<button type="button" title="Remove" onclick="this.closest(\'.rq-c-row\').remove()" style="height:34px;border:1px solid var(--border);background:transparent;color:#f87171;border-radius:7px;cursor:pointer;font-weight:700">×</button></div>';
     const today=new Date(); const td=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-    return '<div class="rq-edit-card" data-office="'+E(d.office||'')+'" style="background:var(--panel);border:1px solid '+tc+';border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px">'+head
+    return '<div class="rq-edit-card" data-rows="'+(_ecs.length?_ecs.length:1)+'" data-office="'+E(d.office||'')+'" style="background:var(--panel);border:1px solid '+tc+';border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px">'+head
       +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:11.5px;color:var(--text-dim)">Contacts from:</span>'+_reqConnSelectHtml(r,t)
         +(d.office?'<span style="font-size:11.5px;color:#a5b4fc">Shared with the <b>'+E(d.office)+'</b> connection — changes here update it everywhere it\'s used.</span>':'')+'</div>'
       +'<div style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+(d.office?E(d.office)+' contacts':'Contacts')+'</div>'
@@ -69897,9 +69897,9 @@ function _reqTypeCardHtml(r,t,btn){
       +'<label style="font-size:11.5px;color:var(--text-dim);display:block;margin-bottom:8px">Website<input class="rq-web" placeholder="https://…" value="'+E(d.website||'')+'" style="'+inp+';margin-top:3px"></label>'
       +'<label style="font-size:11.5px;color:var(--text-dim);display:block;margin-bottom:10px">Notes<textarea class="rq-notes" rows="2" style="width:100%;box-sizing:border-box;font-size:13px;padding:6px 9px;margin-top:3px">'+E(d.notes||'')+'</textarea></label>'
       +'<div style="display:flex;gap:8px;justify-content:flex-end">'
-        +'<button type="button" class="btn btn-ghost text-sm" style="margin-right:auto" onclick="_reqCFSetup(\''+id+'\',\''+tq+'\')" title="Upload / change this department\'s request form">📄 '+(_reqFormFor(r,t)?'Change form':'Set up form')+'</button>'
-        +'<button type="button" class="btn btn-ghost text-sm" onclick="_reqEditCancel()">Cancel</button>'
+        +'<button type="button" class="btn btn-ghost text-sm" onclick="_reqCFSetup(\''+id+'\',\''+tq+'\')" title="Upload / change this department\'s request form">📄 '+(_reqFormFor(r,t)?'Change form':'Set up form')+'</button>'
         +'<button type="button" class="btn btn-primary text-sm" onclick="_reqEditSave(this,\''+id+'\',\''+tq+'\')">💾 Save</button>'
+        +'<button type="button" class="btn btn-ghost text-sm" onclick="_reqEditCancel()">Cancel</button>'
       +'</div></div>';
   }
   return '<div style="background:var(--panel);border:1px solid var(--border);border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px;'+(has?'':'opacity:.7')+'">'+head
@@ -69930,7 +69930,22 @@ function _reqEditRowBlank(){ return ('<div class="rq-c-row" style="display:grid;
   +'<button type="button" title="Remove" onclick="this.closest(\'.rq-c-row\').remove()" style="height:34px;border:1px solid var(--border);background:transparent;color:#f87171;border-radius:7px;cursor:pointer;font-weight:700">×</button></div>'); }
 window._reqEditRowBlank=_reqEditRowBlank;
 function _reqEditStart(id,t){ window._reqEditKey=id+'|'+t; renderRequestsList(); }
-function _reqEditCancel(){ window._reqEditKey=null; renderRequestsList(); }
+// True if anything in the open edit box differs from what it opened with.
+function _reqEditDirty(card){
+  if(!card) return false;
+  const rows=card.getAttribute('data-rows'); if(rows!=null && card.querySelectorAll('.rq-c-row').length!==+rows) return true;
+  let dirty=false;
+  card.querySelectorAll('input,textarea,select').forEach(function(el){ if(dirty) return;
+    if(el.type==='checkbox'||el.type==='radio'){ if(el.checked!==el.defaultChecked) dirty=true; }
+    else if(el.tagName==='SELECT'){ const o=el.options[el.selectedIndex]; if(o&&!o.defaultSelected&&[].some.call(el.options,x=>x.defaultSelected)) dirty=true; }
+    else if(el.type!=='file' && el.value!==el.defaultValue) dirty=true; });
+  return dirty;
+}
+function _reqEditCancel(){
+  const card=document.querySelector('.rq-edit-card');
+  if(_reqEditDirty(card) && !confirm('Are you sure you want to cancel without saving?')) return;
+  window._reqEditKey=null; renderRequestsList();
+}
 window._reqEditStart=_reqEditStart; window._reqEditCancel=_reqEditCancel;
 async function _reqEditSave(btnEl,id,t){
   const card=btnEl.closest('.rq-edit-card'); if(!card) return;
@@ -70046,7 +70061,7 @@ function _reqOfficeCardHtml(r,o,b,btn){
       +'<input class="rq-c-email" type="email" placeholder="Email" value="'+E(c.email||'')+'" style="'+inp+'">'
       +'<input class="rq-c-phone" placeholder="Phone" value="'+E(c.phone||'')+'" style="'+inp+'">'
       +'<button type="button" title="Remove" onclick="this.closest(\'.rq-c-row\').remove()" style="height:34px;border:1px solid var(--border);background:transparent;color:#f87171;border-radius:7px;cursor:pointer;font-weight:700">×</button></div>';
-    return '<div class="rq-edit-card" style="background:var(--panel);border:1px solid '+tc+';border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px">'+head
+    return '<div class="rq-edit-card" data-rows="'+(cs.length?cs.length:1)+'" style="background:var(--panel);border:1px solid '+tc+';border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px">'+head
       +'<div style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Contacts</div>'
       +'<div class="rq-c-list">'+((cs.length?cs:[{}]).map(row).join(''))+'</div>'
       +'<button type="button" onclick="this.previousElementSibling.insertAdjacentHTML(\'beforeend\', _reqEditRowBlank())" style="height:30px;padding:0 12px;font-size:12px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;cursor:pointer;margin-bottom:10px">+ Contact</button>'

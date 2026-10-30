@@ -69736,6 +69736,14 @@ function _reqSelect(id){ window._reqSel=id; renderRequestsList(); }
 window._reqSelect=_reqSelect;
 function _reqSetListSort(v){ window._reqListSort=v; try{ localStorage.setItem('req_list_sort',v); }catch(_){} const l=document.getElementById('req-city-list'); if(l) l.scrollTop=0; renderRequestsList(); }
 window._reqSetListSort=_reqSetListSort;
+// Stop the browser's own address autofill from dropping a DIFFERENT saved address
+// (address + city + ZIP together) into the open deal. Covers every uw- field,
+// including ones rendered later.
+(function(){
+  function _uwNoAutofill(root){ try{ (root||document).querySelectorAll('input[id^="uw-"],textarea[id^="uw-"]').forEach(function(el){ if(el.getAttribute('data-noaf')) return; el.setAttribute('autocomplete','off-uw-'+el.id); el.setAttribute('data-noaf','1'); }); }catch(_){} }
+  _uwNoAutofill(document);
+  var _t=null; try{ new MutationObserver(function(){ if(_t) return; _t=setTimeout(function(){ _t=null; _uwNoAutofill(document); },400); }).observe(document.body,{childList:true,subtree:true}); }catch(_){}
+})();
 (function(){ if(document.getElementById('req-city-list-css')) return; const st=document.createElement('style'); st.id='req-city-list-css';
   st.textContent='#req-city-list::-webkit-scrollbar{width:12px}'
    +'#req-city-list::-webkit-scrollbar-track{background:transparent}'

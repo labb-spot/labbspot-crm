@@ -70461,6 +70461,8 @@ async function _reqCFSetup(id,t){
   document.body.appendChild(ov);
   const $=s=>ov.querySelector(s);
   ov.querySelectorAll('[data-x]').forEach(b=>b.addEventListener('click',()=>ov.remove()));
+  $('#req-cf-req').addEventListener('input',()=>liveFill());
+  ov.querySelectorAll('[data-me]').forEach(el=>el.addEventListener('input',()=>liveFill()));
   $('#req-cf-kind').addEventListener('change',function(){ $('#req-cf-text').style.display=this.value==='text'?'':'none'; });
   function syncSide(){ st.cfg.request=$('#req-cf-req').value; ov.querySelectorAll('[data-me]').forEach(el=>{ st.cfg.me[el.getAttribute('data-me')]=el.value.trim(); }); }
   function renderFieldList(){
@@ -70472,25 +70474,37 @@ async function _reqCFSetup(id,t){
       +tx.map(f=>{ const c=st.cfg.fields[f.name]||{}; return '<div data-frow="'+E(f.name)+'" style="padding:5px 0;border-top:1px solid var(--border)"><div style="font-size:11px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+E(f.name)+'">'+(f.type==='check'?'☐ ':'')+E(f.name)+'</div>'
         +(f.type==='check'?'<select data-fk="'+E(f.name)+'" style="'+inp+';width:100%"><option value="">— leave unchecked —</option><option value="x" '+(c.kind==='x'?'selected':'')+'>Check it</option></select>'
           :'<select data-fk="'+E(f.name)+'" style="'+inp+';width:100%">'+kindOpts(c.kind||'',true)+'</select><input data-ft="'+E(f.name)+'" value="'+E(c.text||'')+'" placeholder="Custom text" style="'+inp+';width:100%;margin-top:4px;display:'+(c.kind==='text'?'':'none')+'">')+'</div>'; }).join('');
-    box.querySelectorAll('[data-fk]').forEach(sel=>sel.addEventListener('change',function(){ const n=this.getAttribute('data-fk'); st.cfg.fields[n]=Object.assign(st.cfg.fields[n]||{},{kind:this.value}); if(!this.value) delete st.cfg.fields[n]; const ti=box.querySelector('[data-ft="'+CSS.escape(n)+'"]'); if(ti) ti.style.display=this.value==='text'?'':'none'; paintMarks(); }));
-    box.querySelectorAll('[data-ft]').forEach(ti=>ti.addEventListener('input',function(){ const n=this.getAttribute('data-ft'); st.cfg.fields[n]=Object.assign(st.cfg.fields[n]||{kind:'text'},{text:this.value}); }));
+    box.querySelectorAll('[data-fk]').forEach(sel=>sel.addEventListener('change',function(){ const n=this.getAttribute('data-fk'); st.cfg.fields[n]=Object.assign(st.cfg.fields[n]||{},{kind:this.value}); if(!this.value) delete st.cfg.fields[n]; const ti=box.querySelector('[data-ft="'+CSS.escape(n)+'"]'); if(ti) ti.style.display=this.value==='text'?'':'none'; paintMarks(); liveFill(); }));
+    box.querySelectorAll('[data-ft]').forEach(ti=>ti.addEventListener('input',function(){ const n=this.getAttribute('data-ft'); st.cfg.fields[n]=Object.assign(st.cfg.fields[n]||{kind:'text'},{text:this.value}); liveFill(); }));
   }
   const SCALE=1.35;
   function paintMarks(){
     ov.querySelectorAll('.req-cf-mk').forEach(m=>m.remove());
     st.pageSizes.forEach((ps,pi)=>{ const wrap=ov.querySelector('[data-page="'+pi+'"]'); if(!wrap) return;
       st.info.filter(f=>f.page===pi).forEach(f=>{ const c=st.cfg.fields[f.name]; const d=document.createElement('div'); d.className='req-cf-mk';
-        d.style.cssText='position:absolute;left:'+(f.x*SCALE)+'px;top:'+((ps.h-f.y-f.h)*SCALE)+'px;width:'+(f.w*SCALE)+'px;height:'+(f.h*SCALE)+'px;border:1.5px solid '+(c&&c.kind?'#22c55e':'#6366f1')+';background:'+(c&&c.kind?'rgba(34,197,94,0.15)':'rgba(99,102,241,0.12)')+';cursor:pointer;font-size:10px;color:#166534;text-align:left;overflow:hidden;white-space:nowrap;line-height:'+(f.h*SCALE)+'px;padding-left:2px';
-        d.textContent=c&&c.kind?(_REQ_CF_KINDS.find(k=>k[0]===c.kind)||['',''])[1]:''; d.title=f.name;
+        d.style.cssText='position:absolute;left:'+(f.x*SCALE)+'px;top:'+((ps.h-f.y-f.h)*SCALE)+'px;width:'+(f.w*SCALE)+'px;height:'+(f.h*SCALE)+'px;border:1px dashed '+(c&&c.kind?'rgba(34,197,94,0.8)':'rgba(99,102,241,0.6)')+';background:'+(c&&c.kind?'transparent':'rgba(99,102,241,0.06)')+';cursor:pointer;box-sizing:border-box';
+        d.title=f.name+' — '+(c&&c.kind?(_REQ_CF_KINDS.find(k=>k[0]===c.kind)||['',''])[1]:'blank')+' (click to change)';
         d.addEventListener('click',ev=>{ ev.stopPropagation(); const row=ov.querySelector('[data-frow="'+CSS.escape(f.name)+'"]'); if(row){ row.scrollIntoView({block:'center'}); const s=row.querySelector('select'); if(s) s.focus(); } });
         wrap.appendChild(d); });
       st.cfg.spots.forEach((s,ix)=>{ if((s.page||0)!==pi) return; const d=document.createElement('div'); d.className='req-cf-mk';
         const lbl=s.kind==='text'?(s.text||'Custom text'):(_REQ_CF_KINDS.find(k=>k[0]===s.kind)||['',s.kind])[1];
-        d.style.cssText='position:absolute;left:'+(s.x*SCALE)+'px;top:'+((ps.h-s.y)*SCALE-14)+'px;background:#f97316;color:#fff;font-size:10.5px;font-weight:700;padding:1px 5px;border-radius:4px;cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.4)';
-        d.textContent=(s.kind==='sign'?'✍ ':'')+lbl+' ✕'; d.title='Click to remove';
-        d.addEventListener('click',ev=>{ ev.stopPropagation(); st.cfg.spots.splice(ix,1); paintMarks(); });
+        d.style.cssText='position:absolute;left:'+(s.x*SCALE-15)+'px;top:'+((ps.h-s.y)*SCALE-12)+'px;width:13px;height:13px;line-height:13px;text-align:center;background:#f97316;color:#fff;font-size:9px;font-weight:800;border-radius:50%;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.4)';
+        d.textContent='✕'; d.title=(s.kind==='sign'?'Signature':lbl)+' — click to remove';
+        d.addEventListener('click',ev=>{ ev.stopPropagation(); st.cfg.spots.splice(ix,1); paintMarks(); liveFill(); });
         wrap.appendChild(d); });
     });
+  }
+  // Re-draw the preview as the FILLED form (today's dates, your info, signature).
+  let _lfT=null, _lfBusy=false, _lfAgain=false;
+  function liveFill(){ if(_lfT) clearTimeout(_lfT); _lfT=setTimeout(doLiveFill,350); }
+  async function doLiveFill(){
+    if(!st.bytes||!st.canvases) return; if(_lfBusy){ _lfAgain=true; return; } _lfBusy=true;
+    try{ syncSide(); const out=await _reqCFBuild(st.bytes,st.cfg); const pdfjs=await _reqCFLoadPdfJs();
+      const pdf=await pdfjs.getDocument({data:out.bytes}).promise;
+      for(let pi=0; pi<pdf.numPages && pi<st.canvases.length; pi++){ const page=await pdf.getPage(pi+1); const vp=page.getViewport({scale:SCALE}); const cv=st.canvases[pi]; if(!cv) continue;
+        await page.render({canvasContext:cv.getContext('2d'),viewport:vp,annotationMode:1}).promise; }
+    }catch(e){ console.warn('live preview',e); }
+    _lfBusy=false; if(_lfAgain){ _lfAgain=false; liveFill(); }
   }
   async function showPdf(bytes){
     const holder=$('#req-cf-pages'); holder.innerHTML='Loading…';
@@ -70506,14 +70520,15 @@ async function _reqCFSetup(id,t){
         const page=await pdf.getPage(pi+1); const vp=page.getViewport({scale:SCALE});
         const wrap=document.createElement('div'); wrap.setAttribute('data-page',pi); wrap.style.cssText='position:relative;display:inline-block;margin:0 auto 10px;box-shadow:0 2px 8px rgba(0,0,0,.5);cursor:crosshair;width:'+vp.width+'px;height:'+vp.height+'px';
         const cv=document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height; cv.style.display='block'; wrap.appendChild(cv); holder.appendChild(wrap);
+        st.canvases=st.canvases||[]; st.canvases[pi]=cv;
         await page.render({canvasContext:cv.getContext('2d'),viewport:vp,annotationMode:0}).promise;
         wrap.addEventListener('click',function(ev){ const rc=wrap.getBoundingClientRect(); const px=(ev.clientX-rc.left)/SCALE, py=(ev.clientY-rc.top)/SCALE;
           const kind=$('#req-cf-kind').value; if(!kind){ return; }
           const ps=st.pageSizes[pi]; const s={page:pi,x:Math.round(px*10)/10,y:Math.round((ps.h-py+2)*10)/10,kind:kind};
           if(kind==='text') s.text=$('#req-cf-text').value||'';
-          st.cfg.spots.push(s); paintMarks(); });
+          st.cfg.spots.push(s); paintMarks(); liveFill(); });
       }
-      renderFieldList(); paintMarks();
+      renderFieldList(); paintMarks(); liveFill();
     }catch(e){ console.warn('form preview',e); holder.innerHTML='<div style="padding:30px">Could not read this PDF ('+E(e.message||e)+'). If it’s a scanned or locked file, send it to Claude instead.</div>'; }
   }
   $('#req-cf-file').addEventListener('change',async function(){ const f=this.files&&this.files[0]; if(!f) return;

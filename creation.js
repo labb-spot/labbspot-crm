@@ -215,13 +215,14 @@ async function _crScrapRender(body,keep){
   }catch(e){ body.innerHTML='<div style="padding:20px;color:#f87171">'+_reqEsc(e.message||e)+'</div>'; }
 }
 // 🔎 All Cases: search every case (case #, names, address, attorney, petitioner) and open any one.
-_CR.all=_CR.all||{ q:'', county:'', type:'' };
+_CR.all=_CR.all||{ q:'', county:'', type:'', age:'' };
 function _crAllRender(body){
   const E=_reqEsc; const a=_CR.all; const sel='height:36px;font-size:13px;padding:0 9px;border-radius:8px;width:auto;flex:0 0 auto;max-width:240px';
   body.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">'
       +'<input id="cr-all-q" value="'+E(a.q)+'" placeholder="Search case #, name, address, attorney, petitioner…" style="height:36px;font-size:14px;padding:0 12px;border-radius:8px;flex:1 1 320px;min-width:240px" oninput="_crAllSearchSoon()">'
       +'<select style="'+sel+'" onchange="_CR.all.county=this.value;_crAllSearch()"><option value="">All counties</option>'+_CR.counties.map(c=>'<option value="'+E(c.code)+'" '+(a.county===c.code?'selected':'')+'>'+E(c.city)+(c.active?'':' (inactive)')+'</option>').join('')+'</select>'
       +'<select style="'+sel+'" onchange="_CR.all.type=this.value;_crAllSearch()"><option value="">All types</option>'+Object.keys(_CR_TYPES).map(k=>'<option value="'+k+'" '+(a.type===k?'selected':'')+'>'+_CR_TYPES[k]+'</option>').join('')+'</select>'
+      +'<select style="'+sel+'" onchange="_CR.all.age=this.value;_crAllSearch()" title="How long ago the case was filed">'+[['','Filed: any time'],['3+','Filed 3+ months ago'],['6+','Filed 6+ months ago']].map(o=>'<option value="'+o[0]+'" '+((a.age||'')===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')+'</select>'
     +'</div><div id="cr-all-res"></div>';
   const qi=document.getElementById('cr-all-q'); if(qi){ qi.focus(); qi.setSelectionRange(qi.value.length,qi.value.length); }
   _crAllSearch();
@@ -234,15 +235,17 @@ async function _crAllSearch(){
   const qi=document.getElementById('cr-all-q'); a.q=qi?qi.value.trim():a.q;
   out.style.opacity='.6';
   try{
-    let q=sb.from('court_cases').select('id,case_number,county_code,style,case_type,filed,defendant,address,sort_code');
+    let q=sb.from('court_cases').select('id,case_number,county_code,style,case_type,filed,defendant,address,sort_code',{count:'exact'});
+    if(a.age){ const ago=m=>{ const d=new Date(); d.setMonth(d.getMonth()-m); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+      if(a.age==='3+') q=q.lte('filed',ago(3)); else if(a.age==='6+') q=q.lte('filed',ago(6)); }
     if(a.county) q=q.eq('county_code',a.county);
     if(a.type){ const pat={fc:'*mortgage*',pb:'*estate*',ev:'*evict*'}[a.type]; if(pat) q=q.ilike('case_type',pat.replace(/\*/g,'%')); }
     if(a.q){ const t=a.q.replace(/[%,()*]/g,' ').trim(); if(t){ const w='%'+t+'%'; q=q.or(['case_number','style','defendant','plaintiff','address','attorney','petitioner','petitioner_address','plaintiff_address'].map(c=>c+'.ilike.'+w).join(',')); } }
-    const r=await q.order('filed',{ascending:false}).limit(300);
-    if(r.error) throw r.error; const rows=r.data||[];
+    const r=await q.order('filed',{ascending:false,nullsFirst:false}).limit(300);
+    if(r.error) throw r.error; const rows=r.data||[]; const total=(typeof r.count==='number')?r.count:rows.length;
     const th='padding:8px 10px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase';
     out.style.opacity='';
-    out.innerHTML='<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:8px">'+(rows.length>=300?'Showing the newest 300 — search to narrow it down.':rows.length.toLocaleString()+' case'+(rows.length===1?'':'s')+(a.q?' matching “'+E(a.q)+'”':''))+'</div>'
+    out.innerHTML='<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:8px">'+('<b style="color:var(--text)">'+total.toLocaleString()+'</b> case'+(total===1?'':'s')+(a.q?' matching “'+E(a.q)+'”':'')+(total>rows.length?' · showing the newest '+rows.length+' — search or filter to narrow it down':'')+(a.age?' · cases with no Filed date are left out of this filter':''))+'</div>'
       +(rows.length?'<div style="overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'+['Status','Type','Name','Address','County','Filed','Case #'].map(h=>'<th style="'+th+'">'+h+'</th>').join('')+'</tr></thead><tbody>'
         +rows.map(x=>{ const k=_crTypeKey(x.case_type); return '<tr onclick="_crOpenAny(\''+E(x.id)+'\')" style="border-top:1px solid var(--border);cursor:pointer" onmouseover="this.style.background=\'rgba(99,102,241,0.08)\'" onmouseout="this.style.background=\'\'">'
           +'<td style="padding:8px 10px">'+_crStatusPill(x.sort_code,true)+'</td>'

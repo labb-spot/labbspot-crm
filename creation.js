@@ -951,45 +951,63 @@ async function _crHrRename(){
 window._crHrRename=_crHrRename;
 
 // 📈 Filings by month — line per list type, toggle each on/off (Tracker, under the county table)
-_CR.ch=_CR.ch||{ fc:true, pb:true, ev:true, county:'', range:12 };
+_CR.ch=_CR.ch||{ fc:true, pb:true, ev:true, county:'', range:12, by:'m' };
 function _crChartHtml(){
   const E=_reqEsc, C=_CR.ch, T=[['fc','Foreclosure','#06b6d4'],['pb','Probate','#a855f7'],['ev','Eviction','#eab308']];
   const act=_CR.counties.filter(c=>c.active), actSet=new Set(act.map(c=>c.code));
-  // month buckets
-  const now=new Date(), months=[]; let start;
-  const counts={fc:{},pb:{},ev:{}}; let minKey=null;
+  const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const by=C.by||'m', step=by==='w'?7:by==='bw'?14:0;   // weekly / bi-weekly / monthly / quarterly
+  const now=new Date(); now.setHours(0,0,0,0);
+  const rows=[]; let minM=null, noDay=0;
   _CR.cases.forEach(c=>{ const k=_crTypeKey(c.case_type); if(!k) return;
     if(C.county?c.county_code!==C.county:!actSet.has(c.county_code)) return;
-    // filed date, or the year-month built into the case number (e.g. 82D01-2607-MF-… = July 2026) when it's blank
-    let m=c.filed?String(c.filed).slice(0,7):''; if(!/^\d{4}-\d{2}$/.test(m)){ const x=String(c.case_number||'').match(/^\d{2}[A-Z]\d{2}-(\d{2})(\d{2})-/); if(!x||+x[2]<1||+x[2]>12) return; m='20'+x[1]+'-'+x[2]; } counts[k][m]=(counts[k][m]||0)+1; if(!minKey||m<minKey) minKey=m; });
-  if(C.range){ start=new Date(now.getFullYear(),now.getMonth()-(C.range-1),1); }
-  else { start=minKey?new Date(+minKey.slice(0,4),+minKey.slice(5,7)-1,1):new Date(now.getFullYear(),now.getMonth()-11,1); }
-  for(let d=new Date(start);d<=now;d.setMonth(d.getMonth()+1)) months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
+    let day=c.filed&&/^\d{4}-\d{2}-\d{2}/.test(String(c.filed))?String(c.filed).slice(0,10):'', m=day.slice(0,7);
+    if(!m){ const x=String(c.case_number||'').match(/^\d{2}[A-Z]\d{2}-(\d{2})(\d{2})-/); if(!x||+x[2]<1||+x[2]>12) return; m='20'+x[1]+'-'+x[2]; }  // month from the case number when Filed is blank
+    rows.push({k:k,day:day,m:m}); if(!minM||m<minM) minM=m; });
+  const buckets=[];
+  if(step){
+    const end=new Date(now); end.setDate(end.getDate()+1);
+    const s0=C.range?new Date(now):(minM?new Date(+minM.slice(0,4),+minM.slice(5,7)-1,1):new Date(now)); if(C.range) s0.setMonth(s0.getMonth()-C.range); s0.setDate(s0.getDate()-((s0.getDay()+6)%7));   // start on a Monday
+    for(let d=new Date(s0);d<end;d.setDate(d.getDate()+step)){ const t=new Date(d); t.setDate(t.getDate()+step); const last=new Date(t); last.setDate(last.getDate()-1);
+      buckets.push({from:iso(d),to:iso(t),label:mn[d.getMonth()]+' '+d.getDate(),tip:(step===14?mn[d.getMonth()]+' '+d.getDate()+' – '+mn[last.getMonth()]+' '+last.getDate():'week of '+mn[d.getMonth()]+' '+d.getDate())}); }
+  } else {
+    const q=by==='q'?3:1;
+    let start=C.range?new Date(now.getFullYear(),now.getMonth()-(C.range-1),1):(minM?new Date(+minM.slice(0,4),+minM.slice(5,7)-1,1):new Date(now.getFullYear(),now.getMonth()-11,1));
+    if(q===3) start=new Date(start.getFullYear(),Math.floor(start.getMonth()/3)*3,1);
+    for(let d=new Date(start);d<=now;d.setMonth(d.getMonth()+q)){ const n2=new Date(d.getFullYear(),d.getMonth()+q,1);
+      const lbl=q===3?'Q'+(Math.floor(d.getMonth()/3)+1)+" '"+String(d.getFullYear()).slice(2):mn[d.getMonth()]+(d.getMonth()===0||(C.range&&C.range<=14)?" '"+String(d.getFullYear()).slice(2):'');
+      buckets.push({from:iso(d).slice(0,7),to:iso(n2).slice(0,7),label:lbl,tip:q===3?'Q'+(Math.floor(d.getMonth()/3)+1)+' '+d.getFullYear():mn[d.getMonth()]+' '+d.getFullYear()}); }
+  }
+  const counts={fc:buckets.map(()=>0),pb:buckets.map(()=>0),ev:buckets.map(()=>0)};
+  rows.forEach(r=>{ let key;
+    if(step){ if(!r.day){ if(buckets.length&&r.m>=buckets[0].from.slice(0,7)) noDay++; return; } key=r.day; } else key=r.m;
+    for(let i=buckets.length-1;i>=0;i--){ if(key>=buckets[i].from&&key<buckets[i].to){ counts[r.k][i]++; break; } } });
+  const months=buckets.map(b=>b.label);
   const on=T.filter(t=>C[t[0]]);
-  const series=on.map(t=>({k:t[0],name:t[1],col:t[2],v:months.map(m=>counts[t[0]][m]||0)}));
+  const series=on.map(t=>({k:t[0],name:t[1],col:t[2],v:counts[t[0]]}));
   const max=Math.max(1,...series.flatMap(s=>s.v)); const nice=(x=>{ const p=Math.pow(10,Math.floor(Math.log10(x))); const f=x/p; return (f<=1?1:f<=2?2:f<=5?5:10)*p; })(max);
   const W=1000,H=250,L=44,R=12,Tp=12,B=30, iw=W-L-R, ih=H-Tp-B, n=months.length;
   const X=i=>L+(n<=1?iw/2:i*iw/(n-1)), Y=v=>Tp+ih-(v/nice)*ih;
-  const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const lab=m=>mn[+m.slice(5,7)-1]+(m.slice(5,7)==='01'||n<=14?" '"+m.slice(2,4):'');
+  const lab=m=>m;
   const every=Math.max(1,Math.ceil(n/14));
   let svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" role="img" aria-label="Filings by month">';
   const steps=(nice%4===0||nice<4)?4:5; for(let g=0;g<=steps;g++){ const v=nice*g/steps, y=Y(v); svg+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" style="stroke:var(--border)" stroke-width="1"/><text x="'+(L-8)+'" y="'+(y+4)+'" text-anchor="end" style="fill:var(--text-dim);font-size:11px">'+(Math.round(v*10)/10).toLocaleString()+'</text>'; }
   months.forEach((m,i)=>{ if(i%every===0||i===n-1) svg+='<text x="'+X(i)+'" y="'+(H-10)+'" text-anchor="'+(i===n-1&&n>1?'end':i===0&&n>1?'start':'middle')+'" style="fill:var(--text-dim);font-size:11px">'+lab(m)+'</text>'; });
   series.forEach(s=>{ svg+='<polyline fill="none" stroke="'+s.col+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="'+s.v.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' ')+'"/>';
-    s.v.forEach((v,i)=>{ svg+='<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="'+(n>36?2:3.5)+'" fill="'+s.col+'"><title>'+s.name+' · '+mn[+months[i].slice(5,7)-1]+' '+months[i].slice(0,4)+': '+v.toLocaleString()+' filed</title></circle>'; }); });
+    s.v.forEach((v,i)=>{ svg+='<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="'+(n>36?2:3.5)+'" fill="'+s.col+'"><title>'+s.name+' · '+buckets[i].tip+': '+v.toLocaleString()+' filed</title></circle>'; }); });
   svg+='</svg>';
-  const tot=k=>months.reduce((a,m)=>a+(counts[k][m]||0),0);
+  const tot=k=>counts[k].reduce((a,v)=>a+v,0);
   const sel='height:32px;font-size:13px;padding:0 8px;border-radius:8px;width:auto';
   return '<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:12px 14px">'
     +'<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px">'
-      +'<div style="font-weight:800;font-size:14px">📈 Filings by month</div>'
+      +'<div style="font-weight:800;font-size:14px">📈 Filings</div>'
       +T.map(t=>'<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600"><input type="checkbox" '+(C[t[0]]?'checked':'')+' onchange="_CR.ch.'+t[0]+'=this.checked;_crChartDraw()" style="width:16px;height:16px;accent-color:'+t[2]+'"><span style="display:inline-block;width:14px;height:3px;border-radius:2px;background:'+t[2]+'"></span>'+t[1]+' <span style="color:var(--text-dim);font-weight:500">'+tot(t[0]).toLocaleString()+'</span></label>').join('')
       +'<div style="margin-left:auto;display:flex;gap:8px">'
         +'<select style="'+sel+'" onchange="_CR.ch.county=this.value;_crChartDraw()"><option value="">All active counties</option>'+_CR.counties.map(c=>'<option value="'+E(c.code)+'" '+(C.county===c.code?'selected':'')+'>'+E(c.city)+(c.active?'':' (inactive)')+'</option>').join('')+'</select>'
-        +'<select style="'+sel+'" onchange="_CR.ch.range=+this.value;_crChartDraw()">'+[[3,'Last 3 months'],[6,'Last 6 months'],[12,'Last 12 months'],[24,'Last 24 months'],[36,'Last 36 months'],[0,'All time']].map(o=>'<option value="'+o[0]+'" '+(C.range===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')+'</select>'
+        +'<select style="'+sel+'" onchange="_CR.ch.by=this.value;_crChartDraw()">'+[['w','Weekly'],['bw','Bi-weekly'],['m','Monthly'],['q','Quarterly']].map(o=>'<option value="'+o[0]+'" '+(by===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')+'</select>'+'<select style="'+sel+'" onchange="_CR.ch.range=+this.value;_crChartDraw()">'+[[3,'Last 3 months'],[6,'Last 6 months'],[12,'Last 12 months'],[24,'Last 24 months'],[36,'Last 36 months'],[0,'All time']].map(o=>'<option value="'+o[0]+'" '+(C.range===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')+'</select>'
       +'</div></div>'
-    +(on.length?svg:'<div style="padding:40px;text-align:center;color:var(--text-dim)">Check a list type to show its line.</div>')
+    +(on.length?svg+(noDay?'<div style="font-size:11.5px;color:var(--text-dim);margin-top:4px">'+noDay.toLocaleString()+' case'+(noDay===1?'':'s')+' in this range have no Filed date, so they can\'t be placed in a week — they still show on Monthly.</div>':''):'<div style="padding:40px;text-align:center;color:var(--text-dim)">Check a list type to show its line.</div>')
   +'</div>';
 }
 function _crChartDraw(){ const el=document.getElementById('cr-chart'); if(el) el.innerHTML=_crChartHtml(); }

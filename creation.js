@@ -20,7 +20,7 @@ function _crSort(c){
     const ex=c.extra||{};
     if(k==='ts'&&ex.inactive) return '4.8';
     if(k==='ts'&&/^nb$/i.test(v(ex.bid))) return '4.7';
-    if(_CR_CORP.test(c.defendant||'')) return '4.4';
+    if(k!=='ts'&&_CR_CORP.test(c.defendant||'')) return '4.4';   // tax sale keeps company owners
     if(!v(c.address)||!v(c.defendant)) return '0'+sfx;
     if(unk(c.address)) return '3'+sfx;
     if(unk(c.defendant)) return '1'+sfx;

@@ -1156,16 +1156,17 @@ function _crLiRecords(P,county){
     let r;
     if(P.fmt==='cv'){ const code=county||'00';
       r={ case_number:'CV-'+code+'-'+String(x.filed||'').slice(2,7).replace('-','')+'-'+_crLiSlug(x.loc), county_code:code, case_type:'CV - Code Violation',
-          style:'Code violation — '+(x.viol||'').toLowerCase(), address:x.loc+(cityName?', '+cityName:'')+', IN', defendant:x.owner, filed:x.filed, status:x.complied?'Complied '+x.complied:'Open',
+          style:'Code violation — '+(x.viol||'').toLowerCase(), address:/,/.test(x.loc)?x.loc:(x.loc+((x.city||cityName)?', '+(x.city||cityName):'')+', IN'), defendant:x.owner, filed:x.filed, status:x.complied?'Complied '+x.complied:'Open',
           parcel:null, amount:null, extra:{ violation:x.viol, complied:x.complied||'', source:src } }; }
-    else if(P.fmt==='ul'){ const code=county||x.parcel.slice(0,2);
-      r={ case_number:'UL-'+x.parcel+'-'+String(x.filed||'').replace(/-/g,'').slice(2), county_code:code, case_type:'UL - Utility Lien · '+x.lien,
-          style:x.lien+' lien', address:'', defendant:x.owner, filed:x.filed, status:'',
-          parcel:x.parcel, amount:x.amount, extra:{ lien:x.lien, source:src } }; }
-    else { const code=county||x.sale_id.slice(0,2);
-      const city=/city of/i.test(x.district)?x.district.replace(/city of/i,'').trim():(cname||cityName);
-      r={ case_number:'TS-'+x.sale_id, county_code:code, case_type:'TS - Tax Sale',
-          style:'Tax sale '+x.sale_id, address:x.street?(x.street+(city?', '+city:'')+', IN'):'', defendant:x.owner, filed:null, status:x.bid==='NB'?'No bid':(x.bid!==''&&x.bid!=null?'Sold':''),
+    else if(P.fmt==='ul'){ const code=county||String(x.parcel||'').slice(0,2); const lien=x.lien||'Utility';
+      const a=String(x.addr||'').trim(); const addr=!a?'':(/,/.test(a)?a:a+((x.city||cityName)?', '+(x.city||cityName):'')+', IN');
+      r={ case_number:'UL-'+(x.parcel||_crLiSlug(a))+'-'+String(x.filed||'').replace(/-/g,'').slice(2), county_code:code, case_type:'UL - Utility Lien · '+lien,
+          style:lien+' lien', address:addr, defendant:x.owner, filed:x.filed, status:'',
+          parcel:x.parcel||null, amount:x.amount, extra:{ lien:lien, source:src } }; }
+    else { const sid=String(x.sale_id||x.parcel||_crLiSlug(x.street)); const code=county||sid.slice(0,2);
+      const city=x.city||(/city of/i.test(x.district||'')?x.district.replace(/city of/i,'').trim():(cname||cityName));
+      r={ case_number:'TS-'+sid, county_code:code, case_type:'TS - Tax Sale',
+          style:'Tax sale '+sid, address:x.street?(/,/.test(x.street)?x.street:x.street+(city?', '+city:'')+', IN'):'', defendant:x.owner, filed:null, status:x.bid==='NB'?'No bid':(x.bid!==''&&x.bid!=null?'Sold':''),
           parcel:x.parcel||null, amount:x.amount, extra:{ sale_id:x.sale_id, bid:x.bid, assessed:x.assessed, legal:x.legal, district:x.district, inactive:!!x.inactive, source:src } }; }
     r.petitioners=[]; r.sort_code=_crSort(r); r.completed_at=(_crDone(r.sort_code)||_crScrap(r.sort_code))?new Date().toISOString():null;
     out.push(r);
@@ -1178,10 +1179,18 @@ async function _crLiFile(inp){
   try{
     if(typeof XLSX==='undefined') throw new Error('Spreadsheet reader not loaded — refresh the page');
     const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
-    let P=null;
-    for(const name of wb.SheetNames){ const grid=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:''}); if(grid.length<2) continue; P=_crLiParse(grid,f.name); if(P) break; }
-    if(!P||!P.items.length) throw new Error('Couldn’t recognise this file. Send it to Claude to add its layout.');
-    L.P=P; L.file=f.name;
+    let P=null, peek='';
+    for(const name of wb.SheetNames){ const grid=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:''}); if(!peek&&grid.length) peek=(grid.find(r=>r.some(x=>String(x).trim()))||[]).filter(x=>String(x).trim()).slice(0,6).join(' | '); if(grid.length<2) continue; P=_crLiParse(grid,f.name); if(P) break; }
+    // keep the biggest sheet for "map columns myself"
+    let raw=null; wb.SheetNames.forEach(n=>{ const g=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''}); if(!raw||g.length>raw.length) raw=g; });
+    L.raw=raw; L.file=f.name; L.P=null; L.map=null;
+    if(!raw||raw.length<2) throw new Error('“'+f.name+'” looks empty ('+(f.size/1024).toFixed(0)+' KB) — if it’s in OneDrive, make sure it’s downloaded, then try again.');
+    if(!P||!P.items.length){ // a layout you mapped before?
+      const saved=await _crLiLayouts(); const hr=_crLiHeadRow(raw); const sig=_crLiSig(raw[hr]);
+      if(saved[sig]){ L.map=Object.assign({head:hr},saved[sig]); P=_crLiFromMap(raw,L.map,f.name); if(P&&P.items.length) toast('Using the columns you mapped last time for this layout','ok'); }
+    }
+    if(!P||!P.items.length){ _crLiMapStart(); return; }
+    L.P=P;
     // county: tax sale / liens carry it in the numbers; code violations need you to pick
     const guess=P.fmt==='ul'?P.items[0].parcel.slice(0,2):P.fmt==='ts'?P.items[0].sale_id.slice(0,2):'';
     L.county=_CR.counties.some(c=>c.code===guess)?guess:(P.fmt==='cv'?(L.county||''):guess);
@@ -1191,7 +1200,9 @@ async function _crLiFile(inp){
 window._crLiFile=_crLiFile;
 async function _crLiPreview(){
   const L=_CR.li; if(!L.P) return _crRender();
-  L.recs=L.county||L.P.fmt!=='cv'?_crLiRecords(L.P,L.county):[];
+  const it=L.P.items[0]||{}; const derivable=L.P.fmt==='ul'?/^\d{2}-/.test(it.parcel||''):L.P.fmt==='ts'?/^\d{2}/.test(it.sale_id||it.parcel||''):false;
+  L.needCounty=!L.county&&!derivable;
+  L.recs=L.needCounty?[]:_crLiRecords(L.P,L.county);
   const have=new Set(); const cns=L.recs.map(r=>r.case_number);
   try{ for(let i=0;i<cns.length;i+=150){ const q=await sb.from('court_cases').select('case_number').in('case_number',cns.slice(i,i+150)); (q.data||[]).forEach(x=>have.add(x.case_number)); } }catch(_){}
   L.recs.forEach(r=>{ r._st=have.has(r.case_number)?'have':_crScrap(r.sort_code)?'scrap':_crDone(r.sort_code)?'done':'todo'; });
@@ -1206,10 +1217,13 @@ function _crLiRender(box){
       +'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:10px">Excel or CSV exactly as the city / county sent it — code violation reports, sewer / utility lien reports, tax lien sale exports. For a PDF, send it to Claude first.</div>'
       +'<label class="btn btn-primary" style="cursor:pointer;justify-content:center;width:100%;font-size:15px">📥 Choose file<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="_crLiFile(this)"></label>'
       +(P?'<div style="margin-top:12px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px"><div><b>'+E(L.file)+'</b></div><div style="color:var(--text-dim);margin-top:2px">Recognised as <b style="color:'+_CR_COL[P.fmt]+'">'+E(P.label)+'</b> · '+P.items.length.toLocaleString()+' '+(P.fmt==='cv'?'properties':'rows')+'</div>'
-        +'<div style="margin-top:10px;font-weight:700">County</div><select style="'+sel+';margin-top:4px" onchange="_CR.li.county=this.value;_crLiPreview()"><option value="">'+(P.fmt==='cv'?'— pick the county —':'From the file')+'</option>'+_CR.counties.map(c=>'<option value="'+E(c.code)+'" '+(L.county===c.code?'selected':'')+'>'+E(c.code+' · '+c.city+' ('+c.county+')')+'</option>').join('')+'</select></div>':'')
+        +'<div style="margin-top:10px;font-weight:700">County</div><select style="'+sel+';margin-top:4px" onchange="_CR.li.county=this.value;_crLiPreview()"><option value="">'+(L.needCounty?'— pick the county —':'From the file')+'</option>'+_CR.counties.map(c=>'<option value="'+E(c.code)+'" '+(L.county===c.code?'selected':'')+'>'+E(c.code+' · '+c.city+' ('+c.county+')')+'</option>').join('')+'</select>'
+        +'<div style="margin-top:10px"><a href="#" onclick="event.preventDefault();_crLiMapStart()" style="font-size:12.5px;color:#60a5fa;text-decoration:none">🧩 Wrong? Pick the columns myself</a></div></div>'
+      :(L.map?'<div style="margin-top:12px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px"><div><b>'+E(L.file)+'</b></div><div style="color:var(--text-dim);margin-top:2px">Not a layout Data LAB knows yet — tell it which column is which on the right. It’ll remember this layout next time.</div></div>':''))
     +'</div><div>';
-  if(!P) html+='<div style="padding:40px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">2. The preview shows up here.</div>';
-  else if(P.fmt==='cv'&&!L.county) html+='<div style="padding:40px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">Pick the county on the left — code violation reports don’t say which city they’re from.</div>';
+  if(!P&&L.map) html+='<div id="cr-li-map"></div>';
+  else if(!P) html+='<div style="padding:40px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">2. The preview shows up here.</div>';
+  else if(L.needCounty) html+='<div style="padding:40px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">Pick the county on the left — this list doesn’t say which county it’s from.</div>';
   else {
     const R=L.recs||[]; const n=k=>R.filter(r=>r._st===k).length; const add=R.filter(r=>r._st!=='have').length;
     const tag={done:['✅ Done','#22c55e'],todo:['○ Needs address','#60a5fa'],scrap:['🗑 Scrap','#ef4444'],have:['↩ Already here','#94a3b8']};
@@ -1220,6 +1234,7 @@ function _crLiRender(box){
       +'</tbody></table></div>'+(R.length>300?'<div style="font-size:12px;color:var(--text-dim);margin-top:4px">Showing the first 300 of '+R.length.toLocaleString()+'.</div>':'');
   }
   box.innerHTML=html+'</div></div>';
+  if(!P&&L.map) _crLiMapPaint();
 }
 async function _crLiSave(btn){
   const L=_CR.li; const add=(L.recs||[]).filter(r=>r._st!=='have'); if(!add.length) return;
@@ -1293,3 +1308,80 @@ function _crPickOpen(anchor,k,code){
   setTimeout(()=>{ const off=e=>{ if(!pop.contains(e.target)&&!anchor.contains(e.target)){ pop.remove(); document.removeEventListener('mousedown',off); } }; document.addEventListener('mousedown',off); },0);
 }
 window._crPickOpen=_crPickOpen;
+
+// ----- 🧩 Map columns myself: pick which column is which when a list isn't recognised (remembered per layout, shared with the team) -----
+const _CR_LI_FIELDS={
+  common:[['address','Property address'],['city','City (optional)'],['owner','Owner'],['parcel','Parcel #'],['amount','Amount owed'],['date','Date (filed / opened)']],
+  cv:[['viol','Violation'],['complied','Complied / closed date']],
+  ul:[['lien','Lien type (optional)']],
+  ts:[['sale_id','Sale / certificate ID'],['bid','Winning bid (NB = no bid)'],['assessed','Assessed value']]
+};
+const _CR_LI_GUESS={ address:/^(property )?(address|location|street|site|situs|property)/, city:/^city|^municipal/, owner:/owner|responsible|taxpayer|name/, parcel:/parcel|state number|pin|tax ?id|key ?no/,
+  amount:[/total|balance|owed|due/,/face|minbid|min bid|amount/], date:/date|created|opened|filed|issued/, viol:/viol|description|type|code/, complied:/complied|closed|resolved/, lien:/charge|lien|utility|service/, sale_id:/sale id|certificate|cert/, bid:/bid|winner/, assessed:/assessed|av$|value/ };
+function _crLiHeadRow(g){ let best=0, bn=-1; for(let r=0;r<Math.min(g.length,15);r++){ const row=(g[r]||[]); const n=row.filter(x=>String(x).trim()&&!/^[\d$.,\/\-\s]+$/.test(String(x))).length; if(n>bn){ bn=n; best=r; } } return best; }
+function _crLiSig(row){ return (row||[]).map(x=>String(x==null?'':x).trim().toLowerCase()).filter(Boolean).join('|'); }
+async function _crLiLayouts(){ try{ const r=await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle(); return (r.data&&r.data.column_mappings&&r.data.column_mappings.creation_list_layouts)||{}; }catch(_){ return {}; } }
+function _crLiMapStart(){
+  const L=_CR.li; if(!L.raw) return; const hr=_crLiHeadRow(L.raw);
+  const prevType=L.P?L.P.fmt:(L.map&&L.map.type)||'';
+  L.P=null; L.recs=null; L.map={ head:hr, type:prevType, cols:{} }; _crLiGuess(); _crRender();
+}
+window._crLiMapStart=_crLiMapStart;
+function _crLiGuess(){
+  const L=_CR.li, M=L.map; const head=(L.raw[M.head]||[]).map(x=>String(x==null?'':x).trim().toLowerCase()); M.cols={};
+  const used=new Set(); const fields=_CR_LI_FIELDS.common.concat(_CR_LI_FIELDS.cv,_CR_LI_FIELDS.ul,_CR_LI_FIELDS.ts).map(f=>f[0]);
+  fields.forEach(f=>{ for(const re of [].concat(_CR_LI_GUESS[f])){ const i=head.findIndex((h,ix)=>h&&!used.has(ix)&&re.test(h)); if(i>=0){ M.cols[f]=i; used.add(i); break; } } });
+}
+function _crLiMapPaint(){
+  const box=document.getElementById('cr-li-map'); if(!box) return; const E=_reqEsc, L=_CR.li, M=L.map, g=L.raw;
+  const head=(g[M.head]||[]); const ncol=Math.max(...g.slice(M.head,M.head+30).map(r=>r.length),head.length);
+  const colName=i=>{ const h=String(head[i]==null?'':head[i]).trim(); return 'Col '+(i+1)+(h?' · '+h:''); };
+  const sel='height:32px;font-size:13px;padding:0 8px;border-radius:7px;width:100%';
+  const fields=_CR_LI_FIELDS.common.concat(_CR_LI_FIELDS[M.type]||[]);
+  const opt=(f)=>'<select style="'+sel+'" onchange="_CR.li.map.cols[\''+f+'\']=this.value===\'\'?undefined:+this.value;_crLiMapPaint()"><option value="">— not in this file —</option>'+Array.from({length:ncol},(_,i)=>'<option value="'+i+'" '+(M.cols[f]===i?'selected':'')+'>'+E(colName(i))+'</option>').join('')+'</select>';
+  const sample=g.slice(M.head+1).filter(r=>r.some(x=>String(x).trim())).slice(0,5);
+  const show=(r,f)=>{ const i=M.cols[f]; if(i==null) return ''; let v=r[i]; if(v instanceof Date) v=_crLiIso(v); return String(v==null?'':v); };
+  const ok=M.type&&M.cols.owner!=null&&(M.cols.address!=null||M.cols.parcel!=null);
+  box.innerHTML='<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">'
+    +'<div style="font-weight:800;font-size:14px;margin-bottom:8px">🧩 Which column is which?</div>'
+    +'<div style="display:grid;grid-template-columns:170px 1fr;gap:8px 10px;align-items:center;font-size:13px">'
+      +'<div style="font-weight:700">List type</div><select style="'+sel+'" onchange="_CR.li.map.type=this.value;_crLiMapPaint()"><option value="">— pick —</option>'+_CR_LISTS.map(k=>'<option value="'+k+'" '+(M.type===k?'selected':'')+'>'+_CR_TYPES[k]+'</option>').join('')+'</select>'
+      +'<div style="font-weight:700">Headers are in row</div><select style="'+sel+'" onchange="_CR.li.map.head=+this.value;_crLiGuess();_crLiMapPaint()">'+Array.from({length:Math.min(15,g.length)},(_,i)=>'<option value="'+i+'" '+(M.head===i?'selected':'')+'>Row '+(i+1)+' — '+E((g[i]||[]).filter(x=>String(x).trim()).slice(0,4).join(' | ').slice(0,60))+'</option>').join('')+'</select>'
+      +(M.type?fields.map(f=>'<div style="font-weight:700">'+f[1]+(f[0]==='owner'?' *':'')+(f[0]==='address'||f[0]==='parcel'?' †':'')+'</div>'+opt(f[0])).join(''):'')
+    +'</div>'
+    +(M.type?'<div style="font-size:11.5px;color:var(--text-dim);margin-top:6px">* needed · † need at least one of these (Ahmed fills the address from the parcel when it’s missing)</div>':'')
+    +(M.type&&sample.length?'<div style="margin-top:10px;overflow:auto;border:1px solid var(--border);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'+fields.filter(f=>M.cols[f[0]]!=null).map(f=>'<th style="padding:5px 8px;text-align:left;color:var(--text-dim);font-size:11px">'+E(f[1].replace(/ \(.*\)/,''))+'</th>').join('')+'</tr></thead><tbody>'
+      +sample.map(r=>'<tr style="border-top:1px solid var(--border)">'+fields.filter(f=>M.cols[f[0]]!=null).map(f=>'<td style="padding:5px 8px">'+E(show(r,f[0]))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'')
+    +'<button type="button" class="btn btn-primary" '+(ok?'':'disabled ')+'onclick="_crLiMapUse(this)" style="width:100%;margin-top:10px;font-size:14px">Use these columns →</button>'
+  +'</div>';
+}
+function _crLiFromMap(g,M,fileName){
+  const C=M.cols||{}; const val=(r,f)=>{ const i=C[f]; if(i==null) return ''; const v=r[i]; return v==null?'':v; };
+  const txt=(r,f)=>{ const v=val(r,f); return v instanceof Date?_crLiIso(v):String(v).trim(); };
+  const rows=g.slice((M.head||0)+1).filter(r=>r&&r.some(x=>String(x).trim()));
+  if(M.type==='cv'){ const grp={};
+    rows.forEach(r=>{ const loc=txt(r,'address'); const owner=txt(r,'owner'); if(!loc&&!owner) return; const c=_crLiIso(val(r,'date')); const k=(loc||txt(r,'parcel')).toUpperCase()+'|'+String(c||'').slice(0,7);
+      const x=grp[k]||(grp[k]={loc:loc,owner:owner,city:txt(r,'city'),viol:[],filed:null,complied:'',open:false});
+      const v=txt(r,'viol'); if(v&&x.viol.indexOf(v)<0) x.viol.push(v); if(c&&(!x.filed||c<x.filed)) x.filed=c;
+      const d=_crLiIso(val(r,'complied')); if(d) x.complied=d; else x.open=true; });
+    return { fmt:'cv', label:'Code violations', hasCity:C.city!=null, items:Object.values(grp).map(x=>({loc:x.loc,owner:x.owner,city:x.city,viol:x.viol.join(', '),filed:x.filed,complied:x.open?'':x.complied})) };
+  }
+  if(M.type==='ul') return { fmt:'ul', label:'Utility liens', items:rows.map(r=>({ parcel:txt(r,'parcel'), addr:txt(r,'address'), city:txt(r,'city'), owner:txt(r,'owner'), filed:_crLiIso(val(r,'date')), amount:_crLiMoney(val(r,'amount')), lien:txt(r,'lien') })).filter(x=>x.owner&&(x.parcel||x.addr)) };
+  if(M.type==='ts') return { fmt:'ts', label:'Tax sale', items:rows.map(r=>{ const b=txt(r,'bid'); return { sale_id:txt(r,'sale_id'), parcel:txt(r,'parcel'), owner:txt(r,'owner'), street:txt(r,'address'), city:txt(r,'city'), district:'', amount:_crLiMoney(val(r,'amount')),
+      bid:/^nb$/i.test(b)?'NB':(_crLiMoney(b)!=null?_crLiMoney(b):b), assessed:_crLiMoney(val(r,'assessed')), legal:'', inactive:/inactive/i.test(fileName||'') }; }).filter(x=>x.owner&&(x.parcel||x.street||x.sale_id)) };
+  return null;
+}
+async function _crLiMapUse(btn){
+  const L=_CR.li, M=L.map; const P=_crLiFromMap(L.raw,M,L.file);
+  if(!P||!P.items.length){ toast('No rows came out with those columns — check Owner and Address / Parcel','warn'); return; }
+  btn.disabled=true; btn.textContent='Saving layout…';
+  // remember this layout for next time (shared with everyone)
+  try{ const sig=_crLiSig(L.raw[M.head]); if(sig){ const r=await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle(); const cm=Object.assign({},(r.data&&r.data.column_mappings)||{});
+      cm.creation_list_layouts=Object.assign({},cm.creation_list_layouts||{}); cm.creation_list_layouts[sig]={ type:M.type, cols:M.cols };
+      await sb.from('app_config').update({column_mappings:cm,updated_at:new Date().toISOString()}).eq('id',1); } }catch(_){}
+  L.P=P; L.map=null;
+  const guess=P.fmt==='ul'&&P.items[0].parcel&&/^\d{2}-/.test(P.items[0].parcel)?P.items[0].parcel.slice(0,2):P.fmt==='ts'&&/^\d{2}/.test(P.items[0].sale_id||'')?P.items[0].sale_id.slice(0,2):'';
+  if(!L.county) L.county=_CR.counties.some(c=>c.code===guess)?guess:'';
+  await _crLiPreview();
+}
+window._crLiMapUse=_crLiMapUse;

@@ -23,6 +23,7 @@ function _crSort(c){
     if(k!=='ts'&&_CR_CORP.test(c.defendant||'')) return '4.4';   // tax sale keeps company owners
     if(!v(c.address)||!v(c.defendant)) return '0'+sfx;
     if(unk(c.address)) return '3'+sfx;
+    if(!/^land$/i.test(v(c.address))&&!/^\d/.test(v(c.address))) return '0'+sfx;   // no house number ("LINCOLN AVE", "behind 3810…") — needs a real address
     if(unk(c.defendant)) return '1'+sfx;
     return '2'+sfx;
   }
@@ -77,7 +78,7 @@ function _crRender(){
       +'</div></div>'
     +'<div id="cr-body"></div>';
   const body=document.getElementById('cr-body');
-  if(_CR.tab==='tracker') body.innerHTML=_crTrackerHtml();
+  if(_CR.tab==='tracker'){ body.innerHTML=_crTrackerHtml(); _crTrkScrollSync(); }
   else if(_CR.tab==='scrap') _crScrapRender(body);
   else if(_CR.tab==='queue') _crQueueRender(body);
   else if(_CR.tab==='all') _crAllRender(body);
@@ -102,64 +103,81 @@ function _crPct(d,t){ return t?Math.round(d/t*1000)/10:0; }
 // Only 100% is green; below that: yellow (90%+), orange (60%+), red.
 function _crPctColor(p,t){ return !t?'var(--text-dim)':p>=100?'#22c55e':p>=90?'#facc15':p>=60?'#f97316':'#ef4444'; }
 // Fixed column widths for the tracker (same on every screen, inactive table lines up too).
-const _CR_COLW=[250,50, 150,110,80, 150,110,80, 150,110,80, 100,70, 100,70, 100,70];
+const _CR_COLW=[250,50, 150,110,80, 150,110,80, 150,110,80, 150,100,70, 150,100,70, 110,100,70];
 const _CR_COLS='<colgroup>'+_CR_COLW.map(w=>'<col style="width:'+w+'px">').join('')+'</colgroup>';
-const _CR_TBL='table-layout:fixed;width:'+_CR_COLW.reduce((a,b)=>a+b,0)+'px;border-collapse:collapse;font-size:13px';
+const _CR_TBL='table-layout:fixed;width:'+_CR_COLW.reduce((a,b)=>a+b,0)+'px;border-collapse:separate;border-spacing:0;font-size:13px';
 function _crTrackerHtml(){
   const E=_reqEsc; const by=_crStats(); const fmt=d=>d?_reqFmtDate(d):'—';
   const cell=(b,k,pulled,code)=>{ const x=b[k]; const p=_crPct(x.d,x.t);
-    return '<td style="text-align:center;padding:4px 4px"><input type="date" value="'+(pulled||'')+'" title="Pulled to — change it when you pull" onchange="_crSetPulled(\''+code+'\',\''+k+'\',this)" style="height:28px;width:128px;font-size:12px;padding:0 5px;border-radius:6px;color:var(--text-dim)"></td>'
+    return '<td style="text-align:center;padding:4px 4px;border-left:2px solid var(--border);"><input type="date" value="'+(pulled||'')+'" title="Pulled to — change it when you pull" onchange="_crSetPulled(\''+code+'\',\''+k+'\',this)" style="height:28px;width:128px;font-size:12px;padding:0 5px;border-radius:6px;color:var(--text-dim)"></td>'
       +'<td style="text-align:center;padding:7px 6px"><b>'+x.d.toLocaleString()+'</b><span style="color:var(--text-dim)"> / '+x.t.toLocaleString()+'</span></td>'
       +'<td style="text-align:center;padding:7px 6px;font-weight:700;color:'+_crPctColor(p,x.t)+'">'+(x.t?p.toFixed(1)+'%':'—')+'</td>'; };
-  const lcell=x=>{ const p=_crPct(x.d,x.t); return '<td style="text-align:center;padding:7px 6px"><b>'+x.d.toLocaleString()+'</b><span style="color:var(--text-dim)"> / '+x.t.toLocaleString()+'</span></td><td style="text-align:center;padding:7px 6px;font-weight:700;color:'+_crPctColor(p,x.t)+'">'+(x.t?p.toFixed(1)+'%':'—')+'</td>'; };
+  const lpull=(k,v,code)=>'<button type="button" title="'+(k==='ts'?'Tax sale year pulled':'Month you last pulled this list')+'" onclick="_crPickOpen(this,\''+k+'\',\''+code+'\')" style="height:28px;font-size:12px;padding:0 8px;border-radius:6px;border:1px solid var(--border);background:var(--panel-2);color:'+(v?'var(--text)':'var(--text-dim)')+';cursor:pointer;width:'+(k==='ts'?80:104)+'px;display:inline-flex;align-items:center;justify-content:space-between;gap:4px"><span>'+_crPullLbl(v)+'</span><span style="opacity:.6;font-size:10px">▾</span></button>';
+  const lcell=(x,k,pv,code)=>{ const p=_crPct(x.d,x.t); return '<td style="text-align:center;padding:4px 4px;border-left:2px solid var(--border);">'+lpull(k,pv,code)+'</td><td style="text-align:center;padding:7px 6px"><b>'+x.d.toLocaleString()+'</b><span style="color:var(--text-dim)"> / '+x.t.toLocaleString()+'</span></td><td style="text-align:center;padding:7px 6px;font-weight:700;color:'+_crPctColor(p,x.t)+'">'+(x.t?p.toFixed(1)+'%':'—')+'</td>'; };
   const empty={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0},cv:{d:0,t:0,s:0},ul:{d:0,t:0,s:0},ts:{d:0,t:0,s:0},scrap:0,all:0};
   const act=_CR.counties.filter(c=>c.active), ina=_CR.counties.filter(c=>!c.active);
   const tot={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0,c:0},cv:{d:0,t:0,s:0},ul:{d:0,t:0,s:0},ts:{d:0,t:0,s:0},all:0,scrap:0};
   act.forEach(c=>{ const b=by[c.code]||empty; ['fc','pb','ev','cv','ul','ts'].forEach(k=>{ tot[k].d+=b[k].d; tot[k].t+=b[k].t; if(tot[k].s!=null) tot[k].s+=(b[k].s||0); }); tot.pb.u+=b.pb.u; tot.ev.c+=(b.ev.c||0); tot.all+=b.all; tot.scrap+=b.scrap; });
   const row=c=>{ const b=by[c.code]||empty; const p=c.pulled||{};
-    return '<tr style="border-top:1px solid var(--border)">'
-      +'<td style="padding:7px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:sticky;left:0;z-index:1;background:var(--panel)"><button type="button" onclick="_crCountyEdit(\''+E(c.code)+'\')" title="Edit county — active, GIS link" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px 0 0;opacity:.7">⚙️</button><span title="County code — the first 2 digits of the case number" style="display:inline-block;min-width:28px;text-align:center;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;font-weight:800;color:#93c5fd;background:rgba(96,165,250,0.14);border:1px solid rgba(96,165,250,0.45);border-radius:6px;padding:1px 6px;margin-right:7px">'+E(c.code)+'</span><b>'+E(c.city)+'</b> <span style="color:var(--text-dim);font-size:12px">'+E(c.county)+'</span></td>'
-      +'<td style="text-align:center;white-space:nowrap">'+(c.assessor_url?'<a href="'+E(c.assessor_url)+'" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none" title="'+E(c.assessor_url)+'">🗺️</a>':'<button type="button" onclick="_crCountyEdit(\''+E(c.code)+'\')" style="background:none;border:1px dashed var(--border);border-radius:6px;color:var(--text-dim);font-size:11px;cursor:pointer;padding:1px 6px">+ Add</button>')+'</td>'
+    return '<tr class="cr-trk-row">'
+      +'<td style="padding:7px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:sticky;left:0;z-index:1;background:var(--panel);box-shadow:inset -1px 0 0 var(--border)"><button type="button" onclick="_crCountyEdit(\''+E(c.code)+'\')" title="Edit county — active, GIS link" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px 0 0;opacity:.7">⚙️</button><span title="County code — the first 2 digits of the case number" style="display:inline-block;min-width:28px;text-align:center;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;font-weight:800;color:#93c5fd;background:rgba(96,165,250,0.14);border:1px solid rgba(96,165,250,0.45);border-radius:6px;padding:1px 6px;margin-right:7px">'+E(c.code)+'</span><b>'+E(c.city)+'</b> <span style="color:var(--text-dim);font-size:12px">'+E(c.county)+'</span></td>'
+      +'<td style="text-align:center;white-space:nowrap;overflow:hidden">'+(c.assessor_url?'<a href="'+E(c.assessor_url)+'" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none" title="'+E(c.assessor_url)+'">🗺️</a>':'<button type="button" onclick="_crCountyEdit(\''+E(c.code)+'\')" title="Add this county’s GIS / Assessor link" style="background:none;border:1px dashed var(--border);border-radius:6px;color:var(--text-dim);font-size:13px;line-height:1;cursor:pointer;width:26px;height:22px;padding:0;display:inline-flex;align-items:center;justify-content:center">+</button>')+'</td>'
       +cell(b,'fc',p.fc,c.code)+cell(b,'pb',p.pb,c.code)
-      +cell(b,'ev',p.ev,c.code)+_CR_LISTS.map(k=>lcell(b[k])).join('')+'</tr>'; };
+      +cell(b,'ev',p.ev,c.code)+_CR_LISTS.map(k=>lcell(b[k],k,p[k],c.code)).join('')+'</tr>'; };
   const th='padding:6px;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--text-dim);text-align:center';
-  const grp=(t,col,n)=>'<th colspan="'+(n||3)+'" style="'+th+';color:'+col+';border-bottom:2px solid '+col+'">'+t+'</th>';
+  const grp=(t,col,n)=>'<th colspan="'+(n||3)+'" style="'+th+';color:'+col+';border-bottom:2px solid '+col+';border-left:2px solid var(--border);">'+t+'</th>';
   const lcard=k=>{ const x=tot[k], p=_crPct(x.d,x.t); return '<div style="flex:1;min-width:150px;background:var(--panel-2);border:1px solid var(--border);border-top:3px solid '+_CR_COL[k]+';border-radius:10px;padding:10px 12px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text-dim)">'+_CR_TYPES[k]+'</div><div style="font-size:20px;font-weight:800">'+x.d.toLocaleString()+' <span style="font-size:13px;color:var(--text-dim);font-weight:600">/ '+x.t.toLocaleString()+'</span></div><div style="font-size:12px;font-weight:700"><span style="color:'+_crPctColor(p,x.t)+'">'+(x.t?p.toFixed(1)+'% complete':'—')+'</span>'+(x.s?'<span style="color:var(--text-dim);font-weight:600"> · </span><span style="color:#94a3b8">'+x.s.toLocaleString()+' scrapped</span>':'')+'</div></div>'; };
   const card=(t,k,col)=>{ const p=_crPct(tot[k].d,tot[k].t); return '<div style="flex:1;min-width:150px;background:var(--panel-2);border:1px solid var(--border);border-top:3px solid '+col+';border-radius:10px;padding:10px 12px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text-dim)">'+t+'</div><div style="font-size:20px;font-weight:800">'+tot[k].d.toLocaleString()+' <span style="font-size:13px;color:var(--text-dim);font-weight:600">/ '+tot[k].t.toLocaleString()+'</span></div><div style="font-size:12px;font-weight:700;color:'+_crPctColor(p,tot[k].t)+'">'+p.toFixed(1)+'% complete'+(k==='pb'&&tot[k].t?'<span style="color:var(--text-dim);font-weight:600"> · </span><span style="color:#a78bfa" title="Probates where no property address could be found (the ❓ Unknown tab)">'+_crPct(tot.pb.u,tot[k].t).toFixed(1)+'% unknown</span>':'')+(k==='ev'?'<span style="color:var(--text-dim);font-weight:600"> · </span><span style="color:#94a3b8" title="Evictions filed by an LLC / apartment / management company — in 🗑 Scrap">'+(tot.ev.c||0).toLocaleString()+' corporate filing'+(tot.ev.c===1?'':'s')+'</span>':'')+'</div></div>'; };
   return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'
       +card('Foreclosure','fc','#06b6d4')+card('Probate','pb','#a855f7')+card('Eviction','ev','#eab308')+_CR_LISTS.map(lcard).join('')
       +'<div style="flex:1;min-width:150px;background:var(--panel-2);border:1px solid var(--border);border-top:3px solid #64748b;border-radius:10px;padding:10px 12px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text-dim)">All cases · Scrap</div><div style="font-size:20px;font-weight:800">'+tot.all.toLocaleString()+'</div><div style="font-size:12px;color:var(--text-dim)">'+tot.scrap.toLocaleString()+' in Scrap</div></div>'
     +'</div>'
-    +'<div style="overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="'+_CR_TBL+'">'+_CR_COLS
-      +'<thead><tr><th style="padding:6px 8px;text-align:left;position:sticky;left:0;z-index:2;background:var(--panel)"><a href="https://public.courts.in.gov/mycase/#/vw/Search" target="_blank" rel="noopener" title="Open MyCase search in a new tab" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#60a5fa;text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:3px 9px;background:var(--panel);text-transform:none;letter-spacing:0">⚖️ MyCase ↗</a></th><th></th>'+grp('Foreclosure','#06b6d4')+grp('Probate','#a855f7')+grp('Eviction','#eab308')+''+_CR_LISTS.map(k=>grp(_CR_TYPES[k],_CR_COL[k],2)).join('')+'</tr>'
-      +'<tr><th style="'+th+';text-align:left;position:sticky;left:0;z-index:2;background:var(--panel)">County</th><th style="'+th+'">GIS</th>'+['fc','pb'].map(k=>'<th style="'+th+'">'+_crSetAllBtn(k)+'</th><th style="'+th+'">Done</th><th style="'+th+'">%</th>').join('')+'<th style="'+th+'">'+_crSetAllBtn('ev')+'</th><th style="'+th+'">Done</th><th style="'+th+'">%</th>'+_CR_LISTS.map(()=>'<th style="'+th+'">Done</th><th style="'+th+'">%</th>').join('')+'</tr></thead>'
+    +'<div id="cr-trk-top" style="overflow-x:auto;overflow-y:hidden;height:14px;margin-bottom:4px"><div style="width:'+_CR_COLW.reduce((a,b)=>a+b,0)+'px;height:1px"></div></div>'
+    +'<div id="cr-trk-wrap" style="overflow:auto;border:1px solid var(--border);border-radius:10px;scrollbar-width:none"><table style="'+_CR_TBL+'">'+_CR_COLS
+      +'<thead><tr><th style="padding:6px 8px;text-align:left;position:sticky;left:0;z-index:2;background:var(--panel-2);box-shadow:inset -1px 0 0 var(--border)"><a href="https://public.courts.in.gov/mycase/#/vw/Search" target="_blank" rel="noopener" title="Open MyCase search in a new tab" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:#60a5fa;text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:3px 9px;background:var(--panel);text-transform:none;letter-spacing:0">⚖️ MyCase ↗</a></th><th></th>'+grp('Foreclosure','#06b6d4')+grp('Probate','#a855f7')+grp('Eviction','#eab308')+''+_CR_LISTS.map(k=>grp(_CR_TYPES[k],_CR_COL[k],3)).join('')+'</tr>'
+      +'<tr><th style="'+th+';text-align:left;position:sticky;left:0;z-index:2;background:var(--panel-2);box-shadow:inset -1px 0 0 var(--border)">County</th><th style="'+th+'">GIS</th>'+['fc','pb'].map(k=>'<th style="'+th+';border-left:2px solid var(--border);">'+_crSetAllBtn(k)+'</th><th style="'+th+'">Done</th><th style="'+th+'">%</th>').join('')+'<th style="'+th+';border-left:2px solid var(--border);">'+_crSetAllBtn('ev')+'</th><th style="'+th+'">Done</th><th style="'+th+'">%</th>'+_CR_LISTS.map(k=>'<th style="'+th+';border-left:2px solid var(--border);">'+_crSetAllBtn(k)+'</th><th style="'+th+'">Done</th><th style="'+th+'">%</th>').join('')+'</tr></thead>'
       +'<tbody>'+act.map(row).join('')+'</tbody></table></div>'
     +(ina.length?'<div style="margin-top:10px"><button class="btn btn-ghost text-sm" onclick="_CR.showInactive=!_CR.showInactive;_crRender()">'+(_CR.showInactive?'▾':'▸')+' Inactive counties ('+ina.length+')</button>'
       +(_CR.showInactive?'<div style="overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px;opacity:.75"><table style="'+_CR_TBL+'">'+_CR_COLS+'<tbody>'+ina.map(row).join('')+'</tbody></table></div>':'')+'</div>':'')
     +'<div id="cr-chart" style="margin-top:14px">'+_crChartHtml()+'</div>';
 }
 // "Set all" — one date for every ACTIVE county's Pulled-to, per list type.
-function _crSetAllBtn(k){ return 'Pulled to <button type="button" onclick="_crSetAllOpen(\''+k+'\',this)" title="Set every active county\'s '+(_CR_TYPES[k])+' Pulled-to date at once" style="margin-left:4px;height:20px;padding:0 6px;font-size:10px;font-weight:800;border:1px solid var(--border);background:var(--panel);color:#60a5fa;border-radius:5px;cursor:pointer;text-transform:none;letter-spacing:0">Set all</button>'; }
+function _crSetAllBtn(k){ return (k==='ts'?'Year':_CR_LISTS.indexOf(k)>=0?'Month':'Pulled to')+' <button type="button" onclick="_crSetAllOpen(\''+k+'\',this)" title="Set every active county\'s '+(_CR_TYPES[k])+' Pulled-to date at once" style="margin-left:4px;height:20px;padding:0 6px;font-size:10px;font-weight:800;border:1px solid var(--border);background:var(--panel);color:#60a5fa;border-radius:5px;cursor:pointer;text-transform:none;letter-spacing:0">Set all</button>'; }
 function _crIsoDay(off){ const d=new Date(); d.setDate(d.getDate()+(off||0)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// Month / year choices for the list types (code violations + utility liens by month, tax sale by year).
+function _crPullOpts(k,v){
+  const now=new Date(); let o='<option value="">—</option>';
+  if(k==='ts'){ for(let y=now.getFullYear()+1;y>=now.getFullYear()-6;y--) o+='<option value="'+y+'" '+(String(v||'')===String(y)?'selected':'')+'>'+y+'</option>'; return o; }
+  let seen=false; for(let i=-1;i<=36;i++){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); const val=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); if(val===v) seen=true;
+    o+='<option value="'+val+'" '+(val===v?'selected':'')+'>'+d.toLocaleDateString('en-US',{month:'short',year:'numeric'})+'</option>'; }
+  if(v&&!seen) o+='<option value="'+v+'" selected>'+_crPullLbl(v)+'</option>';
+  return o;
+}
+function _crPullLbl(v){ return !v?'—':/^\d{4}$/.test(v)?v:/^\d{4}-\d{2}$/.test(v)?new Date(+v.slice(0,4),+v.slice(5,7)-1,15).toLocaleDateString('en-US',{month:'short',year:'numeric'}):_reqFmtDate(v); }
 function _crSetAllOpen(k,anchor){
   const old=document.getElementById('cr-setall'); if(old){ old.remove(); if(old.getAttribute('data-k')===k) return; }
   const name=_CR_TYPES[k]; const n=_CR.counties.filter(c=>c.active).length;
   const pop=document.createElement('div'); pop.id='cr-setall'; pop.setAttribute('data-k',k);
   const r=anchor.getBoundingClientRect();
   pop.style.cssText='position:fixed;top:'+(r.bottom+6)+'px;left:'+Math.max(10,Math.min(window.innerWidth-290,r.left-110))+'px;z-index:100004;width:270px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;box-shadow:0 12px 40px rgba(0,0,0,.5);font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;text-align:left';
-  pop.innerHTML='<div style="font-weight:800;margin-bottom:8px">📅 '+name+' — pulled to</div>'
-    +'<div style="display:flex;gap:6px;margin-bottom:8px"><button type="button" class="btn btn-ghost text-sm" data-d="'+_crIsoDay(-1)+'">Yesterday</button><button type="button" class="btn btn-ghost text-sm" data-d="'+_crIsoDay(0)+'">Today</button></div>'
-    +'<input type="date" id="cr-setall-d" value="'+_crIsoDay(-1)+'" style="height:34px;width:100%;box-sizing:border-box;font-size:13px;padding:0 8px;border-radius:7px;margin-bottom:8px">'
+  const isList=_CR_LISTS.indexOf(k)>=0, now=new Date();
+  const ym=off=>{ const d=new Date(now.getFullYear(),now.getMonth()+off,1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); };
+  const quick=k==='ts'?[['Last year',String(now.getFullYear()-1)],['This year',String(now.getFullYear())]]:isList?[['Last month',ym(-1)],['This month',ym(0)]]:[['Yesterday',_crIsoDay(-1)],['Today',_crIsoDay(0)]];
+  const fieldSt='height:34px;width:100%;box-sizing:border-box;font-size:13px;padding:0 8px;border-radius:7px;margin-bottom:8px';
+  pop.innerHTML='<div style="font-weight:800;margin-bottom:8px">📅 '+name+' — pulled '+(k==='ts'?'year':isList?'month':'to')+'</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:8px">'+quick.map(q=>'<button type="button" class="btn btn-ghost text-sm" data-d="'+q[1]+'">'+q[0]+'</button>').join('')+'</div>'
+    +(isList?'<input type="hidden" id="cr-setall-d" value="'+quick[1][1]+'"><div id="cr-setall-grid" style="margin-bottom:8px"></div>':'<input type="date" id="cr-setall-d" value="'+_crIsoDay(-1)+'" style="'+fieldSt+'">')
     +'<button type="button" class="btn btn-primary text-sm" id="cr-setall-go" style="width:100%">Set all '+n+' active counties</button>';
   document.body.appendChild(pop);
-  pop.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ pop.querySelector('#cr-setall-d').value=b.getAttribute('data-d'); });
+  const grid=pop.querySelector('#cr-setall-grid'); const paint=()=>{ if(grid) _crPickGrid(grid,k,pop.querySelector('#cr-setall-d').value,v=>{ pop.querySelector('#cr-setall-d').value=v; paint(); }); }; paint();
+  pop.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ pop.querySelector('#cr-setall-d').value=b.getAttribute('data-d'); paint(); });
   setTimeout(()=>{ const off=e=>{ if(!pop.contains(e.target)&&e.target!==anchor){ pop.remove(); document.removeEventListener('mousedown',off); } }; document.addEventListener('mousedown',off); },0);
   pop.querySelector('#cr-setall-go').onclick=async function(){
     const d=pop.querySelector('#cr-setall-d').value; if(!d) return; this.disabled=true; this.textContent='Saving…';
     const act=_CR.counties.filter(c=>c.active); let ok=0;
     await Promise.all(act.map(async c=>{ const pulled=Object.assign({},c.pulled||{}); pulled[k]=d; if(await _crSaveCounty(c.code,{pulled:pulled})) ok++; }));
     pop.remove(); if(_CR.tab==='tracker') _crRender();
-    if(typeof toast==='function') toast(name+' pulled to '+_reqFmtDate(d)+' for '+ok+' counties','ok');
+    if(typeof toast==='function') toast(name+' pulled to '+_crPullLbl(d)+' for '+ok+' counties','ok');
   };
 }
 window._crSetAllOpen=_crSetAllOpen;
@@ -172,7 +190,7 @@ async function _crSaveCounty(code,patch){
 async function _crSetPulled(code,k,inp){
   const c=_CR.counties.find(x=>x.code===code); if(!c) return;
   const pulled=Object.assign({},c.pulled||{}); if(inp.value) pulled[k]=inp.value; else delete pulled[k];
-  if(await _crSaveCounty(code,{pulled:pulled})){ if(typeof toast==='function') toast(c.city+' · '+(_CR_TYPES[k])+' pulled to '+(inp.value?_reqFmtDate(inp.value):'—'),'ok'); }
+  if(await _crSaveCounty(code,{pulled:pulled})){ if(typeof toast==='function') toast(c.city+' · '+(_CR_TYPES[k])+' pulled to '+_crPullLbl(inp.value),'ok'); }
 }
 window._crSetPulled=_crSetPulled;
 function _crCountyEdit(code){
@@ -1087,18 +1105,20 @@ function _crLiSlug(s){ return String(s||'').toUpperCase().replace(/[^A-Z0-9]+/g,
 function _crLiParse(grid,fileName){
   const cell=(r,i)=>{ const v=(grid[r]||[])[i]; return v==null?'':v; };
   const txt=(r,i)=>String(cell(r,i)).trim();
-  const findHead=(need)=>{ for(let r=0;r<Math.min(grid.length,40);r++){ const row=(grid[r]||[]).map(x=>String(x==null?'':x).trim().toLowerCase()); if(need.every(n=>row.some(x=>x===n||x.indexOf(n)===0))) return r; } return -1; };
+  // each need = one name or a list of alternatives (any one of them)
+  const findHead=(need)=>{ for(let r=0;r<Math.min(grid.length,40);r++){ const row=(grid[r]||[]).map(x=>String(x==null?'':x).trim().toLowerCase()); if(need.every(n=>[].concat(n).some(a=>row.some(x=>x===a||x.indexOf(a)===0)))) return r; } return -1; };
   const colOf=(r,names)=>{ const row=(grid[r]||[]).map(x=>String(x==null?'':x).trim().toLowerCase()); for(const n of names){ const i=row.findIndex(x=>x===n); if(i>=0) return i; } for(const n of names){ const i=row.findIndex(x=>x.indexOf(n)===0); if(i>=0) return i; } return -1; };
   let h;
   // --- code violations
-  if((h=findHead(['location','owner','violation']))>=0){
-    const iL=colOf(h,['location']), iO=colOf(h,['owner']), iC=colOf(h,['created']), iD=colOf(h,['complied']), iV=colOf(h,['violation']);
+  if((h=findHead(['location',['owner','responsible party'],['violation','viol']]))>=0){
+    const iL=colOf(h,['location']), iO=colOf(h,['owner','responsible party']), iC=colOf(h,['created','opened']), iD=colOf(h,['complied','closed']), iV=colOf(h,['violation','viol 1 description','viol']);
     const g={};
-    for(let r=h+1;r<grid.length;r++){ const loc=txt(r,iL); if(!loc) continue; const k=loc.toUpperCase().replace(/\s+/g,' ');
+    // one property per address per month (several violations the same month = one lead; a new month = a new one)
+    for(let r=h+1;r<grid.length;r++){ const loc=txt(r,iL); if(!loc) continue; const c=_crLiIso(cell(r,iC)); const k=loc.toUpperCase().replace(/\s+/g,' ')+'|'+String(c||'').slice(0,7);
       const x=g[k]||(g[k]={loc:loc,owner:txt(r,iO),viol:[],created:null,complied:[],open:false});
       const v=txt(r,iV); if(v&&x.viol.indexOf(v)<0) x.viol.push(v);
-      const c=_crLiIso(cell(r,iC)); if(c&&(!x.created||c<x.created)) x.created=c;
-      const d=_crLiIso(cell(r,iD)); if(d) x.complied.push(d); else x.open=true;
+      if(c&&(!x.created||c<x.created)) x.created=c;
+      const d=iD>=0?_crLiIso(cell(r,iD)):null; if(d) x.complied.push(d); else x.open=true;
       if(!x.owner) x.owner=txt(r,iO); }
     return { fmt:'cv', label:'Code violations', needCounty:true, items:Object.values(g).map(x=>({ loc:x.loc, owner:x.owner, viol:x.viol.join(', '), filed:x.created, complied:x.open?'':(x.complied.sort().pop()||'') })) };
   }
@@ -1227,3 +1247,49 @@ async function _crRefresh(btn){
   finally{ _CR._refreshing=false; const b=document.getElementById('cr-refresh'); if(b){ b.classList.remove('cr-spinning'); b.disabled=false; } const bd=document.getElementById('cr-body'); if(bd){ bd.style.opacity=''; bd.style.pointerEvents=''; } }
 }
 window._crRefresh=_crRefresh;
+
+// Tracker: horizontal scrollbar sits ABOVE the table (synced with the table itself; the bottom one is hidden).
+function _crTrkScrollSync(){
+  const top=document.getElementById('cr-trk-top'), wrap=document.getElementById('cr-trk-wrap'); if(!top||!wrap) return;
+  if(!document.getElementById('cr-trk-css')){ const st=document.createElement('style'); st.id='cr-trk-css';
+    st.textContent='#cr-trk-wrap::-webkit-scrollbar{display:none} tr.cr-trk-row>td{border-top:1px solid var(--border)} tbody>tr.cr-trk-row:first-child>td{border-top:0} #cr-trk-wrap thead th{border-bottom:1px solid var(--border)}';
+    document.head.appendChild(st); }
+  top.style.display=wrap.scrollWidth>wrap.clientWidth+1?'':'none';
+  // One-way-at-a-time sync: whichever bar you're moving drives the other; no ping-pong between the two.
+  let driver=null, raf=0;
+  const follow=(from,to)=>{ if(driver&&driver!==from) return; driver=from; if(to.scrollLeft!==from.scrollLeft) to.scrollLeft=from.scrollLeft; _CR._trkLeft=from.scrollLeft;
+    cancelAnimationFrame(raf); raf=requestAnimationFrame(()=>{ raf=requestAnimationFrame(()=>{ driver=null; }); }); };
+  top.onscroll=()=>follow(top,wrap); wrap.onscroll=()=>follow(wrap,top);
+  if(_CR._trkLeft){ wrap.scrollLeft=_CR._trkLeft; top.scrollLeft=_CR._trkLeft; }
+  if(!_CR._trkFitBound){ _CR._trkFitBound=true; window.addEventListener('resize',()=>{ const t=document.getElementById('cr-trk-top'), w=document.getElementById('cr-trk-wrap'); if(t&&w) t.style.display=w.scrollWidth>w.clientWidth+1?'':'none'; }); }
+}
+
+// Small month / year picker: ◀ 2026 ▶ with a 3×4 grid of months (or a grid of years for tax sale). No long dropdowns.
+function _crPickGrid(box,k,val,onPick){
+  const now=new Date(); const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  box._y=box._y||(val?+String(val).slice(0,4):now.getFullYear());
+  const cellSt=(on,dim)=>'height:30px;border-radius:7px;border:1px solid '+(on?'#6366f1':'var(--border)')+';background:'+(on?'rgba(99,102,241,0.25)':'var(--panel-2)')+';color:'+(dim?'var(--text-dim)':'var(--text)')+';font-size:12.5px;font-weight:'+(on?'800':'600')+';cursor:pointer';
+  const navSt='height:28px;width:30px;border-radius:7px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer;font-size:12px';
+  let h;
+  if(k==='ts'){ const start=box._y-4; h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><button type="button" data-nav="-6" style="'+navSt+'">◀</button><b style="font-size:13px">'+start+' – '+(start+5)+'</b><button type="button" data-nav="6" style="'+navSt+'">▶</button></div>'
+      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px">'; for(let y=start;y<start+6;y++) h+='<button type="button" data-v="'+y+'" style="'+cellSt(String(val)===String(y),y>now.getFullYear()+1)+'">'+y+'</button>'; h+='</div>'; }
+  else { h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><button type="button" data-nav="-1" style="'+navSt+'">◀</button><b style="font-size:13px">'+box._y+'</b><button type="button" data-nav="1" style="'+navSt+'">▶</button></div>'
+      +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">'; MN.forEach((m,i)=>{ const v=box._y+'-'+String(i+1).padStart(2,'0'); const future=new Date(box._y,i,1)>new Date(now.getFullYear(),now.getMonth()+1,1); h+='<button type="button" data-v="'+v+'" style="'+cellSt(val===v,future)+'">'+m+'</button>'; }); h+='</div>'; }
+  box.innerHTML=h;
+  box.querySelectorAll('[data-nav]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); box._y+=+b.getAttribute('data-nav'); _crPickGrid(box,k,val,onPick); });
+  box.querySelectorAll('[data-v]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); onPick(b.getAttribute('data-v')); });
+}
+function _crPickOpen(anchor,k,code){
+  const old=document.getElementById('cr-pick'); if(old){ old.remove(); if(old._a===anchor) return; }
+  const c=_CR.counties.find(x=>x.code===code); if(!c) return; const cur=(c.pulled||{})[k]||'';
+  const pop=document.createElement('div'); pop.id='cr-pick'; pop._a=anchor; const r=anchor.getBoundingClientRect();
+  pop.style.cssText='position:fixed;top:'+(r.bottom+6)+'px;left:'+Math.max(10,Math.min(window.innerWidth-250,r.left-60))+'px;z-index:100004;width:230px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px;box-shadow:0 12px 40px rgba(0,0,0,.5);font-size:13px';
+  pop.innerHTML='<div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">'+_reqEsc(c.city)+' · '+_reqEsc(_CR_TYPES[k])+'</div><div id="cr-pick-grid"></div>'
+    +(cur?'<button type="button" id="cr-pick-clear" style="margin-top:8px;width:100%;height:28px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px">Clear</button>':'');
+  document.body.appendChild(pop);
+  const save=async v=>{ pop.remove(); await _crSetPulled(code,k,{value:v}); const lbl=anchor.querySelector('span'); if(lbl){ lbl.textContent=_crPullLbl(v); anchor.style.color=v?'var(--text)':'var(--text-dim)'; } };
+  _crPickGrid(pop.querySelector('#cr-pick-grid'),k,cur,save);
+  const cl=pop.querySelector('#cr-pick-clear'); if(cl) cl.onclick=()=>save('');
+  setTimeout(()=>{ const off=e=>{ if(!pop.contains(e.target)&&!anchor.contains(e.target)){ pop.remove(); document.removeEventListener('mousedown',off); } }; document.addEventListener('mousedown',off); },0);
+}
+window._crPickOpen=_crPickOpen;

@@ -69869,9 +69869,9 @@ function _reqTypeCardHtml(r,t,btn){
       +'<label onclick="event.stopPropagation()" style="flex:0 1 auto;min-width:0;white-space:nowrap;font-size:11.5px;color:var(--text-dim);display:inline-flex;align-items:center;gap:5px" title="Received">Rcvd <input type="date" value="'+E(d.received||'')+'" onchange="_reqSetDate(\''+id+'\',\''+tq+'\',\'received\',this)" style="height:30px;width:126px;min-width:96px;flex:0 1 126px;font-size:12px;padding:0 6px;border-radius:7px;color:'+(d.received?col:'var(--text)')+'"></label>'
       +_reqConnSelectHtml(r,t)
       +(_reqFormFor(r,t)?'<button type="button" onclick="event.stopPropagation();_reqDownloadForm(\''+id+'\',\''+tq+'\',this)" title="Download this department\'s request form, filled in for today" style="'+btn+';color:#fbbf24">📄 Form</button>':'<button type="button" onclick="event.stopPropagation();_reqCFSetup(\''+id+'\',\''+tq+'\')" title="No form yet — click to set one up" style="'+btn+';color:var(--text-dim);opacity:.45">📄 Form</button>')
-      +(_tc.site?(function(){ const u=_reqSiteUrl(r,t,_tc.site); const z=_tc.site==='zeus'; const nm=z?'Zeus':'Portal';
-          return u?'<a href="'+E(u)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open '+(z?'Zeus':'the request portal')+': '+E(u)+'" style="'+btn+';width:80px;justify-content:center;color:'+(z?'#facc15':'#60a5fa')+'">🌐 '+nm+'</a>'
-                  :'<span title="No request portal saved — add it as this list type\'s Website in ✏️ Edit, or as Request Page in 🔗 Links" style="'+btn+';width:80px;justify-content:center;color:var(--text-dim);opacity:.4;cursor:default">🌐 '+nm+'</span>'; })():'')
+      +(_tc.site?(function(){ const u=_reqSiteUrl(r,t,_tc.site); const z=_tc.site==='zeus'; const nm=z?'Zeus':(_tc.site==='site'?'Site':'Portal');
+          return u?'<a href="'+E(u)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open '+(z?'Zeus':(_tc.site==='site'?'the website':'the request portal'))+': '+E(u)+'" style="'+btn+';width:80px;justify-content:center;color:'+(z?'#facc15':'#60a5fa')+'">🌐 '+nm+'</a>'
+                  :'<span title="'+(_tc.site==='site'?'No website saved yet — add it in ✏️ Edit (Website box)':'No request portal saved — add it as this list type\'s Website in ✏️ Edit, or as Request Page in 🔗 Links')+'" style="'+btn+';width:80px;justify-content:center;color:var(--text-dim);opacity:.4;cursor:default">🌐 '+nm+'</span>'; })():'')
       +(_tc.site?'':'<button type="button" onclick="event.stopPropagation();_reqMailType(\''+id+'\',\''+tq+'\')" '+(emails.length?'':'disabled ')+'title="'+(emails.length?'Email '+emails.length+' contact'+(emails.length>1?'s':'')+' with your request template':'Add a contact email first')+'" style="'+btn+';width:80px;justify-content:center;color:#a78bfa;'+(emails.length?'':'opacity:.4;cursor:default')+'">📧 Email</button>')
       +'<button type="button" onclick="event.stopPropagation();_reqEditStart(\''+id+'\',\''+tq+'\')" title="Edit" style="'+btn+';color:var(--text)">✏️</button>')
     +(editing?'<div style="display:flex;gap:8px;margin-left:auto">'
@@ -69910,7 +69910,7 @@ function _reqTypeCardHtml(r,t,btn){
   return '<div style="background:var(--panel);border:1px solid var(--border);border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px;'+(has?'':'opacity:.7')+'">'+head
     +(open?'<div>'
     +(_tc.office?'<div style="font-size:11.5px;color:#a5b4fc;padding:2px 0 6px">🔗 Using <b>'+E(_tc.office)+'</b> contacts from Connections</div>':'')
-    +(_tc.site?'<div style="font-size:11.5px;color:'+(_tc.site==='zeus'?'#facc15':'#60a5fa')+';padding:2px 0 6px">🌐 Requested through the <b>'+(_tc.site==='zeus'?'Zeus':'request portal')+'</b> website — no contact needed.</div>':'')
+    +(_tc.site?'<div style="font-size:11.5px;color:'+(_tc.site==='zeus'?'#facc15':'#60a5fa')+';padding:2px 0 6px">🌐 Requested through <b>'+(_tc.site==='zeus'?'the Zeus':_tc.site==='site'?'its own':'the request portal')+'</b> website — no contact needed.</div>':'')
     +(cs.length?_reqContactsOrdered(cs,'D|'+r.id+'|'+t).map(c=>{ const realIdx=_tc.cs.indexOf(c);
         return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border)">'
           +'<div style="flex:0 0 150px;min-width:0;font-size:12.5px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis">'+E(c.title||'')+'</div>'
@@ -70123,6 +70123,7 @@ window._reqTypeContacts=_reqTypeContacts;
 function _reqSiteUrl(r,t,kind){
   const d=(r&&r.lists&&r.lists[t])||{}; const L=_reqLinksNorm(r);
   if(d.website&&String(d.website).trim()) return _reqNormUrl2(d.website);
+  if(kind==='site') return '';
   if(kind==='zeus'){ const z=L.find(l=>l.kind==='zeus'&&l.show)||L.find(l=>l.kind==='zeus'); return z?_reqNormUrl2(z.url):'https://www.zeusauction.com/'; }
   const pg=L.find(l=>l.kind==='page'&&l.show)||L.find(l=>l.kind==='page'); return pg?_reqNormUrl2(pg.url):'';
 }
@@ -70138,6 +70139,7 @@ function _reqConnSelectHtml(r,t){
     +opts.map(o=>'<option value="'+E(o)+'" '+(d.office===o?'selected':'')+'>🔗 '+E(lbl(o))+'</option>').join('')
     +'<option value="@zeus" '+(d.office==='@zeus'?'selected':'')+'>🌐 Zeus</option>'
     +'<option value="@portal" '+(d.office==='@portal'?'selected':'')+'>🌐 Request portal</option>'
+    +'<option value="@site" '+(d.office==='@site'?'selected':'')+'>🌐 Own website</option>'
   +'</select>';
 }
 async function _reqLinkOffice(id,t,sel){
@@ -70153,7 +70155,7 @@ async function _reqLinkOffice(id,t,sel){
     const up=await sb.from('request_cities').update({lists:lists,updated_at:new Date().toISOString()}).eq('id',id).select().single();
     if(up.error) throw up.error;
     if(up.data){ if(!up.data.lists||typeof up.data.lists!=='object') up.data.lists={}; cache.requests[id]=up.data; }
-    renderRequestsList(); if(typeof toast==='function') toast(val?(t+' now uses '+(val==='@zeus'?'the Zeus website':val==='@portal'?'the request portal':val)):(t+' uses its own contacts'),'ok');
+    renderRequestsList(); if(typeof toast==='function') toast(val?(t+' now uses '+(val==='@zeus'?'the Zeus website':val==='@portal'?'the request portal':val==='@site'?'its own website':val)):(t+' uses its own contacts'),'ok');
   }catch(err){ console.warn('link office:',err); sel.disabled=false; if(typeof toast==='function') toast('Save failed: '+(err.message||err),'err'); renderRequestsList(); }
 }
 window._reqLinkOffice=_reqLinkOffice;

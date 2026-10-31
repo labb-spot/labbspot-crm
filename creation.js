@@ -76,8 +76,8 @@ window._crTab=_crTab;
 function _crStats(){
   const by={};
   _CR.cases.forEach(c=>{ const k=_crTypeKey(c.case_type); if(!k) return; const cc=c.county_code||'?';
-    const b=by[cc]||(by[cc]={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0},scrap:0,all:0});
-    if(_crScrap(c.sort_code)){ b.scrap++; return; }
+    const b=by[cc]||(by[cc]={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0,c:0},scrap:0,all:0});
+    if(_crScrap(c.sort_code)){ b.scrap++; if(c.sort_code==='4.3') b.ev.c++; return; }
     b.all++; b[k].t++; if(_crDone(c.sort_code)) b[k].d++; if(k==='pb'&&/^3\./.test(c.sort_code||'')) b.pb.u++; });
   return by;
 }
@@ -96,8 +96,8 @@ function _crTrackerHtml(){
       +'<td style="text-align:center;padding:7px 6px;font-weight:700;color:'+_crPctColor(p,x.t)+'">'+(x.t?p.toFixed(1)+'%':'—')+'</td>'; };
   const empty={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0},scrap:0,all:0};
   const act=_CR.counties.filter(c=>c.active), ina=_CR.counties.filter(c=>!c.active);
-  const tot={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0},all:0,scrap:0};
-  act.forEach(c=>{ const b=by[c.code]||empty; ['fc','pb','ev'].forEach(k=>{ tot[k].d+=b[k].d; tot[k].t+=b[k].t; }); tot.pb.u+=b.pb.u; tot.all+=b.all; tot.scrap+=b.scrap; });
+  const tot={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0,c:0},all:0,scrap:0};
+  act.forEach(c=>{ const b=by[c.code]||empty; ['fc','pb','ev'].forEach(k=>{ tot[k].d+=b[k].d; tot[k].t+=b[k].t; }); tot.pb.u+=b.pb.u; tot.ev.c+=(b.ev.c||0); tot.all+=b.all; tot.scrap+=b.scrap; });
   const row=c=>{ const b=by[c.code]||empty; const p=c.pulled||{};
     return '<tr style="border-top:1px solid var(--border)">'
       +'<td style="padding:7px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><button type="button" onclick="_crCountyEdit(\''+E(c.code)+'\')" title="Edit county — active, GIS link" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px 0 0;opacity:.7">⚙️</button><b>'+E(c.city)+'</b> <span style="color:var(--text-dim);font-size:12px">'+E(c.county)+' · '+E(c.code)+'</span></td>'
@@ -106,7 +106,7 @@ function _crTrackerHtml(){
       +cell(b,'ev',p.ev,c.code)+'</tr>'; };
   const th='padding:6px;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--text-dim);text-align:center';
   const grp=(t,col)=>'<th colspan="3" style="'+th+';color:'+col+';border-bottom:2px solid '+col+'">'+t+'</th>';
-  const card=(t,k,col)=>{ const p=_crPct(tot[k].d,tot[k].t); return '<div style="flex:1;min-width:150px;background:var(--panel-2);border:1px solid var(--border);border-top:3px solid '+col+';border-radius:10px;padding:10px 12px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text-dim)">'+t+'</div><div style="font-size:20px;font-weight:800">'+tot[k].d.toLocaleString()+' <span style="font-size:13px;color:var(--text-dim);font-weight:600">/ '+tot[k].t.toLocaleString()+'</span></div><div style="font-size:12px;font-weight:700;color:'+_crPctColor(p,tot[k].t)+'">'+p.toFixed(1)+'% complete</div></div>'; };
+  const card=(t,k,col)=>{ const p=_crPct(tot[k].d,tot[k].t); return '<div style="flex:1;min-width:150px;background:var(--panel-2);border:1px solid var(--border);border-top:3px solid '+col+';border-radius:10px;padding:10px 12px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text-dim)">'+t+'</div><div style="font-size:20px;font-weight:800">'+tot[k].d.toLocaleString()+' <span style="font-size:13px;color:var(--text-dim);font-weight:600">/ '+tot[k].t.toLocaleString()+'</span></div><div style="font-size:12px;font-weight:700;color:'+_crPctColor(p,tot[k].t)+'">'+p.toFixed(1)+'% complete'+(k==='pb'&&tot[k].t?'<span style="color:var(--text-dim);font-weight:600"> · </span><span style="color:#a78bfa" title="Probates where no property address could be found (the ❓ Unknown tab)">'+_crPct(tot.pb.u,tot[k].t).toFixed(1)+'% unknown</span>':'')+(k==='ev'?'<span style="color:var(--text-dim);font-weight:600"> · </span><span style="color:#94a3b8" title="Evictions filed by an LLC / apartment / management company — in 🗑 Scrap">'+(tot.ev.c||0).toLocaleString()+' corporate filing'+(tot.ev.c===1?'':'s')+'</span>':'')+'</div></div>'; };
   return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'
       +card('Foreclosure','fc','#06b6d4')+card('Probate','pb','#a855f7')+card('Eviction','ev','#eab308')
       +'<div style="flex:1;min-width:150px;background:var(--panel-2);border:1px solid var(--border);border-top:3px solid #64748b;border-radius:10px;padding:10px 12px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text-dim)">All cases · Scrap</div><div style="font-size:20px;font-weight:800">'+tot.all.toLocaleString()+'</div><div style="font-size:12px;color:var(--text-dim)">'+tot.scrap.toLocaleString()+' in Scrap</div></div>'
@@ -116,7 +116,8 @@ function _crTrackerHtml(){
       +'<tr><th style="'+th+';text-align:left">County</th><th style="'+th+'">GIS</th>'+['fc','pb'].map(k=>'<th style="'+th+'">'+_crSetAllBtn(k)+'</th><th style="'+th+'">Done</th><th style="'+th+'">%</th>').join('')+'<th style="'+th+'">'+_crSetAllBtn('ev')+'</th><th style="'+th+'">Done</th><th style="'+th+'">%</th></tr></thead>'
       +'<tbody>'+act.map(row).join('')+'</tbody></table></div>'
     +(ina.length?'<div style="margin-top:10px"><button class="btn btn-ghost text-sm" onclick="_CR.showInactive=!_CR.showInactive;_crRender()">'+(_CR.showInactive?'▾':'▸')+' Inactive counties ('+ina.length+')</button>'
-      +(_CR.showInactive?'<div style="overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px;opacity:.75"><table style="'+_CR_TBL+'">'+_CR_COLS+'<tbody>'+ina.map(row).join('')+'</tbody></table></div>':'')+'</div>':'');
+      +(_CR.showInactive?'<div style="overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px;opacity:.75"><table style="'+_CR_TBL+'">'+_CR_COLS+'<tbody>'+ina.map(row).join('')+'</tbody></table></div>':'')+'</div>':'')
+    +'<div id="cr-chart" style="margin-top:14px">'+_crChartHtml()+'</div>';
 }
 // "Set all" — one date for every ACTIVE county's Pulled-to, per list type.
 function _crSetAllBtn(k){ return 'Pulled to <button type="button" onclick="_crSetAllOpen(\''+k+'\',this)" title="Set every active county\'s '+({fc:'Foreclosure',pb:'Probate',ev:'Eviction'}[k])+' Pulled-to date at once" style="margin-left:4px;height:20px;padding:0 6px;font-size:10px;font-weight:800;border:1px solid var(--border);background:var(--panel);color:#60a5fa;border-radius:5px;cursor:pointer;text-transform:none;letter-spacing:0">Set all</button>'; }
@@ -948,3 +949,48 @@ async function _crHrRename(){
   }catch(e){ toast('Change failed: '+(e.message||e)+(/duplicate|unique/i.test(e.message||'')?' — that email already has some of the same days logged':''),'err'); }
 }
 window._crHrRename=_crHrRename;
+
+// 📈 Filings by month — line per list type, toggle each on/off (Tracker, under the county table)
+_CR.ch=_CR.ch||{ fc:true, pb:true, ev:true, county:'', range:12 };
+function _crChartHtml(){
+  const E=_reqEsc, C=_CR.ch, T=[['fc','Foreclosure','#06b6d4'],['pb','Probate','#a855f7'],['ev','Eviction','#eab308']];
+  const act=_CR.counties.filter(c=>c.active), actSet=new Set(act.map(c=>c.code));
+  // month buckets
+  const now=new Date(), months=[]; let start;
+  const counts={fc:{},pb:{},ev:{}}; let minKey=null;
+  _CR.cases.forEach(c=>{ const k=_crTypeKey(c.case_type); if(!k) return;
+    if(C.county?c.county_code!==C.county:!actSet.has(c.county_code)) return;
+    // filed date, or the year-month built into the case number (e.g. 82D01-2607-MF-… = July 2026) when it's blank
+    let m=c.filed?String(c.filed).slice(0,7):''; if(!/^\d{4}-\d{2}$/.test(m)){ const x=String(c.case_number||'').match(/^\d{2}[A-Z]\d{2}-(\d{2})(\d{2})-/); if(!x||+x[2]<1||+x[2]>12) return; m='20'+x[1]+'-'+x[2]; } counts[k][m]=(counts[k][m]||0)+1; if(!minKey||m<minKey) minKey=m; });
+  if(C.range){ start=new Date(now.getFullYear(),now.getMonth()-(C.range-1),1); }
+  else { start=minKey?new Date(+minKey.slice(0,4),+minKey.slice(5,7)-1,1):new Date(now.getFullYear(),now.getMonth()-11,1); }
+  for(let d=new Date(start);d<=now;d.setMonth(d.getMonth()+1)) months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
+  const on=T.filter(t=>C[t[0]]);
+  const series=on.map(t=>({k:t[0],name:t[1],col:t[2],v:months.map(m=>counts[t[0]][m]||0)}));
+  const max=Math.max(1,...series.flatMap(s=>s.v)); const nice=(x=>{ const p=Math.pow(10,Math.floor(Math.log10(x))); const f=x/p; return (f<=1?1:f<=2?2:f<=5?5:10)*p; })(max);
+  const W=1000,H=250,L=44,R=12,Tp=12,B=30, iw=W-L-R, ih=H-Tp-B, n=months.length;
+  const X=i=>L+(n<=1?iw/2:i*iw/(n-1)), Y=v=>Tp+ih-(v/nice)*ih;
+  const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const lab=m=>mn[+m.slice(5,7)-1]+(m.slice(5,7)==='01'||n<=14?" '"+m.slice(2,4):'');
+  const every=Math.max(1,Math.ceil(n/14));
+  let svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" role="img" aria-label="Filings by month">';
+  const steps=(nice%4===0||nice<4)?4:5; for(let g=0;g<=steps;g++){ const v=nice*g/steps, y=Y(v); svg+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" style="stroke:var(--border)" stroke-width="1"/><text x="'+(L-8)+'" y="'+(y+4)+'" text-anchor="end" style="fill:var(--text-dim);font-size:11px">'+(Math.round(v*10)/10).toLocaleString()+'</text>'; }
+  months.forEach((m,i)=>{ if(i%every===0||i===n-1) svg+='<text x="'+X(i)+'" y="'+(H-10)+'" text-anchor="'+(i===n-1&&n>1?'end':i===0&&n>1?'start':'middle')+'" style="fill:var(--text-dim);font-size:11px">'+lab(m)+'</text>'; });
+  series.forEach(s=>{ svg+='<polyline fill="none" stroke="'+s.col+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="'+s.v.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' ')+'"/>';
+    s.v.forEach((v,i)=>{ svg+='<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="'+(n>36?2:3.5)+'" fill="'+s.col+'"><title>'+s.name+' · '+mn[+months[i].slice(5,7)-1]+' '+months[i].slice(0,4)+': '+v.toLocaleString()+' filed</title></circle>'; }); });
+  svg+='</svg>';
+  const tot=k=>months.reduce((a,m)=>a+(counts[k][m]||0),0);
+  const sel='height:32px;font-size:13px;padding:0 8px;border-radius:8px;width:auto';
+  return '<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:12px 14px">'
+    +'<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px">'
+      +'<div style="font-weight:800;font-size:14px">📈 Filings by month</div>'
+      +T.map(t=>'<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600"><input type="checkbox" '+(C[t[0]]?'checked':'')+' onchange="_CR.ch.'+t[0]+'=this.checked;_crChartDraw()" style="width:16px;height:16px;accent-color:'+t[2]+'"><span style="display:inline-block;width:14px;height:3px;border-radius:2px;background:'+t[2]+'"></span>'+t[1]+' <span style="color:var(--text-dim);font-weight:500">'+tot(t[0]).toLocaleString()+'</span></label>').join('')
+      +'<div style="margin-left:auto;display:flex;gap:8px">'
+        +'<select style="'+sel+'" onchange="_CR.ch.county=this.value;_crChartDraw()"><option value="">All active counties</option>'+_CR.counties.map(c=>'<option value="'+E(c.code)+'" '+(C.county===c.code?'selected':'')+'>'+E(c.city)+(c.active?'':' (inactive)')+'</option>').join('')+'</select>'
+        +'<select style="'+sel+'" onchange="_CR.ch.range=+this.value;_crChartDraw()">'+[[3,'Last 3 months'],[6,'Last 6 months'],[12,'Last 12 months'],[24,'Last 24 months'],[36,'Last 36 months'],[0,'All time']].map(o=>'<option value="'+o[0]+'" '+(C.range===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')+'</select>'
+      +'</div></div>'
+    +(on.length?svg:'<div style="padding:40px;text-align:center;color:var(--text-dim)">Check a list type to show its line.</div>')
+  +'</div>';
+}
+function _crChartDraw(){ const el=document.getElementById('cr-chart'); if(el) el.innerHTML=_crChartHtml(); }
+window._crChartDraw=_crChartDraw;

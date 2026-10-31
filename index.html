@@ -70496,7 +70496,7 @@ async function _reqCFSetup(id,t){
       +'<div id="req-cf-pages" style="max-height:72vh;overflow:auto;background:#525659;border-radius:8px;padding:10px;text-align:center;color:#ddd;font-size:13px">'+((existing||st.bytes)?'Loading…':'Choose the city’s blank form (PDF) to start.')+'</div>'
       +'<div style="display:flex;flex-direction:column;gap:10px;max-height:72vh;overflow:auto">'
         +'<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:10px"><div style="font-weight:800;font-size:12px;margin-bottom:6px">✍️ Add text by clicking the form</div>'
-          +'<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:6px">Pick what to add, then click on the line where it goes. Click a marker to remove it.</div>'
+          +'<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:6px">Pick what to add, then click on the line where it goes. Drag the orange ✥ to move it; click the small ✕ to remove it.</div>'
           +'<select id="req-cf-kind" style="'+inp+';width:100%">'+kindOpts('name',true)+'</select>'
           +'<input id="req-cf-text" placeholder="Custom text — can use {today} {start} {end}" style="'+inp+';width:100%;margin-top:6px;display:none"></div>'
         +'<div id="req-cf-fields" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:10px;display:none"></div>'
@@ -70540,10 +70540,23 @@ async function _reqCFSetup(id,t){
         wrap.appendChild(d); });
       st.cfg.spots.forEach((s,ix)=>{ if((s.page||0)!==pi) return; const d=document.createElement('div'); d.className='req-cf-mk';
         const lbl=s.kind==='text'?(s.text||'Custom text'):(_REQ_CF_KINDS.find(k=>k[0]===s.kind)||['',s.kind])[1];
-        d.style.cssText='position:absolute;left:'+(s.x*SCALE-15)+'px;top:'+((ps.h-s.y)*SCALE-12)+'px;width:13px;height:13px;line-height:13px;text-align:center;background:#f97316;color:#fff;font-size:9px;font-weight:800;border-radius:50%;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.4)';
-        d.textContent='✕'; d.title=(s.kind==='sign'?'Signature':lbl)+' — click to remove';
-        d.addEventListener('click',ev=>{ ev.stopPropagation(); st.cfg.spots.splice(ix,1); paintMarks(); liveFill(); });
-        wrap.appendChild(d); });
+        // Drag handle (move) + small ✕ (remove)
+        const name=(s.kind==='sign'?'Signature':lbl);
+        const place=()=>{ d.style.left=(s.x*SCALE-16)+'px'; d.style.top=((ps.h-s.y)*SCALE-13)+'px'; xb.style.left=(s.x*SCALE-28)+'px'; xb.style.top=((ps.h-s.y)*SCALE-13)+'px'; };
+        d.style.cssText='position:absolute;width:14px;height:14px;line-height:14px;text-align:center;background:#f97316;color:#fff;font-size:10px;font-weight:800;border-radius:4px;cursor:move;box-shadow:0 1px 3px rgba(0,0,0,.4);touch-action:none;user-select:none';
+        d.textContent='✥'; d.title=name+' — drag to move';
+        const xb=document.createElement('div'); xb.className='req-cf-mk';
+        xb.style.cssText='position:absolute;width:11px;height:11px;line-height:11px;text-align:center;background:#7f1d1d;color:#fff;font-size:8px;font-weight:800;border-radius:50%;cursor:pointer;opacity:.85';
+        xb.textContent='✕'; xb.title='Remove '+name;
+        xb.addEventListener('click',ev=>{ ev.stopPropagation(); st.cfg.spots.splice(ix,1); paintMarks(); liveFill(); });
+        d.addEventListener('click',ev=>ev.stopPropagation());
+        d.addEventListener('pointerdown',function(ev){ ev.preventDefault(); ev.stopPropagation(); d.setPointerCapture(ev.pointerId);
+          const sx=ev.clientX, sy=ev.clientY, ox=s.x, oy=s.y; let moved=false;
+          const mv=function(e){ const dx=(e.clientX-sx)/SCALE, dy=(e.clientY-sy)/SCALE; if(Math.abs(dx)+Math.abs(dy)>0.5) moved=true;
+            s.x=Math.round((ox+dx)*10)/10; s.y=Math.round((oy-dy)*10)/10; place(); };
+          const up=function(){ d.removeEventListener('pointermove',mv); d.removeEventListener('pointerup',up); d.removeEventListener('pointercancel',up); if(moved) liveFill(); };
+          d.addEventListener('pointermove',mv); d.addEventListener('pointerup',up); d.addEventListener('pointercancel',up); });
+        place(); wrap.appendChild(d); wrap.appendChild(xb); });
     });
   }
   // Re-draw the preview as the FILLED form (today's dates, your info, signature).

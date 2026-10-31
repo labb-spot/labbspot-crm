@@ -48,6 +48,7 @@ function _crRender(){
   root.innerHTML='<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px">'
       +'<div class="panel p-1" style="display:inline-flex;align-items:center"><div class="subtab'+(_CR.tab==='all'?' active':'')+'" onclick="_crTab(\'all\')" style="display:inline-flex;align-items:center;white-space:nowrap">🔎 All Cases</div></div>'
       +'<div class="panel p-1" style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap">'+tabs.map(t=>'<div class="subtab'+(_CR.tab===t[0]?' active':'')+'" onclick="_crTab(\''+t[0]+'\')" style="display:inline-flex;align-items:center;white-space:nowrap;'+(soon[t[0]]?'opacity:.55':'')+'">'+t[1]+'</div>').join('')+'</div>'
+      +'<div class="panel p-1" style="display:inline-flex;align-items:center"><div class="subtab'+(_CR.tab==='hours'?' active':'')+'" onclick="_crTab(\'hours\')" style="display:inline-flex;align-items:center;white-space:nowrap">⏱ Hours</div></div>'
       +'<div style="margin-left:auto;display:flex;gap:8px">'
         +(window.CR_LIMITED?'':'<button class="btn btn-ghost text-sm" onclick="_crAccessOpen()" title="Who gets the Creation-only page">👥 Access</button>'
           +'<label class="btn btn-ghost text-sm" style="cursor:pointer" title="One-time: bring cases in from your Combined sheet (CSV). Skips case numbers already here.">📥 Import sheet<input type="file" accept=".csv,text/csv" style="display:none" onchange="_crImportCsv(this)"></label>')
@@ -62,6 +63,7 @@ function _crRender(){
   else if(_CR.tab==='paste') _crPasteRender(body);
   else if(_CR.tab==='export'&&!window.CR_LIMITED) _crExportRender(body);
   else if(_CR.tab==='unknown') _crUnknownRender(body);
+  else if(_CR.tab==='hours') _crHrRender(body);
   else body.innerHTML='<div style="padding:30px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">Coming next — '+(_CR.tab==='queue'?'one case at a time with only the fields that case type needs, plus MyCase / assessor / TruePeopleSearch buttons.':'paste a MyCase results page and it files every case automatically.')+'</div>';
 }
 window._crRender=_crRender;
@@ -790,3 +792,155 @@ async function _crAccessOpen(){
   };
 }
 window._crAccessOpen=_crAccessOpen;
+
+// ----- ⏱ Hours: employees log daily hours + notes; admin sees everyone, marks pay periods paid, imports the old sheet -----
+const _CR_ADMIN='admin@labbllc.com';
+_CR.hr=_CR.hr||{ who:'', rows:[], pay:[], done:{}, edit:null, workers:[] };
+function _crHrNum(v){ const n=parseFloat(String(v==null?'':v).replace(/[^0-9.]/g,'')); return isFinite(n)?n:0; }
+function _crHrFmt(n){ n=Math.round((+n||0)*100)/100; return String(n); }
+function _crHrDay(iso){ return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(iso+'T12:00:00').getDay()]; }
+function _crHrMD(iso){ const p=iso.split('-'); return (+p[1])+'/'+(+p[2])+'/'+p[0].slice(2); }
+async function _crHrRender(body){
+  const H=_CR.hr; const E=_reqEsc;
+  const me=String(await _crMe()).toLowerCase(); const admin=me===_CR_ADMIN&&!window.CR_LIMITED; H.admin=admin;
+  body.innerHTML='<div style="padding:20px;color:var(--text-dim)">Loading hours…</div>';
+  try{
+    if(admin){
+      const w=new Set(); (await _crAccessList()).forEach(e=>w.add(String(e).toLowerCase()));
+      for(let f=0;;f+=1000){ const q=await sb.from('work_hours').select('email').range(f,f+999); if(q.error) throw q.error; (q.data||[]).forEach(r=>w.add(r.email)); if(!q.data||q.data.length<1000) break; }
+      H.workers=[...w].filter(Boolean).sort(); if(!H.who||!H.workers.includes(H.who)) H.who=H.workers[0]||'';
+    } else H.who=me;
+    H.rows=[]; H.pay=[]; H.done={};
+    if(H.who){
+      for(let f=0;;f+=1000){ const q=await sb.from('work_hours').select('*').eq('email',H.who).order('day',{ascending:false}).range(f,f+999); if(q.error) throw q.error; H.rows=H.rows.concat(q.data||[]); if(!q.data||q.data.length<1000) break; }
+      const p=await sb.from('work_pay').select('*').eq('email',H.who).order('paid_through',{ascending:false}); if(p.error) throw p.error; H.pay=p.data||[];
+      // cases this person finished per day (from Work Queue saves) — last 90 days
+      const since=new Date(Date.now()-90*864e5).toISOString();
+      for(let f=0;;f+=1000){ const q=await sb.from('court_cases').select('completed_at').eq('completed_by',H.who).gte('completed_at',since).range(f,f+999); if(q.error) break;
+        (q.data||[]).forEach(r=>{ const d=new Date(r.completed_at); const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); H.done[k]=(H.done[k]||0)+1; }); if(!q.data||q.data.length<1000) break; }
+    }
+  }catch(e){ body.innerHTML='<div style="padding:20px;color:#f87171">'+E(e.message||e)+(/work_(hours|pay)/.test(e.message||'')?' — run creation-hours.sql once in Supabase.':'')+'</div>'; return; }
+  _crHrDraw(body);
+}
+function _crHrDraw(body){
+  body=body||document.getElementById('cr-body'); if(!body) return;
+  const H=_CR.hr; const E=_reqEsc; const today=_crIsoDay(0);
+  const lastPaid=H.pay[0]&&H.pay[0].paid_through||'';
+  const unpaid=H.rows.filter(r=>!lastPaid||r.day>lastPaid);
+  const unpaidHrs=unpaid.reduce((a,r)=>a+(+r.hours||0),0);
+  // week = Saturday → Friday, like the old sheet
+  const wkStart=iso=>{ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()-((d.getDay()+1)%7)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  const thisWk=wkStart(today); const wkHrs=H.rows.filter(r=>r.day>=thisWk).reduce((a,r)=>a+(+r.hours||0),0);
+  const ed=H.edit||{day:today,hours:'',note:''}; const cur=H.rows.find(r=>r.day===ed.day);
+  const box=(t,v,s)=>'<div style="flex:1;min-width:130px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:8px 12px"><div style="font-size:11.5px;color:var(--text-dim)">'+t+'</div><div style="font-size:20px;font-weight:800">'+v+'</div>'+(s?'<div style="font-size:11.5px;color:var(--text-dim)">'+s+'</div>':'')+'</div>';
+  let html='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">'
+    +(H.admin?'<select onchange="_CR.hr.who=this.value;_CR.hr.edit=null;_crHrRender(document.getElementById(\'cr-body\'))" style="height:36px;font-size:13.5px;padding:0 10px;border-radius:8px;width:auto;min-width:240px">'+(H.workers.length?H.workers.map(w=>'<option '+(w===H.who?'selected':'')+'>'+E(w)+'</option>').join(''):'<option value="">No one yet</option>')+'</select>':'<div style="font-weight:700;font-size:14px">'+E(H.who)+'</div>')
+    +'<div style="margin-left:auto;display:flex;gap:8px">'
+      +(H.admin&&H.who&&unpaid.length?'<button class="btn btn-primary text-sm" onclick="_crHrPay()">✓ Mark paid through '+E(_crHrMD(unpaid[0].day))+' ('+_crHrFmt(unpaidHrs)+' hrs)</button>':'')
+      +(H.admin&&H.who?'<button class="btn btn-ghost text-sm" onclick="_crHrRename()" title="Move all of this person\'s hours to the email they log in with">✏️ Change email</button>':'')+(H.admin?'<label class="btn btn-ghost text-sm" style="cursor:pointer" title="Bring in an employee\'s old hours sheet (CSV)">📥 Import hours<input type="file" accept=".csv,text/csv" style="display:none" onchange="_crHrImport(this)"></label>':'')
+    +'</div></div>';
+  if(!H.who){ body.innerHTML=html+'<div style="padding:30px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">No employees yet — add one in 👥 Access, or 📥 Import hours.</div>'; return; }
+  html+='<div style="display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:14px;align-items:start">'
+    +'<div>'
+      +'<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:14px">'
+        +'<div style="font-weight:800;font-size:14px;margin-bottom:10px">'+(cur?'✏️ Edit '+E(_crHrDay(ed.day))+' '+E(_crHrMD(ed.day)):'⏱ Log hours')+'</div>'
+        +'<div style="display:flex;gap:8px;margin-bottom:8px"><input type="date" id="cr-hr-day" value="'+E(ed.day)+'" max="'+today+'" onchange="_crHrPick(this.value)" style="height:38px;font-size:14px;padding:0 8px;border-radius:8px;flex:1">'
+          +'<input id="cr-hr-hrs" type="number" step="0.25" min="0" max="24" value="'+E(ed.hours)+'" placeholder="Hours" style="height:38px;font-size:15px;font-weight:700;padding:0 10px;border-radius:8px;width:100px" onkeydown="if(event.key===\'Enter\')_crHrSave()"></div>'
+        +'<textarea id="cr-hr-note" placeholder="What did you get done? (optional)" style="width:100%;box-sizing:border-box;height:90px;font-size:13px;padding:8px 10px;border-radius:8px;font-family:inherit" onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey))_crHrSave()">'+E(ed.note||'')+'</textarea>'
+        +(H.done[ed.day]?'<div style="font-size:12px;color:var(--text-dim);margin-top:4px">'+H.done[ed.day]+' case'+(H.done[ed.day]===1?'':'s')+' finished in the Work Queue that day</div>':'')
+        +'<div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-primary" style="flex:1" onclick="_crHrSave()">💾 Save</button>'
+          +(cur?'<button class="btn btn-ghost text-sm" onclick="_CR.hr.edit=null;_crHrDraw()">Cancel</button>':'')+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
+        +box('This week (Sat–Fri)',_crHrFmt(wkHrs)+' hrs')
+        +box('Not paid yet',_crHrFmt(unpaidHrs)+' hrs',lastPaid?'since '+_crHrMD(lastPaid):'')
+      +'</div>'
+      +(H.pay.length?'<div style="margin-top:12px;font-size:12.5px"><div style="font-weight:700;margin-bottom:4px">Paid</div>'+H.pay.slice(0,8).map(p=>'<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid var(--border)"><span>through '+E(_crHrMD(p.paid_through))+'</span><span><b>'+_crHrFmt(p.hours)+'</b> hrs'+(H.admin?' <a href="#" title="Undo this payment" onclick="event.preventDefault();_crHrUnpay('+p.id+')" style="color:var(--text-dim);text-decoration:none;margin-left:6px">✕</a>':'')+'</span></div>').join('')+'</div>':'')
+    +'</div>';
+  // log table, newest first, grouped by pay period, with week subtotals
+  const rows=H.rows.slice(); const trs=[]; let wk=null, wkSum=0;
+  const flushWk=()=>{ if(wk!==null) trs.push('<tr><td colspan="5" style="padding:4px 10px;text-align:right;font-size:11.5px;color:var(--text-dim);background:var(--panel-2)">Week of '+E(_crHrMD(wk))+' · <b style="color:var(--text)">'+_crHrFmt(wkSum)+' hrs</b></td></tr>'); };
+  let paidIdx=0;
+  rows.forEach(r=>{
+    while(paidIdx<H.pay.length&&r.day<=H.pay[paidIdx].paid_through){ flushWk(); wk=null; wkSum=0; const p=H.pay[paidIdx]; trs.push('<tr><td colspan="5" style="padding:7px 10px;font-size:12px;font-weight:700;color:#22c55e;border-top:2px solid #22c55e55">✓ Paid through '+E(_crHrMD(p.paid_through))+' — '+_crHrFmt(p.hours)+' hrs</td></tr>'); paidIdx++; }
+    const w=wkStart(r.day); if(w!==wk){ flushWk(); wk=w; wkSum=0; } wkSum+=(+r.hours||0);
+    const un=!lastPaid||r.day>lastPaid;
+    trs.push('<tr onclick="_crHrPick(\''+r.day+'\')" style="cursor:pointer;border-top:1px solid var(--border)'+(H.edit&&H.edit.day===r.day?';background:rgba(96,165,250,.12)':'')+'"><td style="padding:6px 10px;white-space:nowrap;width:44px;color:var(--text-dim)">'+_crHrDay(r.day)+'</td><td style="padding:6px 10px;white-space:nowrap;width:70px">'+E(_crHrMD(r.day))+'</td><td style="padding:6px 10px;white-space:nowrap;width:60px;font-weight:700;'+(un?'':'color:var(--text-dim)')+'">'+_crHrFmt(r.hours)+'</td><td style="padding:6px 10px;white-space:nowrap;width:70px;color:var(--text-dim)">'+(H.done[r.day]?H.done[r.day]+' cases':'')+'</td><td style="padding:6px 10px;color:var(--text-dim);font-size:12px">'+E(r.note||'')+'</td></tr>');
+  });
+  flushWk();
+  html+='<div style="max-height:620px;overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'+['Day','Date','Hours','Done','Notes'].map(h=>'<th style="position:sticky;top:0;background:var(--panel);padding:7px 10px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">'+h+'</th>').join('')+'</tr></thead><tbody>'
+    +(trs.length?trs.join(''):'<tr><td colspan="5" style="padding:30px;text-align:center;color:var(--text-dim)">No hours logged yet.</td></tr>')+'</tbody></table></div></div>';
+  body.innerHTML=html;
+}
+function _crHrPick(day){ const H=_CR.hr; if(!day) return; const r=H.rows.find(x=>x.day===day); H.edit={day:day,hours:r?_crHrFmt(r.hours):'',note:r?r.note||'':''}; _crHrDraw(); const h=document.getElementById('cr-hr-hrs'); if(h) h.focus(); }
+window._crHrPick=_crHrPick;
+async function _crHrSave(){
+  const H=_CR.hr; const day=(document.getElementById('cr-hr-day')||{}).value; const hv=(document.getElementById('cr-hr-hrs')||{}).value; const note=((document.getElementById('cr-hr-note')||{}).value||'').trim();
+  if(!day){ toast('Pick a date','warn'); return; }
+  const hrs=hv===''?null:_crHrNum(hv); if(hrs!==null&&(hrs<0||hrs>24)){ toast('Hours must be 0–24','warn'); return; }
+  const lastPaid=H.pay[0]&&H.pay[0].paid_through; if(lastPaid&&day<=lastPaid&&!H.admin){ toast('That day is already paid — ask Logan to change it','warn'); return; }
+  try{
+    if(hrs===null&&!note){ const d=await sb.from('work_hours').delete().eq('email',H.who).eq('day',day); if(d.error) throw d.error; H.rows=H.rows.filter(r=>r.day!==day); toast('Removed '+_crHrMD(day),'ok'); }
+    else{ const rec={email:H.who,day:day,hours:hrs,note:note||null,updated_at:new Date().toISOString()};
+      const u=await sb.from('work_hours').upsert(rec,{onConflict:'email,day'}).select().single(); if(u.error) throw u.error;
+      H.rows=H.rows.filter(r=>r.day!==day).concat([u.data]).sort((a,b)=>a.day<b.day?1:-1); toast('⏱ Saved '+_crHrFmt(hrs||0)+' hrs for '+_crHrDay(day)+' '+_crHrMD(day),'ok'); }
+    H.edit=null; _crHrDraw();
+  }catch(e){ toast('Save failed: '+(e.message||e),'err'); }
+}
+window._crHrSave=_crHrSave;
+async function _crHrPay(){
+  const H=_CR.hr; const lastPaid=H.pay[0]&&H.pay[0].paid_through||''; const un=H.rows.filter(r=>!lastPaid||r.day>lastPaid); if(!un.length) return;
+  const thru=un[0].day; const hrs=un.reduce((a,r)=>a+(+r.hours||0),0);
+  if(!confirm('Mark '+_crHrFmt(hrs)+' hrs paid for '+H.who+' (through '+_crHrMD(thru)+')?')) return;
+  const r=await sb.from('work_pay').insert({email:H.who,paid_through:thru,hours:hrs,paid_at:new Date().toISOString()}).select().single();
+  if(r.error){ toast('Failed: '+r.error.message,'err'); return; }
+  H.pay.unshift(r.data); toast('✓ Marked paid','ok'); _crHrDraw();
+}
+window._crHrPay=_crHrPay;
+async function _crHrUnpay(id){
+  if(!confirm('Undo this payment? Those hours go back to "not paid yet".')) return;
+  const r=await sb.from('work_pay').delete().eq('id',id); if(r.error){ toast('Failed: '+r.error.message,'err'); return; }
+  _CR.hr.pay=_CR.hr.pay.filter(p=>p.id!==id); _crHrDraw();
+}
+window._crHrUnpay=_crHrUnpay;
+// Old sheet: Day, Date, Sheets Time, Hours, (Added) Goal, Daily Notes. "PAID" + a total marks the end of each paid period.
+async function _crHrImport(inp){
+  const f=inp.files&&inp.files[0]; inp.value=''; if(!f) return; const H=_CR.hr;
+  const email=(prompt('Whose hours are these? Type the email they log in with:',H.who||'')||'').trim().toLowerCase();
+  if(!email||!/@/.test(email)) return;
+  try{
+    const rows=_crParseCsv(await f.text()); const head=(rows.shift()||[]).map(h=>String(h).trim().toLowerCase());
+    const col=re=>head.findIndex(h=>re.test(h));
+    const ix={date:col(/^date/),st:col(/sheets time/),hrs:col(/^hours/),goal:col(/goal|paid/),note:col(/note/)};
+    if(ix.date<0||ix.hrs<0) throw new Error('Could not find Date and Hours columns');
+    const recs=[]; const pays=[]; let blockPaid=false, blockHrs=0;
+    rows.forEach(r=>{
+      const m=String(r[ix.date]||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(!m) return;
+      const y=m[3].length===2?'20'+m[3]:m[3]; const day=y+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');
+      const hrs=String(r[ix.hrs]||'').trim(); const st=ix.st>=0?String(r[ix.st]||'').trim():''; let note=ix.note>=0?String(r[ix.note]||'').trim():'';
+      const g=ix.goal>=0?String(r[ix.goal]||'').trim():'';
+      if(st) note=(note?note+' · ':'')+'Sheets time: '+st;
+      if(hrs!==''||note) recs.push({email:email,day:day,hours:hrs===''?null:_crHrNum(hrs),note:note||null});
+      blockHrs+=hrs===''?0:_crHrNum(hrs);
+      if(/paid/i.test(g)) blockPaid=true;
+      else if(/^\d+(\.\d+)?$/.test(g)){ if(blockPaid&&day<=_crIsoDay(0)) pays.push({email:email,paid_through:day,hours:blockHrs,paid_at:new Date(day+'T17:00:00').toISOString(),note:note&&/bonus/i.test(note)?note:null}); blockPaid=false; blockHrs=0; }
+    });
+    if(!recs.length) throw new Error('No hours found in that file');
+    if(!confirm('Import '+recs.length+' days ('+_crHrFmt(recs.reduce((a,r)=>a+(r.hours||0),0))+' hrs) and '+pays.length+' paid periods for '+email+'?\nDays already logged in Data LAB are left as they are.')) return;
+    for(let i=0;i<recs.length;i+=500){ const u=await sb.from('work_hours').upsert(recs.slice(i,i+500),{onConflict:'email,day',ignoreDuplicates:true}); if(u.error) throw u.error; }
+    if(pays.length){ const u=await sb.from('work_pay').upsert(pays,{onConflict:'email,paid_through',ignoreDuplicates:true}); if(u.error) throw u.error; }
+    toast('📥 Imported '+recs.length+' days for '+email,'ok'); H.who=email; _crHrRender(document.getElementById('cr-body'));
+  }catch(e){ toast('Import failed: '+(e.message||e),'err'); }
+}
+window._crHrImport=_crHrImport;
+async function _crHrRename(){
+  const H=_CR.hr; const old=H.who; if(!old) return;
+  const nu=(prompt('Move all hours and paid periods from "'+old+'" to which login email?',/@/.test(old)?old:'')||'').trim().toLowerCase();
+  if(!nu||nu===old) return; if(!/@/.test(nu)){ toast('That doesn\'t look like an email','warn'); return; }
+  try{
+    const a=await sb.from('work_hours').update({email:nu}).eq('email',old); if(a.error) throw a.error;
+    const b=await sb.from('work_pay').update({email:nu}).eq('email',old); if(b.error) throw b.error;
+    toast('✏️ Moved '+old+' → '+nu,'ok'); H.who=nu; _crHrRender(document.getElementById('cr-body'));
+  }catch(e){ toast('Change failed: '+(e.message||e)+(/duplicate|unique/i.test(e.message||'')?' — that email already has some of the same days logged':''),'err'); }
+}
+window._crHrRename=_crHrRename;

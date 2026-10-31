@@ -54837,7 +54837,8 @@ async function saveListSource() {
   const notes = (document.getElementById('ls-notes').value || '').trim();
   if (!name) { toast('Source name required', 'err'); return; }
 
-  const mappings = (cache.config && cache.config.column_mappings) ? { ...cache.config.column_mappings } : {};
+  let mappings = (cache.config && cache.config.column_mappings) ? { ...cache.config.column_mappings } : {};
+  try { const fr = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle(); if (fr.data && fr.data.column_mappings && typeof fr.data.column_mappings === 'object') mappings = fr.data.column_mappings; } catch (_) {}  // fresh copy so other saved settings aren't wiped
   const custom = Array.isArray(mappings.custom_list_sources) ? [...mappings.custom_list_sources] : [];
   if (DEFAULT_LIST_SOURCES.some(s => s.value.toLowerCase() === name.toLowerCase()) ||
       custom.some(s => s.toLowerCase() === name.toLowerCase())) {
@@ -56185,7 +56186,8 @@ async function updateResultsDBCount() {
 async function saveGmapsKey() {
   if (typeof GMAPS_KEY === 'undefined') return;
   GMAPS_KEY = document.getElementById('settings-gmaps-key').value.trim();
-  const mappings = cache.config.column_mappings || {};
+  let mappings = cache.config.column_mappings || {};
+  try { const fr = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle(); if (fr.data && fr.data.column_mappings && typeof fr.data.column_mappings === 'object') mappings = fr.data.column_mappings; } catch (_) {}  // fresh copy so other saved settings (e.g. Creation access) aren't wiped
   mappings.gmaps_key = GMAPS_KEY;
   await sb.from('app_config').update({ column_mappings: mappings, updated_at: nowIso() }).eq('id', 1);
   cache.config.column_mappings = mappings;

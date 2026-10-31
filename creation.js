@@ -73,7 +73,7 @@ function _crRender(){
       +'<div style="margin-left:auto;display:flex;gap:8px">'
         +(window.CR_LIMITED?'':'<button class="btn btn-ghost text-sm" onclick="_crAccessOpen()" title="Who gets the Creation-only page">👥 Access</button>'
           +'<label class="btn btn-ghost text-sm" style="cursor:pointer" title="One-time: bring cases in from your Combined sheet (CSV). Skips case numbers already here.">📥 Import sheet<input type="file" accept=".csv,text/csv" style="display:none" onchange="_crImportCsv(this)"></label>')
-        +'<button class="btn btn-ghost text-sm" onclick="_crLoad(true).then(_crRender)" title="Re-pull from the database">↻</button>'
+        +'<button class="btn btn-ghost text-sm" id="cr-refresh" onclick="_crRefresh(this)" title="Re-pull from the database" style="width:40px;justify-content:center"><span class="cr-spin-ico" style="display:inline-block">↻</span></button>'
       +'</div></div>'
     +'<div id="cr-body"></div>';
   const body=document.getElementById('cr-body');
@@ -1212,3 +1212,17 @@ async function _crLiSave(btn){
   }catch(e){ btn.disabled=false; btn.textContent='Try again'; toast('Add failed: '+(e.message||e)+(/parcel|amount|extra/.test(e.message||'')?' — run creation-lists.sql in Supabase first':''),'err'); }
 }
 window._crLiSave=_crLiSave;
+
+// ↻ Refresh: spin the icon + dim the current view while it re-pulls, so you can see it working (nothing changes size).
+async function _crRefresh(btn){
+  if(_CR._refreshing) return; _CR._refreshing=true;
+  if(!document.getElementById('cr-spin-css')){ const st=document.createElement('style'); st.id='cr-spin-css'; st.textContent='@keyframes crspin{to{transform:rotate(360deg)}} .cr-spinning .cr-spin-ico{animation:crspin .8s linear infinite}'; document.head.appendChild(st); }
+  const body=document.getElementById('cr-body'); const t0=Date.now();
+  if(btn){ btn.classList.add('cr-spinning'); btn.disabled=true; }
+  if(body){ body.style.transition='opacity .15s'; body.style.opacity='.45'; body.style.pointerEvents='none'; }
+  try{ _CR.loading=false; await _crLoad(true); if(Date.now()-t0<450) await new Promise(r=>setTimeout(r,450-(Date.now()-t0)));
+    _CR._refreshing=false; _crRender(); toast('↻ Refreshed — '+_CR.cases.length.toLocaleString()+' cases','ok'); }
+  catch(e){ toast('Refresh failed: '+(e.message||e),'err'); }
+  finally{ _CR._refreshing=false; const b=document.getElementById('cr-refresh'); if(b){ b.classList.remove('cr-spinning'); b.disabled=false; } const bd=document.getElementById('cr-body'); if(bd){ bd.style.opacity=''; bd.style.pointerEvents=''; } }
+}
+window._crRefresh=_crRefresh;

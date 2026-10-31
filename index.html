@@ -69869,7 +69869,10 @@ function _reqTypeCardHtml(r,t,btn){
       +'<label onclick="event.stopPropagation()" style="flex:0 1 auto;min-width:0;white-space:nowrap;font-size:11.5px;color:var(--text-dim);display:inline-flex;align-items:center;gap:5px" title="Received">Rcvd <input type="date" value="'+E(d.received||'')+'" onchange="_reqSetDate(\''+id+'\',\''+tq+'\',\'received\',this)" style="height:30px;width:126px;min-width:96px;flex:0 1 126px;font-size:12px;padding:0 6px;border-radius:7px;color:'+(d.received?col:'var(--text)')+'"></label>'
       +_reqConnSelectHtml(r,t)
       +(_reqFormFor(r,t)?'<button type="button" onclick="event.stopPropagation();_reqDownloadForm(\''+id+'\',\''+tq+'\',this)" title="Download this department\'s request form, filled in for today" style="'+btn+';color:#fbbf24">📄 Form</button>':'<button type="button" onclick="event.stopPropagation();_reqCFSetup(\''+id+'\',\''+tq+'\')" title="No form yet — click to set one up" style="'+btn+';color:var(--text-dim);opacity:.45">📄 Form</button>')
-      +'<button type="button" onclick="event.stopPropagation();_reqMailType(\''+id+'\',\''+tq+'\')" '+(emails.length?'':'disabled ')+'title="'+(emails.length?'Email '+emails.length+' contact'+(emails.length>1?'s':'')+' with your request template':'Add a contact email first')+'" style="'+btn+';color:#a78bfa;'+(emails.length?'':'opacity:.4;cursor:default')+'">📧 Email</button>'
+      +(_tc.site?(function(){ const u=_reqSiteUrl(r,t,_tc.site); const z=_tc.site==='zeus'; const nm=z?'Zeus':'Portal';
+          return u?'<a href="'+E(u)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open '+(z?'Zeus':'the request portal')+': '+E(u)+'" style="'+btn+';width:80px;justify-content:center;color:'+(z?'#facc15':'#60a5fa')+'">🌐 '+nm+'</a>'
+                  :'<span title="No request portal saved — add it as this list type\'s Website in ✏️ Edit, or as Request Page in 🔗 Links" style="'+btn+';width:80px;justify-content:center;color:var(--text-dim);opacity:.4;cursor:default">🌐 '+nm+'</span>'; })():'')
+      +(_tc.site?'':'<button type="button" onclick="event.stopPropagation();_reqMailType(\''+id+'\',\''+tq+'\')" '+(emails.length?'':'disabled ')+'title="'+(emails.length?'Email '+emails.length+' contact'+(emails.length>1?'s':'')+' with your request template':'Add a contact email first')+'" style="'+btn+';width:80px;justify-content:center;color:#a78bfa;'+(emails.length?'':'opacity:.4;cursor:default')+'">📧 Email</button>')
       +'<button type="button" onclick="event.stopPropagation();_reqEditStart(\''+id+'\',\''+tq+'\')" title="Edit" style="'+btn+';color:var(--text)">✏️</button>')
     +(editing?'<div style="display:flex;gap:8px;margin-left:auto">'
         +'<button type="button" class="btn btn-ghost text-sm" onclick="_reqCFSetup(\''+id+'\',\''+tq+'\')" title="Upload / change this department\'s request form">📄 '+(_reqFormFor(r,t)?'Change form':'Set up form')+'</button>'
@@ -69879,7 +69882,8 @@ function _reqTypeCardHtml(r,t,btn){
     +'</div>';
   if(editing){
     const inp='height:34px;font-size:13px;padding:0 9px;width:100%;box-sizing:border-box';
-    const _ecs=d.office?((_reqOfficeData(r)[d.office]||{}).contacts||[]):(d.contacts||[]);
+    const _lnk=(d.office&&d.office.charAt(0)!=='@')?d.office:'';
+    const _ecs=_lnk?((_reqOfficeData(r)[_lnk]||{}).contacts||[]):(d.contacts||[]);
     const _pi=_reqPrimaryIdx(_ecs);
     const row=(c,i)=>'<div class="rq-c-row" style="display:grid;grid-template-columns:24px 1fr 1.1fr 1.5fr 1fr 30px;align-items:center;gap:6px;margin-bottom:6px">'
       +'<input type="checkbox" class="rq-c-pick" '+(i===_pi?'checked':'')+' title="Use this contact (shown + emailed)" onchange="if(this.checked){var me=this;this.closest(\'.rq-c-list\').querySelectorAll(\'.rq-c-pick\').forEach(function(x){if(x!==me)x.checked=false;});}" style="width:17px;height:17px;margin:0 auto;cursor:pointer;accent-color:#6366f1">'
@@ -69889,10 +69893,10 @@ function _reqTypeCardHtml(r,t,btn){
       +'<input class="rq-c-phone" placeholder="Phone" value="'+E(c.phone||'')+'" style="'+inp+'">'
       +'<button type="button" title="Remove" onclick="this.closest(\'.rq-c-row\').remove()" style="height:34px;border:1px solid var(--border);background:transparent;color:#f87171;border-radius:7px;cursor:pointer;font-weight:700">×</button></div>';
     const today=new Date(); const td=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-    return '<div class="rq-edit-card" data-rows="'+(_ecs.length?_ecs.length:1)+'" data-office="'+E(d.office||'')+'" style="background:var(--panel);border:1px solid '+tc+';border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px">'+head
+    return '<div class="rq-edit-card" data-rows="'+(_ecs.length?_ecs.length:1)+'" data-office="'+E(_lnk)+'" style="background:var(--panel);border:1px solid '+tc+';border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px">'+head
       +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:11.5px;color:var(--text-dim)">Contacts from:</span>'+_reqConnSelectHtml(r,t)
-        +(d.office?'<span style="font-size:11.5px;color:#a5b4fc">Shared with the <b>'+E(d.office)+'</b> connection — changes here update it everywhere it\'s used.</span>':'')+'</div>'
-      +'<div style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+(d.office?E(d.office)+' contacts':'Contacts')+'</div>'
+        +(_lnk?'<span style="font-size:11.5px;color:#a5b4fc">Shared with the <b>'+E(_lnk)+'</b> connection — changes here update it everywhere it\'s used.</span>':'')+'</div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+(_lnk?E(_lnk)+' contacts':'Contacts')+'</div>'
       +'<div class="rq-c-list">'+((_ecs.length?_ecs:[{}]).map(row).join(''))+'</div>'
       +'<button type="button" onclick="this.previousElementSibling.insertAdjacentHTML(\'beforeend\', _reqEditRowBlank())" style="height:30px;padding:0 12px;font-size:12px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:7px;cursor:pointer;margin-bottom:10px">+ Contact</button>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
@@ -69906,6 +69910,7 @@ function _reqTypeCardHtml(r,t,btn){
   return '<div style="background:var(--panel);border:1px solid var(--border);border-left:4px solid '+tc+';border-radius:10px;padding:12px 14px;'+(has?'':'opacity:.7')+'">'+head
     +(open?'<div>'
     +(_tc.office?'<div style="font-size:11.5px;color:#a5b4fc;padding:2px 0 6px">🔗 Using <b>'+E(_tc.office)+'</b> contacts from Connections</div>':'')
+    +(_tc.site?'<div style="font-size:11.5px;color:'+(_tc.site==='zeus'?'#facc15':'#60a5fa')+';padding:2px 0 6px">🌐 Requested through the <b>'+(_tc.site==='zeus'?'Zeus':'request portal')+'</b> website — no contact needed.</div>':'')
     +(cs.length?_reqContactsOrdered(cs,'D|'+r.id+'|'+t).map(c=>{ const realIdx=_tc.cs.indexOf(c);
         return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border)">'
           +'<div style="flex:0 0 150px;min-width:0;font-size:12.5px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis">'+E(c.title||'')+'</div>'
@@ -69914,7 +69919,7 @@ function _reqTypeCardHtml(r,t,btn){
           +'<div style="flex:0 0 120px;font-size:12.5px;color:var(--text-dim)">'+E(c.phone||'')+'</div>'
           +(c.email?'<button type="button" onclick="_reqMail(\''+id+'\',\''+tq+'\','+realIdx+')" style="'+btn+';color:#a78bfa">📧</button>':'')
           +(c.phone?'<a href="tel:'+E(String(c.phone).replace(/[^0-9+]/g,''))+'" style="'+btn+';color:#34d399">📞</a>':'')
-        +'</div>'; }).join('')+_reqMoreToggle(cs,'D|'+r.id+'|'+t):(has?'<div style="font-size:12px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px">No contacts yet.</div>':''))
+        +'</div>'; }).join('')+_reqMoreToggle(cs,'D|'+r.id+'|'+t):((has&&!_tc.site)?'<div style="font-size:12px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px">No contacts yet.</div>':''))
     +(d.website?'<div style="margin-top:6px"><a href="'+E(/^https?:\/\//i.test(d.website)?d.website:'https://'+d.website)+'" target="_blank" rel="noopener" style="color:#60a5fa;font-size:12.5px;text-decoration:none">🌐 '+E(d.website)+'</a></div>':'')
     +(d.notes?'<div style="margin-top:6px;font-size:12.5px;color:var(--text-dim);white-space:pre-wrap">📝 '+E(d.notes)+'</div>':'')
     +(has?'':'<div style="font-size:12px;color:var(--text-dim);border-top:1px solid var(--border);padding-top:6px">Nothing here yet — click ✏️ Edit to add contacts.</div>')
@@ -70109,19 +70114,30 @@ window._reqToggleOffices=_reqToggleOffices;
 // A list type can point at a Connection (office) instead of keeping its own contacts: lists[t].office
 function _reqTypeContacts(r,t){
   const d=(r&&r.lists&&r.lists[t])||{};
+  if(d.office&&d.office.charAt(0)==='@') return {office:'',site:d.office.slice(1),cs:[]};
   if(d.office){ const b=_reqOfficeData(r)[d.office]; return {office:d.office,cs:(b&&b.contacts)||[]}; }
   return {office:'',cs:(d.contacts||[]).filter(Boolean)};
 }
 window._reqTypeContacts=_reqTypeContacts;
+// URL for a list type that's set to a website instead of a contact.
+function _reqSiteUrl(r,t,kind){
+  const d=(r&&r.lists&&r.lists[t])||{}; const L=_reqLinksNorm(r);
+  if(d.website&&String(d.website).trim()) return _reqNormUrl2(d.website);
+  if(kind==='zeus'){ const z=L.find(l=>l.kind==='zeus'&&l.show)||L.find(l=>l.kind==='zeus'); return z?_reqNormUrl2(z.url):'https://www.zeusauction.com/'; }
+  const pg=L.find(l=>l.kind==='page'&&l.show)||L.find(l=>l.kind==='page'); return pg?_reqNormUrl2(pg.url):'';
+}
+window._reqSiteUrl=_reqSiteUrl;
 function _reqConnSelectHtml(r,t){
   const E=_reqEsc; const d=(r.lists&&r.lists[t])||{}; const by=_reqOfficeData(r);
   const opts=Object.keys(by).filter(o=>by[o].contacts.length);
-  if(d.office&&opts.indexOf(d.office)<0) opts.push(d.office);
+  if(d.office&&d.office.charAt(0)!=='@'&&opts.indexOf(d.office)<0) opts.push(d.office);
   const order=_REQ_OFFICES.map(o=>o[0]); opts.sort((a,b)=>{ const i=order.indexOf(a),j=order.indexOf(b); return (i<0?99:i)-(j<0?99:j); });
   const lbl=(o)=>{ const cs=(by[o]&&by[o].contacts)||[]; const p=cs[_reqPrimaryIdx(cs)]; return o; };
   return '<select onclick="event.stopPropagation()" onchange="_reqLinkOffice(\''+E(r.id)+'\',\''+E(t).replace(/'/g,"\\'")+'\',this)" title="Use a Connection\'s contacts for this list type" style="height:30px;flex:0 4 250px;width:250px;min-width:105px;font-size:12px;padding:0 6px;border-radius:7px;'+(d.office?'color:#a5b4fc;border-color:#6366f1':'color:var(--text-dim)')+'">'
     +'<option value="">🔗 Own contacts</option>'
     +opts.map(o=>'<option value="'+E(o)+'" '+(d.office===o?'selected':'')+'>🔗 '+E(lbl(o))+'</option>').join('')
+    +'<option value="@zeus" '+(d.office==='@zeus'?'selected':'')+'>🌐 Zeus</option>'
+    +'<option value="@portal" '+(d.office==='@portal'?'selected':'')+'>🌐 Request portal</option>'
   +'</select>';
 }
 async function _reqLinkOffice(id,t,sel){
@@ -70137,7 +70153,7 @@ async function _reqLinkOffice(id,t,sel){
     const up=await sb.from('request_cities').update({lists:lists,updated_at:new Date().toISOString()}).eq('id',id).select().single();
     if(up.error) throw up.error;
     if(up.data){ if(!up.data.lists||typeof up.data.lists!=='object') up.data.lists={}; cache.requests[id]=up.data; }
-    renderRequestsList(); if(typeof toast==='function') toast(val?(t+' now uses '+val):(t+' uses its own contacts'),'ok');
+    renderRequestsList(); if(typeof toast==='function') toast(val?(t+' now uses '+(val==='@zeus'?'the Zeus website':val==='@portal'?'the request portal':val)):(t+' uses its own contacts'),'ok');
   }catch(err){ console.warn('link office:',err); sel.disabled=false; if(typeof toast==='function') toast('Save failed: '+(err.message||err),'err'); renderRequestsList(); }
 }
 window._reqLinkOffice=_reqLinkOffice;
@@ -70666,7 +70682,7 @@ function _reqHeaderLinksHtml(r){
   const one=(k,title)=>{ const l=pick(k);
     if(!l) return '<span onclick="_reqLinksOpen(\''+E(r.id)+'\')" title="No '+title+' link picked yet — click to choose" style="color:var(--text-dim);opacity:.45;font-size:12.5px;font-weight:600;cursor:pointer">🌐 '+title+'</span>';
     return '<a href="'+E(_reqNormUrl2(l.url))+'" target="_blank" rel="noopener" title="'+E(l.label||l.url)+'" style="color:#60a5fa;text-decoration:none;font-size:12.5px;font-weight:600">🌐 '+title+'</a>'; };
-  return '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:12px">'+one('page','Request Page')+one('form','Request Form')+one('taxsale','Tax Sale Results')+one('contact','Contact Us')
+  return '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:12px">'+one('page','Request Page')+one('taxsale','Tax Sale Results')+one('contact','Contact Us')
     +(function(){ const z=pick('zeus'); const u=z?_reqNormUrl2(z.url):'https://www.zeusauction.com/';
       return '<a href="'+E(u)+'" target="_blank" rel="noopener" title="'+E(z?(z.label||z.url):'Zeus Auction — tax sale lists')+'" style="color:#facc15;text-decoration:none;font-size:12.5px;font-weight:600">🌐 Zeus</a>'; })()
     +'</div>';

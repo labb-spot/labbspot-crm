@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Data LAB · Creation</title>
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="%23f97316"/><text x="32" y="44" font-size="34" text-anchor="middle" fill="white" font-family="Arial" font-weight="700">L</text></svg>'>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root { --brand:#f97316; --brand-dark:#c2410c; --bg:#0b0f17; --panel:#121826; --panel-2:#1a2234; --border:#243049; --text:#e5e7eb; --text-dim:#9ca3af; --good:#10b981; --warn:#f59e0b; --bad:#ef4444; }
+  html, body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  html { scrollbar-gutter: stable; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-weight: 500; font-size: 14px; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; user-select: none; }
+  .btn-primary { background: var(--brand); color: white; }
+  .btn-primary:hover { background: var(--brand-dark); }
+  .btn-primary:disabled, .btn-ghost:disabled { opacity: .5; cursor: default; }
+  .btn-ghost { background: transparent; color: var(--text); border-color: var(--border); }
+  .btn-ghost:hover { background: var(--panel-2); }
+  .subtab { padding: 6px 14px; border-radius: 8px; cursor: pointer; color: var(--text-dim); font-weight: 500; font-size: 13px; transition: all 0.15s; user-select: none; }
+  .subtab:hover { color: var(--text); }
+  .subtab.active { background: var(--panel-2); color: var(--text); }
+  table { width: 100%; font-size: 13px; border-collapse: collapse; }
+  thead th { text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); font-weight: 600; background: var(--panel-2); border-bottom: 1px solid var(--border); }
+  tbody td { color: var(--text); }
+  input, select, textarea { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-size: 14px; width: 100%; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand); }
+  input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .8; cursor: pointer; }
+  input[type="checkbox"] { width: auto; }
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; z-index: 200000; opacity: 0; transition: opacity 0.2s; max-width: 400px; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast.ok { border-color: var(--good); }
+  .toast.err { border-color: var(--bad); }
+  .toast.warn { border-color: var(--warn); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--panel-2); border-radius: 5px; }
+</style>
+</head>
+<body>
+<div id="login" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%, #1a2234, #0a0e1a)">
+  <form onsubmit="return crLogin(event)" style="width:min(360px,92vw);background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:26px">
+    <div style="font-size:20px;font-weight:800;margin-bottom:4px">Data LAB</div>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px">Creation — sign in</div>
+    <input id="login-email" type="email" placeholder="Email" autocomplete="username" style="margin-bottom:10px">
+    <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" style="margin-bottom:12px">
+    <div id="login-error" style="display:none;color:#f87171;font-size:13px;margin-bottom:10px"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" id="login-btn">Sign in</button>
+  </form>
+</div>
+<div id="app" style="display:none">
+  <div style="display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid var(--border)">
+    <div style="width:30px;height:30px;border-radius:8px;background:var(--brand);display:flex;align-items:center;justify-content:center;font-weight:800">L</div>
+    <div style="font-weight:800;font-size:16px">Data LAB <span style="color:var(--text-dim);font-weight:600">· Creation</span></div>
+    <div style="margin-left:auto;font-size:13px;color:var(--text-dim)" id="me"></div>
+    <button class="btn btn-ghost text-sm" onclick="crLogout()">Sign out</button>
+  </div>
+  <div style="padding:20px 24px">
+    <div class="panel p-5"><div id="cr-root"></div></div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+<script>
+  window.CR_LIMITED = true;   // Creation-only: no Export / geocoding / Import sheet
+  const SUPABASE_URL = 'https://jexytttqozcdtexkxoff.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpleHl0dHRxb3pjZHRleGt4b2ZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMzQ1NDYsImV4cCI6MjA5MTgxMDU0Nn0.VDQr5hJ12x9-vy-IsEsnKHBxq6Ptmzfw8IlzbjfRpTw';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  let _toastHideTimer = null;
+  const toast = (msg, kind='') => { const el=document.getElementById('toast'); if(!el) return; el.textContent=msg; el.className='toast show '+kind;
+    if(_toastHideTimer) clearTimeout(_toastHideTimer); _toastHideTimer=setTimeout(()=>{ el.className='toast'; _toastHideTimer=null; }, kind==='err'?7000:4000); };
+  function _reqEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function _reqFmtDate(d){ if(!d) return ''; try{ const dt=new Date(d+'T00:00:00'); if(isNaN(dt)) return d; return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(_){ return d; } }
+  function crShow(user){ document.getElementById('login').style.display='none'; document.getElementById('app').style.display=''; document.getElementById('me').textContent=user&&user.email||''; _crRender(); }
+  async function crLogin(e){ e.preventDefault(); const b=document.getElementById('login-btn'), err=document.getElementById('login-error'); err.style.display='none'; b.disabled=true; b.textContent='Signing in…';
+    try{ const { data, error } = await sb.auth.signInWithPassword({ email: document.getElementById('login-email').value.trim(), password: document.getElementById('login-password').value });
+      if(error) throw error; crShow(data.user); }catch(ex){ err.textContent=ex.message||'Login failed'; err.style.display=''; }
+    b.disabled=false; b.textContent='Sign in'; return false; }
+  async function crLogout(){ if(!confirm('Sign out?')) return; try{ await sb.auth.signOut(); }catch(_){} location.reload(); }
+  window.addEventListener('DOMContentLoaded', async ()=>{ try{ const { data:{ session } } = await sb.auth.getSession(); if(session) crShow(session.user); else document.getElementById('login').style.display='flex'; }catch(_){ document.getElementById('login').style.display='flex'; } });
+</script>
+<script src="creation.js"></script>
+</body>
+</html>

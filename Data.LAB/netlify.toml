@@ -1,0 +1,31 @@
+# No build step — index.html is a single self-contained static file.
+# Tailwind loads via CDN at runtime (the precompile experiment didn't help
+# perf and broke some utility classes, so it was reverted).
+[build]
+  publish = "."
+
+[build.environment]
+  SECRETS_SCAN_ENABLED = "false"
+
+# Clean public form URLs (query strings like ?token=... are preserved).
+# status = 200 rewrites so the address bar stays pretty (/bids, not the .html).
+[[redirects]]
+  from = "/pictures"
+  to = "/submit.labbllc/submit-photos.html"
+  status = 200
+
+[[redirects]]
+  from = "/bids"
+  to = "/submit.labbllc/submit-bid.html"
+  status = 200
+
+[[redirects]]
+  from = "/invoices"
+  to = "/submit.labbllc/submit-invoice.html"
+  status = 200
+
+# Creation-only page for court-records employees (light, fast).
+[[redirects]]
+  from = "/creation"
+  to = "/creation.html"
+  status = 200

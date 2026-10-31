@@ -41,6 +41,10 @@ async function _crLoad(force){
 }
 function _crCountyName(code){ const c=_CR.counties.find(x=>x.code===code); return c?(c.city+' · '+c.county):code; }
 function _crRender(){
+  if(!document.getElementById('cr-scroll-css')){ const st=document.createElement('style'); st.id='cr-scroll-css';
+    st.textContent='#cr-root ::-webkit-scrollbar{width:12px;height:12px}#cr-root ::-webkit-scrollbar-track{background:transparent}'
+      +'#cr-root ::-webkit-scrollbar-thumb{background:#334155;border:2px solid #94a3b8;border-radius:8px}#cr-root ::-webkit-scrollbar-thumb:hover{background:#475569;border-color:#cbd5e1}';
+    document.head.appendChild(st); }
   const root=document.getElementById('cr-root'); if(!root) return;
   if(!_CR.loaded){ root.innerHTML='<div style="padding:30px;text-align:center;color:var(--text-dim)">'+(_CR.err?('⚠ '+_reqEsc(_CR.err)+(/court_c/.test(_CR.err)?' — run creation-tables.sql once in Supabase.':'')):'Loading cases…')+'</div>'; if(!_CR.err) _crLoad().then(_crRender); return; }
   const tabs=[['tracker','📊 Tracker'],['queue','🧾 Work Queue'],['paste','📋 Paste from MyCase'],['scrap','🗑 Scrap'],['unknown','❓ Unknown']].concat(window.CR_LIMITED?[]:[['export','📤 Export']]);
@@ -574,7 +578,7 @@ function _crQueueRender(body){
       +'<span style="font-size:12.5px;color:var(--text-dim)" id="cr-qcount">'+list.length.toLocaleString()+' case'+(list.length===1?'':'s')+'</span>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:12px;align-items:start">'
-      +'<div id="cr-qlist" style="background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:6px;max-height:calc(100vh - 260px);overflow-y:auto">'
+      +'<div id="cr-qlist" style="background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:6px;max-height:calc(100vh - 170px);min-height:420px;overflow-y:auto">'
         +(shown.length?shown.map(item).join(''):'<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:13px">Nothing here 🎉</div>')
         +(list.length>shown.length?'<button class="btn btn-ghost text-sm" style="width:100%;margin-top:4px" onclick="_CR.q.more=(_CR.q.more||0)+200;_crRender()">Show more ('+(list.length-shown.length).toLocaleString()+')</button>':'')
       +'</div>'

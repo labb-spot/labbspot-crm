@@ -2064,7 +2064,7 @@
           <button class="btn btn-ghost text-sm" onclick="reqEmailTplOpen()" title="Edit the request-email templates (one per list type) the ✉️ buttons use.">✉️ Emails</button>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
-          <button id="requests-priority-filter" class="btn btn-ghost text-sm" data-on="0" onclick="requestsTogglePriority()" title="Show only cities you've marked as Priority." style="height:38px;min-width:110px;justify-content:center;display:inline-flex;align-items:center;gap:6px">⭐ Priority</button>
+          <button id="requests-priority-filter" class="btn btn-ghost text-sm" data-on="1" onclick="requestsTogglePriority()" title="Show only cities you've marked as Priority." style="height:38px;min-width:110px;justify-content:center;display:inline-flex;align-items:center;gap:6px;background:rgba(245,158,11,0.18);border-color:#f59e0b;color:#fbbf24">⭐ Priority</button>
           <button id="requests-sort-btn" class="btn btn-ghost text-sm" data-sort="city" onclick="requestsToggleSort()" title="Switch between sorting your cities by City name or grouping them under their County." style="height:38px;width:138px;justify-content:center;display:inline-flex;align-items:center;white-space:nowrap">🔀 Sort: City</button>
           <button class="btn btn-primary text-sm" onclick="requestOpenModal()" title="Add a city (with its county) to track list requests for.">+ Add City</button>
           <button class="btn btn-ghost text-sm" onclick="requestAddType()" title="Add a new list type — it applies to every city.">+ List Type</button>
@@ -69748,7 +69748,7 @@ window._reqSel = window._reqSel || null;
 function _reqLatest(r, key){ let best=''; Object.values((r&&r.lists)||{}).forEach(d=>{ const v=d&&d[key]; if(v && v>best) best=v; }); return best; }
 function _reqSelect(id){ window._reqSel=id; renderRequestsList(); }
 window._reqSelect=_reqSelect;
-function _reqSetListSort(v){ window._reqListSort=v; try{ localStorage.setItem('req_list_sort',v); }catch(_){} const l=document.getElementById('req-city-list'); if(l) l.scrollTop=0; renderRequestsList(); }
+function _reqSetListSort(v){ window._reqListSort=v; try{ localStorage.setItem('req_list_sort2',v); }catch(_){} const l=document.getElementById('req-city-list'); if(l) l.scrollTop=0; renderRequestsList(); }
 window._reqSetListSort=_reqSetListSort;
 // Stop the browser's own address autofill from dropping a DIFFERENT saved address
 // (address + city + ZIP together) into the open deal. Covers every uw- field,
@@ -69788,7 +69788,7 @@ function _reqSplitRender(){
   if(empty) empty.style.display='none';
   const sortMode=(document.getElementById('requests-sort-btn')?.getAttribute('data-sort'))||'city';
   const _alpha=(a,b)=>String(a.city||'').toLowerCase().localeCompare(String(b.city||'').toLowerCase());
-  let _ls='requested'; try{ _ls=window._reqListSort||localStorage.getItem('req_list_sort')||'requested'; }catch(_){ _ls=window._reqListSort||'requested'; }
+  let _ls='requested'; try{ _ls=window._reqListSort||localStorage.getItem('req_list_sort2')||'requested'; }catch(_){ _ls=window._reqListSort||'requested'; }
   const _byDate=(key)=>(a,b)=>{ const x=_reqLatest(a,key), y=_reqLatest(b,key); if(x&&!y) return -1; if(y&&!x) return 1; return (y>x?1:y<x?-1:0)||_alpha(a,b); };
   const byName=_ls==='requested'?_byDate('requested'):_ls==='received'?_byDate('received'):_ls==='az'?_alpha:((a,b)=>((b.priority?1:0)-(a.priority?1:0))||_alpha(a,b));
   if(!window._reqSel || !rows.some(r=>r.id===window._reqSel)){ const first=rows.slice().sort(byName)[0]; window._reqSel=first&&first.id; }

@@ -70496,7 +70496,7 @@ async function _reqCFSetup(id,t){
       +'<div id="req-cf-pages" style="max-height:72vh;overflow:auto;background:#525659;border-radius:8px;padding:10px;text-align:center;color:#ddd;font-size:13px">'+((existing||st.bytes)?'Loading…':'Choose the city’s blank form (PDF) to start.')+'</div>'
       +'<div style="display:flex;flex-direction:column;gap:10px;max-height:72vh;overflow:auto">'
         +'<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:10px"><div style="font-weight:800;font-size:12px;margin-bottom:6px">✍️ Add text by clicking the form</div>'
-          +'<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:6px">Pick what to add, then click on the line where it goes. Drag the orange ✥ to move it; click the small ✕ to remove it.</div>'
+          +'<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:6px">Pick what to add, then click on the line where it goes. Drag the orange ✥ to move it; click the small ✕ to remove it. On forms with fill-in boxes, hit “✥ Make these movable” first.</div>'
           +'<select id="req-cf-kind" style="'+inp+';width:100%">'+kindOpts('name',true)+'</select>'
           +'<input id="req-cf-text" placeholder="Custom text — can use {today} {start} {end}" style="'+inp+';width:100%;margin-top:6px;display:none"></div>'
         +'<div id="req-cf-fields" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:10px;display:none"></div>'
@@ -70523,9 +70523,21 @@ async function _reqCFSetup(id,t){
     box.style.display='';
     box.innerHTML='<div style="font-weight:800;font-size:12px;margin-bottom:6px">🔲 Fill-in boxes on this PDF ('+tx.length+')</div>'
       +'<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:6px">Pick what goes in each box. Click a box on the form to jump to it.</div>'
+      +'<button type="button" id="req-cf-unbox" style="width:100%;height:30px;margin-bottom:6px;font-size:12px;font-weight:700;color:#f97316;background:transparent;border:1px dashed #f97316;border-radius:7px;cursor:pointer" title="Turns every filled box into text you can drag anywhere">✥ Make these movable</button>'
       +tx.map(f=>{ const c=st.cfg.fields[f.name]||{}; return '<div data-frow="'+E(f.name)+'" style="padding:5px 0;border-top:1px solid var(--border)"><div style="font-size:11px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+E(f.name)+'">'+(f.type==='check'?'☐ ':'')+E(f.name)+'</div>'
         +(f.type==='check'?'<select data-fk="'+E(f.name)+'" style="'+inp+';width:100%"><option value="">— leave unchecked —</option><option value="x" '+(c.kind==='x'?'selected':'')+'>Check it</option></select>'
           :'<select data-fk="'+E(f.name)+'" style="'+inp+';width:100%">'+kindOpts(c.kind||'',true)+'</select><input data-ft="'+E(f.name)+'" value="'+E(c.text||'')+'" placeholder="Custom text" style="'+inp+';width:100%;margin-top:4px;display:'+(c.kind==='text'?'':'none')+'">')+'</div>'; }).join('');
+    const ub=box.querySelector('#req-cf-unbox'); if(ub) ub.addEventListener('click',function(){
+      // Move each filled box's content into a draggable spot at the same place, then clear the box.
+      let n=0;
+      Object.keys(st.cfg.fields).forEach(function(name){ const c=st.cfg.fields[name]; const f=st.info.find(z=>z.name===name); if(!c||!c.kind||!f) return;
+        if(f.type==='check'){ if(c.kind==='x') st.cfg.spots.push({page:f.page,x:f.x+Math.max(0,(f.w-7)/2),y:f.y+Math.max(1,(f.h-8)/2),kind:'x',size:10}); }
+        else if(c.kind==='sign') st.cfg.spots.push({page:f.page,x:f.x+3,y:f.y+4,kind:'sign',h:Math.min(24,Math.max(14,f.h*1.3))});
+        else { const size=c.kind==='request'?9:Math.min(10,Math.max(7,f.h*0.7)); st.cfg.spots.push({page:f.page,x:f.x+2,y:f.y+Math.max(1.5,(f.h-size*0.72)/2),kind:c.kind,text:c.text,size:size,w:Math.max(30,f.w-4)}); }
+        delete st.cfg.fields[name]; n++; });
+      renderFieldList(); paintMarks(); liveFill();
+      if(typeof toast==='function') toast(n?('✥ '+n+' boxes are now movable — drag the orange handles'):'Nothing filled in the boxes yet','ok');
+    });
     box.querySelectorAll('[data-fk]').forEach(sel=>sel.addEventListener('change',function(){ const n=this.getAttribute('data-fk'); st.cfg.fields[n]=Object.assign(st.cfg.fields[n]||{},{kind:this.value}); if(!this.value) delete st.cfg.fields[n]; const ti=box.querySelector('[data-ft="'+CSS.escape(n)+'"]'); if(ti) ti.style.display=this.value==='text'?'':'none'; paintMarks(); liveFill(); }));
     box.querySelectorAll('[data-ft]').forEach(ti=>ti.addEventListener('input',function(){ const n=this.getAttribute('data-ft'); st.cfg.fields[n]=Object.assign(st.cfg.fields[n]||{kind:'text'},{text:this.value}); liveFill(); }));
   }

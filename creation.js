@@ -179,15 +179,32 @@ function _crCountyEdit(code){
 }
 window._crCountyEdit=_crCountyEdit;
 // Scrap list: everything coded 4.x — kept for reference, never sent to Imports or geocoded.
-async function _crScrapRender(body){
-  body.innerHTML='<div style="padding:20px;color:var(--text-dim)">Loading scrap…</div>';
+// Counts come from every scrap case; the table pages in 500 at a time (Supabase sends max 1,000 per request).
+_CR.scrap={ rows:[], done:false, busy:false };
+async function _crScrapFetch(){
+  const S=_CR.scrap; if(S.busy||S.done) return; S.busy=true;
+  try{ const from=S.rows.length;
+    const q=await sb.from('court_cases').select('case_number,county_code,style,case_type,filed,sort_code').like('sort_code','4.%').order('filed',{ascending:false,nullsFirst:false}).order('case_number').range(from,from+499);
+    if(q.error) throw q.error; const d=q.data||[]; S.rows=S.rows.concat(d); if(d.length<500) S.done=true;
+  } finally { S.busy=false; }
+}
+window._crScrapMore=async function(){ await _crScrapFetch(); const b=document.getElementById('cr-body'); if(b) _crScrapRender(b,true); else _crRender(); };
+async function _crScrapRender(body,keep){
+  const S=_CR.scrap;
+  if(!keep){ S.rows=[]; S.done=false; body.innerHTML='<div style="padding:20px;color:var(--text-dim)">Loading scrap…</div>'; }
   try{
-    const q=await sb.from('court_cases').select('case_number,county_code,style,case_type,filed,sort_code,plaintiff').like('sort_code','4.%').order('filed',{ascending:false}).limit(1000);
-    if(q.error) throw q.error; const E=_reqEsc; const rows=q.data||[];
-    body.innerHTML='<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:8px">'+rows.length+' scrap case'+(rows.length===1?'':'s')+' — guardianships for a minor and evictions filed by an LLC / apartment complex. Kept for reference; never uploaded or geocoded.</div>'
+    if(!S.rows.length&&!S.done) await _crScrapFetch();
+    const E=_reqEsc; const rows=S.rows;
+    const sc=_CR.cases.filter(c=>_crScrap(c.sort_code)); const total=sc.length;
+    const n42=sc.filter(c=>c.sort_code==='4.2').length, n43=sc.filter(c=>c.sort_code==='4.3').length, nOth=total-n42-n43;
+    const pill=(t,n)=>'<span style="display:inline-block;background:var(--panel-2);border:1px solid var(--border);border-radius:999px;padding:3px 10px;margin-right:6px;font-size:12px"><b>'+n.toLocaleString()+'</b> '+t+'</span>';
+    body.innerHTML='<div style="margin-bottom:10px;display:flex;align-items:center;flex-wrap:wrap;gap:4px"><span style="font-size:13px;font-weight:700;margin-right:8px">'+total.toLocaleString()+' scrap case'+(total===1?'':'s')+'</span>'+pill('minor guardianship',n42)+pill('LLC / apartment',n43)+(nOth?pill('other',nOth):'')
+        +'<span style="font-size:12px;color:var(--text-dim);margin-left:4px">Kept for reference; never uploaded or geocoded. Use 🔎 All Cases to search for one.</span></div>'
       +(rows.length?'<div style="overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>'+['Why','Case #','County','Type','Filed','Style'].map(h=>'<th style="padding:6px 8px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">'+h+'</th>').join('')+'</tr></thead><tbody>'
         +rows.map(r=>'<tr style="border-top:1px solid var(--border)"><td style="padding:6px 8px;white-space:nowrap">'+(r.sort_code==='4.2'?'Minor guardianship':r.sort_code==='4.3'?'LLC / apartment':'Scrap')+'</td><td style="padding:6px 8px;white-space:nowrap"><a href="https://public.courts.in.gov/mycase/#/vw/Search" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none">'+E(r.case_number)+'</a></td><td style="padding:6px 8px">'+E(_crCountyName(r.county_code))+'</td><td style="padding:6px 8px">'+E(r.case_type||'')+'</td><td style="padding:6px 8px;white-space:nowrap">'+E(r.filed?_reqFmtDate(r.filed):'')+'</td><td style="padding:6px 8px">'+E(r.style||'')+'</td></tr>').join('')
-        +'</tbody></table></div>':'<div style="padding:30px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">Nothing in Scrap yet.</div>');
+        +'</tbody></table></div>'
+        +'<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:10px;font-size:12.5px;color:var(--text-dim)">Showing '+rows.length.toLocaleString()+' of '+total.toLocaleString()+(S.done?'':' <button type="button" class="btn btn-ghost text-sm" onclick="this.disabled=true;this.textContent=\'Loading…\';_crScrapMore()">Show 500 more</button>')+'</div>'
+        :'<div style="padding:30px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">Nothing in Scrap yet.</div>');
   }catch(e){ body.innerHTML='<div style="padding:20px;color:#f87171">'+_reqEsc(e.message||e)+'</div>'; }
 }
 // 🔎 All Cases: search every case (case #, names, address, attorney, petitioner) and open any one.
@@ -437,7 +454,7 @@ async function _crExExport(btn){
 }
 window._crExExport=_crExExport;
 async function _crExReDownload(label){
-  try{ const r=await sb.from('court_cases').select('*').eq('export_batch',label).limit(10000); if(r.error) throw r.error; if(r.data&&r.data.length) _crDownloadCsv(r.data,'Creation export '+label.replace(/[:·]/g,'-')+'.csv'); }
+  try{ const all=[]; for(let f=0;;f+=1000){ const r=await sb.from('court_cases').select('*').eq('export_batch',label).order('case_number').range(f,f+999); if(r.error) throw r.error; all.push.apply(all,r.data||[]); if(!r.data||r.data.length<1000) break; } const r={data:all}; if(r.data.length) _crDownloadCsv(r.data,'Creation export '+label.replace(/[:·]/g,'-')+'.csv'); }
   catch(e){ if(typeof toast==='function') toast('Download failed: '+(e.message||e),'err'); }
 }
 window._crExReDownload=_crExReDownload;

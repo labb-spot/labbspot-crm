@@ -3,14 +3,31 @@
 // Tables: court_cases (one row per case number) + court_counties (Tracker list).
 // Works in place: saving a case never reloads the page or the list.
 window._CR = window._CR || { loaded:false, loading:false, counties:[], cases:[], tab:'tracker', showInactive:false };
-const _CR_TYPES = { fc:'Foreclosure', pb:'Probate', ev:'Eviction' };
-function _crTypeKey(t){ t=String(t||'').toLowerCase(); if(/mortgage|foreclos/.test(t)) return 'fc'; if(/estate|guardian|probate/.test(t)) return 'pb'; if(/evict/.test(t)) return 'ev'; return ''; }
+const _CR_TYPES = { fc:'Foreclosure', pb:'Probate', ev:'Eviction', cv:'Code Violation', ul:'Utility Lien', ts:'Tax Sale' };
+const _CR_COL = { fc:'#06b6d4', pb:'#a855f7', ev:'#eab308', cv:'#f43f5e', ul:'#22c55e', ts:'#3b82f6' };
+const _CR_SFX = { fc:'.1', pb:'.2', ev:'.3', cv:'.4', ul:'.5', ts:'.6' };
+const _CR_LISTS = ['cv','ul','ts'];   // city / county lists (not court cases)
+// Company-type owner names — scrapped (LLC landlords, management companies, etc.)
+const _CR_CORP = /\b(l\.?l\.?c|l\.?l\.?p|inc|corp|corporation|apartments?|apts?|properties|property management|management|holdings|l\.?p|ltd|company|housing|homes|realty|partners|rentals?|investments?|group|enterprises|ventures|capital)\b|\bLL$/i;
+function _crTypeKey(t){ t=String(t||''); if(/^CV\b/.test(t)) return 'cv'; if(/^UL\b/.test(t)) return 'ul'; if(/^TS\b/.test(t)) return 'ts'; t=t.toLowerCase(); if(/mortgage|foreclos/.test(t)) return 'fc'; if(/estate|guardian|probate/.test(t)) return 'pb'; if(/evict/.test(t)) return 'ev'; return ''; }
+// Scrap codes: 4.2 minor guardianship · 4.3 company landlord eviction · 4.4 company owner (lists) · 4.7 tax sale no bid · 4.8 inactive tax parcel
+const _CR_SCRAP_WHY = { '4.2':'Minor guardianship', '4.3':'LLC / apartment', '4.4':'Company owner', '4.7':'No bid at tax sale', '4.8':'Inactive tax parcel' };
 // Sort code — same rules as the sheet's Task List.
 function _crSort(c){
-  const k=_crTypeKey(c.case_type); const sfx={fc:'.1',pb:'.2',ev:'.3'}[k]; if(!sfx) return '';
+  const k=_crTypeKey(c.case_type); const sfx=_CR_SFX[k]; if(!sfx) return '';
   const v=x=>String(x==null?'':x).trim(); const unk=x=>/^unknown$/i.test(v(x));
+  if(_CR_LISTS.indexOf(k)>=0){   // city / county lists: done as soon as there's an address + owner
+    const ex=c.extra||{};
+    if(k==='ts'&&ex.inactive) return '4.8';
+    if(k==='ts'&&/^nb$/i.test(v(ex.bid))) return '4.7';
+    if(_CR_CORP.test(c.defendant||'')) return '4.4';
+    if(!v(c.address)||!v(c.defendant)) return '0'+sfx;
+    if(unk(c.address)) return '3'+sfx;
+    if(unk(c.defendant)) return '1'+sfx;
+    return '2'+sfx;
+  }
   if(k==='pb' && /guardian/i.test(c.case_type||'') && /minor/i.test((c.style||'')+' '+(c.case_type||''))) return '4.2';
-  if(k==='ev' && /\b(l\.?l\.?c|inc|corp|corporation|apartments?|apts?|properties|property management|management|holdings|l\.?p|ltd|company|housing|homes|realty|partners)\b/i.test(c.plaintiff||'')) return '4.3';
+  if(k==='ev' && _CR_CORP.test(c.plaintiff||'')) return '4.3';
   const req = k==='pb' ? [c.address,c.defendant,c.attorney,_crPetName(c),_crPetAddr(c),_crPetCount(c)] : [c.address,c.defendant,c.plaintiff,c.attorney];
   if(req.some(x=>!v(x))) return '0'+sfx;
   if(unk(c.address)) return '3'+sfx;
@@ -47,7 +64,7 @@ function _crRender(){
     document.head.appendChild(st); }
   const root=document.getElementById('cr-root'); if(!root) return;
   if(!_CR.loaded){ root.innerHTML='<div style="padding:30px;text-align:center;color:var(--text-dim)">'+(_CR.err?('⚠ '+_reqEsc(_CR.err)+(/court_c/.test(_CR.err)?' — run creation-tables.sql once in Supabase.':'')):'Loading cases…')+'</div>'; if(!_CR.err) _crLoad().then(_crRender); return; }
-  const tabs=[['tracker','📊 Tracker'],['queue','🧾 Work Queue'],['paste','📋 Paste from MyCase'],['scrap','🗑 Scrap'],['unknown','❓ Unknown']].concat(window.CR_LIMITED?[]:[['export','📤 Export']]);
+  const tabs=[['tracker','📊 Tracker'],['queue','🧾 Work Queue'],['paste','📋 Paste / Import'],['scrap','🗑 Scrap'],['unknown','❓ Unknown']].concat(window.CR_LIMITED?[]:[['export','📤 Export']]);
   const soon={};
   root.innerHTML='<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px">'
       +'<div class="panel p-1" style="display:inline-flex;align-items:center"><div class="subtab'+(_CR.tab==='all'?' active':'')+'" onclick="_crTab(\'all\')" style="display:inline-flex;align-items:center;white-space:nowrap">🔎 All Cases</div></div>'
@@ -76,8 +93,8 @@ window._crTab=_crTab;
 function _crStats(){
   const by={};
   _CR.cases.forEach(c=>{ const k=_crTypeKey(c.case_type); if(!k) return; const cc=c.county_code||'?';
-    const b=by[cc]||(by[cc]={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0,c:0},scrap:0,all:0});
-    if(_crScrap(c.sort_code)){ b.scrap++; if(c.sort_code==='4.3') b.ev.c++; return; }
+    const b=by[cc]||(by[cc]={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0,c:0},cv:{d:0,t:0,s:0},ul:{d:0,t:0,s:0},ts:{d:0,t:0,s:0},scrap:0,all:0});
+    if(_crScrap(c.sort_code)){ b.scrap++; if(c.sort_code==='4.3') b.ev.c++; if(b[k].s!=null) b[k].s++; return; }
     b.all++; b[k].t++; if(_crDone(c.sort_code)) b[k].d++; if(k==='pb'&&/^3\./.test(c.sort_code||'')) b.pb.u++; });
   return by;
 }
@@ -94,7 +111,7 @@ function _crTrackerHtml(){
     return '<td style="text-align:center;padding:4px 4px"><input type="date" value="'+(pulled||'')+'" title="Pulled to — change it when you pull" onchange="_crSetPulled(\''+code+'\',\''+k+'\',this)" style="height:28px;width:128px;font-size:12px;padding:0 5px;border-radius:6px;color:var(--text-dim)"></td>'
       +'<td style="text-align:center;padding:7px 6px"><b>'+x.d.toLocaleString()+'</b><span style="color:var(--text-dim)"> / '+x.t.toLocaleString()+'</span></td>'
       +'<td style="text-align:center;padding:7px 6px;font-weight:700;color:'+_crPctColor(p,x.t)+'">'+(x.t?p.toFixed(1)+'%':'—')+'</td>'; };
-  const empty={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0},scrap:0,all:0};
+  const empty={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0},cv:{d:0,t:0,s:0},ul:{d:0,t:0,s:0},ts:{d:0,t:0,s:0},scrap:0,all:0};
   const act=_CR.counties.filter(c=>c.active), ina=_CR.counties.filter(c=>!c.active);
   const tot={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0,c:0},all:0,scrap:0};
   act.forEach(c=>{ const b=by[c.code]||empty; ['fc','pb','ev'].forEach(k=>{ tot[k].d+=b[k].d; tot[k].t+=b[k].t; }); tot.pb.u+=b.pb.u; tot.ev.c+=(b.ev.c||0); tot.all+=b.all; tot.scrap+=b.scrap; });
@@ -117,14 +134,15 @@ function _crTrackerHtml(){
       +'<tbody>'+act.map(row).join('')+'</tbody></table></div>'
     +(ina.length?'<div style="margin-top:10px"><button class="btn btn-ghost text-sm" onclick="_CR.showInactive=!_CR.showInactive;_crRender()">'+(_CR.showInactive?'▾':'▸')+' Inactive counties ('+ina.length+')</button>'
       +(_CR.showInactive?'<div style="overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px;opacity:.75"><table style="'+_CR_TBL+'">'+_CR_COLS+'<tbody>'+ina.map(row).join('')+'</tbody></table></div>':'')+'</div>':'')
+    +_crListsHtml(by)
     +'<div id="cr-chart" style="margin-top:14px">'+_crChartHtml()+'</div>';
 }
 // "Set all" — one date for every ACTIVE county's Pulled-to, per list type.
-function _crSetAllBtn(k){ return 'Pulled to <button type="button" onclick="_crSetAllOpen(\''+k+'\',this)" title="Set every active county\'s '+({fc:'Foreclosure',pb:'Probate',ev:'Eviction'}[k])+' Pulled-to date at once" style="margin-left:4px;height:20px;padding:0 6px;font-size:10px;font-weight:800;border:1px solid var(--border);background:var(--panel);color:#60a5fa;border-radius:5px;cursor:pointer;text-transform:none;letter-spacing:0">Set all</button>'; }
+function _crSetAllBtn(k){ return 'Pulled to <button type="button" onclick="_crSetAllOpen(\''+k+'\',this)" title="Set every active county\'s '+(_CR_TYPES[k])+' Pulled-to date at once" style="margin-left:4px;height:20px;padding:0 6px;font-size:10px;font-weight:800;border:1px solid var(--border);background:var(--panel);color:#60a5fa;border-radius:5px;cursor:pointer;text-transform:none;letter-spacing:0">Set all</button>'; }
 function _crIsoDay(off){ const d=new Date(); d.setDate(d.getDate()+(off||0)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function _crSetAllOpen(k,anchor){
   const old=document.getElementById('cr-setall'); if(old){ old.remove(); if(old.getAttribute('data-k')===k) return; }
-  const name={fc:'Foreclosure',pb:'Probate',ev:'Eviction'}[k]; const n=_CR.counties.filter(c=>c.active).length;
+  const name=_CR_TYPES[k]; const n=_CR.counties.filter(c=>c.active).length;
   const pop=document.createElement('div'); pop.id='cr-setall'; pop.setAttribute('data-k',k);
   const r=anchor.getBoundingClientRect();
   pop.style.cssText='position:fixed;top:'+(r.bottom+6)+'px;left:'+Math.max(10,Math.min(window.innerWidth-290,r.left-110))+'px;z-index:100004;width:270px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;box-shadow:0 12px 40px rgba(0,0,0,.5);font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;text-align:left';
@@ -153,7 +171,7 @@ async function _crSaveCounty(code,patch){
 async function _crSetPulled(code,k,inp){
   const c=_CR.counties.find(x=>x.code===code); if(!c) return;
   const pulled=Object.assign({},c.pulled||{}); if(inp.value) pulled[k]=inp.value; else delete pulled[k];
-  if(await _crSaveCounty(code,{pulled:pulled})){ if(typeof toast==='function') toast(c.city+' · '+({fc:'Foreclosure',pb:'Probate',ev:'Eviction'}[k])+' pulled to '+(inp.value?_reqFmtDate(inp.value):'—'),'ok'); }
+  if(await _crSaveCounty(code,{pulled:pulled})){ if(typeof toast==='function') toast(c.city+' · '+(_CR_TYPES[k])+' pulled to '+(inp.value?_reqFmtDate(inp.value):'—'),'ok'); }
 }
 window._crSetPulled=_crSetPulled;
 function _crCountyEdit(code){
@@ -203,12 +221,12 @@ async function _crScrapRender(body,keep){
     if(!S.rows.length&&!S.done) await _crScrapFetch();
     const E=_reqEsc; const rows=S.rows;
     const sc=_CR.cases.filter(c=>_crScrap(c.sort_code)); const total=sc.length;
-    const n42=sc.filter(c=>c.sort_code==='4.2').length, n43=sc.filter(c=>c.sort_code==='4.3').length, nOth=total-n42-n43;
+    const byWhy={}; sc.forEach(c=>{ const w=_CR_SCRAP_WHY[c.sort_code]||'other'; byWhy[w]=(byWhy[w]||0)+1; });
     const pill=(t,n)=>'<span style="display:inline-block;background:var(--panel-2);border:1px solid var(--border);border-radius:999px;padding:3px 10px;margin-right:6px;font-size:12px"><b>'+n.toLocaleString()+'</b> '+t+'</span>';
-    body.innerHTML='<div style="margin-bottom:10px;display:flex;align-items:center;flex-wrap:wrap;gap:4px"><span style="font-size:13px;font-weight:700;margin-right:8px">'+total.toLocaleString()+' scrap case'+(total===1?'':'s')+'</span>'+pill('minor guardianship',n42)+pill('LLC / apartment',n43)+(nOth?pill('other',nOth):'')
+    body.innerHTML='<div style="margin-bottom:10px;display:flex;align-items:center;flex-wrap:wrap;gap:4px"><span style="font-size:13px;font-weight:700;margin-right:8px">'+total.toLocaleString()+' scrap case'+(total===1?'':'s')+'</span>'+Object.keys(byWhy).sort((a,b)=>byWhy[b]-byWhy[a]).map(w=>pill(w.toLowerCase(),byWhy[w])).join('')
         +'<span style="font-size:12px;color:var(--text-dim);margin-left:4px">Kept for reference; never uploaded or geocoded. Use 🔎 All Cases to search for one.</span></div>'
       +(rows.length?'<div style="overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>'+['Why','Case #','County','Type','Filed','Style'].map(h=>'<th style="padding:6px 8px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">'+h+'</th>').join('')+'</tr></thead><tbody>'
-        +rows.map(r=>'<tr style="border-top:1px solid var(--border)"><td style="padding:6px 8px;white-space:nowrap">'+(r.sort_code==='4.2'?'Minor guardianship':r.sort_code==='4.3'?'LLC / apartment':'Scrap')+'</td><td style="padding:6px 8px;white-space:nowrap"><a href="https://public.courts.in.gov/mycase/#/vw/Search" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none">'+E(r.case_number)+'</a></td><td style="padding:6px 8px">'+E(_crCountyName(r.county_code))+'</td><td style="padding:6px 8px">'+E(r.case_type||'')+'</td><td style="padding:6px 8px;white-space:nowrap">'+E(r.filed?_reqFmtDate(r.filed):'')+'</td><td style="padding:6px 8px">'+E(r.style||'')+'</td></tr>').join('')
+        +rows.map(r=>'<tr style="border-top:1px solid var(--border)"><td style="padding:6px 8px;white-space:nowrap">'+(_CR_SCRAP_WHY[r.sort_code]||'Scrap')+'</td><td style="padding:6px 8px;white-space:nowrap">'+(_CR_LISTS.indexOf(_crTypeKey(r.case_type))>=0?E(r.case_number):'<a href="https://public.courts.in.gov/mycase/#/vw/Search" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none">'+E(r.case_number)+'</a>')+'</td><td style="padding:6px 8px">'+E(_crCountyName(r.county_code))+'</td><td style="padding:6px 8px">'+E(r.case_type||'')+'</td><td style="padding:6px 8px;white-space:nowrap">'+E(r.filed?_reqFmtDate(r.filed):'')+'</td><td style="padding:6px 8px">'+E(r.style||'')+'</td></tr>').join('')
         +'</tbody></table></div>'
         +'<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:10px;font-size:12.5px;color:var(--text-dim)">Showing '+rows.length.toLocaleString()+' of '+total.toLocaleString()+(S.done?'':' <button type="button" class="btn btn-ghost text-sm" onclick="this.disabled=true;this.textContent=\'Loading…\';_crScrapMore()">Show 500 more</button>')+'</div>'
         :'<div style="padding:30px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">Nothing in Scrap yet.</div>');
@@ -239,7 +257,7 @@ async function _crAllSearch(){
     if(a.age){ const ago=m=>{ const d=new Date(); d.setMonth(d.getMonth()-m); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
       if(a.age==='3+') q=q.lte('filed',ago(3)); else if(a.age==='6+') q=q.lte('filed',ago(6)); }
     if(a.county) q=q.eq('county_code',a.county);
-    if(a.type){ const pat={fc:'*mortgage*',pb:'*estate*',ev:'*evict*'}[a.type]; if(pat) q=q.ilike('case_type',pat.replace(/\*/g,'%')); }
+    if(a.type){ const pat={fc:'*mortgage*',pb:'*estate*',ev:'*evict*',cv:'CV *',ul:'UL *',ts:'TS *'}[a.type]; if(pat) q=q.ilike('case_type',pat.replace(/\*/g,'%')); }
     if(a.q){ const t=a.q.replace(/[%,()*]/g,' ').trim(); if(t){ const w='%'+t+'%'; q=q.or(['case_number','style','defendant','plaintiff','address','attorney','petitioner','petitioner_address','plaintiff_address'].map(c=>c+'.ilike.'+w).join(',')); } }
     const r=await q.order('filed',{ascending:false,nullsFirst:false}).limit(300);
     if(r.error) throw r.error; const rows=r.data||[]; const total=(typeof r.count==='number')?r.count:rows.length;
@@ -249,7 +267,7 @@ async function _crAllSearch(){
       +(rows.length?'<div style="overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'+['Status','Type','Name','Address','County','Filed','Case #'].map(h=>'<th style="'+th+'">'+h+'</th>').join('')+'</tr></thead><tbody>'
         +rows.map(x=>{ const k=_crTypeKey(x.case_type); return '<tr onclick="_crOpenAny(\''+E(x.id)+'\')" style="border-top:1px solid var(--border);cursor:pointer" onmouseover="this.style.background=\'rgba(99,102,241,0.08)\'" onmouseout="this.style.background=\'\'">'
           +'<td style="padding:8px 10px">'+_crStatusPill(x.sort_code,true)+'</td>'
-          +'<td style="padding:8px 10px;white-space:nowrap;font-weight:700;color:'+({fc:'#06b6d4',pb:'#a855f7',ev:'#eab308'}[k]||'var(--text)')+'">'+E({fc:'Foreclosure',pb:'Probate',ev:'Eviction'}[k]||'')+'</td>'
+          +'<td style="padding:8px 10px;white-space:nowrap;font-weight:700;color:'+(_CR_COL[k]||'var(--text)')+'">'+E(_CR_TYPES[k]||'')+'</td>'
           +'<td style="padding:8px 10px">'+E(x.defendant||x.style||'')+'</td>'
           +'<td style="padding:8px 10px;color:var(--text-dim)">'+E(x.address||'')+'</td>'
           +'<td style="padding:8px 10px;white-space:nowrap">'+E(_crCountyName(x.county_code).split(' · ')[0])+'</td>'
@@ -287,8 +305,11 @@ function _crParseMyCase(text){
 }
 _CR.paste=_CR.paste||{ rows:null, text:'' };
 function _crPasteRender(body){
-  const E=_reqEsc; const P=_CR.paste;
-  body.innerHTML='<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:14px;align-items:stretch">'
+  const E=_reqEsc; const P=_CR.paste; const mode=_CR.addMode||'mycase';
+  const pill=(m,t)=>'<div class="subtab'+(mode===m?' active':'')+'" onclick="_CR.addMode=\''+m+'\';_crRender()" style="display:inline-flex;align-items:center;white-space:nowrap">'+t+'</div>';
+  const head='<div class="panel p-1" style="display:inline-flex;gap:4px;margin-bottom:12px">'+pill('mycase','⚖️ Paste from MyCase')+pill('list','📥 Import a list (Excel / CSV)')+'</div>';
+  if(mode==='list'){ body.innerHTML=head+'<div id="cr-li"></div>'; _crLiRender(document.getElementById('cr-li')); return; }
+  body.innerHTML=head+'<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:14px;align-items:stretch">'
     +'<div style="display:flex;flex-direction:column;min-height:420px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div style="font-size:14px;font-weight:700;flex:1">1. Paste MyCase results</div><button type="button" class="btn btn-ghost text-sm" onclick="_CR.paste={rows:null,text:\'\'};_crRender()">Clear</button></div>'
       +'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:8px">In MyCase, drag from the end of the last row (after Pending / Decided) up to the first case number, copy, and paste here. You can paste several pages at once.</div>'
       +'<textarea id="cr-paste-box" placeholder="Paste here (Ctrl+V)…" style="width:100%;flex:1 1 auto;min-height:340px;box-sizing:border-box;font-size:12.5px;padding:10px;border-radius:10px;font-family:inherit;resize:none" oninput="_crPasteRead()">'+E(P.text||'')+'</textarea></div>'
@@ -308,7 +329,7 @@ async function _crPasteRead(){
     for(let i=0;i<miss.length;i+=150){ const q=await sb.from('court_cases').select('case_number').in('case_number',miss.slice(i,i+150)); (q.data||[]).forEach(x=>have.add(x.case_number)); } }catch(_){}
   rows.forEach(c=>{ c.county_code=c.case_number.slice(0,2);
     if(have.has(c.case_number)) c._st='have'; else if(!_crKeepType(c.case_type)) c._st='skip';
-    else { c.sort_code=_crSort(c)||'0'+({fc:'.1',pb:'.2',ev:'.3'}[_crTypeKey(c.case_type)]||''); c._st=_crScrap(c.sort_code)?'scrap':'new'; } });
+    else { c.sort_code=_crSort(c)||'0'+(_CR_SFX[_crTypeKey(c.case_type)]||''); c._st=_crScrap(c.sort_code)?'scrap':'new'; } });
   P.rows=rows;
   const n=k=>rows.filter(r=>r._st===k).length;
   const counties=[...new Set(rows.filter(r=>r._st==='new'||r._st==='have'||r._st==='scrap').map(r=>r.county_code))];
@@ -380,11 +401,11 @@ async function _crExportRender(body){
   try{
     const rows=await _crExFetch(); _CR.exRows=rows;
     const geo=rows.filter(c=>c.geo_status==='ok').length, fail=rows.filter(c=>c.geo_status==='failed').length, need=rows.length-geo-fail;
-    const byT={fc:0,pb:0,ev:0}; rows.forEach(c=>{ const k=_crTypeKey(c.case_type); if(k) byT[k]++; });
+    const byT={}; rows.forEach(c=>{ const k=_crTypeKey(c.case_type); if(k) byT[k]=(byT[k]||0)+1; });
     const card=(t,v,col,sub)=>'<div style="flex:1;min-width:150px;background:var(--panel-2);border:1px solid var(--border);border-top:3px solid '+col+';border-radius:10px;padding:10px 12px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text-dim)">'+t+'</div><div style="font-size:22px;font-weight:800">'+v.toLocaleString()+'</div>'+(sub?'<div style="font-size:12px;color:var(--text-dim)">'+sub+'</div>':'')+'</div>';
     const hist=await _crExHistory();
     document.getElementById('cr-ex-body').innerHTML='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
-        +card('Ready to export',rows.length,'#60a5fa',byT.fc+' foreclosure · '+byT.pb+' probate · '+byT.ev+' eviction')
+        +card('Ready to export',rows.length,'#60a5fa',Object.keys(_CR_TYPES).filter(k=>byT[k]).map(k=>byT[k].toLocaleString()+' '+_CR_TYPES[k].toLowerCase()).join(' · ')||'—')
         +card('Geocoded',geo,'#22c55e','in your system')
         +card('Not geocoded yet',need,'#f59e0b',fail?fail+' failed — fix the address in the Work Queue':'')
       +'</div>'
@@ -433,12 +454,13 @@ function _crExRow(c){
   return {
     'Property Address': g?(g.street||a.street):a.street, 'City': g?(g.city||a.city):a.city, 'State': g?(g.state||a.state):a.state, 'Zip': g?(g.zip||a.zip):a.zip,
     'County': (g&&g.county)||((_CR.counties.find(x=>x.code===c.county_code)||{}).county||'').replace(/\s+county$/i,''),
-    'Tag': {fc:'Foreclosure',pb:'Probate',ev:'Eviction'}[k]||'',
+    'Tag': k==='ts'?'Tax Redemption':(_CR_TYPES[k]||''),
     'Owner': k==='ev'?(c.plaintiff||''):(c.defendant||''),
     'Contact Name': contact.name, 'Contact Address': contact.addr,
     'Case Number': c.case_number, 'Case Type': c.case_type||'', 'Filed': c.filed||'', 'Court': c.court||'', 'Style': c.style||'',
     'Defendant / Decedent': c.defendant||'', 'Plaintiff': c.plaintiff||'', 'Plaintiff Address': c.plaintiff_address||'', 'Attorney': c.attorney||'',
     'Petitioner Count': c.petitioner_count||'', 'Status': /^2\./.test(c.sort_code||'')?'Complete':/^1\./.test(c.sort_code||'')?'Complete (unknowns)':'Incomplete',
+    'Parcel': c.parcel||'', 'Amount Owed': c.amount!=null?c.amount:'', 'Violation / Lien': (c.extra&&(c.extra.violation||c.extra.lien))||'',
     'Latitude': g?g.lat:'', 'Longitude': g?g.lng:'', 'Place ID': g?g.place_id:'', 'Notes': c.notes||''
   };
 }
@@ -490,12 +512,12 @@ async function _crUnknownRender(body){
   try{
     const q=await sb.from('court_cases').select('id,case_number,county_code,style,case_type,filed,defendant,sort_code').like('sort_code','3.%').order('filed',{ascending:false}).limit(2000);
     if(q.error) throw q.error; const E=_reqEsc; const rows=q.data||[];
-    const by={fc:0,pb:0,ev:0}; rows.forEach(r=>{ const k=_crTypeKey(r.case_type); if(k) by[k]++; });
+    const by={}; rows.forEach(r=>{ const k=_crTypeKey(r.case_type); if(k) by[k]=(by[k]||0)+1; });
     const th='padding:8px 10px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase';
-    body.innerHTML='<div style="font-size:13px;color:var(--text-dim);margin-bottom:10px">'+rows.length.toLocaleString()+' case'+(rows.length===1?'':'s')+' where the property address was marked <b>Unknown</b> — '+by.pb+' probate · '+by.fc+' foreclosure · '+by.ev+' eviction. Click one to open it in the Work Queue and try again.</div>'
+    body.innerHTML='<div style="font-size:13px;color:var(--text-dim);margin-bottom:10px">'+rows.length.toLocaleString()+' case'+(rows.length===1?'':'s')+' where the property address was marked <b>Unknown</b> — '+(Object.keys(_CR_TYPES).filter(k=>by[k]).map(k=>by[k]+' '+_CR_TYPES[k].toLowerCase()).join(' · ')||'none')+'. Click one to open it in the Work Queue and try again.</div>'
       +(rows.length?'<div style="overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'+['Type','Name','County','Filed','Case #'].map(h=>'<th style="'+th+'">'+h+'</th>').join('')+'</tr></thead><tbody>'
         +rows.map(r=>{ const k=_crTypeKey(r.case_type); return '<tr onclick="_crOpenInQueue(\''+E(r.id)+'\',\''+E(r.county_code||'')+'\')" style="border-top:1px solid var(--border);cursor:pointer" onmouseover="this.style.background=\'rgba(99,102,241,0.08)\'" onmouseout="this.style.background=\'\'">'
-          +'<td style="padding:8px 10px;white-space:nowrap;font-weight:700;color:'+({fc:'#06b6d4',pb:'#a855f7',ev:'#eab308'}[k]||'var(--text)')+'">'+E({fc:'Foreclosure',pb:'Probate',ev:'Eviction'}[k]||'')+'</td>'
+          +'<td style="padding:8px 10px;white-space:nowrap;font-weight:700;color:'+(_CR_COL[k]||'var(--text)')+'">'+E(_CR_TYPES[k]||'')+'</td>'
           +'<td style="padding:8px 10px">'+E(r.defendant||r.style||'')+'</td>'
           +'<td style="padding:8px 10px;white-space:nowrap">'+E(_crCountyName(r.county_code).split(' · ')[0])+'</td>'
           +'<td style="padding:8px 10px;white-space:nowrap">'+E(r.filed?_reqFmtDate(r.filed):'')+'</td>'
@@ -569,10 +591,10 @@ function _crQueueRender(body){
   const act=_CR.counties.filter(c=>c.active);
   const sel='height:32px;font-size:12.5px;padding:0 8px;border-radius:7px;width:auto;flex:0 0 auto;max-width:260px';
   const shown=list.slice(0,200+(q.more||0));
-  const item=c=>{ const on=c.id===q.sel; const k=_crTypeKey(c.case_type); const col={fc:'#06b6d4',pb:'#a855f7',ev:'#eab308'}[k];
+  const item=c=>{ const on=c.id===q.sel; const k=_crTypeKey(c.case_type); const col=_CR_COL[k];
     const lock=c.claimed_by&&c.claimed_by!==_CR.me&&c.claimed_at&&(Date.now()-new Date(c.claimed_at).getTime()<15*60000);
     return '<div data-cid="'+E(c.id)+'" onclick="_crOpen(\''+E(c.id)+'\')" style="cursor:pointer;padding:10px 12px;border-radius:9px;margin-bottom:4px;border:1px solid '+(on?'#6366f1':'transparent')+';background:'+(on?'rgba(99,102,241,0.14)':'transparent')+';border-left:4px solid '+col+'">'
-      +'<div style="display:flex;gap:6px;align-items:center"><span style="font-size:14px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+E({fc:'Foreclosure',pb:'Probate',ev:'Eviction'}[k])+'</span>'+_crStatusPill(c.sort_code,true)+(lock?'<span title="Being worked by '+E(c.claimed_by)+'">🔒</span>':'')+'</div>'
+      +'<div style="display:flex;gap:6px;align-items:center"><span style="font-size:14px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+E(_CR_TYPES[k])+'</span>'+_crStatusPill(c.sort_code,true)+(lock?'<span title="Being worked by '+E(c.claimed_by)+'">🔒</span>':'')+'</div>'
       +'<div style="font-size:12.5px;color:var(--text-dim);margin-top:2px">'+E(_crCountyName(c.county_code).split(' · ')[0])+(c.filed?' · filed '+E(_reqFmtDate(c.filed)):'')+'</div>'
       +'<div style="font-size:11.5px;color:var(--text-dim);opacity:.8">'+E(c.case_number)+'</div></div>'; };
   body.innerHTML='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:13px;color:var(--text-dim)"><span>Show</span>'
@@ -619,7 +641,7 @@ function _crEditorDirty(){ let d=false; document.querySelectorAll('#cr-editor [d
 window._crOpen=_crOpen;
 function _crEditor(c){
   const E=_reqEsc; const ed=document.getElementById('cr-editor'); if(!ed) return;
-  const k=_crTypeKey(c.case_type); const col={fc:'#06b6d4',pb:'#a855f7',ev:'#eab308'}[k]||'#94a3b8';
+  const k=_crTypeKey(c.case_type); const col=_CR_COL[k]||'#94a3b8';
   const cty=_CR.counties.find(x=>x.code===c.county_code)||{};
   const inp='height:38px;font-size:14.5px;padding:0 11px;width:100%;box-sizing:border-box;border-radius:8px';
   const btn='height:34px;padding:0 12px;border:1px solid var(--border);background:var(--panel);border-radius:8px;cursor:pointer;font-size:13.5px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;color:var(--text)';
@@ -635,7 +657,19 @@ function _crEditor(c){
   const addrQ=String(c.address||'').trim();
   const ADDR='123 W Main St, City, IN 47000';
   let fields='';
-  if(k==='fc') fields=box('🏠','Property',fld('address','Property address','From the Complaint — “commonly known as”',ADDR,true))
+  const isList=_CR_LISTS.indexOf(k)>=0, ex=c.extra||{};
+  const money=v=>v==null||v===''?'':'$'+Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(isList){
+    const facts=[]; const f=(l,v)=>{ if(v!=null&&String(v).trim()!=='') facts.push('<div><div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;font-weight:700">'+l+'</div><div style="font-size:14px;font-weight:700">'+E(v)+'</div></div>'); };
+    f('Parcel',c.parcel); f(k==='ts'?'Amount due':'Amount owed',money(c.amount));
+    if(k==='cv'){ f('Violation',ex.violation); f('Opened',c.filed?_reqFmtDate(c.filed):''); f('Complied',ex.complied?_reqFmtDate(ex.complied):'Not yet'); }
+    if(k==='ul'){ f('Lien',ex.lien); f('Filed',c.filed?_reqFmtDate(c.filed):''); }
+    if(k==='ts'){ f('Sale ID',ex.sale_id); f('Winning bid',/^nb$/i.test(String(ex.bid||''))?'No bid':money(ex.bid)); f('Assessed value',money(ex.assessed)); f('Legal',ex.legal); }
+    fields=(facts.length?'<div style="display:flex;gap:10px 22px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px">'+facts.join('')+'</div>':'')
+      +box('🏠','Property',fld('address','Property address',c.parcel?'Look up parcel '+c.parcel+' on the GIS / Assessor map':'Street address',ADDR,true))
+      +box('👤','Owner',fld('defendant','Owner','Deeded owner'));
+  }
+  else if(k==='fc') fields=box('🏠','Property',fld('address','Property address','From the Complaint — “commonly known as”',ADDR,true))
       +box('👤','Owner',fld('defendant','Defendant','Current owner — Parties to Case'))
       +box('🏦','Lender & attorney',fld('plaintiff','Plaintiff (lender)','Who filed the foreclosure')+fld('plaintiff_address','Lender address','')+fld('attorney','Attorney','Plaintiff’s attorney'));
   else if(k==='ev') fields=box('🏠','Property',fld('address','Property address','Tenant’s address — that’s the rental',ADDR,true))
@@ -647,10 +681,10 @@ function _crEditor(c){
         +'<button type="button" onclick="_crPetAdd()" style="height:32px;padding:0 12px;font-size:12.5px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:8px;cursor:pointer;margin-bottom:10px">+ Add petitioner</button>');
   ed.innerHTML='<div style="background:var(--panel-2);border:1px solid var(--border);border-top:4px solid '+col+';border-radius:12px;padding:14px 16px">'
     +'<div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">'
-      +'<div style="flex:1;min-width:240px"><div style="font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:'+col+'">'+E({fc:'Foreclosure',pb:'Probate',ev:'Eviction'}[k]||'')+' · '+E(cty.city||'')+'</div>'
+      +'<div style="flex:1;min-width:240px"><div style="font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:'+col+'">'+E(_CR_TYPES[k]||'')+' · '+E(cty.city||'')+'</div>'
         +'<div style="font-size:19px;font-weight:800;margin:2px 0 3px;line-height:1.25">'+E(c.style||c.case_number)+'</div>'
-        +'<div style="font-size:13px;color:var(--text-dim);display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>'+E(c.case_number)+'</span>'
-          +'<button type="button" onclick="_crCopy(\''+E(c.case_number)+'\',this)" title="Copy case number" style="height:24px;padding:0 8px;font-size:11.5px;font-weight:700;border:1px solid var(--border);background:var(--panel);color:#60a5fa;border-radius:6px;cursor:pointer">📋 Copy</button>'
+        +'<div style="font-size:13px;color:var(--text-dim);display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>'+E(isList?(c.parcel?'Parcel '+c.parcel:(ex.source||'')):c.case_number)+'</span>'
+          +(isList?'':'<button type="button" onclick="_crCopy(\''+E(c.case_number)+'\',this)" title="Copy case number" style="height:24px;padding:0 8px;font-size:11.5px;font-weight:700;border:1px solid var(--border);background:var(--panel);color:#60a5fa;border-radius:6px;cursor:pointer">📋 Copy</button>')
           +(c.filed?'<span>· filed '+E(_reqFmtDate(c.filed))+'</span>':'')+'</div></div>'
       +'<div style="text-align:right">'
         +'<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">'
@@ -660,8 +694,8 @@ function _crEditor(c){
     +'</div>'
     +'<div id="cr-status" style="margin:10px 0 0"></div><div id="cr-dupe"></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">'
-      +'<button type="button" style="'+btn+'" onclick="_crMyCase(\''+E(c.case_number)+'\')" title="Copies the case number, then opens MyCase search — just paste">⚖️ Open in MyCase</button>'
-      +(cty.assessor_url?'<a href="'+E(cty.assessor_url)+'" target="_blank" rel="noopener" style="'+btn+'">🗺️ Assessor map</a>':'')
+      +(isList?(c.parcel?'<button type="button" style="'+btn+'" onclick="_crCopy(\''+E(c.parcel)+'\',this)" title="Copy the parcel number">📋 Copy parcel</button>':''):'<button type="button" style="'+btn+'" onclick="_crMyCase(\''+E(c.case_number)+'\')" title="Copies the case number, then opens MyCase search — just paste">⚖️ Open in MyCase</button>')
+      +(cty.assessor_url?'<a href="'+E(cty.assessor_url)+'" target="_blank" rel="noopener" style="'+btn+'"'+(isList&&c.parcel?' onclick="try{navigator.clipboard.writeText(\''+E(c.parcel)+'\')}catch(_){}" title="Parcel copied — paste it into the GIS search"':'')+'>🗺️ '+(isList?'GIS / Assessor':'Assessor map')+'</a>':'')
       +(nm?'<a href="'+E(tps)+'" target="_blank" rel="noopener" style="'+btn+'">🔎 TruePeopleSearch</a>':'')
       +(addrQ&&!/^(unknown|land)$/i.test(addrQ)?'<a href="https://www.zillow.com/homes/'+encodeURIComponent(addrQ)+'_rb/" target="_blank" rel="noopener" style="'+btn+'">🏠 Zillow</a><a href="https://www.google.com/maps/search/'+encodeURIComponent(addrQ)+'" target="_blank" rel="noopener" style="'+btn+'">📍 Maps</a>':'')
     +'</div>'
@@ -675,7 +709,8 @@ function _crEditor(c){
 // Plain-words status: "✅ Done" or "Still needed: Attorney, Petitioner".
 function _crMissing(c){
   const k=_crTypeKey(c.case_type); const v=x=>String(x==null?'':x).trim();
-  const req = k==='pb' ? [['address','Property address'],['defendant','Decedent'],['attorney','Attorney'],['__pn','Petitioner name'],['__pa','Petitioner address']]
+  const req = _CR_LISTS.indexOf(k)>=0 ? [['address','Property address'],['defendant','Owner']]
+    : k==='pb' ? [['address','Property address'],['defendant','Decedent'],['attorney','Attorney'],['__pn','Petitioner name'],['__pa','Petitioner address']]
     : k==='ev' ? [['address','Property address'],['plaintiff','Owner'],['defendant','Tenant'],['attorney','Attorney']]
     : [['address','Property address'],['defendant','Owner'],['plaintiff','Lender'],['attorney','Attorney']];
   const val=f=>f==='__pn'?_crPetName(c):f==='__pa'?_crPetAddr(c):c[f];
@@ -727,7 +762,7 @@ function _crDupeCheck(c){
       const q=await sb.from('court_cases').select('case_number,case_type,sort_code,filed').ilike('address',street.replace(/[%_]/g,'')+'%').neq('id',c.id).limit(5);
       if(q.error||!q.data||!q.data.length){ box.innerHTML=''; return; }
       box.innerHTML='<div style="margin-top:8px;border:1px solid #f59e0b;background:rgba(245,158,11,0.1);border-radius:10px;padding:8px 12px;font-size:12.5px"><b style="color:#fbbf24">🔁 Same address is also on:</b>'
-        +q.data.map(x=>'<div>'+_reqEsc(x.case_number)+' · '+_reqEsc({fc:'Foreclosure',pb:'Probate',ev:'Eviction'}[_crTypeKey(x.case_type)]||x.case_type||'')+(x.filed?' · '+_reqEsc(_reqFmtDate(x.filed)):'')+'</div>').join('')
+        +q.data.map(x=>'<div>'+_reqEsc(x.case_number)+' · '+_reqEsc(_CR_TYPES[_crTypeKey(x.case_type)]||x.case_type||'')+(x.filed?' · '+_reqEsc(_reqFmtDate(x.filed)):'')+'</div>').join('')
         +'<div style="color:var(--text-dim);margin-top:3px">Both are kept — just a heads-up.</div></div>';
     }catch(_){ box.innerHTML=''; }
   },600);
@@ -954,9 +989,9 @@ async function _crHrRename(){
 window._crHrRename=_crHrRename;
 
 // 📈 Filings by month — line per list type, toggle each on/off (Tracker, under the county table)
-_CR.ch=_CR.ch||{ fc:true, pb:true, ev:true, county:'', range:12, by:'m' };
+_CR.ch=_CR.ch||{ fc:true, pb:true, ev:true, cv:true, ul:true, ts:true, county:'', range:12, by:'m' };
 function _crChartHtml(){
-  const E=_reqEsc, C=_CR.ch, T=[['fc','Foreclosure','#06b6d4'],['pb','Probate','#a855f7'],['ev','Eviction','#eab308']];
+  const E=_reqEsc, C=_CR.ch, T=Object.keys(_CR_TYPES).map(k=>[k,_CR_TYPES[k],_CR_COL[k]]);
   const act=_CR.counties.filter(c=>c.active), actSet=new Set(act.map(c=>c.code));
   const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -982,7 +1017,7 @@ function _crChartHtml(){
       const lbl=q===3?'Q'+(Math.floor(d.getMonth()/3)+1)+" '"+String(d.getFullYear()).slice(2):mn[d.getMonth()]+(d.getMonth()===0||(C.range&&C.range<=14)?" '"+String(d.getFullYear()).slice(2):'');
       buckets.push({from:iso(d).slice(0,7),to:iso(n2).slice(0,7),label:lbl,tip:q===3?'Q'+(Math.floor(d.getMonth()/3)+1)+' '+d.getFullYear():mn[d.getMonth()]+' '+d.getFullYear()}); }
   }
-  const counts={fc:buckets.map(()=>0),pb:buckets.map(()=>0),ev:buckets.map(()=>0)};
+  const counts={}; Object.keys(_CR_TYPES).forEach(k=>counts[k]=buckets.map(()=>0));
   rows.forEach(r=>{ let key;
     if(step){ if(!r.day){ if(buckets.length&&r.m>=buckets[0].from.slice(0,7)) noDay++; return; } key=r.day; } else key=r.m;
     for(let i=buckets.length-1;i>=0;i--){ if(key>=buckets[i].from&&key<buckets[i].to){ counts[r.k][i]++; break; } } });
@@ -1015,3 +1050,165 @@ function _crChartHtml(){
 }
 function _crChartDraw(){ const el=document.getElementById('cr-chart'); if(el) el.innerHTML=_crChartHtml(); }
 window._crChartDraw=_crChartDraw;
+
+// 📋 City & county lists (code violations, utility liens, tax sale) — Tracker block under the court table
+function _crListsHtml(by){
+  const E=_reqEsc, K=_CR_LISTS;
+  const tot={}; K.forEach(k=>tot[k]={d:0,t:0,s:0});
+  const rows=_CR.counties.filter(c=>{ const b=by[c.code]; return b&&K.some(k=>b[k]&&(b[k].t||b[k].s)); });
+  rows.forEach(c=>{ const b=by[c.code]; K.forEach(k=>{ tot[k].d+=b[k].d; tot[k].t+=b[k].t; tot[k].s+=b[k].s; }); });
+  const card=k=>{ const x=tot[k], p=_crPct(x.d,x.t); return '<div style="flex:1;min-width:150px;background:var(--panel-2);border:1px solid var(--border);border-top:3px solid '+_CR_COL[k]+';border-radius:10px;padding:10px 12px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text-dim)">'+_CR_TYPES[k]+'</div><div style="font-size:20px;font-weight:800">'+x.d.toLocaleString()+' <span style="font-size:13px;color:var(--text-dim);font-weight:600">/ '+x.t.toLocaleString()+'</span></div><div style="font-size:12px;font-weight:700"><span style="color:'+_crPctColor(p,x.t)+'">'+(x.t?p.toFixed(1)+'% complete':'—')+'</span>'+(x.s?'<span style="color:var(--text-dim);font-weight:600"> · </span><span style="color:#94a3b8">'+x.s.toLocaleString()+' scrapped</span>':'')+'</div></div>'; };
+  const th='padding:6px;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--text-dim);text-align:center';
+  const cell=(x)=>{ const p=_crPct(x.d,x.t); return '<td style="text-align:center;padding:7px 6px"><b>'+x.d.toLocaleString()+'</b><span style="color:var(--text-dim)"> / '+x.t.toLocaleString()+'</span></td><td style="text-align:center;padding:7px 6px;font-weight:700;color:'+_crPctColor(p,x.t)+'">'+(x.t?p.toFixed(1)+'%':'—')+'</td>'; };
+  return '<div style="margin-top:16px;border:1px solid var(--border);border-radius:12px;padding:12px 14px">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div style="font-weight:800;font-size:14px">📋 City &amp; county lists</div><div style="font-size:12px;color:var(--text-dim)">Code violations, utility liens and tax sale lists — add them in 📋 Paste / Import → Import a list.</div></div>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'+K.map(card).join('')+'</div>'
+    +(rows.length?'<div style="overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="border-collapse:collapse;font-size:13px;min-width:700px;width:100%"><thead><tr><th style="'+th+';text-align:left">County</th>'+K.map(k=>'<th colspan="2" style="'+th+';color:'+_CR_COL[k]+';border-bottom:2px solid '+_CR_COL[k]+'">'+_CR_TYPES[k]+'</th>').join('')+'</tr></thead><tbody>'
+      +rows.map(c=>{ const b=by[c.code]; return '<tr style="border-top:1px solid var(--border)"><td style="padding:7px 8px;white-space:nowrap"><span style="display:inline-block;min-width:28px;text-align:center;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;font-weight:800;color:#93c5fd;background:rgba(96,165,250,0.14);border:1px solid rgba(96,165,250,0.45);border-radius:6px;padding:1px 6px;margin-right:7px">'+E(c.code)+'</span><b>'+E(c.city)+'</b> <span style="color:var(--text-dim);font-size:12px">'+E(c.county)+'</span></td>'+K.map(k=>cell(b[k])).join('')+'</tr>'; }).join('')
+      +'</tbody></table></div>':'<div style="padding:18px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px;font-size:13px">No lists yet.</div>')
+  +'</div>';
+}
+
+// ----- 📥 Import a list (Excel / CSV): code violations, utility liens, tax sale -----
+// Recognised layouts: city code-violation report (LOCATION / OWNER / CREATED / COMPLIED / VIOLATION),
+// county "Records by Other Assessment" lien report (State Number / Deeded Owner / Date Filed / Total),
+// tax lien sale export or results (Sale ID / Parcel Number / Owner Name / Face Amount / Winning Bid).
+_CR.li=_CR.li||{ recs:null, fmt:'', county:'', file:'', note:'' };
+function _crLiIso(v){
+  if(v==null||v==='') return null;
+  if(v instanceof Date&&!isNaN(v)) return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');
+  if(typeof v==='number'&&v>20000&&v<80000){ const d=new Date(Math.round((v-25569)*864e5)); return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0'); }
+  const m=String(v).match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(m){ const y=m[3].length===2?'20'+m[3]:m[3]; return y+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0'); }
+  const m2=String(v).match(/^(\d{4})-(\d{2})-(\d{2})/); return m2?m2[0]:null;
+}
+function _crLiMoney(v){ if(v==null||v==='') return null; if(typeof v==='number') return v; const n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isFinite(n)?n:null; }
+function _crLiSlug(s){ return String(s||'').toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,''); }
+function _crLiParse(grid,fileName){
+  const cell=(r,i)=>{ const v=(grid[r]||[])[i]; return v==null?'':v; };
+  const txt=(r,i)=>String(cell(r,i)).trim();
+  const findHead=(need)=>{ for(let r=0;r<Math.min(grid.length,40);r++){ const row=(grid[r]||[]).map(x=>String(x==null?'':x).trim().toLowerCase()); if(need.every(n=>row.some(x=>x===n||x.indexOf(n)===0))) return r; } return -1; };
+  const colOf=(r,names)=>{ const row=(grid[r]||[]).map(x=>String(x==null?'':x).trim().toLowerCase()); for(const n of names){ const i=row.findIndex(x=>x===n); if(i>=0) return i; } for(const n of names){ const i=row.findIndex(x=>x.indexOf(n)===0); if(i>=0) return i; } return -1; };
+  let h;
+  // --- code violations
+  if((h=findHead(['location','owner','violation']))>=0){
+    const iL=colOf(h,['location']), iO=colOf(h,['owner']), iC=colOf(h,['created']), iD=colOf(h,['complied']), iV=colOf(h,['violation']);
+    const g={};
+    for(let r=h+1;r<grid.length;r++){ const loc=txt(r,iL); if(!loc) continue; const k=loc.toUpperCase().replace(/\s+/g,' ');
+      const x=g[k]||(g[k]={loc:loc,owner:txt(r,iO),viol:[],created:null,complied:[],open:false});
+      const v=txt(r,iV); if(v&&x.viol.indexOf(v)<0) x.viol.push(v);
+      const c=_crLiIso(cell(r,iC)); if(c&&(!x.created||c<x.created)) x.created=c;
+      const d=_crLiIso(cell(r,iD)); if(d) x.complied.push(d); else x.open=true;
+      if(!x.owner) x.owner=txt(r,iO); }
+    return { fmt:'cv', label:'Code violations', needCounty:true, items:Object.values(g).map(x=>({ loc:x.loc, owner:x.owner, viol:x.viol.join(', '), filed:x.created, complied:x.open?'':(x.complied.sort().pop()||'') })) };
+  }
+  // --- utility / sewer liens ("Records by Other Assessment")
+  if((h=findHead(['state number','deeded owner']))>=0){
+    let lien='Utility'; for(let r=0;r<h;r++) (grid[r]||[]).forEach(v=>{ const m=String(v||'').match(/charge:\s*(.+)/i); if(m) lien=m[1].replace(/\s*-\s*[^-]+$/,'').replace(/\s*lien\s*$/i,'').trim()||lien; });
+    const iP=colOf(h,['state number']), iO=colOf(h,['deeded owner']), iF=colOf(h,['date filed']), iT=colOf(h,['total']);
+    const items=[];
+    for(let r=h+1;r<grid.length;r++){ const p=txt(r,iP); if(!/^\d{2}-\d{2}-\d{2}-\d{3}-\d{3}\.\d{3}-\d{3}$/.test(p)) continue;
+      items.push({ parcel:p, owner:txt(r,iO), filed:_crLiIso(cell(r,iF)), amount:_crLiMoney(cell(r,iT)), lien:lien }); }
+    return { fmt:'ul', label:lien+' liens', needCounty:false, items:items };
+  }
+  // --- tax lien sale (export or results)
+  if((h=findHead(['sale id','parcel number']))>=0){
+    let inactive=/inactive/i.test(fileName||''); for(let r=0;r<h;r++) (grid[r]||[]).forEach(v=>{ if(/inactive/i.test(String(v||''))) inactive=true; });
+    let iS=colOf(h,['sale id']), iP=colOf(h,['parcel number']), iO=colOf(h,['owner name','owner']), iA=colOf(h,['address']), iF=colOf(h,['face amount','minbid','min bid']),
+          iB=colOf(h,['current winning bid','winning bid','winner/bid']), iD=colOf(h,['district']), iV=colOf(h,['assessed value']), iG=colOf(h,['legal']);
+    // Some exports drop a header (e.g. "Proxy Bid") but keep its data column — everything after it sits one cell to the right.
+    let sh=0; if(iD>=0){ let blank=0, next=0, n=0; for(let r=h+1;r<grid.length&&n<40;r++){ if(!/^\d{6,}$/.test(txt(r,iS))) continue; n++; if(!txt(r,iD)) blank++; if(txt(r,iD+1)) next++; } if(n&&blank/n>0.8&&next/n>0.8) sh=1; }
+    const S=i=>(i>=0&&iD>=0&&i>=iD)?i+sh:i; iO=S(iO); iA=S(iA); iD=S(iD); iV=S(iV); iG=S(iG);
+    const items=[];
+    for(let r=h+1;r<grid.length;r++){ const sid=txt(r,iS); if(!/^\d{6,}$/.test(sid)) continue;
+      const bidRaw=iB>=0?txt(r,iB):'';
+      items.push({ sale_id:sid, parcel:txt(r,iP), owner:txt(r,iO), street:iA>=0?txt(r,iA):'', district:iD>=0?txt(r,iD):'', amount:_crLiMoney(iF>=0?cell(r,iF):''),
+        bid:/^nb$/i.test(bidRaw)?'NB':(_crLiMoney(bidRaw)!=null?_crLiMoney(bidRaw):bidRaw), assessed:iV>=0?_crLiMoney(cell(r,iV)):null, legal:iG>=0?txt(r,iG):'', inactive:inactive }); }
+    return { fmt:'ts', label:'Tax sale'+(inactive?' (inactive parcels)':''), needCounty:false, items:items };
+  }
+  return null;
+}
+// Turn parsed items into court_cases rows for the chosen county.
+function _crLiRecords(P,county){
+  const cty=_CR.counties.find(c=>c.code===county)||{}; const cityName=cty.city||''; const cname=cty.county||'';
+  const src=_CR.li.file||''; const out=[];
+  P.items.forEach(x=>{
+    let r;
+    if(P.fmt==='cv'){ const code=county||'00';
+      r={ case_number:'CV-'+code+'-'+String(x.filed||'').slice(2,7).replace('-','')+'-'+_crLiSlug(x.loc), county_code:code, case_type:'CV - Code Violation',
+          style:'Code violation — '+(x.viol||'').toLowerCase(), address:x.loc+(cityName?', '+cityName:'')+', IN', defendant:x.owner, filed:x.filed, status:x.complied?'Complied '+x.complied:'Open',
+          parcel:null, amount:null, extra:{ violation:x.viol, complied:x.complied||'', source:src } }; }
+    else if(P.fmt==='ul'){ const code=county||x.parcel.slice(0,2);
+      r={ case_number:'UL-'+x.parcel+'-'+String(x.filed||'').replace(/-/g,'').slice(2), county_code:code, case_type:'UL - Utility Lien · '+x.lien,
+          style:x.lien+' lien', address:'', defendant:x.owner, filed:x.filed, status:'',
+          parcel:x.parcel, amount:x.amount, extra:{ lien:x.lien, source:src } }; }
+    else { const code=county||x.sale_id.slice(0,2);
+      const city=/city of/i.test(x.district)?x.district.replace(/city of/i,'').trim():(cname||cityName);
+      r={ case_number:'TS-'+x.sale_id, county_code:code, case_type:'TS - Tax Sale',
+          style:'Tax sale '+x.sale_id, address:x.street?(x.street+(city?', '+city:'')+', IN'):'', defendant:x.owner, filed:null, status:x.bid==='NB'?'No bid':(x.bid!==''&&x.bid!=null?'Sold':''),
+          parcel:x.parcel||null, amount:x.amount, extra:{ sale_id:x.sale_id, bid:x.bid, assessed:x.assessed, legal:x.legal, district:x.district, inactive:!!x.inactive, source:src } }; }
+    r.petitioners=[]; r.sort_code=_crSort(r); r.completed_at=(_crDone(r.sort_code)||_crScrap(r.sort_code))?new Date().toISOString():null;
+    out.push(r);
+  });
+  // one row per case number inside the file
+  const seen={}; return out.filter(r=>seen[r.case_number]?false:(seen[r.case_number]=1));
+}
+async function _crLiFile(inp){
+  const f=inp.files&&inp.files[0]; inp.value=''; if(!f) return; const L=_CR.li;
+  try{
+    if(typeof XLSX==='undefined') throw new Error('Spreadsheet reader not loaded — refresh the page');
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
+    let P=null;
+    for(const name of wb.SheetNames){ const grid=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:''}); if(grid.length<2) continue; P=_crLiParse(grid,f.name); if(P) break; }
+    if(!P||!P.items.length) throw new Error('Couldn’t recognise this file. Send it to Claude to add its layout.');
+    L.P=P; L.file=f.name;
+    // county: tax sale / liens carry it in the numbers; code violations need you to pick
+    const guess=P.fmt==='ul'?P.items[0].parcel.slice(0,2):P.fmt==='ts'?P.items[0].sale_id.slice(0,2):'';
+    L.county=_CR.counties.some(c=>c.code===guess)?guess:(P.fmt==='cv'?(L.county||''):guess);
+    await _crLiPreview();
+  }catch(e){ toast('Import: '+(e.message||e),'err'); }
+}
+window._crLiFile=_crLiFile;
+async function _crLiPreview(){
+  const L=_CR.li; if(!L.P) return _crRender();
+  L.recs=L.county||L.P.fmt!=='cv'?_crLiRecords(L.P,L.county):[];
+  const have=new Set(); const cns=L.recs.map(r=>r.case_number);
+  try{ for(let i=0;i<cns.length;i+=150){ const q=await sb.from('court_cases').select('case_number').in('case_number',cns.slice(i,i+150)); (q.data||[]).forEach(x=>have.add(x.case_number)); } }catch(_){}
+  L.recs.forEach(r=>{ r._st=have.has(r.case_number)?'have':_crScrap(r.sort_code)?'scrap':_crDone(r.sort_code)?'done':'todo'; });
+  _crRender();
+}
+window._crLiPreview=_crLiPreview;
+function _crLiRender(box){
+  const E=_reqEsc, L=_CR.li, P=L.P;
+  const sel='height:36px;font-size:13.5px;padding:0 9px;border-radius:8px;width:auto;min-width:240px';
+  let html='<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:14px;align-items:start">'
+    +'<div><div style="font-size:14px;font-weight:700;margin-bottom:4px">1. Pick the file</div>'
+      +'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:10px">Excel or CSV exactly as the city / county sent it — code violation reports, sewer / utility lien reports, tax lien sale exports. For a PDF, send it to Claude first.</div>'
+      +'<label class="btn btn-primary" style="cursor:pointer;justify-content:center;width:100%;font-size:15px">📥 Choose file<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="_crLiFile(this)"></label>'
+      +(P?'<div style="margin-top:12px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px"><div><b>'+E(L.file)+'</b></div><div style="color:var(--text-dim);margin-top:2px">Recognised as <b style="color:'+_CR_COL[P.fmt]+'">'+E(P.label)+'</b> · '+P.items.length.toLocaleString()+' '+(P.fmt==='cv'?'properties':'rows')+'</div>'
+        +'<div style="margin-top:10px;font-weight:700">County</div><select style="'+sel+';margin-top:4px" onchange="_CR.li.county=this.value;_crLiPreview()"><option value="">'+(P.fmt==='cv'?'— pick the county —':'From the file')+'</option>'+_CR.counties.map(c=>'<option value="'+E(c.code)+'" '+(L.county===c.code?'selected':'')+'>'+E(c.code+' · '+c.city+' ('+c.county+')')+'</option>').join('')+'</select></div>':'')
+    +'</div><div>';
+  if(!P) html+='<div style="padding:40px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">2. The preview shows up here.</div>';
+  else if(P.fmt==='cv'&&!L.county) html+='<div style="padding:40px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">Pick the county on the left — code violation reports don’t say which city they’re from.</div>';
+  else {
+    const R=L.recs||[]; const n=k=>R.filter(r=>r._st===k).length; const add=R.filter(r=>r._st!=='have').length;
+    const tag={done:['✅ Done','#22c55e'],todo:['○ Needs address','#60a5fa'],scrap:['🗑 Scrap','#ef4444'],have:['↩ Already here','#94a3b8']};
+    html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+[['done','✅ Done right away'],['todo','○ Needs work (address)'],['scrap','🗑 Scrap'],['have','↩ Already here']].map(x=>'<div style="flex:1;min-width:110px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:8px 10px"><div style="font-size:11.5px;color:var(--text-dim)">'+x[1]+'</div><div style="font-size:20px;font-weight:800">'+n(x[0]).toLocaleString()+'</div></div>').join('')+'</div>'
+      +'<button type="button" class="btn btn-primary" '+(add?'':'disabled ')+'onclick="_crLiSave(this)" style="width:100%;font-size:15px;margin-bottom:10px">Add '+add.toLocaleString()+' '+E(P.label.toLowerCase())+'</button>'
+      +'<div style="max-height:430px;overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>'
+        +R.slice(0,300).map(r=>'<tr style="border-top:1px solid var(--border)"><td style="padding:6px 8px;white-space:nowrap;font-weight:700;color:'+tag[r._st][1]+'">'+(r._st==='scrap'?'🗑 '+E(_CR_SCRAP_WHY[r.sort_code]||'Scrap'):tag[r._st][0])+'</td><td style="padding:6px 8px">'+E(r.defendant||'')+'</td><td style="padding:6px 8px;color:var(--text-dim)">'+E(r.address||r.parcel||'')+'</td><td style="padding:6px 8px;white-space:nowrap;text-align:right">'+(r.amount!=null?'$'+Number(r.amount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):E((r.extra&&r.extra.violation)||''))+'</td></tr>').join('')
+      +'</tbody></table></div>'+(R.length>300?'<div style="font-size:12px;color:var(--text-dim);margin-top:4px">Showing the first 300 of '+R.length.toLocaleString()+'.</div>':'');
+  }
+  box.innerHTML=html+'</div></div>';
+}
+async function _crLiSave(btn){
+  const L=_CR.li; const add=(L.recs||[]).filter(r=>r._st!=='have'); if(!add.length) return;
+  btn.disabled=true; btn.textContent='Adding…';
+  try{
+    const recs=add.map(r=>{ const o=Object.assign({},r); delete o._st; return o; });
+    for(let i=0;i<recs.length;i+=500){ const up=await sb.from('court_cases').upsert(recs.slice(i,i+500),{onConflict:'case_number',ignoreDuplicates:true}); if(up.error) throw up.error; btn.textContent='Adding… '+Math.min(i+500,recs.length)+' / '+recs.length; }
+    await _crLoad(true);
+    toast('📥 Added '+add.length.toLocaleString()+' — '+add.filter(r=>r._st==='todo').length.toLocaleString()+' need an address in the Work Queue','ok');
+    _CR.li={ recs:null, fmt:'', county:L.county, file:'' }; _crRender();
+  }catch(e){ btn.disabled=false; btn.textContent='Try again'; toast('Add failed: '+(e.message||e)+(/parcel|amount|extra/.test(e.message||'')?' — run creation-lists.sql in Supabase first':''),'err'); }
+}
+window._crLiSave=_crLiSave;

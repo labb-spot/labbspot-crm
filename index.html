@@ -10769,14 +10769,20 @@ async function _uwSyncMotivatedLeads(opts) {
   // duplicates whose address strings differ ("123 Main St" vs "123 Main
   // Street") but resolve to the same geocoded place_id.
   const existingByPid = {};
-  Object.values(cache.underwrites).forEach(u => {
+  // Lead results that already became a deal once (stamped _sourceResultId).
+  const syncedResultIds = new Set();
+  // Include TRASHED deals too — otherwise deleting a deal (or a duplicate)
+  // makes the next sync re-create it from the same motivated call result.
+  [cache.underwrites || {}, cache.underwritesDeleted || {}].forEach(bucket => Object.values(bucket).forEach(u => {
     if (!u) return;
     if (u.address) existing.add(norm(u.address));
     if (u.uw_place_id) existingByPid[u.uw_place_id] = u.id;
-  });
+    if (u.data && u.data._sourceResultId) syncedResultIds.add(String(u.data._sourceResultId));
+  }));
   const motivated = Object.values(cache.results).filter(r => {
     if (!r || !r.address || !r.address.trim()) return false;
     if (!isMotivatedDisposition(r.disposition)) return false;
+    if (r.id != null && syncedResultIds.has(String(r.id))) return false;
     return !existing.has(norm(r.address));
   });
   if (!motivated.length) {
@@ -10832,6 +10838,7 @@ async function _uwSyncMotivatedLeads(opts) {
       // Source metadata — kept under reserved keys so it doesn't collide
       // with any uw-* field. Visible if you open the deal's data blob.
       _source:             'motivated_lead',
+      _sourceResultId:     r.id != null ? String(r.id) : '',
       _sourceDisposition:  r.disposition || '',
       _sourcePhone:        r.phone || '',
       _sourceEmail:        r.email || '',

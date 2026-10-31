@@ -9,8 +9,7 @@
   base.textContent='html[data-theme="light"]{--bg:#f3f5f9;--panel:#ffffff;--panel-2:#eef1f6;--border:#d3d9e4;--text:#111827;--text-dim:#5b6475;color-scheme:light}'
     +'html[data-theme="light"] body{background:var(--bg);color:var(--text)}'
     +'html[data-theme="light"] input::placeholder,html[data-theme="light"] textarea::placeholder{color:#8a93a3}'
-    +'html[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator{filter:none!important}'
-    +'#theme-toggle{padding:5px 10px;font-size:15px;line-height:1}';
+    +'html[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator{filter:none!important}';
   (document.head||root).appendChild(base);
 
   // ---------- color helpers ----------

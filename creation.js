@@ -319,7 +319,7 @@ window._crOpenAny=_crOpenAny;
 
 // ----- 📋 Paste from MyCase: paste copied search results → new cases (skips ones already here) -----
 const _CR_CASE_RE=/\b(\d{2}[A-Z]\d{2}-\d{4}-[A-Z]{2}-\d{3,7})\b/;
-function _crKeepType(t){ return /mortgage|foreclos|estate|guardian|evict|\btrust\b|^TR\b/i.test(String(t||'')); }
+function _crKeepType(t){ t=String(t||''); if(/^(CV|UL|TS)\b/.test(t)) return false; const m=t.match(/^([A-Z]{2})\s-\s/); if(m&&!/^(EV|MF|ES|EU|EM|GU|TR)$/.test(m[1])) return false; return /mortgage|foreclos|estate|guardian|evict|\btrust\b|^TR\b/i.test(t); }
 function _crParseMyCase(text){
   const toks=String(text||'').replace(/\r/g,'').split(/\t|\n/).map(x=>x.trim()).filter(Boolean);
   const out=[]; let cur=null;
@@ -357,7 +357,7 @@ function _crPasteRender(body){
 async function _crPasteRead(){
   const box=document.getElementById('cr-paste-box'); const prev=document.getElementById('cr-paste-prev'); if(!box||!prev) return;
   const P=_CR.paste; P.text=box.value; const E=_reqEsc;
-  const parsed=_crParseMyCase(P.text); const seen={}; const rows=[];
+  const parsed=_crParseMyCase(P.text); const seen={}; let rows=[];
   parsed.forEach(c=>{ if(seen[c.case_number]) return; seen[c.case_number]=1; rows.push(c); });
   if(!rows.length){ prev.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">'+(P.text.trim()?'No case numbers found in what was pasted.':'2. The preview shows up here after you paste.')+'</div>'; P.rows=null; return; }
   // which are already in Data LAB?
@@ -367,6 +367,7 @@ async function _crPasteRead(){
   rows.forEach(c=>{ c.county_code=c.case_number.slice(0,2);
     if(have.has(c.case_number)) c._st='have'; else if(!_crKeepType(c.case_type)) c._st='skip';
     else { c.sort_code=_crSort(c)||'0'+(_CR_SFX[_crTypeKey(c.case_type)]||''); c._st=_crScrap(c.sort_code)?'scrap':'new'; } });
+  const ignored=rows.filter(r=>r._st==='skip').length; rows=rows.filter(r=>r._st!=='skip');
   P.rows=rows;
   const n=k=>rows.filter(r=>r._st===k).length;
   const counties=[...new Set(rows.filter(r=>r._st==='new'||r._st==='have'||r._st==='scrap').map(r=>r.county_code))];
@@ -375,8 +376,9 @@ async function _crPasteRead(){
   const yest=_crIsoDay(-1);
   prev.innerHTML='<button type="button" class="btn btn-primary" id="cr-paste-go" '+((n('new')+n('scrap'))?'':'disabled ')+'onclick="_crPasteSave(this)" style="width:100%;font-size:15px;margin-bottom:10px">Add '+(n('new')+n('scrap'))+' case'+((n('new')+n('scrap'))===1?'':'s')+(n('scrap')?' ('+n('scrap')+' to Scrap)':'')+'</button>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
-      +[['new','✅ New'],['have','↩ Already here'],['skip','⏭ Not a type we work'],['scrap','🗑 Scrap']].map(x=>'<div style="flex:1;min-width:110px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:8px 10px"><div style="font-size:11.5px;color:var(--text-dim)">'+x[1]+'</div><div style="font-size:20px;font-weight:800">'+n(x[0])+'</div></div>').join('')
+      +[['new','✅ New'],['have','↩ Already here'],['scrap','🗑 Scrap']].map(x=>'<div style="flex:1;min-width:110px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:8px 10px"><div style="font-size:11.5px;color:var(--text-dim)">'+x[1]+'</div><div style="font-size:20px;font-weight:800">'+n(x[0])+'</div></div>').join('')
     +'</div>'
+    +(ignored?'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:8px">Ignored '+ignored+' other case'+(ignored===1?'':'s')+' (collections, small claims, civil, etc.) — not added anywhere.</div>':'')
     +'<div style="max-height:330px;overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>'
       +rows.map(r=>'<tr style="border-top:1px solid var(--border)"><td style="padding:6px 8px;white-space:nowrap;font-weight:700;color:'+tag[r._st][1]+'">'+tag[r._st][0]+'</td><td style="padding:6px 8px;white-space:nowrap">'+E(r.case_number)+'</td><td style="padding:6px 8px">'+E(r.case_type)+'</td><td style="padding:6px 8px;color:var(--text-dim)">'+E(r.style)+'</td><td style="padding:6px 8px;white-space:nowrap">'+E(r.filed?_reqFmtDate(r.filed):'')+'</td></tr>').join('')
     +'</tbody></table></div>';

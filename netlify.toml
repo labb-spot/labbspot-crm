@@ -7,25 +7,16 @@
 [build.environment]
   SECRETS_SCAN_ENABLED = "false"
 
-# Clean public form URLs (query strings like ?token=... are preserved).
-# status = 200 rewrites so the address bar stays pretty (/bids, not the .html).
-[[redirects]]
-  from = "/pictures"
-  to = "/submit.labbllc/submit-photos.html"
-  status = 200
-
-[[redirects]]
-  from = "/bids"
-  to = "/submit.labbllc/submit-bid.html"
-  status = 200
-
-[[redirects]]
-  from = "/invoices"
-  to = "/submit.labbllc/submit-invoice.html"
-  status = 200
-
 # Creation-only page for court-records employees (light, fast).
 [[redirects]]
   from = "/creation"
   to = "/creation.html"
   status = 200
+
+# Overseas route: /sbx/* is forwarded to Supabase so employees abroad reach the
+# database through Netlify's nearby servers (same HTTPS, same keys, same rules).
+[[redirects]]
+  from = "/sbx/*"
+  to = "https://jexytttqozcdtexkxoff.supabase.co/:splat"
+  status = 200
+  force = true

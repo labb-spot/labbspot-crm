@@ -843,6 +843,7 @@
       <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center">Sign in</button>
       <div id="login-error" style="color:var(--bad);font-size:13px;margin-top:10px;display:none;text-align:center"></div>
       <div id="login-busy" style="color:var(--text-dim);font-size:13px;margin-top:10px;display:none;text-align:center"><span class="loader"></span> Signing in…</div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12.5px;color:var(--text-dim);cursor:pointer;justify-content:center"><input type="checkbox" id="login-route" style="width:15px;height:15px" onchange="_labbSetRoute(this.checked)"> 🌏 Working from outside the US? Use the faster route</label>
     </form>
   </div>
 </div>
@@ -9970,7 +9971,14 @@ const SUPABASE_URL = 'https://jexytttqozcdtexkxoff.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpleHl0dHRxb3pjZHRleGt4b2ZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMzQ1NDYsImV4cCI6MjA5MTgxMDU0Nn0.VDQr5hJ12x9-vy-IsEsnKHBxq6Ptmzfw8IlzbjfRpTw';
 let GMAPS_KEY = 'AIzaSyCsw1HgEpITNHvWMvRGWKbm3_SXARGYMIM';
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Overseas route: when turned on (login screen checkbox, or ?route=overseas), database traffic goes through this site
+// (Netlify forwards /sbx/* to Supabase) instead of straight to supabase.co. Same encryption, keys and rules — just a better path.
+const _LABB_ROUTE=(()=>{ try{ const q=new URLSearchParams(location.search).get('route'); if(q==='overseas') localStorage.setItem('labb_route','proxy'); if(q==='direct') localStorage.removeItem('labb_route');
+  return (localStorage.getItem('labb_route')==='proxy'&&location.protocol==='https:')?'proxy':'direct'; }catch(_){ return 'direct'; } })();
+try{ const _lr=document.getElementById('login-route'); if(_lr) _lr.checked=(_LABB_ROUTE==='proxy'); }catch(_){}
+window._labbSetRoute=function(on){ try{ if(on) localStorage.setItem('labb_route','proxy'); else localStorage.removeItem('labb_route'); }catch(_){} location.reload(); };
+// In overseas mode every request (data, login, files) is rewritten to go through /sbx on this site; live updates stay direct.
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, _LABB_ROUTE==='proxy' ? { global:{ fetch:(u,o)=>{ const s=(typeof u==='string')?u:(u&&u.url)||String(u); return fetch(s.indexOf(SUPABASE_URL)===0?location.origin+'/sbx'+s.slice(SUPABASE_URL.length):u,o); } } } : undefined);
 
 // --------- Local cache (mirrors DB for rendering speed) ---------
 const cache = {

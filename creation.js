@@ -10,8 +10,8 @@ const _CR_LISTS = ['cv','ul','ts'];   // city / county lists (not court cases)
 // Company-type owner names — scrapped (LLC landlords, management companies, etc.)
 const _CR_CORP = /\b(l\.?l\.?c|l\.?l\.?p|inc|corp|corporation|apartments?|apts?|properties|property management|management|holdings|l\.?p|ltd|company|housing|homes|realty|partners|rentals?|investments?|group|enterprises|ventures|capital)\b|\bLL$/i;
 function _crTypeKey(t){ t=String(t||''); if(/^CV\b/.test(t)) return 'cv'; if(/^UL\b/.test(t)) return 'ul'; if(/^TS\b/.test(t)) return 'ts'; t=t.toLowerCase(); if(/mortgage|foreclos/.test(t)) return 'fc'; if(/estate|guardian|probate/.test(t)) return 'pb'; if(/evict/.test(t)) return 'ev'; return ''; }
-// Scrap codes: 4.2 minor guardianship · 4.3 company landlord eviction · 4.4 company owner (lists) · 4.7 tax sale no bid · 4.8 inactive tax parcel
-const _CR_SCRAP_WHY = { '4.2':'Minor guardianship', '4.3':'LLC / apartment', '4.4':'Company owner', '4.6':'No bid (bid = minimum)', '4.7':'No bid at tax sale', '4.8':'Inactive tax parcel' };
+// Scrap codes: 4.2 guardianship (any) · 4.3 company landlord eviction · 4.4 company owner (lists) · 4.7 tax sale no bid · 4.8 inactive tax parcel
+const _CR_SCRAP_WHY = { '4.2':'Guardianship', '4.3':'LLC / apartment', '4.4':'Company owner', '4.6':'No bid (bid = minimum)', '4.7':'No bid at tax sale', '4.8':'Inactive tax parcel' };
 // Sort code — same rules as the sheet's Task List.
 function _crSort(c){
   const k=_crTypeKey(c.case_type); const sfx=_CR_SFX[k]; if(!sfx) return '';
@@ -26,7 +26,7 @@ function _crSort(c){
     if(unk(c.defendant)) return '1'+sfx;
     return '2'+sfx;
   }
-  if(k==='pb' && /guardian/i.test(c.case_type||'') && /minor/i.test((c.style||'')+' '+(c.case_type||''))) return '4.2';
+  if(k==='pb' && /guardian/i.test((c.case_type||'')+' '+(c.style||''))) return '4.2';   // all guardianships (minor or adult) → Scrap
   if(k==='ev' && _CR_CORP.test(c.plaintiff||'')) return '4.3';
   const req = k==='pb' ? [c.address,c.defendant,c.attorney,_crPetName(c),_crPetAddr(c),_crPetCount(c)] : [c.address,c.defendant,c.plaintiff,c.attorney];
   if(req.some(x=>!v(x))) return '0'+sfx;
@@ -47,10 +47,17 @@ async function _crLoad(force){
   try{
     const cq=await sb.from('court_counties').select('*').order('sort');
     if(cq.error) throw cq.error; _CR.counties=cq.data||[];
-    const all=[]; const step=1000;
-    for(let from=0;;from+=step){
-      const q=await sb.from('court_cases').select('id,case_number,county_code,case_type,sort_code,filed,completed_at,completed_by,uploaded_at,claimed_by,claimed_at').order('case_number').range(from,from+step-1);
-      if(q.error) throw q.error; all.push.apply(all,q.data||[]); if(!q.data||q.data.length<step) break;
+    // Load in parallel: ask how many there are, then pull the 1,000-row pages several at a time (much faster from far away).
+    const cols='id,case_number,county_code,case_type,sort_code,filed,completed_at,completed_by,uploaded_at,claimed_by,claimed_at'; const step=1000;
+    const head=await sb.from('court_cases').select('id',{count:'exact',head:true}); const total=(head&&typeof head.count==='number')?head.count:null;
+    let all=[];
+    if(total!=null){ const pages=Math.ceil(total/step); const got=new Array(pages);
+      for(let i=0;i<pages;i+=6){ await Promise.all(Array.from({length:Math.min(6,pages-i)},(_,j)=>i+j).map(async pg=>{ const q=await sb.from('court_cases').select(cols).order('case_number').range(pg*step,pg*step+step-1); if(q.error) throw q.error; got[pg]=q.data||[]; })); }
+      got.forEach(g=>{ if(g) all=all.concat(g); });
+      // anything added while loading
+      for(let from=pages*step;;from+=step){ const q=await sb.from('court_cases').select(cols).order('case_number').range(from,from+step-1); if(q.error) throw q.error; all=all.concat(q.data||[]); if(!q.data||q.data.length<step) break; }
+    } else {
+      for(let from=0;;from+=step){ const q=await sb.from('court_cases').select(cols).order('case_number').range(from,from+step-1); if(q.error) throw q.error; all=all.concat(q.data||[]); if(!q.data||q.data.length<step) break; }
     }
     _CR.cases=all; _CR.loaded=true; _CR.err='';
   }catch(e){ console.warn('creation load:',e); _CR.err=(e&&e.message)||String(e); }

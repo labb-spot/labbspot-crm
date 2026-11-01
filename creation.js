@@ -49,7 +49,7 @@ async function _crLoad(force){
     if(cq.error) throw cq.error; _CR.counties=cq.data||[];
     const all=[]; const step=1000;
     for(let from=0;;from+=step){
-      const q=await sb.from('court_cases').select('id,case_number,county_code,case_type,sort_code,filed,completed_at,uploaded_at,claimed_by,claimed_at').order('case_number').range(from,from+step-1);
+      const q=await sb.from('court_cases').select('id,case_number,county_code,case_type,sort_code,filed,completed_at,completed_by,uploaded_at,claimed_by,claimed_at').order('case_number').range(from,from+step-1);
       if(q.error) throw q.error; all.push.apply(all,q.data||[]); if(!q.data||q.data.length<step) break;
     }
     _CR.cases=all; _CR.loaded=true; _CR.err='';
@@ -88,7 +88,7 @@ function _crRender(){
   else body.innerHTML='<div style="padding:30px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">Coming next — '+(_CR.tab==='queue'?'one case at a time with only the fields that case type needs, plus MyCase / assessor / TruePeopleSearch buttons.':'paste a MyCase results page and it files every case automatically.')+'</div>';
 }
 window._crRender=_crRender;
-function _crTab(t){ _CR.tab=t; _crRender(); }
+function _crTab(t){ if(typeof _crFlush==='function') _crFlush(); _CR.tab=t; _crRender(); }
 window._crTab=_crTab;
 function _crStats(){
   const by={};
@@ -612,8 +612,9 @@ function _crQueueList(){
     if(q.status==='unk') return /^1\./.test(s);
     if(q.status==='noaddr') return /^3\./.test(s);
     if(q.status==='done') return /^[123]\./.test(s);
+    if(q.status==='recent') return !!c.completed_by&&!!c.completed_at&&(Date.now()-new Date(c.completed_at).getTime()<7*864e5);
     return !_crScrap(s);
-  }).sort((a,b)=>String(b.filed||'').localeCompare(String(a.filed||''))||String(a.case_number).localeCompare(String(b.case_number)));
+  }).sort(q.status==='recent'?((a,b)=>String(b.completed_at||'').localeCompare(String(a.completed_at||''))):((a,b)=>String(b.filed||'').localeCompare(String(a.filed||''))||String(a.case_number).localeCompare(String(b.case_number))));
 }
 function _crQueueRender(body){
   const E=_reqEsc; const q=_CR.q; const list=_crQueueList();
@@ -629,7 +630,7 @@ function _crQueueRender(body){
   body.innerHTML='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:13px;color:var(--text-dim)"><span>Show</span>'
       +'<select style="'+sel+'" onchange="_CR.q.county=this.value;_CR.q.more=0;_crRender()"><option value="">All counties</option>'+act.map(c=>'<option value="'+E(c.code)+'" '+(q.county===c.code?'selected':'')+'>'+E(c.city)+' ('+E(c.county)+')</option>').join('')+'</select>'
       +'<select style="'+sel+'" onchange="_CR.q.type=this.value;_CR.q.more=0;_crRender()"><option value="">All types</option>'+Object.keys(_CR_TYPES).map(k=>'<option value="'+k+'" '+(q.type===k?'selected':'')+'>'+_CR_TYPES[k]+'</option>').join('')+'</select>'
-      +'<select style="'+sel+'" onchange="_CR.q.status=this.value;_CR.q.more=0;_crRender()">'+[['todo','To do'],['unk','Done — has unknowns'],['noaddr','Done — no address found'],['done','All done'],['all','Everything']].map(o=>'<option value="'+o[0]+'" '+(q.status===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')+'</select>'
+      +'<select style="'+sel+'" onchange="_CR.q.status=this.value;_CR.q.more=0;_crRender()">'+[['todo','To do'],['recent','Recently completed (7 days)'],['unk','Done — has unknowns'],['noaddr','Done — no address found'],['done','All done'],['all','Everything']].map(o=>'<option value="'+o[0]+'" '+(q.status===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')+'</select>'
       +'<span style="font-size:12.5px;color:var(--text-dim)" id="cr-qcount">'+list.length.toLocaleString()+' case'+(list.length===1?'':'s')+'</span>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:12px;align-items:start">'
@@ -650,6 +651,7 @@ function _crPrefetch(id){
   items.slice(i+1,i+4).concat(items.slice(Math.max(0,i-1),i)).forEach(n=>{ if(n&&!_CR.full[n]) _crFetchFull(n).catch(()=>{}); });
 }
 async function _crOpen(id,quiet){
+  if(_CR.cur&&_CR.cur.id!==id) await _crFlush();
   _CR.q.sel=id; const ed=document.getElementById('cr-editor'); if(!ed) return;
   document.querySelectorAll('#cr-qlist [data-cid]').forEach(el=>{ const on=el.getAttribute('data-cid')===id; el.style.borderColor=on?'#6366f1':'transparent'; el.style.background=on?'rgba(99,102,241,0.14)':'transparent'; });
   const me=await _crMe();
@@ -717,7 +719,7 @@ function _crEditor(c){
           +(c.filed?'<span>· filed '+E(_reqFmtDate(c.filed))+'</span>':'')+'</div></div>'
       +'<div style="text-align:right">'
         +'<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">'
-          +'<button type="button" class="btn btn-ghost" onclick="_crSave(false)">💾 Save</button>'
+
           +'<button type="button" class="btn btn-primary" onclick="_crSave(true)" title="Ctrl+Enter" style="font-size:15px;padding:0 18px">Save &amp; next case →</button></div>'
         +'<div id="cr-savemsg" style="font-size:12.5px;color:var(--text-dim);min-height:16px;margin-top:4px"></div></div>'
     +'</div>'
@@ -729,7 +731,7 @@ function _crEditor(c){
       +(addrQ&&!/^(unknown|land)$/i.test(addrQ)?'<a href="https://www.zillow.com/homes/'+encodeURIComponent(addrQ)+'_rb/" target="_blank" rel="noopener" style="'+btn+'">🏠 Zillow</a><a href="https://www.google.com/maps/search/'+encodeURIComponent(addrQ)+'" target="_blank" rel="noopener" style="'+btn+'">📍 Maps</a>':'')
     +'</div>'
     +fields
-    +box('📝','Notes','<textarea data-f="notes" rows="2" style="width:100%;box-sizing:border-box;font-size:14px;padding:8px 11px;border-radius:8px;margin-bottom:10px">'+E(c.notes||'')+'</textarea>')
+    +box('📝','Notes','<textarea data-f="notes" rows="2" oninput="_crLive()" style="width:100%;box-sizing:border-box;font-size:14px;padding:8px 11px;border-radius:8px;margin-bottom:10px">'+E(c.notes||'')+'</textarea>')
   +'</div>';
   if(k==='pb'){ _CR.pets=_crPets(c).map(p=>({name:p.name||'',address:p.address||''})); if(!_CR.pets.length) _CR.pets=[{name:'',address:''}]; _crPetPaint(); }
   _crLive();
@@ -779,6 +781,7 @@ function _crLive(){
     +'</div>'; }
   const pc=document.getElementById('cr-petc'); if(pc) pc.textContent=c.petitioner_count?('· '+c.petitioner_count):'';
   _crDupeCheck(c);
+  if(_CR.cur&&c.id===_CR.cur.id&&_crSig(c)!==_crSig(_CR.cur)) _crAutoSoon();
 }
 let _crDupeT=null;
 function _crDupeCheck(c){
@@ -804,19 +807,36 @@ function _crCopy(t,btn){ const done=()=>{ if(btn){ const o=btn.innerHTML; btn.in
   catch(_){ const x=document.createElement('textarea'); x.value=t; document.body.appendChild(x); x.select(); document.execCommand('copy'); x.remove(); done(); } }
 window._crCopy=_crCopy;
 // Save just this case; update its list row + counts in place (no reload).
-async function _crSave(next){
-  const c=_crCollect(); const msg=document.getElementById('cr-savemsg'); if(msg) msg.textContent='Saving…';
+// Autosave: every change saves itself ~1 second after you stop typing. "Save & next" still saves and moves on.
+let _crAutoT=null, _crSaving=null;
+function _crSig(c){ const t=x=>String(x==null?'':x).trim(); const pets=(Array.isArray(c.petitioners)?c.petitioners:[]).map(p=>[t(p&&p.name),t(p&&p.address)]).filter(p=>p[0]||p[1]);
+  return JSON.stringify([t(c.address),t(c.defendant),t(c.plaintiff),t(c.plaintiff_address),t(c.attorney),t(c.notes),pets]); }
+function _crAutoSoon(){ if(_crAutoT) clearTimeout(_crAutoT); const m=document.getElementById('cr-savemsg'); if(m) m.textContent='Unsaved changes…'; _crAutoT=setTimeout(()=>{ _crAutoT=null; _crSave(false,true); },1000); }
+async function _crFlush(){ if(_crAutoT){ clearTimeout(_crAutoT); _crAutoT=null; await _crSave(false,true); } else if(_crSaving){ try{ await _crSaving; }catch(_){} } }
+window._crFlush=_crFlush;
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') _crFlush(); });
+window.addEventListener('beforeunload',()=>{ if(_crAutoT){ clearTimeout(_crAutoT); _crAutoT=null; _crSave(false,true); } });
+async function _crSave(next,auto){
+  if(!auto&&_crAutoT){ clearTimeout(_crAutoT); _crAutoT=null; }
+  if(_crSaving){ try{ await _crSaving; }catch(_){} }
+  if(!document.querySelector('#cr-editor [data-f]')||!_CR.cur) return;
+  const c=_crCollect(); if(auto&&_crSig(c)===_crSig(_CR.cur)){ const m=document.getElementById('cr-savemsg'); if(m&&/Unsaved/.test(m.textContent)) m.textContent=''; return; }
+  let done; _crSaving=new Promise(r=>done=r);
+  try{ await _crSaveNow(c,next,auto); } finally{ done(); _crSaving=null; }
+}
+async function _crSaveNow(c,next,auto){
+  const msg=document.getElementById('cr-savemsg'); if(msg) msg.textContent='Saving…';
   const me=await _crMe(); const wasDone=_crDone(_CR.cur.sort_code)||_crScrap(_CR.cur.sort_code);
   const patch={ address:c.address, defendant:c.defendant, plaintiff:c.plaintiff||null, plaintiff_address:c.plaintiff_address||null, attorney:c.attorney, notes:c.notes||null,
-    sort_code:c.sort_code, updated_at:new Date().toISOString(), claimed_by:null, claimed_at:null };
+    sort_code:c.sort_code, updated_at:new Date().toISOString(), claimed_by:auto?me:null, claimed_at:auto?new Date().toISOString():null };
   if(_crTypeKey(c.case_type)==='pb') Object.assign(patch,{petitioners:c.petitioners,petitioner:c.petitioner,petitioner_address:c.petitioner_address,petitioner_count:c.petitioner_count});
   if((_crDone(c.sort_code)||_crScrap(c.sort_code))&&!wasDone){ patch.completed_at=new Date().toISOString(); patch.completed_by=me; }
   try{
     const up=await sb.from('court_cases').update(patch).eq('id',c.id); if(up.error) throw up.error;
     _CR.cur=Object.assign(_CR.cur,patch); _CR.full[c.id]=_CR.cur;
-    const lc=_CR.cases.find(x=>x.id===c.id); if(lc){ lc.sort_code=c.sort_code; if(patch.completed_at) lc.completed_at=patch.completed_at; lc.claimed_by=null; }
+    const lc=_CR.cases.find(x=>x.id===c.id); if(lc){ lc.sort_code=c.sort_code; if(patch.completed_at){ lc.completed_at=patch.completed_at; lc.completed_by=patch.completed_by; } lc.claimed_by=patch.claimed_by; }
     const row=document.querySelector('#cr-qlist [data-cid="'+c.id+'"] .cr-badge'); if(row) row.outerHTML=_crStatusPill(c.sort_code,true);
-    if(msg) msg.textContent='✓ Saved '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+    if(msg&&_CR.cur&&_CR.cur.id===c.id) msg.textContent='✓ '+(auto?'Saved automatically ':'Saved ')+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
     if(next){
       const items=[...document.querySelectorAll('#cr-qlist [data-cid]')]; const i=items.findIndex(el=>el.getAttribute('data-cid')===c.id);
       const stillIn=_crQueueList().some(x=>x.id===c.id);

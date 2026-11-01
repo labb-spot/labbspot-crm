@@ -735,8 +735,8 @@ function _crEditor(c){
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">'
       +(isList?(c.parcel?'<button type="button" style="'+btn+'" onclick="_crCopy(\''+E(c.parcel)+'\',this)" title="Copy the parcel number">📋 Copy parcel</button>':''):'<button type="button" style="'+btn+'" onclick="_crMyCase(\''+E(c.case_number)+'\')" title="Copies the case number, then opens MyCase search — just paste">⚖️ Open in MyCase</button>')
       +(cty.assessor_url?'<a href="'+E(cty.assessor_url)+'" target="_blank" rel="noopener" style="'+btn+'"'+(isList&&c.parcel?' onclick="try{navigator.clipboard.writeText(\''+E(c.parcel)+'\')}catch(_){}" title="Parcel copied — paste it into the GIS search"':'')+'>🗺️ '+(isList?'GIS / Assessor':'Assessor map')+'</a>':'')
-      +(nm?'<a href="'+E(tps)+'" target="_blank" rel="noopener" style="'+btn+'">🔎 TruePeopleSearch</a>':'')
-      +(addrQ&&!/^(unknown|land)$/i.test(addrQ)?'<a href="https://www.zillow.com/homes/'+encodeURIComponent(addrQ)+'_rb/" target="_blank" rel="noopener" style="'+btn+'">🏠 Zillow</a><a href="https://www.google.com/maps/search/'+encodeURIComponent(addrQ)+'" target="_blank" rel="noopener" style="'+btn+'">📍 Maps</a>':'')
+      +(nm?'<a href="'+E(tps)+'" target="_blank" rel="noopener" style="'+btn+'">🔎 TruePeopleSearch</a>':'')+'<button type="button" style="'+btn+'" onclick="_crMapsFor()" title="Google Maps for the address typed in the box right now">📍 Maps</button>'
+      +(addrQ&&!/^(unknown|land)$/i.test(addrQ)?'<a href="https://www.zillow.com/homes/'+encodeURIComponent(addrQ)+'_rb/" target="_blank" rel="noopener" style="'+btn+'">🏠 Zillow</a>':'')
     +'</div>'
     +fields
     +box('📝','Notes','<textarea data-f="notes" rows="2" oninput="_crLive()" style="width:100%;box-sizing:border-box;font-size:14px;padding:8px 11px;border-radius:8px;margin-bottom:10px">'+E(c.notes||'')+'</textarea>')
@@ -1465,3 +1465,11 @@ function _crLiCtyPick(code){ _CR.li.county=code; const b=document.getElementById
 window._crLiCtyList=_crLiCtyList; window._crLiCtyKey=_crLiCtyKey; window._crLiCtyPick=_crLiCtyPick;
 
 function _crTsStatus(ex){ ex=ex||{}; return ex.inactive?'Pulled pre-sale (inactive)':/^nb$/i.test(String(ex.bid||''))?'No bid':ex.bid_at_min?'No bid (bid = minimum)':(ex.bid!==''&&ex.bid!=null)?'Sold':''; }
+
+// 📍 Maps next to the property address: searches Google Maps for exactly what's typed in the box right now.
+function _crMapsFor(btn){
+  const inp=document.querySelector('#cr-editor [data-f="address"]'); const a=String(inp&&inp.value||'').trim();
+  if(!a||/^(unknown|land)$/i.test(a)){ toast('Type the address first','warn'); if(inp) inp.focus(); return; }
+  window.open('https://www.google.com/maps/search/'+encodeURIComponent(a),'_blank','noopener');
+}
+window._crMapsFor=_crMapsFor;

@@ -1228,7 +1228,7 @@ function _crLiRender(box){
       +'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:10px">Excel or CSV exactly as the city / county sent it — code violation reports, sewer / utility lien reports, tax lien sale exports. For a PDF, send it to Claude first.</div>'
       +'<label class="btn btn-primary" style="cursor:pointer;justify-content:center;width:100%;font-size:15px">📥 Choose file<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="_crLiFile(this)"></label>'
       +(P?'<div style="margin-top:12px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px"><div><b>'+E(L.file)+'</b></div><div style="color:var(--text-dim);margin-top:2px">Recognised as <b style="color:'+_CR_COL[P.fmt]+'">'+E(P.label)+'</b> · '+P.items.length.toLocaleString()+' '+(P.fmt==='cv'?'properties':'rows')+'</div>'
-        +'<div style="margin-top:10px;font-weight:700">County</div><select style="'+sel+';margin-top:4px" onchange="_CR.li.county=this.value;_crLiPreview()"><option value="">'+(L.needCounty?'— pick the county —':'From the file')+'</option>'+_CR.counties.map(c=>'<option value="'+E(c.code)+'" '+(L.county===c.code?'selected':'')+'>'+E(c.code+' · '+c.city+' ('+c.county+')')+'</option>').join('')+'</select>'
+        +'<div style="margin-top:10px;font-weight:700">County</div><div style="position:relative;margin-top:4px;max-width:340px"><input id="cr-li-cty" autocomplete="off" placeholder="'+(L.needCounty?'Type a city, county or code…':'From the file — or type to change')+'" value="'+E((()=>{ const c=_CR.counties.find(x=>x.code===L.county); return c?c.code+' · '+c.city+' ('+c.county+')':''; })())+'" onfocus="this.select();_crLiCtyList()" oninput="_crLiCtyList()" onkeydown="_crLiCtyKey(event)" onblur="setTimeout(()=>{const l=document.getElementById(\'cr-li-cty-list\');if(l)l.style.display=\'none\'},150)" style="height:36px;font-size:13.5px;padding:0 10px;border-radius:8px;width:100%;box-sizing:border-box"><div id="cr-li-cty-list" style="display:none;position:absolute;left:0;right:0;top:40px;z-index:50;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.4);max-height:260px;overflow:auto"></div></div>'
         +'<div style="margin-top:10px"><a href="#" onclick="event.preventDefault();_crLiMapStart()" style="font-size:12.5px;color:#60a5fa;text-decoration:none">🧩 Wrong? Pick the columns myself</a></div></div>'
       :(L.map?'<div style="margin-top:12px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px"><div><b>'+E(L.file)+'</b></div><div style="color:var(--text-dim);margin-top:2px">Not a layout Data LAB knows yet — tell it which column is which on the right. It’ll remember this layout next time.</div></div>':''))
     +'</div><div>';
@@ -1396,3 +1396,22 @@ async function _crLiMapUse(btn){
   await _crLiPreview();
 }
 window._crLiMapUse=_crLiMapUse;
+
+// County search box on the list importer: type a city, county or code and pick from the matches.
+function _crLiCtyList(){
+  const inp=document.getElementById('cr-li-cty'), box=document.getElementById('cr-li-cty-list'); if(!inp||!box) return;
+  const q=inp.value.trim().toLowerCase().replace(/^(\d{2}) · .*/,'$1');
+  const hits=_CR.counties.filter(c=>!q||c.code===q||String(c.city).toLowerCase().includes(q)||String(c.county).toLowerCase().includes(q)||(q.length<=2&&c.code.startsWith(q))).slice(0,12);
+  _CR.li._hits=hits; _CR.li._hi=0;
+  box.innerHTML=(hits.length?hits.map((c,i)=>'<div data-i="'+i+'" onmousedown="event.preventDefault();_crLiCtyPick(\''+c.code+'\')" style="padding:8px 10px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;'+(i===0?'background:var(--panel-2)':'')+'" onmouseover="this.style.background=\'var(--panel-2)\'" onmouseout="this.style.background=\'\'">'+_crCodeBadge(c)+'<b>'+_reqEsc(c.city)+'</b><span style="color:var(--text-dim)">'+_reqEsc(c.county)+(c.active?'':' · inactive')+'</span></div>').join(''):'<div style="padding:10px;color:var(--text-dim);font-size:13px">No county matches “'+_reqEsc(inp.value)+'”</div>')
+    +(!_CR.li.needCounty&&_CR.li.county?'<div onmousedown="event.preventDefault();_crLiCtyPick(\'\')" style="padding:8px 10px;cursor:pointer;font-size:12.5px;color:#60a5fa;border-top:1px solid var(--border)">↺ Use the county from the file</div>':'');
+  box.style.display='';
+}
+function _crLiCtyKey(e){
+  const box=document.getElementById('cr-li-cty-list'); const L=_CR.li; if(!box||!L._hits) return;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault(); L._hi=Math.max(0,Math.min(L._hits.length-1,L._hi+(e.key==='ArrowDown'?1:-1))); box.querySelectorAll('[data-i]').forEach(d=>d.style.background=+d.getAttribute('data-i')===L._hi?'var(--panel-2)':''); }
+  else if(e.key==='Enter'){ e.preventDefault(); const c=L._hits[L._hi]; if(c) _crLiCtyPick(c.code); }
+  else if(e.key==='Escape'){ box.style.display='none'; }
+}
+function _crLiCtyPick(code){ _CR.li.county=code; const b=document.getElementById('cr-li-cty-list'); if(b) b.style.display='none'; _crLiPreview(); }
+window._crLiCtyList=_crLiCtyList; window._crLiCtyKey=_crLiCtyKey; window._crLiCtyPick=_crLiCtyPick;

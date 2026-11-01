@@ -28,7 +28,7 @@ function _crSort(c){
   }
   if(k==='pb' && /guardian/i.test((c.case_type||'')+' '+(c.style||''))) return '4.2';   // all guardianships (minor or adult) → Scrap
   if(k==='pb' && /^TR\b|\btrust\b/i.test(c.case_type||'')) return '4.5';               // trust cases (TR - Trust) → Scrap
-  if(k==='ev' && _CR_CORP.test(c.plaintiff||'')) return '4.3';
+  if(k==='ev' && _CR_CORP.test(String(c.plaintiff||'').trim()||String(c.style||'').split(/\s+vs?\.?\s+/i)[0])) return '4.3';   // plaintiff, or the part of the style before " v. " on a fresh paste
   const req = k==='pb' ? [c.address,c.defendant,c.attorney,_crPetName(c),_crPetAddr(c),_crPetCount(c)] : [c.address,c.defendant,c.plaintiff,c.attorney];
   if(req.some(x=>!v(x))) return '0'+sfx;
   if(unk(c.address)) return '3'+sfx;

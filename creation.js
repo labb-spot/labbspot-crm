@@ -120,7 +120,7 @@ function _crTrackerHtml(){
   act.forEach(c=>{ const b=by[c.code]||empty; ['fc','pb','ev','cv','ul','ts'].forEach(k=>{ tot[k].d+=b[k].d; tot[k].t+=b[k].t; if(tot[k].s!=null) tot[k].s+=(b[k].s||0); }); tot.pb.u+=b.pb.u; tot.ev.c+=(b.ev.c||0); tot.all+=b.all; tot.scrap+=b.scrap; });
   const row=c=>{ const b=by[c.code]||empty; const p=c.pulled||{};
     return '<tr class="cr-trk-row">'
-      +'<td style="padding:7px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:sticky;left:0;z-index:1;background:var(--panel);box-shadow:inset -1px 0 0 var(--border)"><button type="button" onclick="_crCountyEdit(\''+E(c.code)+'\')" title="Edit county — active, GIS link" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px 0 0;opacity:.7">⚙️</button><span title="County code — the first 2 digits of the case number" style="display:inline-block;min-width:28px;text-align:center;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;font-weight:800;color:#93c5fd;background:rgba(96,165,250,0.14);border:1px solid rgba(96,165,250,0.45);border-radius:6px;padding:1px 6px;margin-right:7px">'+E(c.code)+'</span><b>'+E(c.city)+'</b> <span style="color:var(--text-dim);font-size:12px">'+E(c.county)+'</span></td>'
+      +'<td style="padding:7px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:sticky;left:0;z-index:1;background:var(--panel);box-shadow:inset -1px 0 0 var(--border)"><button type="button" onclick="_crCountyEdit(\''+E(c.code)+'\')" title="Edit county — active, GIS link" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px 0 0;opacity:.7">⚙️</button>'+_crCodeBadge(c)+'<b>'+E(c.city)+'</b> <span style="color:var(--text-dim);font-size:12px">'+E(c.county)+'</span></td>'
       +'<td style="text-align:center;white-space:nowrap;overflow:hidden">'+(c.assessor_url?'<a href="'+E(c.assessor_url)+'" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none" title="'+E(c.assessor_url)+'">🗺️</a>':'<button type="button" onclick="_crCountyEdit(\''+E(c.code)+'\')" title="Add this county’s GIS / Assessor link" style="background:none;border:1px dashed var(--border);border-radius:6px;color:var(--text-dim);font-size:13px;line-height:1;cursor:pointer;width:26px;height:22px;padding:0;display:inline-flex;align-items:center;justify-content:center">+</button>')+'</td>'
       +cell(b,'fc',p.fc,c.code)+cell(b,'pb',p.pb,c.code)
       +cell(b,'ev',p.ev,c.code)+_CR_LISTS.map(k=>lcell(b[k],k,p[k],c.code)).join('')+'</tr>'; };
@@ -193,6 +193,11 @@ async function _crSetPulled(code,k,inp){
   if(await _crSaveCounty(code,{pulled:pulled})){ if(typeof toast==='function') toast(c.city+' · '+(_CR_TYPES[k])+' pulled to '+_crPullLbl(inp.value),'ok'); }
 }
 window._crSetPulled=_crSetPulled;
+// County-code badge colours — only these 8 (stored on the county as pulled._color; blue is the default).
+const _CR_BADGE={ red:'#f87171', green:'#4ade80', blue:'#60a5fa', purple:'#c084fc', yellow:'#facc15', orange:'#fb923c', pink:'#f472b6', cyan:'#22d3ee' };
+function _crCodeBadge(c){ const k=(c&&c.pulled&&c.pulled._color)||'blue'; const hex=_CR_BADGE[k]||_CR_BADGE.blue;
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return '<span title="County code — the first 2 digits of the case number" style="display:inline-block;min-width:28px;text-align:center;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;font-weight:800;color:'+hex+';background:rgba('+r+','+g+','+b+',0.14);border:1px solid rgba('+r+','+g+','+b+',0.5);border-radius:6px;padding:1px 6px;margin-right:7px">'+_reqEsc(c.code)+'</span>'; }
 function _crCountyEdit(code){
   const c=_CR.counties.find(x=>x.code===code); if(!c) return; const E=_reqEsc;
   const old=document.getElementById('cr-cty-pop'); if(old) old.remove();
@@ -208,14 +213,20 @@ function _crCountyEdit(code){
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
       +'<label style="font-size:12.5px;color:var(--text-dim)">City name<input id="cr-cty-city" value="'+E(c.city||'')+'" style="'+inp+';margin-top:3px"></label>'
       +'<label style="font-size:12.5px;color:var(--text-dim)">County<input id="cr-cty-county" value="'+E(c.county||'')+'" style="'+inp+';margin-top:3px"></label></div>'
+    +'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:6px">Code color</div><div id="cr-cty-colors" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'
+      +Object.keys(_CR_BADGE).map(k=>{ const on=(((c.pulled||{})._color)||'blue')===k; return '<button type="button" data-col="'+k+'" title="'+k+'" style="width:34px;height:30px;border-radius:7px;cursor:pointer;font-family:ui-monospace,Consolas,monospace;font-size:12px;font-weight:800;color:'+_CR_BADGE[k]+';background:transparent;border:'+(on?'2px solid '+_CR_BADGE[k]:'1px solid var(--border)')+';box-shadow:'+(on?'0 0 0 2px var(--panel),0 0 0 4px '+_CR_BADGE[k]+'55':'none')+'">'+E(c.code)+'</button>'; }).join('')
+    +'</div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn btn-primary text-sm" id="cr-cty-save">💾 Save</button><button type="button" class="btn btn-ghost text-sm" data-x="1" style="border:1px solid #ef4444;color:#f87171">Cancel</button></div></div>';
   document.body.appendChild(ov);
   ov.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>ov.remove());
   ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  let pickCol=((c.pulled||{})._color)||'blue';
+  ov.querySelectorAll('[data-col]').forEach(b=>b.onclick=()=>{ pickCol=b.getAttribute('data-col'); ov.querySelectorAll('[data-col]').forEach(x=>{ const k=x.getAttribute('data-col'), on=k===pickCol; x.style.border=on?'2px solid '+_CR_BADGE[k]:'1px solid var(--border)'; x.style.boxShadow=on?'0 0 0 2px var(--panel),0 0 0 4px '+_CR_BADGE[k]+'55':'none'; }); });
   ov.querySelector('#cr-cty-open').onclick=()=>{ const u=ov.querySelector('#cr-cty-gis').value.trim(); if(u) window.open(/^https?:/i.test(u)?u:'https://'+u,'_blank','noopener'); };
   ov.querySelector('#cr-cty-save').onclick=async function(){
     let u=ov.querySelector('#cr-cty-gis').value.trim(); if(u&&!/^https?:\/\//i.test(u)) u='https://'+u;
-    const patch={active:ov.querySelector('#cr-cty-active').checked, assessor_url:u||null, city:ov.querySelector('#cr-cty-city').value.trim()||c.city, county:ov.querySelector('#cr-cty-county').value.trim()||c.county};
+    const pulled=Object.assign({},c.pulled||{}); if(pickCol==='blue') delete pulled._color; else pulled._color=pickCol;
+    const patch={pulled:pulled, active:ov.querySelector('#cr-cty-active').checked, assessor_url:u||null, city:ov.querySelector('#cr-cty-city').value.trim()||c.city, county:ov.querySelector('#cr-cty-county').value.trim()||c.county};
     this.disabled=true; this.textContent='Saving…';
     if(await _crSaveCounty(code,patch)){ ov.remove(); if(_CR.tab==='tracker') _crRender(); if(typeof toast==='function') toast(patch.city+' saved'+(patch.active!==undefined?(patch.active?' · active':' · inactive'):''),'ok'); }
     else { this.disabled=false; this.textContent='💾 Save'; }
@@ -1083,7 +1094,7 @@ function _crListsHtml(by){
     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div style="font-weight:800;font-size:14px">📋 City &amp; county lists</div><div style="font-size:12px;color:var(--text-dim)">Code violations, utility liens and tax sale lists — add them in 📋 Paste / Import → Import a list.</div></div>'
     +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'+K.map(card).join('')+'</div>'
     +(rows.length?'<div style="overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="border-collapse:collapse;font-size:13px;min-width:700px;width:100%"><thead><tr><th style="'+th+';text-align:left">County</th>'+K.map(k=>'<th colspan="2" style="'+th+';color:'+_CR_COL[k]+';border-bottom:2px solid '+_CR_COL[k]+'">'+_CR_TYPES[k]+'</th>').join('')+'</tr></thead><tbody>'
-      +rows.map(c=>{ const b=by[c.code]; return '<tr style="border-top:1px solid var(--border)"><td style="padding:7px 8px;white-space:nowrap"><span style="display:inline-block;min-width:28px;text-align:center;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;font-weight:800;color:#93c5fd;background:rgba(96,165,250,0.14);border:1px solid rgba(96,165,250,0.45);border-radius:6px;padding:1px 6px;margin-right:7px">'+E(c.code)+'</span><b>'+E(c.city)+'</b> <span style="color:var(--text-dim);font-size:12px">'+E(c.county)+'</span></td>'+K.map(k=>cell(b[k])).join('')+'</tr>'; }).join('')
+      +rows.map(c=>{ const b=by[c.code]; return '<tr style="border-top:1px solid var(--border)"><td style="padding:7px 8px;white-space:nowrap">'+_crCodeBadge(c)+'<b>'+E(c.city)+'</b> <span style="color:var(--text-dim);font-size:12px">'+E(c.county)+'</span></td>'+K.map(k=>cell(b[k])).join('')+'</tr>'; }).join('')
       +'</tbody></table></div>':'<div style="padding:18px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px;font-size:13px">No lists yet.</div>')
   +'</div>';
 }

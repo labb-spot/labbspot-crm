@@ -11,15 +11,14 @@ const _CR_LISTS = ['cv','ul','ts'];   // city / county lists (not court cases)
 const _CR_CORP = /\b(l\.?l\.?c|l\.?l\.?p|inc|corp|corporation|apartments?|apts?|properties|property management|management|holdings|l\.?p|ltd|company|housing|homes|realty|partners|rentals?|investments?|group|enterprises|ventures|capital)\b|\bLL$/i;
 function _crTypeKey(t){ t=String(t||''); if(/^CV\b/.test(t)) return 'cv'; if(/^UL\b/.test(t)) return 'ul'; if(/^TS\b/.test(t)) return 'ts'; t=t.toLowerCase(); if(/mortgage|foreclos/.test(t)) return 'fc'; if(/estate|guardian|probate/.test(t)) return 'pb'; if(/evict/.test(t)) return 'ev'; return ''; }
 // Scrap codes: 4.2 minor guardianship · 4.3 company landlord eviction · 4.4 company owner (lists) · 4.7 tax sale no bid · 4.8 inactive tax parcel
-const _CR_SCRAP_WHY = { '4.2':'Minor guardianship', '4.3':'LLC / apartment', '4.4':'Company owner', '4.7':'No bid at tax sale', '4.8':'Inactive tax parcel' };
+const _CR_SCRAP_WHY = { '4.2':'Minor guardianship', '4.3':'LLC / apartment', '4.4':'Company owner', '4.6':'No bid (bid = minimum)', '4.7':'No bid at tax sale', '4.8':'Inactive tax parcel' };
 // Sort code — same rules as the sheet's Task List.
 function _crSort(c){
   const k=_crTypeKey(c.case_type); const sfx=_CR_SFX[k]; if(!sfx) return '';
   const v=x=>String(x==null?'':x).trim(); const unk=x=>/^unknown$/i.test(v(x));
   if(_CR_LISTS.indexOf(k)>=0){   // city / county lists: done as soon as there's an address + owner
     const ex=c.extra||{};
-    if(k==='ts'&&ex.inactive) return '4.8';
-    if(k==='ts'&&/^nb$/i.test(v(ex.bid))) return '4.7';
+    // Tax sale: every parcel that went (or was about to go) to tax sale is a lead — sold, no bid or pulled pre-sale. Nothing is scrapped; the status is kept as a tag.
     if(k!=='ts'&&_CR_CORP.test(c.defendant||'')) return '4.4';   // tax sale keeps company owners
     if(!v(c.address)||!v(c.defendant)) return '0'+sfx;
     if(unk(c.address)) return '3'+sfx;
@@ -490,7 +489,7 @@ function _crExRow(c){
     'Case Number': c.case_number, 'Case Type': c.case_type||'', 'Filed': c.filed||'', 'Court': c.court||'', 'Style': c.style||'',
     'Defendant / Decedent': c.defendant||'', 'Plaintiff': c.plaintiff||'', 'Plaintiff Address': c.plaintiff_address||'', 'Attorney': c.attorney||'',
     'Petitioner Count': c.petitioner_count||'', 'Status': /^2\./.test(c.sort_code||'')?'Complete':/^1\./.test(c.sort_code||'')?'Complete (unknowns)':'Incomplete',
-    'Parcel': c.parcel||'', 'Amount Owed': c.amount!=null?c.amount:'', 'Violation / Lien': (c.extra&&(c.extra.violation||c.extra.lien))||'',
+    'Parcel': c.parcel||'', 'Amount Owed': c.amount!=null?c.amount:'', 'Tax Sale Status': k==='ts'?_crTsStatus(c.extra):'', 'Violation / Lien': (c.extra&&(c.extra.violation||c.extra.lien))||'',
     'Latitude': g?g.lat:'', 'Longitude': g?g.lng:'', 'Place ID': g?g.place_id:'', 'Notes': c.notes||''
   };
 }
@@ -694,7 +693,7 @@ function _crEditor(c){
     f('Parcel',c.parcel); f(k==='ts'?'Amount due':'Amount owed',money(c.amount));
     if(k==='cv'){ f('Violation',ex.violation); f('Opened',c.filed?_reqFmtDate(c.filed):''); f('Complied',ex.complied?_reqFmtDate(ex.complied):'Not yet'); }
     if(k==='ul'){ f('Lien',ex.lien); f('Filed',c.filed?_reqFmtDate(c.filed):''); }
-    if(k==='ts'){ f('Sale ID',ex.sale_id); f('Winning bid',/^nb$/i.test(String(ex.bid||''))?'No bid':money(ex.bid)); f('Assessed value',money(ex.assessed)); f('Legal',ex.legal); }
+    if(k==='ts'){ f('Tax sale',_crTsStatus(ex)); f('Sale ID',ex.sale_id); f('Winning bid',/^nb$/i.test(String(ex.bid||''))?'No bid':money(ex.bid)); f('Assessed value',money(ex.assessed)); f('Legal',ex.legal); }
     fields=(facts.length?'<div style="display:flex;gap:10px 22px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px">'+facts.join('')+'</div>':'')
       +box('🏠','Property',fld('address','Property address',c.parcel?'Look up parcel '+c.parcel+' on the GIS / Assessor map':'Street address',ADDR,true))
       +box('👤','Owner',fld('defendant','Owner','Deeded owner'));
@@ -1146,15 +1145,25 @@ function _crLiParse(grid,fileName){
   if((h=findHead(['sale id','parcel number']))>=0){
     let inactive=/inactive/i.test(fileName||''); for(let r=0;r<h;r++) (grid[r]||[]).forEach(v=>{ if(/inactive/i.test(String(v||''))) inactive=true; });
     let iS=colOf(h,['sale id']), iP=colOf(h,['parcel number']), iO=colOf(h,['owner name','owner']), iA=colOf(h,['address']), iF=colOf(h,['face amount','minbid','min bid']),
-          iB=colOf(h,['current winning bid','winning bid','winner/bid']), iD=colOf(h,['district']), iV=colOf(h,['assessed value']), iG=colOf(h,['legal']);
+          iB=colOf(h,['current winning bid','winning bid','winner/bid']), iD=colOf(h,['district']), iV=colOf(h,['assessed value']), iG=colOf(h,['legal']), iY=colOf(h,['style','status']), iW=colOf(h,['bidder','winner','buyer']);
     // Some exports drop a header (e.g. "Proxy Bid") but keep its data column — everything after it sits one cell to the right.
     let sh=0; if(iD>=0){ let blank=0, next=0, n=0; for(let r=h+1;r<grid.length&&n<40;r++){ if(!/^\d{6,}$/.test(txt(r,iS))) continue; n++; if(!txt(r,iD)) blank++; if(txt(r,iD+1)) next++; } if(n&&blank/n>0.8&&next/n>0.8) sh=1; }
     const S=i=>(i>=0&&iD>=0&&i>=iD)?i+sh:i; iO=S(iO); iA=S(iA); iD=S(iD); iV=S(iV); iG=S(iG);
     const items=[];
     for(let r=h+1;r<grid.length;r++){ const sid=txt(r,iS); if(!/^\d{6,}$/.test(sid)) continue;
-      const bidRaw=iB>=0?txt(r,iB):'';
+      const bidRaw=iB>=0?txt(r,iB):''; const sty=iY>=0?txt(r,iY):'';
+      // Files built with a Style / Status column: "Paid pre-sale" = inactive, "Tax Sale (None)" = no bid, "Tax Sale (Sold)" = sold
+      const rowInactive=inactive||/paid pre-?sale|inactive|withdrawn|redeemed before/i.test(sty);
+      const rowNB=/\(none\)|no ?bid|\bnb\b/i.test(sty);
       items.push({ sale_id:sid, parcel:txt(r,iP), owner:txt(r,iO), street:iA>=0?txt(r,iA):'', district:iD>=0?txt(r,iD):'', amount:_crLiMoney(iF>=0?cell(r,iF):''),
-        bid:/^nb$/i.test(bidRaw)?'NB':(_crLiMoney(bidRaw)!=null?_crLiMoney(bidRaw):bidRaw), assessed:iV>=0?_crLiMoney(cell(r,iV)):null, legal:iG>=0?txt(r,iG):'', inactive:inactive }); }
+        bid:(rowNB||/^nb$/i.test(bidRaw))?'NB':(_crLiMoney(bidRaw)!=null?_crLiMoney(bidRaw):bidRaw), assessed:iV>=0?_crLiMoney(cell(r,iV)):null, legal:iG>=0?txt(r,iG):'', inactive:rowInactive, style:sty, bidder:iW>=0?txt(r,iW):'' }); }
+    // After the sale (some rows have a winning bid), a blank winning bid means it never went to auction = inactive / pulled pre-sale.
+    // Before the sale (no bids anywhere yet) blanks are left alone.
+    if(iB>=0&&items.some(x=>typeof x.bid==='number')) items.forEach(x=>{ if((x.bid===''||x.bid==null)&&!x.style) x.inactive=true; });
+    // Auditor results: a $0 winning bid = no bid. Zeus: winning bid equal to the minimum (Face Amount) = most likely no bid (struck at the minimum).
+    items.forEach(x=>{ if(x.style||x.inactive||typeof x.bid!=='number') return;
+      if(x.bid===0) x.bid='NB';
+      else if(!x.bidder&&x.amount!=null&&Math.abs(x.bid-x.amount)<0.005){ x.bidAtMin=true; } });   // a named / numbered bidder = a real sale
     return { fmt:'ts', label:'Tax sale'+(inactive?' (inactive parcels)':''), needCounty:false, items:items };
   }
   return null;
@@ -1178,7 +1187,7 @@ function _crLiRecords(P,county){
       const city=x.city||(/city of/i.test(x.district||'')?x.district.replace(/city of/i,'').trim():(cname||cityName));
       r={ case_number:'TS-'+sid, county_code:code, case_type:'TS - Tax Sale',
           style:'Tax sale '+sid, address:x.street?(/,/.test(x.street)?x.street:x.street+(city?', '+city:'')+', IN'):'', defendant:x.owner, filed:null, status:x.bid==='NB'?'No bid':(x.bid!==''&&x.bid!=null?'Sold':''),
-          parcel:x.parcel||null, amount:x.amount, extra:{ sale_id:x.sale_id, bid:x.bid, assessed:x.assessed, legal:x.legal, district:x.district, inactive:!!x.inactive, source:src } }; }
+          parcel:x.parcel||null, amount:x.amount, extra:{ sale_id:x.sale_id, bid:x.bid, bid_at_min:!!x.bidAtMin, style:x.style||'', assessed:x.assessed, legal:x.legal, district:x.district, inactive:!!x.inactive, source:src } }; }
     r.petitioners=[]; r.sort_code=_crSort(r); r.completed_at=(_crDone(r.sort_code)||_crScrap(r.sort_code))?new Date().toISOString():null;
     out.push(r);
   });
@@ -1214,9 +1223,10 @@ async function _crLiPreview(){
   const it=L.P.items[0]||{}; const derivable=L.P.fmt==='ul'?/^\d{2}-/.test(it.parcel||''):L.P.fmt==='ts'?/^\d{2}/.test(it.sale_id||it.parcel||''):false;
   L.needCounty=!L.county&&!derivable;
   L.recs=L.needCounty?[]:_crLiRecords(L.P,L.county);
-  const have=new Set(); const cns=L.recs.map(r=>r.case_number);
-  try{ for(let i=0;i<cns.length;i+=150){ const q=await sb.from('court_cases').select('case_number').in('case_number',cns.slice(i,i+150)); (q.data||[]).forEach(x=>have.add(x.case_number)); } }catch(_){}
-  L.recs.forEach(r=>{ r._st=have.has(r.case_number)?'have':_crScrap(r.sort_code)?'scrap':_crDone(r.sort_code)?'done':'todo'; });
+  const have=new Map(); const cns=L.recs.map(r=>r.case_number);
+  try{ for(let i=0;i<cns.length;i+=150){ const q=await sb.from('court_cases').select('id,case_number,sort_code').in('case_number',cns.slice(i,i+150)); (q.data||[]).forEach(x=>have.set(x.case_number,x)); } }catch(_){}
+  // already here, but this file now says it's a no-bid / inactive parcel → offer to fix it (sent to Scrap)
+  L.recs.forEach(r=>{ const h=have.get(r.case_number); r._st=h?(_crScrap(r.sort_code)!==_crScrap(h.sort_code)?'fix':'have'):_crScrap(r.sort_code)?'scrap':_crDone(r.sort_code)?'done':'todo'; if(h){ r._id=h.id; r._was=h.sort_code; } });
   _crRender();
 }
 window._crLiPreview=_crLiPreview;
@@ -1236,10 +1246,11 @@ function _crLiRender(box){
   else if(!P) html+='<div style="padding:40px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">2. The preview shows up here.</div>';
   else if(L.needCounty) html+='<div style="padding:40px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">Pick the county on the left — this list doesn’t say which county it’s from.</div>';
   else {
-    const R=L.recs||[]; const n=k=>R.filter(r=>r._st===k).length; const add=R.filter(r=>r._st!=='have').length;
-    const tag={done:['✅ Done','#22c55e'],todo:['○ Needs address','#60a5fa'],scrap:['🗑 Scrap','#ef4444'],have:['↩ Already here','#94a3b8']};
+    const R=L.recs||[]; const n=k=>R.filter(r=>r._st===k).length; const add=R.filter(r=>r._st!=='have'&&r._st!=='fix').length, fix=n('fix');
+    const tag={done:['✅ Done','#22c55e'],todo:['○ Needs address','#60a5fa'],scrap:['🗑 Scrap','#ef4444'],have:['↩ Already here','#94a3b8'],fix:['🔁 Fix','#f59e0b']};
     html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+[['done','✅ Done right away'],['todo','○ Needs work (address)'],['scrap','🗑 Scrap'],['have','↩ Already here']].map(x=>'<div style="flex:1;min-width:110px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:8px 10px"><div style="font-size:11.5px;color:var(--text-dim)">'+x[1]+'</div><div style="font-size:20px;font-weight:800">'+n(x[0]).toLocaleString()+'</div></div>').join('')+'</div>'
-      +'<button type="button" class="btn btn-primary" '+(add?'':'disabled ')+'onclick="_crLiSave(this)" style="width:100%;font-size:15px;margin-bottom:10px">Add '+add.toLocaleString()+' '+E(P.label.toLowerCase())+'</button>'
+      +(fix?'<div style="border:1px solid #f59e0b;background:rgba(245,158,11,0.1);border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:10px"><b style="color:#fbbf24">🔁 '+fix.toLocaleString()+' already in Data LAB</b> were sorted differently before (Scrap ↔ kept) — they’ll be updated to match the current rules.</div>':'')
+      +'<button type="button" class="btn btn-primary" '+(add||fix?'':'disabled ')+'onclick="_crLiSave(this)" style="width:100%;font-size:15px;margin-bottom:10px">'+(add?'Add '+add.toLocaleString()+' '+E(P.label.toLowerCase()):'')+(add&&fix?' · ':'')+(fix?'Fix '+fix.toLocaleString():'')+'</button>'
       +'<div style="max-height:430px;overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>'
         +R.slice(0,300).map(r=>'<tr style="border-top:1px solid var(--border)"><td style="padding:6px 8px;white-space:nowrap;font-weight:700;color:'+tag[r._st][1]+'">'+(r._st==='scrap'?'🗑 '+E(_CR_SCRAP_WHY[r.sort_code]||'Scrap'):tag[r._st][0])+'</td><td style="padding:6px 8px">'+E(r.defendant||'')+'</td><td style="padding:6px 8px;color:var(--text-dim)">'+E(r.address||r.parcel||'')+'</td><td style="padding:6px 8px;white-space:nowrap;text-align:right">'+(r.amount!=null?'$'+Number(r.amount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):E((r.extra&&r.extra.violation)||''))+'</td></tr>').join('')
       +'</tbody></table></div>'+(R.length>300?'<div style="font-size:12px;color:var(--text-dim);margin-top:4px">Showing the first 300 of '+R.length.toLocaleString()+'.</div>':'');
@@ -1248,13 +1259,14 @@ function _crLiRender(box){
   if(!P&&L.map) _crLiMapPaint();
 }
 async function _crLiSave(btn){
-  const L=_CR.li; const add=(L.recs||[]).filter(r=>r._st!=='have'); if(!add.length) return;
+  const L=_CR.li; const add=(L.recs||[]).filter(r=>r._st!=='have'&&r._st!=='fix'), fixes=(L.recs||[]).filter(r=>r._st==='fix'); if(!add.length&&!fixes.length) return;
   btn.disabled=true; btn.textContent='Adding…';
   try{
-    const recs=add.map(r=>{ const o=Object.assign({},r); delete o._st; return o; });
+    const recs=add.map(r=>{ const o=Object.assign({},r); delete o._st; delete o._id; return o; });
+    let fixed=0; for(const r of fixes){ const up=await sb.from('court_cases').update({sort_code:r.sort_code,extra:r.extra,status:r.status,completed_at:(_crDone(r.sort_code)||_crScrap(r.sort_code))?(r.completed_at||new Date().toISOString()):null,updated_at:new Date().toISOString()}).eq('id',r._id); if(!up.error) fixed++; if(fixed%25===0) btn.textContent='Fixing… '+fixed+' / '+fixes.length; }
     for(let i=0;i<recs.length;i+=500){ const up=await sb.from('court_cases').upsert(recs.slice(i,i+500),{onConflict:'case_number',ignoreDuplicates:true}); if(up.error) throw up.error; btn.textContent='Adding… '+Math.min(i+500,recs.length)+' / '+recs.length; }
     await _crLoad(true);
-    toast('📥 Added '+add.length.toLocaleString()+' — '+add.filter(r=>r._st==='todo').length.toLocaleString()+' need an address in the Work Queue','ok');
+    toast('📥 Added '+add.length.toLocaleString()+(fixed?' · updated '+fixed:'')+' — '+add.filter(r=>r._st==='todo').length.toLocaleString()+' need an address in the Work Queue','ok');
     _CR.li={ recs:null, fmt:'', county:L.county, file:'' }; _crRender();
   }catch(e){ btn.disabled=false; btn.textContent='Try again'; toast('Add failed: '+(e.message||e)+(/parcel|amount|extra/.test(e.message||'')?' — run creation-lists.sql in Supabase first':''),'err'); }
 }
@@ -1415,3 +1427,5 @@ function _crLiCtyKey(e){
 }
 function _crLiCtyPick(code){ _CR.li.county=code; const b=document.getElementById('cr-li-cty-list'); if(b) b.style.display='none'; _crLiPreview(); }
 window._crLiCtyList=_crLiCtyList; window._crLiCtyKey=_crLiCtyKey; window._crLiCtyPick=_crLiCtyPick;
+
+function _crTsStatus(ex){ ex=ex||{}; return ex.inactive?'Pulled pre-sale (inactive)':/^nb$/i.test(String(ex.bid||''))?'No bid':ex.bid_at_min?'No bid (bid = minimum)':(ex.bid!==''&&ex.bid!=null)?'Sold':''; }

@@ -1024,11 +1024,15 @@ function _crChartHtml(){
   const act=_CR.counties.filter(c=>c.active), actSet=new Set(act.map(c=>c.code));
   const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  const by=C.by||'m', step=by==='w'?7:by==='bw'?14:0;   // weekly / bi-weekly / monthly / quarterly
+  const by=C.by||'m', step=by==='w'?7:by==='bw'?14:0;   // weekly / bi-weekly / monthly / quarterly / yearly
+  const yearly=by==='y'; let tsHidden=0;
   const now=new Date(); now.setHours(0,0,0,0);
   const rows=[]; let minM=null, noDay=0;
   _CR.cases.forEach(c=>{ const k=_crTypeKey(c.case_type); if(!k) return;
     if(C.county?c.county_code!==C.county:!actSet.has(c.county_code)) return;
+    if(k==='ts'){ // tax sale = sale year only (Zeus Sale ID: CC YY NNNNN → 032600016 = 2026); no month, so it's only charted on Yearly
+      const x=String(c.case_number||'').match(/^TS-\d{2}(\d{2})\d{5}$/); const y=x?'20'+x[1]:(c.uploaded_at?String(c.uploaded_at).slice(0,4):'');
+      if(!/^\d{4}$/.test(y)) return; if(!yearly){ tsHidden++; return; } rows.push({k:k,day:'',m:y+'-01'}); if(!minM||y+'-01'<minM) minM=y+'-01'; return; }
     let day=c.filed&&/^\d{4}-\d{2}-\d{2}/.test(String(c.filed))?String(c.filed).slice(0,10):'', m=day.slice(0,7);
     if(!m){ const x=String(c.case_number||'').match(/^\d{2}[A-Z]\d{2}-(\d{2})(\d{2})-/); if(!x||+x[2]<1||+x[2]>12) return; m='20'+x[1]+'-'+x[2]; }  // month from the case number when Filed is blank
     rows.push({k:k,day:day,m:m}); if(!minM||m<minM) minM=m; });
@@ -1038,6 +1042,9 @@ function _crChartHtml(){
     const s0=C.range?new Date(now):(minM?new Date(+minM.slice(0,4),+minM.slice(5,7)-1,1):new Date(now)); if(C.range) s0.setMonth(s0.getMonth()-C.range); s0.setDate(s0.getDate()-((s0.getDay()+6)%7));   // start on a Monday
     for(let d=new Date(s0);d<end;d.setDate(d.getDate()+step)){ const t=new Date(d); t.setDate(t.getDate()+step); const last=new Date(t); last.setDate(last.getDate()-1);
       buckets.push({from:iso(d),to:iso(t),label:mn[d.getMonth()]+' '+d.getDate(),tip:(step===14?mn[d.getMonth()]+' '+d.getDate()+' – '+mn[last.getMonth()]+' '+last.getDate():'week of '+mn[d.getMonth()]+' '+d.getDate())}); }
+  } else if(yearly){
+    const y0=minM?+minM.slice(0,4):now.getFullYear()-2;
+    for(let y=Math.min(y0,now.getFullYear()-1);y<=now.getFullYear();y++) buckets.push({from:y+'-01',to:(y+1)+'-01',label:String(y),tip:String(y)});
   } else {
     const q=by==='q'?3:1;
     let start=C.range?new Date(now.getFullYear(),now.getMonth()-(C.range-1),1):(minM?new Date(+minM.slice(0,4),+minM.slice(5,7)-1,1):new Date(now.getFullYear(),now.getMonth()-11,1));
@@ -1069,10 +1076,10 @@ function _crChartHtml(){
   return '<div style="background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:12px 14px">'
     +'<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px">'
       +'<div style="font-weight:800;font-size:14px">📈 Filings</div>'
-      +T.map(t=>'<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600"><input type="checkbox" '+(C[t[0]]?'checked':'')+' onchange="_CR.ch.'+t[0]+'=this.checked;_crChartDraw()" style="width:16px;height:16px;accent-color:'+t[2]+'"><span style="display:inline-block;width:14px;height:3px;border-radius:2px;background:'+t[2]+'"></span>'+t[1]+' <span style="color:var(--text-dim);font-weight:500">'+tot(t[0]).toLocaleString()+'</span></label>').join('')
+      +T.map(t=>'<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600"><input type="checkbox" '+(C[t[0]]?'checked':'')+' onchange="_CR.ch.'+t[0]+'=this.checked;_crChartDraw()" style="width:16px;height:16px;accent-color:'+t[2]+'"><span style="display:inline-block;width:14px;height:3px;border-radius:2px;background:'+t[2]+'"></span>'+t[1]+' <span style="color:var(--text-dim);font-weight:500">'+(t[0]==='ts'&&!yearly?(tsHidden?tsHidden.toLocaleString()+' · <a href="#" onclick="event.preventDefault();_CR.ch.by=\'y\';_crChartDraw()" style="color:#60a5fa;text-decoration:none" title="Tax sales only have a sale year">Yearly only</a>':'0'):tot(t[0]).toLocaleString())+'</span></label>').join('')
       +'<div style="margin-left:auto;display:flex;gap:8px">'
         +'<select style="'+sel+'" onchange="_CR.ch.county=this.value;_crChartDraw()"><option value="">All active counties</option>'+_CR.counties.map(c=>'<option value="'+E(c.code)+'" '+(C.county===c.code?'selected':'')+'>'+E(c.city)+(c.active?'':' (inactive)')+'</option>').join('')+'</select>'
-        +'<select style="'+sel+'" onchange="_CR.ch.by=this.value;_crChartDraw()">'+[['w','Weekly'],['bw','Bi-weekly'],['m','Monthly'],['q','Quarterly']].map(o=>'<option value="'+o[0]+'" '+(by===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')+'</select>'+'<select style="'+sel+'" onchange="_CR.ch.range=+this.value;_crChartDraw()">'+[[3,'Last 3 months'],[6,'Last 6 months'],[12,'Last 12 months'],[24,'Last 24 months'],[36,'Last 36 months'],[0,'All time']].map(o=>'<option value="'+o[0]+'" '+(C.range===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')+'</select>'
+        +'<select style="'+sel+'" onchange="_CR.ch.by=this.value;_crChartDraw()">'+[['w','Weekly'],['bw','Bi-weekly'],['m','Monthly'],['q','Quarterly'],['y','Yearly']].map(o=>'<option value="'+o[0]+'" '+(by===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')+'</select>'+(yearly?'':'<select style="'+sel+'" onchange="_CR.ch.range=+this.value;_crChartDraw()">'+[[3,'Last 3 months'],[6,'Last 6 months'],[12,'Last 12 months'],[24,'Last 24 months'],[36,'Last 36 months'],[0,'All time']].map(o=>'<option value="'+o[0]+'" '+(C.range===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')+'</select>')
       +'</div></div>'
     +(on.length?svg+(noDay?'<div style="font-size:11.5px;color:var(--text-dim);margin-top:4px">'+noDay.toLocaleString()+' case'+(noDay===1?'':'s')+' in this range have no Filed date, so they can\'t be placed in a week — they still show on Monthly.</div>':''):'<div style="padding:40px;text-align:center;color:var(--text-dim)">Check a list type to show its line.</div>')
   +'</div>';
@@ -1220,7 +1227,8 @@ async function _crLiFile(inp){
 window._crLiFile=_crLiFile;
 async function _crLiPreview(){
   const L=_CR.li; if(!L.P) return _crRender();
-  const it=L.P.items[0]||{}; const derivable=L.P.fmt==='ul'?/^\d{2}-/.test(it.parcel||''):L.P.fmt==='ts'?/^\d{2}/.test(it.sale_id||it.parcel||''):false;
+  const it=L.P.items[0]||{}; const dc=L.P.fmt==='ul'?(/^\d{2}-/.test(it.parcel||'')?it.parcel.slice(0,2):''):L.P.fmt==='ts'?(String(it.sale_id||it.parcel||'').match(/^\d{2}/)||[''])[0]:'';
+  const derivable=!!dc&&_CR.counties.some(c=>c.code===dc);   // only trust it if that code is one of your counties
   L.needCounty=!L.county&&!derivable;
   L.recs=L.needCounty?[]:_crLiRecords(L.P,L.county);
   const have=new Map(); const cns=L.recs.map(r=>r.case_number);

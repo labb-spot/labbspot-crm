@@ -9,9 +9,9 @@ const _CR_SFX = { fc:'.1', pb:'.2', ev:'.3', cv:'.4', ul:'.5', ts:'.6' };
 const _CR_LISTS = ['cv','ul','ts'];   // city / county lists (not court cases)
 // Company-type owner names — scrapped (LLC landlords, management companies, etc.)
 const _CR_CORP = /\b(l\.?l\.?c|l\.?l\.?p|inc|corp|corporation|apartments?|apts?|properties|property management|management|holdings|l\.?p|ltd|company|housing|homes|realty|partners|rentals?|investments?|group|enterprises|ventures|capital)\b|\bLL$/i;
-function _crTypeKey(t){ t=String(t||''); if(/^CV\b/.test(t)) return 'cv'; if(/^UL\b/.test(t)) return 'ul'; if(/^TS\b/.test(t)) return 'ts'; t=t.toLowerCase(); if(/mortgage|foreclos/.test(t)) return 'fc'; if(/estate|guardian|probate/.test(t)) return 'pb'; if(/evict/.test(t)) return 'ev'; return ''; }
+function _crTypeKey(t){ t=String(t||''); if(/^CV\b/.test(t)) return 'cv'; if(/^UL\b/.test(t)) return 'ul'; if(/^TS\b/.test(t)) return 'ts'; t=t.toLowerCase(); if(/mortgage|foreclos/.test(t)) return 'fc'; if(/estate|guardian|probate|\btrust\b|^tr\b/.test(t)) return 'pb'; if(/evict/.test(t)) return 'ev'; return ''; }
 // Scrap codes: 4.2 guardianship (any) · 4.3 company landlord eviction · 4.4 company owner (lists) · 4.7 tax sale no bid · 4.8 inactive tax parcel
-const _CR_SCRAP_WHY = { '4.2':'Guardianship', '4.3':'LLC / apartment', '4.4':'Company owner', '4.6':'No bid (bid = minimum)', '4.7':'No bid at tax sale', '4.8':'Inactive tax parcel' };
+const _CR_SCRAP_WHY = { '4.2':'Guardianship', '4.3':'LLC / apartment', '4.4':'Company owner', '4.5':'Trust', '4.6':'No bid (bid = minimum)', '4.7':'No bid at tax sale', '4.8':'Inactive tax parcel' };
 // Sort code — same rules as the sheet's Task List.
 function _crSort(c){
   const k=_crTypeKey(c.case_type); const sfx=_CR_SFX[k]; if(!sfx) return '';
@@ -27,6 +27,7 @@ function _crSort(c){
     return '2'+sfx;
   }
   if(k==='pb' && /guardian/i.test((c.case_type||'')+' '+(c.style||''))) return '4.2';   // all guardianships (minor or adult) → Scrap
+  if(k==='pb' && /^TR\b|\btrust\b/i.test(c.case_type||'')) return '4.5';               // trust cases (TR - Trust) → Scrap
   if(k==='ev' && _CR_CORP.test(c.plaintiff||'')) return '4.3';
   const req = k==='pb' ? [c.address,c.defendant,c.attorney,_crPetName(c),_crPetAddr(c),_crPetCount(c)] : [c.address,c.defendant,c.plaintiff,c.attorney];
   if(req.some(x=>!v(x))) return '0'+sfx;
@@ -318,7 +319,7 @@ window._crOpenAny=_crOpenAny;
 
 // ----- 📋 Paste from MyCase: paste copied search results → new cases (skips ones already here) -----
 const _CR_CASE_RE=/\b(\d{2}[A-Z]\d{2}-\d{4}-[A-Z]{2}-\d{3,7})\b/;
-function _crKeepType(t){ return /mortgage|foreclos|estate|guardian|evict/i.test(String(t||'')); }
+function _crKeepType(t){ return /mortgage|foreclos|estate|guardian|evict|\btrust\b|^TR\b/i.test(String(t||'')); }
 function _crParseMyCase(text){
   const toks=String(text||'').replace(/\r/g,'').split(/\t|\n/).map(x=>x.trim()).filter(Boolean);
   const out=[]; let cur=null;

@@ -319,6 +319,8 @@ window._crOpenAny=_crOpenAny;
 
 // ----- 📋 Paste from MyCase: paste copied search results → new cases (skips ones already here) -----
 const _CR_CASE_RE=/\b(\d{2}[A-Z]\d{2}-\d{4}-[A-Z]{2}-\d{3,7})\b/;
+// Plaintiff from the case title: "ROCKET MORTGAGE, LLC v. Chase Shepherd…" → "ROCKET MORTGAGE, LLC"
+function _crStylePlaintiff(st){ const p=String(st||'').split(/\s+vs?\.?\s+/i); return p.length>1?p[0].replace(/,?\s*et\.?\s*al\.?$/i,'').trim():''; }
 function _crKeepType(t){ t=String(t||''); if(/^(CV|UL|TS)\b/.test(t)) return false; const m=t.match(/^([A-Z]{2})\s-\s/); if(m&&!/^(EV|MF|ES|EU|EM|GU|TR)$/.test(m[1])) return false; return /mortgage|foreclos|estate|guardian|evict|\btrust\b|^TR\b/i.test(t); }
 function _crParseMyCase(text){
   const toks=String(text||'').replace(/\r/g,'').split(/\t|\n/).map(x=>x.trim()).filter(Boolean);
@@ -389,7 +391,7 @@ async function _crPasteSave(btn){
   if(!add.length) return; btn.disabled=true; btn.textContent='Adding…';
   try{
     const now=new Date().toISOString();
-    const recs=add.map(r=>({case_number:r.case_number,county_code:r.county_code,style:r.style,court:r.court,case_type:r.case_type,filed:r.filed,status:r.status,sort_code:r.sort_code,petitioners:[],completed_at:_crScrap(r.sort_code)?now:null}));
+    const recs=add.map(r=>({case_number:r.case_number,county_code:r.county_code,style:r.style,court:r.court,case_type:r.case_type,filed:r.filed,status:r.status,sort_code:r.sort_code,plaintiff:(_crTypeKey(r.case_type)==='fc'&&_crStylePlaintiff(r.style))||null,petitioners:[],completed_at:_crScrap(r.sort_code)?now:null}));
     for(let i=0;i<recs.length;i+=500){ const up=await sb.from('court_cases').upsert(recs.slice(i,i+500),{onConflict:'case_number',ignoreDuplicates:true}); if(up.error) throw up.error; }
     // set pulled-to
     if(document.getElementById('cr-paste-pull')&&document.getElementById('cr-paste-pull').checked){
@@ -744,6 +746,7 @@ function _crEditor(c){
     +box('📝','Notes','<textarea data-f="notes" rows="2" oninput="_crLive()" style="width:100%;box-sizing:border-box;font-size:14px;padding:8px 11px;border-radius:8px;margin-bottom:10px">'+E(c.notes||'')+'</textarea>')
   +'</div>';
   if(k==='pb'){ _CR.pets=_crPets(c).map(p=>({name:p.name||'',address:p.address||''})); if(!_CR.pets.length) _CR.pets=[{name:'',address:''}]; _crPetPaint(); }
+  if(k==='fc'){ const pl=ed.querySelector('[data-f="plaintiff"]'); const g=_crStylePlaintiff(c.style); if(pl&&!pl.value.trim()&&g) pl.value=g; }
   _crLive();
   ed.onkeydown=function(e){ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); _crSave(true); } };
 }

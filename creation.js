@@ -692,7 +692,7 @@ function _crEditor(c){
       +'<button type="button" style="'+sbtn+'" onclick="_crSetF(\''+key+'\',\'Unknown\')" title="Couldn\'t find it">Unknown</button></div></div>';
   const box=(icon,title,inner)=>'<div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px 2px;margin-bottom:10px"><div style="font-size:11.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px">'+icon+' '+title+'</div>'+inner+'</div>';
   const nm=String(c.defendant||'').trim(); const cityName=(cty.city||'')+', IN';
-  const tps='https://www.truepeoplesearch.com/results?name='+encodeURIComponent(nm.replace(/,\s*/,' '))+'&citystatezip='+encodeURIComponent(cityName);
+  const tps='https://www.truepeoplesearch.com/results?name='+encodeURIComponent(_crFirstLast(nm,_CR_LISTS.indexOf(k)>=0))+'&citystatezip='+encodeURIComponent(cityName);
   const addrQ=String(c.address||'').trim();
   const ADDR='123 W Main St, City, IN 47000';
   let fields='';
@@ -1473,3 +1473,15 @@ function _crMapsFor(btn){
   window.open('https://www.google.com/maps/search/'+encodeURIComponent(a),'_blank','noopener');
 }
 window._crMapsFor=_crMapsFor;
+
+// "Hoover, David E, SR" → "David Hoover";  "JONES, MILDRED ALICE & THACKER, JEREMIA" → "Mildred Jones";  "John Q Smith Jr" → "John Smith"
+function _crFirstLast(raw,lastFirst){   // lastFirst: county records write "COWAN BRIAN" (last name first, no comma)
+  let n=String(raw||'').split(/\s+&\s+|\s+and\s+|;|\//i)[0].replace(/\(.*?\)/g,' ').replace(/\b(estate of|et al|deceased|dec'?d|trustee|c\/o.*)\b/ig,' ').trim();
+  const suf=/^(jr|sr|ii|iii|iv|v|md|esq)\.?$/i;
+  let first='', last='';
+  if(n.indexOf(',')>=0){ const parts=n.split(',').map(x=>x.trim()).filter(Boolean); last=(parts[0]||'').split(/\s+/).filter(w=>!suf.test(w)).pop()||parts[0]||'';
+    const rest=(parts.slice(1).join(' ')).split(/\s+/).filter(w=>w&&!suf.test(w)&&!/^[a-z]\.?$/i.test(w)); first=rest[0]||''; }
+  else { const w=n.split(/\s+/).filter(x=>x&&!suf.test(x)); if(lastFirst&&w.length>1){ last=w[0]; first=w[1]; } else { first=w[0]||''; last=w.length>1?w[w.length-1]:''; } }
+  const cap=x=>x?x.charAt(0).toUpperCase()+x.slice(1).toLowerCase():'';
+  return (cap(first)+' '+cap(last)).trim()||String(raw||'').trim();
+}

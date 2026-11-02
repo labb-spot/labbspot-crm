@@ -43584,6 +43584,20 @@ async function loadActivityFeed(forceRefresh) {
       }
     });
 
+    // Creation: every property someone finishes (or scraps) in Marketing → Creation
+    queries.push((async () => {
+      try {
+        let q = sb.from('court_cases').select('id,case_number,case_type,address,sort_code,completed_at,completed_by')
+                  .not('completed_by', 'is', null).not('completed_at', 'is', null)
+                  .order('completed_at', { ascending: false }).limit(40);
+        if (cutoffIso) q = q.gte('completed_at', cutoffIso);
+        const { data, error } = await q;
+        if (error || !data) return [];
+        const def = { table: 'court_cases', icon: '🛠', label: 'creation', nameCol: null, type: 'creation' };
+        return data.map(row => ({ _table: 'court_cases', _def: def, id: row.id, who: row.completed_by, when: row.completed_at, isNew: false, row }));
+      } catch (e) { return []; }
+    })());
+
     const buckets = await Promise.all(queries);
     let merged = [].concat.apply([], buckets);
 
@@ -43629,6 +43643,16 @@ function _activityItemLabel(it) {
       const verb = it.isNew ? 'logged' : 'updated';
       const status = r.disposition || r.status || '';
       return verb + ' result' + (status ? ' (' + status + ')' : '');
+    }
+    case 'creation': {
+      const t = String(r.case_type || '');
+      const kind = /^CV\b/.test(t) ? 'code violation' : /^UL\b/.test(t) ? 'utility lien' : /^TS\b/.test(t) ? 'tax sale'
+                 : /mortgage|foreclos/i.test(t) ? 'foreclosure' : /evict/i.test(t) ? 'eviction' : /estate|guardian|probate|trust|^TR\b/i.test(t) ? 'probate' : 'case';
+      const sc = String(r.sort_code || '');
+      const verb = /^4/.test(sc) ? 'scrapped' : 'finished';
+      const note = /^1/.test(sc) ? ' (owner unknown)' : /^3/.test(sc) ? ' (no address found)' : '';
+      const a = String(r.address || '').trim();
+      return verb + ' ' + kind + ' ' + (a && !/^(unknown|land)$/i.test(a) ? a : (r.case_number || '')) + note;
     }
     case 'eng': {
       const verb = it.isNew ? 'sent offer' : 'updated offer';

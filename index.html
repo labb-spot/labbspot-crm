@@ -70696,9 +70696,22 @@ async function _reqCFSetup(id,t){
     box.innerHTML='<div style="font-weight:800;font-size:12px;margin-bottom:6px">🔲 Fill-in boxes on this PDF ('+tx.length+')</div>'
       +'<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:6px">Pick what goes in each box. Click a box on the form to jump to it.</div>'
       +'<button type="button" id="req-cf-unbox" style="width:100%;height:30px;margin-bottom:6px;font-size:12px;font-weight:700;color:#f97316;background:transparent;border:1px dashed #f97316;border-radius:7px;cursor:pointer" title="Turns every filled box into text you can drag anywhere">✥ Make these movable</button>'
+      +'<button type="button" id="req-cf-rebox" style="width:100%;height:30px;margin-bottom:6px;font-size:12px;font-weight:700;color:#22c55e;background:transparent;border:1px dashed #22c55e;border-radius:7px;cursor:pointer" title="Puts movable text that sits on a fill-in box back INTO that box — so it shows in the list below and stays editable in the downloaded PDF">↩ Put text back in the boxes</button>'
       +tx.map(f=>{ const c=st.cfg.fields[f.name]||{}; return '<div data-frow="'+E(f.name)+'" style="padding:5px 0;border-top:1px solid var(--border)"><div style="font-size:11px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+E(f.name)+'">'+(f.type==='check'?'☐ ':'')+E(f.name)+'</div>'
         +(f.type==='check'?'<select data-fk="'+E(f.name)+'" style="'+inp+';width:100%"><option value="">— leave unchecked —</option><option value="x" '+(c.kind==='x'?'selected':'')+'>Check it</option></select>'
           :'<select data-fk="'+E(f.name)+'" style="'+inp+';width:100%">'+kindOpts(c.kind||'',true)+'</select><input data-ft="'+E(f.name)+'" value="'+E(c.text||'')+'" placeholder="Custom text" style="'+inp+';width:100%;margin-top:4px;display:'+(c.kind==='text'?'':'none')+'">')+'</div>'; }).join('');
+    const rb=box.querySelector('#req-cf-rebox'); if(rb) rb.addEventListener('click',function(){
+      // Each movable text (not signatures) that sits on a fill-in box goes back into that box.
+      let n=0; const keep=[];
+      st.cfg.spots.forEach(function(sp){
+        if(sp.kind==='sign'){ keep.push(sp); return; }
+        const pg=sp.page||0, px=sp.x+2, py=sp.y+2;
+        const f=st.info.find(z=>z.page===pg&&!st.cfg.fields[z.name]&&px>=z.x-4&&px<=z.x+z.w+4&&py>=z.y-4&&py<=z.y+z.h+4&&(z.type==='check'?sp.kind==='x':sp.kind!=='x'));
+        if(!f){ keep.push(sp); return; }
+        st.cfg.fields[f.name]=f.type==='check'?{kind:'x'}:(sp.kind==='text'?{kind:'text',text:sp.text||''}:{kind:sp.kind}); n++; });
+      st.cfg.spots=keep; renderFieldList(); paintMarks(); liveFill();
+      if(typeof toast==='function') toast(n?('↩ '+n+' put back in their boxes — change them in the list below'):'No movable text is sitting on a box','ok');
+    });
     const ub=box.querySelector('#req-cf-unbox'); if(ub) ub.addEventListener('click',function(){
       // Move each filled box's content into a draggable spot at the same place, then clear the box.
       let n=0;
@@ -70728,7 +70741,7 @@ async function _reqCFSetup(id,t){
         const name=(s.kind==='sign'?'Signature':lbl);
         const place=()=>{ d.style.left=(s.x*SCALE-16)+'px'; d.style.top=((ps.h-s.y)*SCALE-13)+'px'; xb.style.left=(s.x*SCALE-28)+'px'; xb.style.top=((ps.h-s.y)*SCALE-13)+'px'; };
         d.style.cssText='position:absolute;width:14px;height:14px;line-height:14px;text-align:center;background:#f97316;color:#fff;font-size:10px;font-weight:800;border-radius:4px;cursor:move;box-shadow:0 1px 3px rgba(0,0,0,.4);touch-action:none;user-select:none';
-        d.textContent='✥'; d.title=name+' — drag to move';
+        d.textContent='✥'; d.title=name+' — drag to move, click to change';
         const xb=document.createElement('div'); xb.className='req-cf-mk';
         xb.style.cssText='position:absolute;width:11px;height:11px;line-height:11px;text-align:center;background:#7f1d1d;color:#fff;font-size:8px;font-weight:800;border-radius:50%;cursor:pointer;opacity:.85';
         xb.textContent='✕'; xb.title='Remove '+name;
@@ -70738,10 +70751,25 @@ async function _reqCFSetup(id,t){
           const sx=ev.clientX, sy=ev.clientY, ox=s.x, oy=s.y; let moved=false;
           const mv=function(e){ const dx=(e.clientX-sx)/SCALE, dy=(e.clientY-sy)/SCALE; if(Math.abs(dx)+Math.abs(dy)>0.5) moved=true;
             s.x=Math.round((ox+dx)*10)/10; s.y=Math.round((oy-dy)*10)/10; place(); };
-          const up=function(){ d.removeEventListener('pointermove',mv); d.removeEventListener('pointerup',up); d.removeEventListener('pointercancel',up); if(moved) liveFill(); };
+          const up=function(){ d.removeEventListener('pointermove',mv); d.removeEventListener('pointerup',up); d.removeEventListener('pointercancel',up); if(moved) liveFill(); else if(s.kind!=='sign') spotEdit(s,wrap,d); };
           d.addEventListener('pointermove',mv); d.addEventListener('pointerup',up); d.addEventListener('pointercancel',up); });
         place(); wrap.appendChild(d); wrap.appendChild(xb); });
     });
+  }
+  // Small box to change what a movable text says (click its ✥ without dragging).
+  function spotEdit(s,wrap,anchor){
+    const old=ov.querySelector('#req-cf-spotpop'); if(old) old.remove();
+    const pp=document.createElement('div'); pp.id='req-cf-spotpop'; pp.className='req-cf-mk';
+    pp.style.cssText='position:absolute;z-index:5;left:'+anchor.style.left+';top:'+(parseFloat(anchor.style.top)+18)+'px;background:var(--panel);border:1px solid #f97316;border-radius:8px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.5);width:260px';
+    pp.innerHTML='<select style="'+inp+';width:100%">'+kindOpts(s.kind||'text',false)+'</select><input placeholder="Custom text" value="'+E(s.text||'')+'" style="'+inp+';width:100%;margin-top:4px;display:'+(s.kind==='text'?'':'none')+'">'
+      +'<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:6px"><button type="button" data-c="1" style="height:26px;padding:0 10px;font-size:12px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:6px;cursor:pointer">Cancel</button><button type="button" data-ok="1" style="height:26px;padding:0 12px;font-size:12px;font-weight:700;border:none;background:#f97316;color:#fff;border-radius:6px;cursor:pointer">OK</button></div>';
+    const sel=pp.querySelector('select'), ti=pp.querySelector('input');
+    sel.addEventListener('change',()=>{ ti.style.display=sel.value==='text'?'':'none'; if(sel.value==='text') ti.focus(); });
+    pp.addEventListener('click',e=>e.stopPropagation()); pp.addEventListener('pointerdown',e=>e.stopPropagation());
+    pp.querySelector('[data-c]').onclick=()=>pp.remove();
+    const ok=()=>{ if(!sel.value){ pp.remove(); return; } s.kind=sel.value; if(s.kind==='text') s.text=ti.value; else delete s.text; pp.remove(); paintMarks(); liveFill(); };
+    pp.querySelector('[data-ok]').onclick=ok; ti.addEventListener('keydown',e=>{ if(e.key==='Enter') ok(); });
+    wrap.appendChild(pp); (s.kind==='text'?ti:sel).focus();
   }
   // Re-draw the preview as the FILLED form (today's dates, your info, signature).
   let _lfT=null, _lfBusy=false, _lfAgain=false;

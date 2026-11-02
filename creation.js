@@ -933,6 +933,10 @@ function _crHrDraw(body){
   const lastPaid=H.pay[0]&&H.pay[0].paid_through||'';
   const unpaid=H.rows.filter(r=>!lastPaid||r.day>lastPaid);
   const unpaidHrs=unpaid.reduce((a,r)=>a+(+r.hours||0),0);
+  // "Paid through" date you pick — defaults to the end of last month (monthly pay), or the latest day if nothing's unpaid before then
+  const eom=(()=>{ const d=new Date(); d.setDate(0); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
+  if(!H.payThru||H.payThru<=lastPaid||H.payFor!==H.who){ H.payFor=H.who; H.payThru=unpaid.some(r=>r.day<=eom)?eom:(unpaid[0]?unpaid[0].day:today); }
+  const payRows=unpaid.filter(r=>r.day<=H.payThru); const payHrs=payRows.reduce((a,r)=>a+(+r.hours||0),0);
   // week = Saturday → Friday, like the old sheet
   const wkStart=iso=>{ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()-((d.getDay()+1)%7)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
   const thisWk=wkStart(today); const wkHrs=H.rows.filter(r=>r.day>=thisWk).reduce((a,r)=>a+(+r.hours||0),0);
@@ -941,7 +945,10 @@ function _crHrDraw(body){
   let html='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">'
     +(H.admin?'<select onchange="_CR.hr.who=this.value;_CR.hr.edit=null;_crHrRender(document.getElementById(\'cr-body\'))" style="height:36px;font-size:13.5px;padding:0 10px;border-radius:8px;width:auto;min-width:240px">'+(H.workers.length?H.workers.map(w=>'<option '+(w===H.who?'selected':'')+'>'+E(w)+'</option>').join(''):'<option value="">No one yet</option>')+'</select>':'<div style="font-weight:700;font-size:14px">'+E(H.who)+'</div>')
     +'<div style="margin-left:auto;display:flex;gap:8px">'
-      +(H.admin&&H.who&&unpaid.length?'<button class="btn btn-primary text-sm" onclick="_crHrPay()">✓ Mark paid through '+E(_crHrMD(unpaid[0].day))+' ('+_crHrFmt(unpaidHrs)+' hrs)</button>':'')
+      +(H.admin&&H.who&&unpaid.length?'<div style="display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:4px 4px 4px 10px"><span style="font-size:12.5px;color:var(--text-dim);white-space:nowrap">Paid through</span>'
+        +'<input type="date" value="'+E(H.payThru)+'"'+(lastPaid?' min="'+E(lastPaid)+'"':'')+' max="'+today+'" onchange="_CR.hr.payThru=this.value;_crHrDraw()" style="height:32px;font-size:13px;padding:0 6px;border-radius:7px">'
+        +'<button type="button" class="btn btn-ghost text-sm" style="height:32px" title="Last day of last month" onclick="_CR.hr.payThru=\''+eom+'\';_crHrDraw()">End of last month</button>'
+        +'<button class="btn btn-primary text-sm" style="height:32px"'+(payRows.length?'':' disabled')+' onclick="_crHrPay()">✓ Mark paid ('+_crHrFmt(payHrs)+' hrs)</button></div>':'')
       +(H.admin&&H.who?'<button class="btn btn-ghost text-sm" onclick="_crHrRename()" title="Move all of this person\'s hours to the email they log in with">✏️ Change email</button>':'')+(H.admin?'<label class="btn btn-ghost text-sm" style="cursor:pointer" title="Bring in an employee\'s old hours sheet (CSV)">📥 Import hours<input type="file" accept=".csv,text/csv" style="display:none" onchange="_crHrImport(this)"></label>':'')
     +'</div></div>';
   if(!H.who){ body.innerHTML=html+'<div style="padding:30px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">No employees yet — add one in 👥 Access, or 📥 Import hours.</div>'; return; }
@@ -995,11 +1002,12 @@ async function _crHrSave(){
 window._crHrSave=_crHrSave;
 async function _crHrPay(){
   const H=_CR.hr; const lastPaid=H.pay[0]&&H.pay[0].paid_through||''; const un=H.rows.filter(r=>!lastPaid||r.day>lastPaid); if(!un.length) return;
-  const thru=un[0].day; const hrs=un.reduce((a,r)=>a+(+r.hours||0),0);
+  const thru=H.payThru||un[0].day; const sel=un.filter(r=>r.day<=thru); if(!sel.length){ toast('No unpaid hours on or before '+_crHrMD(thru),'warn'); return; }
+  const hrs=sel.reduce((a,r)=>a+(+r.hours||0),0);
   if(!confirm('Mark '+_crHrFmt(hrs)+' hrs paid for '+H.who+' (through '+_crHrMD(thru)+')?')) return;
   const r=await sb.from('work_pay').insert({email:H.who,paid_through:thru,hours:hrs,paid_at:new Date().toISOString()}).select().single();
   if(r.error){ toast('Failed: '+r.error.message,'err'); return; }
-  H.pay.unshift(r.data); toast('✓ Marked paid','ok'); _crHrDraw();
+  H.pay.unshift(r.data); H.pay.sort((a,b)=>a.paid_through<b.paid_through?1:-1); H.payThru=null; toast('✓ Marked paid','ok'); _crHrDraw();
 }
 window._crHrPay=_crHrPay;
 async function _crHrUnpay(id){

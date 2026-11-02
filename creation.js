@@ -1283,13 +1283,26 @@ async function _crLiPreview(){
   _crRender();
 }
 window._crLiPreview=_crLiPreview;
+function _crLiDrop(e,el){
+  e.preventDefault(); if(el){ el.style.borderColor=''; el.style.background=''; }
+  const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(!f) return;
+  if(!/\.(xlsx|xls|csv)$/i.test(f.name)){ if(typeof toast==='function') toast('Drop an Excel or CSV file','warn'); return; }
+  _crLiFile({ files:[f], value:'' });
+}
+window._crLiDrop=_crLiDrop;
+function _crLiClear(){ _CR.li={ recs:null, fmt:'', county:'', file:'', note:'' }; _crRender(); }
+window._crLiClear=_crLiClear;
 function _crLiRender(box){
   const E=_reqEsc, L=_CR.li, P=L.P;
   const sel='height:36px;font-size:13.5px;padding:0 9px;border-radius:8px;width:auto;min-width:240px';
   let html='<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:14px;align-items:start">'
     +'<div><div style="font-size:14px;font-weight:700;margin-bottom:4px">1. Pick the file</div>'
       +'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:10px">Excel or CSV exactly as the city / county sent it — code violation reports, sewer / utility lien reports, tax lien sale exports. For a PDF, send it to Claude first.</div>'
-      +'<label class="btn btn-primary" style="cursor:pointer;justify-content:center;width:100%;font-size:15px">📥 Choose file<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="_crLiFile(this)"></label>'
+      +'<div id="cr-li-drop" ondragover="event.preventDefault();this.style.borderColor=\'#f97316\';this.style.background=\'rgba(249,115,22,.08)\'" ondragleave="this.style.borderColor=\'\';this.style.background=\'\'" ondrop="_crLiDrop(event,this)" style="border:2px dashed var(--border);border-radius:12px;padding:10px;transition:border-color .12s,background .12s">'
+        +'<label class="btn btn-primary" style="cursor:pointer;justify-content:center;width:100%;font-size:15px">📥 Choose file<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="_crLiFile(this)"></label>'
+        +'<div style="text-align:center;font-size:12px;color:var(--text-dim);margin-top:6px">…or drag &amp; drop the file here</div>'
+        +(L.file?'<button type="button" class="btn btn-ghost text-sm" onclick="_crLiClear()" style="width:100%;justify-content:center;margin-top:8px;border:1px solid #ef444466;color:#f87171">✕ Clear file</button>':'')
+      +'</div>'
       +(P?'<div style="margin-top:12px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px"><div><b>'+E(L.file)+'</b></div><div style="color:var(--text-dim);margin-top:2px">Recognised as <b style="color:'+_CR_COL[P.fmt]+'">'+E(P.label)+'</b> · '+P.items.length.toLocaleString()+' '+(P.fmt==='cv'?'properties':'rows')+'</div>'
         +'<div style="margin-top:10px;font-weight:700">County</div><div style="position:relative;margin-top:4px;max-width:340px"><input id="cr-li-cty" autocomplete="off" placeholder="'+(L.needCounty?'Type a city, county or code…':'From the file — or type to change')+'" value="'+E((()=>{ const c=_CR.counties.find(x=>x.code===L.county); return c?c.code+' · '+c.city+' ('+c.county+')':''; })())+'" onfocus="this.select();_crLiCtyList()" oninput="_crLiCtyList()" onkeydown="_crLiCtyKey(event)" onblur="setTimeout(()=>{const l=document.getElementById(\'cr-li-cty-list\');if(l)l.style.display=\'none\'},150)" style="height:36px;font-size:13.5px;padding:0 10px;border-radius:8px;width:100%;box-sizing:border-box"><div id="cr-li-cty-list" style="display:none;position:absolute;left:0;right:0;top:40px;z-index:50;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.4);max-height:260px;overflow:auto"></div></div>'
         +'<div style="margin-top:10px"><a href="#" onclick="event.preventDefault();_crLiMapStart()" style="font-size:12.5px;color:#60a5fa;text-decoration:none">🧩 Wrong? Pick the columns myself</a></div></div>'

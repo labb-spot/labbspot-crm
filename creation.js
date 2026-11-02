@@ -29,9 +29,9 @@ function _crSort(c){
   if(k==='pb' && /guardian/i.test((c.case_type||'')+' '+(c.style||''))) return '4.2';   // all guardianships (minor or adult) → Scrap
   if(k==='pb' && /^TR\b|\btrust\b/i.test(c.case_type||'')) return '4.5';               // trust cases (TR - Trust) → Scrap
   if(k==='ev' && _CR_CORP.test(String(c.plaintiff||'').trim()||String(c.style||'').split(/\s+vs?\.?\s+/i)[0])) return '4.3';   // plaintiff, or the part of the style before " v. " on a fresh paste
+  if(unk(c.address)) return '3'+sfx;   // no property found → done, nothing else needed
   const req = k==='pb' ? [c.address,c.defendant,c.attorney,_crPetName(c),_crPetAddr(c),_crPetCount(c)] : [c.address,c.defendant,c.plaintiff,c.attorney];
   if(req.some(x=>!v(x))) return '0'+sfx;
-  if(unk(c.address)) return '3'+sfx;
   if(req.slice(1).some(unk)) return '1'+sfx;
   return '2'+sfx;
 }
@@ -433,6 +433,17 @@ const _CR_CASE_RE=/\b(\d{2}[A-Z]\d{2}-\d{4}-[A-Z]{2}-\d{3,7})\b/;
 function _crStylePlaintiff(st){ const p=String(st||'').split(/\s+vs?\.?\s+/i); return p.length>1?p[0].replace(/,?\s*et\.?\s*al\.?$/i,'').trim():''; }
 // Defendant(s) from the case title: "Amy Jo Munich v. Dustin Ray Ransom, Irene Michelle Saylor" → "Dustin Ray Ransom, Irene Michelle Saylor"
 function _crStyleDefendant(st){ const p=String(st||'').split(/\s+vs?\.?\s+/i); return p.length>1?p.slice(1).join(' v. ').replace(/,?\s*et\.?\s*al\.?$/i,'').trim():''; }
+// "In Re: the Estate of Steven Louis Mascher" → "Mascher, Steven Louis"  ·  "…David E Hoover, SR" → "Hoover, David E, SR"
+function _crStyleDecedent(st){
+  let n=String(st||'').replace(/^\s*in\s+(re|the\s+matter\s+of)\s*:?\s*/i,'').replace(/^(the\s+)?((supervised|unsupervised)\s+)?estate\s+of\s*:?\s*/i,'')
+    .replace(/[,\s]*\(?\s*deceased\s*\)?\.?\s*$/i,'').replace(/[,\s]*a\/k\/a.*$/i,'').trim();
+  if(!n||/estate\s+of/i.test(n)===false&&n===String(st||'').trim()&&!/estate/i.test(String(st||''))) return '';
+  const SUF=/^(jr|sr|ii|iii|iv|v)\.?$/i; let parts=n.replace(/,/g,' ').split(/\s+/).filter(Boolean); let suf='';
+  if(parts.length>2&&SUF.test(parts[parts.length-1])) suf=parts.pop().replace(/\.$/,'');
+  if(parts.length<2) return n;
+  if(/,/.test(n.replace(/,\s*(jr|sr|ii|iii|iv|v)\.?\s*$/i,''))) return n;   // already "Last, First"
+  const last=parts.pop(); return last+', '+parts.join(' ')+(suf?', '+suf:'');
+}
 function _crKeepType(t){ t=String(t||''); if(/^(CV|UL|TS)\b/.test(t)) return false; const m=t.match(/^([A-Z]{2})\s-\s/); if(m&&!/^(EV|MF|ES|EU|EM|GU|TR)$/.test(m[1])) return false; return /mortgage|foreclos|estate|guardian|evict|\btrust\b|^TR\b/i.test(t); }
 function _crParseMyCase(text){
   const toks=String(text||'').replace(/\r/g,'').split(/\t|\n/).map(x=>x.trim()).filter(Boolean);
@@ -503,7 +514,7 @@ async function _crPasteSave(btn){
   if(!add.length) return; btn.disabled=true; btn.textContent='Adding…';
   try{
     const now=new Date().toISOString();
-    const recs=add.map(r=>({case_number:r.case_number,county_code:r.county_code,style:r.style,court:r.court,case_type:r.case_type,filed:r.filed,status:r.status,sort_code:r.sort_code,plaintiff:((_crTypeKey(r.case_type)==='fc'||_crTypeKey(r.case_type)==='ev')&&_crStylePlaintiff(r.style))||null,defendant:(_crTypeKey(r.case_type)==='ev'&&_crStyleDefendant(r.style))||null,petitioners:[],completed_at:_crScrap(r.sort_code)?now:null}));
+    const recs=add.map(r=>({case_number:r.case_number,county_code:r.county_code,style:r.style,court:r.court,case_type:r.case_type,filed:r.filed,status:r.status,sort_code:r.sort_code,plaintiff:((_crTypeKey(r.case_type)==='fc'||_crTypeKey(r.case_type)==='ev')&&_crStylePlaintiff(r.style))||null,defendant:(_crTypeKey(r.case_type)==='ev'&&_crStyleDefendant(r.style))||(_crTypeKey(r.case_type)==='pb'&&_crStyleDecedent(r.style))||null,petitioners:[],completed_at:_crScrap(r.sort_code)?now:null}));
     for(let i=0;i<recs.length;i+=500){ const up=await sb.from('court_cases').upsert(recs.slice(i,i+500),{onConflict:'case_number',ignoreDuplicates:true}); if(up.error) throw up.error; }
     // set pulled-to
     if(document.getElementById('cr-paste-pull')&&document.getElementById('cr-paste-pull').checked){
@@ -862,6 +873,12 @@ function _crEditor(c){
   if(k==='pb'){ _CR.pets=_crPets(c).map(p=>({name:p.name||'',address:p.address||''})); if(!_CR.pets.length) _CR.pets=[{name:'',address:''}]; _crPetPaint(); }
   if(k==='fc'||k==='ev'){ const pl=ed.querySelector('[data-f="plaintiff"]'); const g=_crStylePlaintiff(c.style); if(pl&&!pl.value.trim()&&g) pl.value=g; }
   if(k==='ev'){ const df=ed.querySelector('[data-f="defendant"]'); const g=_crStyleDefendant(c.style); if(df&&!df.value.trim()&&g) df.value=g; }
+  if(k==='pb'){ const df=ed.querySelector('[data-f="defendant"]'); if(df){ const g=_crStyleDecedent(c.style); if(!df.value.trim()&&g) df.value=g;
+    // 📋 Copy beside the decedent
+    const cb=document.createElement('button'); cb.type='button'; cb.textContent='📋 Copy'; cb.title='Copy the decedent name';
+    cb.style.cssText='height:38px;padding:0 10px;border:1px solid var(--border);background:transparent;border-radius:8px;cursor:pointer;font-size:12.5px;color:#60a5fa;white-space:nowrap';
+    cb.onclick=async()=>{ const t=df.value.trim(); if(!t) return; try{ await navigator.clipboard.writeText(t); }catch(_){ df.select(); document.execCommand('copy'); } cb.textContent='✓ Copied'; setTimeout(()=>cb.textContent='📋 Copy',1200); };
+    df.insertAdjacentElement('afterend',cb); } }
   _crLive();
   ed.onkeydown=function(e){ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); _crSave(true); } };
 }

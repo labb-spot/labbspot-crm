@@ -81,11 +81,15 @@ function _crRender(){
       +'<div style="margin-left:auto;display:flex;gap:8px">'
         +(window.CR_LIMITED?'':'<button class="btn btn-ghost text-sm" onclick="_crAccessOpen()" title="Who gets the Creation-only page">👥 Access</button>'
           +'<label class="btn btn-ghost text-sm" style="cursor:pointer" title="One-time: bring cases in from your Combined sheet (CSV). Skips case numbers already here.">📥 Import sheet<input type="file" accept=".csv,text/csv" style="display:none" onchange="_crImportCsv(this)"></label>')
+        +(!window.CR_LIMITED&&typeof reqEmailTplOpen==='function'?'<button class="btn btn-ghost text-sm" onclick="reqEmailTplOpen()" title="Request-email templates (one per list type)">✉️ Emails</button>'
+          +(typeof reqFormOpen==='function'?'<button class="btn btn-ghost text-sm" onclick="reqFormOpen()" title="Ready-to-paste text for website request forms">📝 Forms</button>':'')
+          +(typeof requestAddType==='function'?'<button class="btn btn-ghost text-sm" onclick="_crReqAddType()" title="Add a list type to every Requests city">+ List Type</button>':'')
+          +(typeof requestOpenModal==='function'?'<button class="btn btn-ghost text-sm" onclick="_crReqAddCity()" title="Add a city to request lists from">+ Add City</button>':''):'')
         +'<button class="btn btn-ghost text-sm" id="cr-refresh" onclick="_crRefresh(this)" title="Re-pull from the database" style="width:40px;justify-content:center"><span class="cr-spin-ico" style="display:inline-block">↻</span></button>'
       +'</div></div>'
     +'<div id="cr-body"></div>';
   const body=document.getElementById('cr-body');
-  if(_CR.tab==='tracker'){ body.innerHTML=_crTrackerHtml(); _crTrkScrollSync(); }
+  if(_CR.tab==='tracker'){ body.innerHTML=_crTrackerHtml(); _crTrkScrollSync(); _crReqFit(); }
   else if(_CR.tab==='scrap') _crScrapRender(body);
   else if(_CR.tab==='queue') _crQueueRender(body);
   else if(_CR.tab==='all') _crAllRender(body);
@@ -127,11 +131,12 @@ function _crTrackerHtml(){
   const tot={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0,c:0},cv:{d:0,t:0,s:0},ul:{d:0,t:0,s:0},ts:{d:0,t:0,s:0},all:0,scrap:0};
   act.forEach(c=>{ const b=by[c.code]||empty; ['fc','pb','ev','cv','ul','ts'].forEach(k=>{ tot[k].d+=b[k].d; tot[k].t+=b[k].t; if(tot[k].s!=null) tot[k].s+=(b[k].s||0); }); tot.pb.u+=b.pb.u; tot.ev.c+=(b.ev.c||0); tot.all+=b.all; tot.scrap+=b.scrap; });
   const row=c=>{ const b=by[c.code]||empty; const p=c.pulled||{};
-    return '<tr class="cr-trk-row">'
-      +'<td style="padding:7px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:sticky;left:0;z-index:1;background:var(--panel);box-shadow:inset -1px 0 0 var(--border)"><button type="button" onclick="_crCountyEdit(\''+E(c.code)+'\')" title="Edit county — active, GIS link" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px 0 0;opacity:.7">⚙️</button>'+_crCodeBadge(c)+'<b>'+E(c.city)+'</b> <span style="color:var(--text-dim);font-size:12px">'+E(c.county)+'</span></td>'
+    return '<tr class="cr-trk-row" data-code="'+E(c.code)+'" ondragover="_crDragOver(event,this)" ondragleave="this.style.boxShadow=\'\'" ondrop="_crDrop(event,this)">'
+      +'<td style="padding:7px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:sticky;left:0;z-index:1;background:var(--panel);box-shadow:inset -1px 0 0 var(--border)">'
+      +(window.CR_LIMITED?'':'<span draggable="true" ondragstart="_crDragStart(event,\''+E(c.code)+'\')" ondragend="_crDragEnd()" title="Drag to reorder" style="cursor:grab;color:var(--text-dim);font-size:13px;padding:0 4px 0 0;user-select:none;letter-spacing:-2px">⋮⋮</span>')+(_crHasReq()?'<button type="button" onclick="_crReqToggle(\''+E(c.code)+'\')" title="Show this city’s Requests (list types, connections)" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 5px 0 0;color:'+(_CR.reqOpen[c.code]?'#a5b4fc':'var(--text-dim)')+';display:inline-block;transform:rotate('+(_CR.reqOpen[c.code]?'90':'0')+'deg);transition:transform .15s">▶</button>':'')+'<button type="button" onclick="_crCountyEdit(\''+E(c.code)+'\')" title="Edit county — active, GIS link" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px 0 0;opacity:.7">⚙️</button>'+_crCodeBadge(c)+'<b>'+E(c.city)+'</b> <span style="color:var(--text-dim);font-size:12px">'+E(c.county)+'</span></td>'
       +'<td style="text-align:center;white-space:nowrap;overflow:hidden">'+(c.assessor_url?'<a href="'+E(c.assessor_url)+'" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none" title="'+E(c.assessor_url)+'">🗺️</a>':'<button type="button" onclick="_crCountyEdit(\''+E(c.code)+'\')" title="Add this county’s GIS / Assessor link" style="background:none;border:1px dashed var(--border);border-radius:6px;color:var(--text-dim);font-size:13px;line-height:1;cursor:pointer;width:26px;height:22px;padding:0;display:inline-flex;align-items:center;justify-content:center">+</button>')+'</td>'
       +cell(b,'fc',p.fc,c.code)+cell(b,'pb',p.pb,c.code)
-      +cell(b,'ev',p.ev,c.code)+_CR_LISTS.map(k=>lcell(b[k],k,p[k],c.code)).join('')+'</tr>'; };
+      +cell(b,'ev',p.ev,c.code)+_CR_LISTS.map(k=>lcell(b[k],k,p[k],c.code)).join('')+'</tr>'+(_crHasReq()&&_CR.reqOpen[c.code]?_crReqPanel(c):''); };
   const th='padding:6px;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--text-dim);text-align:center';
   const grp=(t,col,n)=>'<th colspan="'+(n||3)+'" style="'+th+';color:'+col+';border-bottom:2px solid '+col+';border-left:2px solid var(--border);">'+t+'</th>';
   const lcard=k=>{ const x=tot[k], p=_crPct(x.d,x.t); return '<div style="flex:1;min-width:150px;background:var(--panel-2);border:1px solid var(--border);border-top:3px solid '+_CR_COL[k]+';border-radius:10px;padding:10px 12px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text-dim)">'+_CR_TYPES[k]+'</div><div style="font-size:20px;font-weight:800">'+x.d.toLocaleString()+' <span style="font-size:13px;color:var(--text-dim);font-weight:600">/ '+x.t.toLocaleString()+'</span></div><div style="font-size:12px;font-weight:700"><span style="color:'+_crPctColor(p,x.t)+'">'+(x.t?p.toFixed(1)+'% complete':'—')+'</span>'+(x.s?'<span style="color:var(--text-dim);font-weight:600"> · </span><span style="color:#94a3b8">'+x.s.toLocaleString()+' scrapped</span>':'')+'</div></div>'; };
@@ -147,8 +152,110 @@ function _crTrackerHtml(){
       +'<tbody>'+act.map(row).join('')+'</tbody></table></div>'
     +(ina.length?'<div style="margin-top:10px"><button class="btn btn-ghost text-sm" onclick="_CR.showInactive=!_CR.showInactive;_crRender()">'+(_CR.showInactive?'▾':'▸')+' Inactive counties ('+ina.length+')</button>'
       +(_CR.showInactive?'<div style="overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px;opacity:.75"><table style="'+_CR_TBL+'">'+_CR_COLS+'<tbody>'+ina.map(row).join('')+'</tbody></table></div>':'')+'</div>':'')
+    +_crReqExtraHtml()+_crOldReqLink()
     +'<div id="cr-chart" style="margin-top:14px">'+_crChartHtml()+'</div>';
 }
+function _crReqExtraHtml(){
+  if(!_crHasReq()) return '';
+  if(!(typeof cache!=='undefined'&&cache.requests)){ if(!_CR._reqLoading){ _CR._reqLoading=true; loadRequests().then(()=>{ if(_CR.tab==='tracker') _crRender(); }).catch(()=>{}); } return ''; }
+  const E=_reqEsc; const n=s=>String(s||'').toLowerCase().replace(/\bcounty\b/g,'').replace(/[^a-z]/g,'');
+  const used=new Set(); _CR.counties.forEach(c=>{ const r=_crReqCity(c); if(r) used.add(r.id); });
+  const extra=Object.values(cache.requests).filter(r=>r&&r.city&&!used.has(r.id)).sort((a,b)=>String(a.city).localeCompare(String(b.city)));
+  _CR.reqExtra={}; extra.forEach(r=>{ _CR.reqExtra['r_'+r.id]={code:'r_'+r.id,city:r.city,county:r.county,_req:r}; });
+  if(!extra.length) return '';
+  return '<div style="margin-top:12px;border:1px solid var(--border);border-radius:10px;overflow:auto"><table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13px"><tbody>'
+    +'<tr><td colspan="'+_CR_COLW.length+'" style="padding:8px 10px;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--text-dim);background:var(--panel-2)">📨 Requests cities not in the tracker ('+extra.length+')</td></tr>'
+    +extra.map(r=>{ const k='r_'+r.id; const c=_CR.reqExtra[k]; const on=!!_CR.reqOpen[k];
+      return '<tr style="border-top:1px solid var(--border)"><td colspan="'+_CR_COLW.length+'" style="padding:7px 8px;border-top:1px solid var(--border)"><button type="button" onclick="_crReqToggle(\''+E(k)+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 6px 0 0;color:'+(on?'#a5b4fc':'var(--text-dim)')+';display:inline-block;transform:rotate('+(on?'90':'0')+'deg)">▶</button><b>'+E(r.city)+'</b> <span style="color:var(--text-dim);font-size:12px">'+E(r.county||'')+'</span></td></tr>'
+        +(on?_crReqPanel(c):''); }).join('')
+    +'</tbody></table></div>';
+}
+function _crOldReqLink(){ return (_crHasReq()&&typeof goMarketingView==='function')?'<div style="margin-top:8px;text-align:right"><a href="#" onclick="event.preventDefault();goMarketingView(\'requests\')" style="font-size:11.5px;color:var(--text-dim);text-decoration:none" title="The old Requests page — everything there is now in the ▶ panels above">📨 Old Requests page</a></div>':''; }
+// ----- 📨 Requests inside the Tracker: ▸ on a county row shows that city's Requests (read-only + the same action buttons). Never saves anything. -----
+_CR.reqOpen=_CR.reqOpen||{};
+function _crHasReq(){ return typeof loadRequests==='function'&&typeof _reqTypes==='function'&&typeof _reqTypeContacts==='function'; }
+async function _crReqToggle(code){
+  _CR.reqOpen[code]=!_CR.reqOpen[code];
+  if(_CR.reqOpen[code]&&!(typeof cache!=='undefined'&&cache.requests)){ try{ await loadRequests(); }catch(_){} }
+  _crRender();
+}
+window._crReqToggle=_crReqToggle;
+function _crReqCity(c){
+  const all=Object.values((typeof cache!=='undefined'&&cache.requests)||{}).filter(r=>r&&r.city);
+  const n=s=>String(s||'').toLowerCase().replace(/\bcounty\b/g,'').replace(/,?\s*in(diana)?$/,'').replace(/[^a-z]/g,'');
+  return all.find(r=>n(r.city)===n(c.city))||all.find(r=>n(r.county)&&n(r.county)===n(c.county))||null;
+}
+function _crReqPanel(c){
+  const E=_reqEsc; const r=c._req||_crReqCity(c);
+  const wrap=h=>'<tr class="cr-req-row" id="cr-req-'+E(c.code)+'"><td colspan="'+_CR_COLW.length+'" style="padding:0;background:var(--panel-2);border-top:1px solid var(--border);border-bottom:2px solid #6366f155"><div style="position:sticky;left:0;width:min(1500px,calc(100vw - 120px));box-sizing:border-box;padding:12px 14px">'+h+'</div></td></tr>';
+  if(!(typeof cache!=='undefined'&&cache.requests)) return wrap('<div style="color:var(--text-dim);font-size:13px">Loading Requests…</div>');
+  if(!r) return wrap('<div style="color:var(--text-dim);font-size:13px">No Requests city for <b>'+E(c.city)+'</b> / '+E(c.county)+' yet — click <b>+ Add City</b> at the top.</div>');
+  if(typeof _reqDetailHtml==='function'){ _crReqHook(); try{ return wrap(_reqDetailHtml(r)); }catch(e){ console.warn('req detail',e); } }
+  const id=E(r.id), btn='height:28px;padding:0 10px;border:1px solid var(--border);background:var(--panel);border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;color:var(--text)';
+  let links=''; try{ links=_reqLinksNorm(r).filter(l=>l.show).map(l=>'<a href="'+E(_reqNormUrl2(l.url))+'" target="_blank" rel="noopener" style="font-size:12.5px;font-weight:600;text-decoration:none;color:'+(l.kind==='zeus'?'#facc15':'#60a5fa')+'">🌐 '+E(l.label||({page:'Request Page',form:'Form',taxsale:'Tax Sale Results',contact:'Contact Us',zeus:'Zeus'})[l.kind]||'Link')+'</a>').join('<span style="color:var(--border)"> · </span>'); }catch(_){}
+  const rows=_reqTypes().map(t=>{
+    const d=(r.lists&&r.lists[t])||{}; const tc=_reqTypeContacts(r,t); const tq=E(t).replace(/'/g,"\\'");
+    const site=tc.site||''; const em=(tc.cs||[]).filter(x=>x&&x.email);
+    const conn=site==='zeus'?'<span style="color:#facc15">🌐 Zeus</span>':site==='site'?'🌐 Own website':site==='portal'?'🌐 Request portal':tc.office?'🔗 '+E(tc.office):(tc.cs&&tc.cs.length?'🔗 Own contacts ('+tc.cs.length+')':'<span style="color:var(--text-dim)">— none —</span>');
+    let acts='';
+    if(site){ const u=_reqSiteUrl(r,t,site); acts+=u?'<a href="'+E(u)+'" target="_blank" rel="noopener" style="'+btn+';color:'+(site==='zeus'?'#facc15':'#60a5fa')+'">🌐 '+(site==='zeus'?'Zeus':site==='site'?'Site':'Portal')+'</a>':''; }
+    if(typeof _reqFormFor==='function'&&_reqFormFor(r,t)) acts+='<button type="button" onclick="_reqDownloadForm(\''+id+'\',\''+tq+'\',this)" style="'+btn+';color:#fbbf24">📄 Form</button>';
+    else if((site==='site'||site==='portal')&&typeof _reqCopyFormText==='function') acts+='<button type="button" onclick="_reqCopyFormText(\''+id+'\',\''+tq+'\',this)" style="'+btn+';color:#34d399">📋 Text</button>';
+    if(!site&&em.length) acts+='<button type="button" onclick="_reqMailType(\''+id+'\',\''+tq+'\')" style="'+btn+';color:#a78bfa">📧 Email</button>';
+    const cq=E(c.code);
+    const dt=(key,v,col)=>'<input type="date" value="'+E(v||'')+'" onchange="_crReqDate(\''+cq+'\',\''+id+'\',\''+tq+'\',\''+key+'\',this)" style="height:28px;width:130px;font-size:12px;padding:0 6px;border-radius:7px;color:'+(v?(col||'var(--text)'):'var(--text-dim)')+'">';
+    let sel=''; try{ sel=_reqConnSelectHtml(r,t).replace('_reqLinkOffice(','_crReqConn(\''+cq+'\',').replace('width:250px','width:210px'); }catch(_){ sel=conn; }
+    return '<tr style="border-top:1px solid var(--border)"><td style="padding:5px 8px;font-weight:800;white-space:nowrap;color:'+_reqTypeColor(t)+'">'+E(t)+'</td>'
+      +'<td style="padding:4px 6px;white-space:nowrap;font-size:12px"><span style="color:var(--text-dim)">Req</span> '+dt('requested',d.requested)+'</td>'
+      +'<td style="padding:4px 6px;white-space:nowrap;font-size:12px"><span style="color:var(--text-dim)">Rcvd</span> '+dt('received',d.received,d.received?_reqRecencyColor(d.received):'')+'</td>'
+      +'<td style="padding:4px 6px;white-space:nowrap;font-size:12.5px">'+sel+'</td>'
+      +'<td style="padding:4px 8px;white-space:nowrap"><div style="display:flex;gap:6px;flex-wrap:nowrap">'+acts+'</div></td></tr>'; }).join('');
+  let offs=''; try{ const by=_reqOfficeData(r); const order=(typeof _REQ_OFFICES!=='undefined'?_REQ_OFFICES.map(o=>o[0]):[]);
+    offs=Object.keys(by).filter(o=>by[o].contacts.length).sort((a,b)=>{ const i=order.indexOf(a),j=order.indexOf(b); return (i<0?99:i)-(j<0?99:j); }).map(o=>
+      '<div style="min-width:220px;flex:1 1 240px;max-width:360px;background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:8px 10px"><div style="font-weight:800;font-size:12.5px;margin-bottom:4px">🏛️ '+E(o)+(by[o].website?' <a href="'+E(_reqNormUrl2(by[o].website))+'" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none;font-weight:600">🌐</a>':'')+'</div>'
+      +by[o].contacts.map(p=>'<div style="font-size:12px;line-height:1.45;padding:2px 0;border-top:1px solid var(--border)">'+(p.primary?'⭐ ':'')+'<b>'+E(p.name||p.title||'')+'</b>'+(p.name&&p.title?' <span style="color:var(--text-dim)">'+E(p.title)+'</span>':'')
+        +(p.email?'<div><a href="mailto:'+E(p.email)+'" style="color:#a78bfa;text-decoration:none">'+E(p.email)+'</a></div>':'')+(p.phone?'<div style="color:var(--text-dim)">'+E(p.phone)+'</div>':'')+'</div>').join('')+'</div>').join(''); }catch(_){}
+  return wrap('<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px"><div style="font-weight:800;font-size:14px">📨 '+E(r.city)+(r.priority?' ⭐':'')+'</div><div>'+links+'</div>'
+      +'<button type="button" onclick="_crReqGo(\''+id+'\')" style="'+btn+';margin-left:auto;color:#60a5fa">Open in Requests ↗</button></div>'
+    +'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1 1 640px;min-width:0;overflow:auto"><table style="border-collapse:collapse;width:100%">'+rows+'</table></div>'
+    +(offs?'<div style="flex:1 1 300px;min-width:0"><div style="font-size:11px;font-weight:800;color:var(--text-dim);text-transform:uppercase;margin-bottom:6px">Connections</div><div style="display:flex;gap:8px;flex-wrap:wrap">'+offs+'</div></div>':'')+'</div>');
+}
+function _crReqRepaintAll(){ if(_CR.tab!=='tracker') return; Object.keys(_CR.reqOpen).forEach(k=>{ if(_CR.reqOpen[k]) _crReqRepaint(k); }); }
+function _crReqHook(){
+  if(window._crReqHooked||typeof window.renderRequestsList!=='function') return; window._crReqHooked=true;
+  const orig=window.renderRequestsList;
+  window.renderRequestsList=function(){ const out=orig.apply(this,arguments);
+    try{ const mv=document.getElementById('mview-requests'); if(mv&&mv.style.display==='none'){ const g=document.getElementById('requests-grid'); if(g) g.innerHTML=''; } }catch(_){}
+    try{ const n=Object.keys((typeof cache!=='undefined'&&cache.requests)||{}).length;
+      if(_CR.tab==='tracker'&&_CR._reqN!=null&&n!==_CR._reqN){ _CR._reqN=n; _crRender(); } else { _CR._reqN=n; _crReqRepaintAll(); } }catch(_){}
+    return out; };
+}
+// Saves go through the same Requests functions (they re-read the row first and change only that one field), then the panel refreshes in place.
+function _crReqRepaint(code){ const c=_CR.counties.find(x=>x.code===code)||(_CR.reqExtra||{})[code]; const tr=document.getElementById('cr-req-'+code); if(c&&tr){ tr.outerHTML=_crReqPanel(c); _crReqFit(); } }
+async function _crReqDate(code,id,t,key,inp){ if(typeof _reqSetDate!=='function') return; await _reqSetDate(id,t,key,inp); _crReqRepaint(code); }
+async function _crReqConn(code,id,t,sel){ if(typeof _reqLinkOffice!=='function') return; await _reqLinkOffice(id,t,sel); _crReqRepaint(code); }
+window._crReqDate=_crReqDate; window._crReqConn=_crReqConn;
+async function _crReqAddType(){ _crReqHook(); try{ await requestAddType(); }catch(e){ console.warn(e); } if(_CR.tab==='tracker') _crRender(); }
+function _crReqAddCity(){ _crReqHook(); if(typeof cache!=='undefined'&&!cache.requests&&typeof loadRequests==='function') loadRequests(); requestOpenModal(); }
+window._crReqAddType=_crReqAddType; window._crReqAddCity=_crReqAddCity;
+function _crReqGo(id){ try{ if(typeof goMarketingView==='function') goMarketingView('requests'); if(typeof _reqSelect==='function') _reqSelect(id); window.scrollTo(0,0); }catch(e){ console.warn(e); } }
+window._crReqGo=_crReqGo;
+// Drag ⋮⋮ to reorder counties — saves the new order (court_counties.sort) for everyone.
+function _crDragStart(e,code){ _CR._drag=code; try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',code); }catch(_){} }
+function _crDragEnd(){ _CR._drag=null; document.querySelectorAll('tr.cr-trk-row').forEach(r=>r.style.boxShadow=''); }
+function _crDragOver(e,tr){ if(!_CR._drag) return; e.preventDefault(); const r=tr.getBoundingClientRect(); const below=e.clientY>r.top+r.height/2;
+  document.querySelectorAll('tr.cr-trk-row').forEach(x=>{ if(x!==tr) x.style.boxShadow=''; }); tr.style.boxShadow=below?'inset 0 -3px 0 #f97316':'inset 0 3px 0 #f97316'; tr._below=below; }
+async function _crDrop(e,tr){
+  e.preventDefault(); const from=_CR._drag, to=tr.getAttribute('data-code'), below=!!tr._below; _crDragEnd(); if(!from||from===to) return;
+  const list=_CR.counties.slice(); const mv=list.find(c=>c.code===from); if(!mv) return;
+  list.splice(list.indexOf(mv),1); const ti=list.findIndex(c=>c.code===to); list.splice(ti+(below?1:0),0,mv);
+  const changed=[]; list.forEach((c,i)=>{ if(c.sort!==i+1) changed.push([c.code,i+1]); });
+  _CR.counties=list; list.forEach((c,i)=>{ c.sort=i+1; }); _crRender();
+  try{ const res=await Promise.all(changed.map(([code,n])=>sb.from('court_counties').update({sort:n}).eq('code',code)));
+    const bad=res.find(r=>r&&r.error); if(bad) throw bad.error; if(typeof toast==='function') toast('Order saved','ok'); }
+  catch(err){ if(typeof toast==='function') toast('Couldn’t save the order: '+(err.message||err),'err'); }
+}
+window._crDragStart=_crDragStart; window._crDragEnd=_crDragEnd; window._crDragOver=_crDragOver; window._crDrop=_crDrop;
 // "Set all" — one date for every ACTIVE county's Pulled-to, per list type.
 function _crSetAllBtn(k){ return (k==='ts'?'Year':_CR_LISTS.indexOf(k)>=0?'Month':'Pulled to')+' <button type="button" onclick="_crSetAllOpen(\''+k+'\',this)" title="Set every active county\'s '+(_CR_TYPES[k])+' Pulled-to date at once" style="margin-left:4px;height:20px;padding:0 6px;font-size:10px;font-weight:800;border:1px solid var(--border);background:var(--panel);color:#60a5fa;border-radius:5px;cursor:pointer;text-transform:none;letter-spacing:0">Set all</button>'; }
 function _crIsoDay(off){ const d=new Date(); d.setDate(d.getDate()+(off||0)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -1348,7 +1455,7 @@ async function _crRefresh(btn){
   const body=document.getElementById('cr-body'); const t0=Date.now();
   if(btn){ btn.classList.add('cr-spinning'); btn.disabled=true; }
   if(body){ body.style.transition='opacity .15s'; body.style.opacity='.45'; body.style.pointerEvents='none'; }
-  try{ _CR.loading=false; await _crLoad(true); if(Date.now()-t0<450) await new Promise(r=>setTimeout(r,450-(Date.now()-t0)));
+  try{ _CR.loading=false; const _rq=(_crHasReq()&&typeof cache!=='undefined')?(cache.requests=null, loadRequests().catch(()=>{})):null; await _crLoad(true); if(_rq) await _rq; if(Date.now()-t0<450) await new Promise(r=>setTimeout(r,450-(Date.now()-t0)));
     _CR._refreshing=false; _crRender(); toast('↻ Refreshed — '+_CR.cases.length.toLocaleString()+' cases','ok'); }
   catch(e){ toast('Refresh failed: '+(e.message||e),'err'); }
   finally{ _CR._refreshing=false; const b=document.getElementById('cr-refresh'); if(b){ b.classList.remove('cr-spinning'); b.disabled=false; } const bd=document.getElementById('cr-body'); if(bd){ bd.style.opacity=''; bd.style.pointerEvents=''; } }
@@ -1356,6 +1463,10 @@ async function _crRefresh(btn){
 window._crRefresh=_crRefresh;
 
 // Tracker: horizontal scrollbar sits ABOVE the table (synced with the table itself; the bottom one is hidden).
+// ▶ panels fill exactly the visible width of the tracker box (no empty strip on the right)
+function _crReqFit(){ const w=document.getElementById('cr-trk-wrap'); const vis=w?w.clientWidth:0;
+  document.querySelectorAll('tr.cr-req-row > td > div').forEach(d=>{ const box=d.closest('#cr-trk-wrap')||d.closest('table').parentElement; const cw=(box&&box.clientWidth)||vis; if(cw) d.style.width=cw+'px'; }); }
+window.addEventListener('resize',()=>{ if(_CR.tab==='tracker') _crReqFit(); });
 function _crTrkScrollSync(){
   const top=document.getElementById('cr-trk-top'), wrap=document.getElementById('cr-trk-wrap'); if(!top||!wrap) return;
   if(!document.getElementById('cr-trk-css')){ const st=document.createElement('style'); st.id='cr-trk-css';

@@ -47333,8 +47333,60 @@ function reqEmailTplGet(type){
 }
 function reqEmailTplFill(str, ctx){
   ctx = ctx || {};
-  const map = { '{name}': ctx.name || 'there', '{list_type}': ctx.list_type || 'records', '{office}': ctx.office || ctx.list_type || 'office', '{city}': ctx.city || 'your area', '{county}': ctx.county || '' };
-  return String(str).replace(/\{(name|list_type|office|city|county)\}/g, m => map[m] != null ? map[m] : m);
+  const map = { '{name}': ctx.name || 'there', '{list_type}': ctx.list_type || 'records', '{office}': ctx.office || ctx.list_type || 'office', '{city}': ctx.city || 'your area', '{county}': ctx.county || '',
+    '{start}': ctx.start || '', '{end}': ctx.end || '', '{range}': (ctx.start && ctx.end) ? (ctx.start + ' to ' + ctx.end) : '' };
+  return String(str).replace(/\{(name|list_type|office|city|county|start|end|range)\}/g, m => map[m] != null ? map[m] : m);
+}
+// Code violations + utility liens: ask "last month" or "this year so far" before the email opens.
+function _reqNeedsRange(t){ return false; }   // email no longer asks for dates (forms do)
+function _reqRanges(){ const now=new Date(); const md=d=>(d.getMonth()+1)+'/'+d.getDate()+'/'+d.getFullYear();
+  const last=new Date(now.getFullYear(),now.getMonth(),0), first=new Date(last.getFullYear(),last.getMonth(),1), jan=new Date(last.getFullYear(),0,1);
+  return { month:{start:md(first),end:md(last),label:first.toLocaleString('en-US',{month:'short'})+' '+first.getFullYear()}, year:{start:md(jan),end:md(last),label:String(last.getFullYear())+' so far'} }; }
+function _reqPickRange(t, cb){
+  const R=_reqRanges(); const old=document.getElementById('req-range-pop'); if(old) old.remove();
+  const ov=document.createElement('div'); ov.id='req-range-pop';
+  ov.style.cssText='position:fixed;inset:0;z-index:100004;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px';
+  const b='display:block;width:100%;text-align:left;padding:10px 14px;margin-bottom:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:9px;cursor:pointer;font-size:14px';
+  ov.innerHTML='<div style="width:min(380px,94vw);background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 16px 50px rgba(0,0,0,.5)">'
+    +'<div style="font-weight:800;font-size:15px;margin-bottom:10px">📧 '+_reqEsc(t)+' — which dates?</div>'
+    +'<button type="button" data-r="month" style="'+b+'"><b>Last month</b> <span style="color:var(--text-dim)">· '+R.month.start+' – '+R.month.end+'</span></button>'
+    +'<button type="button" data-r="year" style="'+b+'"><b>This year</b> <span style="color:var(--text-dim)">· '+R.year.start+' – '+R.year.end+'</span></button>'
+    +'<div style="text-align:right"><button type="button" data-x="1" style="padding:6px 12px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:7px;cursor:pointer;font-size:12px">Cancel</button></div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  ov.querySelector('[data-x]').onclick=()=>ov.remove();
+  ov.querySelectorAll('[data-r]').forEach(x=>x.onclick=()=>{ const k=x.getAttribute('data-r'); ov.remove(); cb(R[k]); });
+}
+// 📄 Form: type the start + end dates (or tap Last month / This year), then download.
+function _reqPickDates(t, cb){
+  const R=_reqRanges(); const old=document.getElementById('req-range-pop'); if(old) old.remove();
+  const iso=md=>{ const m=String(md).split('/'); return m[2]+'-'+String(m[0]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0'); };
+  const back=v=>{ const m=String(v||'').split('-'); return m.length===3?(+m[1])+'/'+(+m[2])+'/'+m[0]:''; };
+  const ov=document.createElement('div'); ov.id='req-range-pop';
+  ov.style.cssText='position:fixed;inset:0;z-index:100004;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px';
+  const inp='height:36px;font-size:14px;padding:0 8px;border-radius:8px;width:100%;box-sizing:border-box;margin-top:4px';
+  const q='flex:1;height:30px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:7px;cursor:pointer;font-size:12.5px;font-weight:600';
+  ov.innerHTML='<div style="width:min(400px,94vw);background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 16px 50px rgba(0,0,0,.5)">'
+    +'<div style="font-weight:800;font-size:15px;margin-bottom:10px">📄 '+_reqEsc(t)+' form — which dates?</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:10px"><button type="button" data-q="month" style="'+q+'">Last month</button><button type="button" data-q="year" style="'+q+'">This year</button></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px"><label style="font-size:12px;color:var(--text-dim)">Start date<input type="date" id="req-rg-s" value="'+iso(R.month.start)+'" style="'+inp+'"></label><label style="font-size:12px;color:var(--text-dim)">End date<input type="date" id="req-rg-e" value="'+iso(R.month.end)+'" style="'+inp+'"></label></div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" data-x="1" style="padding:7px 12px;border:1px solid var(--border);background:transparent;color:var(--text-dim);border-radius:7px;cursor:pointer;font-size:12.5px">Cancel</button><button type="button" data-go="1" style="padding:7px 16px;border:none;background:var(--brand,#f97316);color:#fff;border-radius:7px;cursor:pointer;font-size:13px;font-weight:700">⬇ Download form</button></div></div>';
+  document.body.appendChild(ov);
+  const sI=ov.querySelector('#req-rg-s'), eI=ov.querySelector('#req-rg-e');
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  ov.querySelector('[data-x]').onclick=()=>ov.remove();
+  ov.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{ const r=R[b.getAttribute('data-q')]; sI.value=iso(r.start); eI.value=iso(r.end); });
+  ov.querySelector('[data-go]').onclick=()=>{ if(!sI.value||!eI.value){ if(typeof toast==='function') toast('Pick both dates','warn'); return; }
+    if(sI.value>eI.value){ if(typeof toast==='function') toast('Start date is after the end date','warn'); return; }
+    const st=back(sI.value), en=back(eI.value); ov.remove(); cb({start:st,end:en,label:st.replace(/\//g,'-')+' to '+en.replace(/\//g,'-')}); };
+}
+// If the template has no date token, put the range in as its own line before the sign-off.
+function _reqBodyWithRange(body, rng){
+  if(!rng) return body; body=String(body||'');
+  if(/\{(start|end|range)\}/.test(body)) return body;
+  const line='Date range: {start} to {end}';
+  const i=body.search(/\n\s*\n\s*(thank|thanks|sincerely|best|regards)/i);
+  return i>=0 ? body.slice(0,i)+'\n\n'+line+body.slice(i) : body+'\n\n'+line;
 }
 async function reqEmailTplSave(payload){
   if (typeof sb === 'undefined' || !sb) { if (typeof toast==='function') toast('Not connected.','err'); return false; }
@@ -47360,7 +47412,7 @@ function reqEmailTplOpen(){
   const ov = document.createElement('div');
   ov.id = 'req-eml-pop';
   ov.style.cssText = 'position:fixed;inset:0;z-index:100002;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px';
-  const chips = ['{name}','{list_type}','{office}','{city}','{county}'].map(t => '<button type="button" class="reml-chip" data-tok="'+t+'" style="padding:3px 9px;font-size:11px;font-weight:600;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer">'+t+'</button>').join(' ');
+  const chips = ['{name}','{list_type}','{office}','{city}','{county}','{start}','{end}'].map(t => '<button type="button" class="reml-chip" data-tok="'+t+'" style="padding:3px 9px;font-size:11px;font-weight:600;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer">'+t+'</button>').join(' ');
   ov.innerHTML = '<div style="width:min(600px,96vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;box-shadow:0 16px 50px rgba(0,0,0,0.5)">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-weight:800;font-size:15px">✉️ Request Emails</div><button id="reml-x" style="background:none;border:none;color:var(--text-dim);font-size:22px;line-height:1;cursor:pointer">×</button></div>'
     + '<label style="font-size:11px;font-weight:700;color:var(--text-dim);display:block;margin-bottom:6px">LIST TYPE / 🏛️ OFFICE</label>'
@@ -69916,12 +69968,13 @@ window._reqSetListSort=_reqSetListSort;
    +'#req-city-list::-webkit-scrollbar-thumb{background:#334155;border:2px solid #94a3b8;border-radius:8px}'
    +'#req-city-list::-webkit-scrollbar-thumb:hover{background:#475569;border-color:#cbd5e1}';
   document.head.appendChild(st); })();
-function _reqMail(id,type,ci){
+function _reqMail(id,type,ci,rng){
   const r=(cache.requests||{})[id]; if(!r) return; const c=(_reqTypeContacts(r,type).cs)[ci]||{};
   if(!c.email){ if(typeof toast==='function') toast('No email on this contact.','warn'); return; }
+  if(!rng&&_reqNeedsRange(type)){ _reqPickRange(type,x=>_reqMail(id,type,ci,x)); return; }
   let href='mailto:'+c.email;
-  try{ if(typeof reqEmailTplGet==='function'){ const tpl=reqEmailTplGet(type); const ctx={name:c.name||'',list_type:type,city:r.city||'',county:r.county||''};
-    href+='?subject='+encodeURIComponent(reqEmailTplFill(tpl.subject,ctx))+'&body='+encodeURIComponent(reqEmailTplFill(tpl.body,ctx)); } }catch(_){}
+  try{ if(typeof reqEmailTplGet==='function'){ const tpl=reqEmailTplGet(type); const ctx={name:c.name||'',list_type:type,city:r.city||'',county:r.county||'',start:rng&&rng.start,end:rng&&rng.end};
+    href+='?subject='+encodeURIComponent(reqEmailTplFill(tpl.subject,ctx))+'&body='+encodeURIComponent(reqEmailTplFill(_reqBodyWithRange(tpl.body,rng),ctx)); } }catch(_){}
   const a=document.createElement('a'); a.href=href; a.click();
 }
 window._reqMail=_reqMail;
@@ -70153,15 +70206,16 @@ async function _reqEditSave(btnEl,id,t){
 }
 window._reqEditSave=_reqEditSave;
 // Email every contact on a list type at once, using that type's request template.
-function _reqMailType(id,t){
+function _reqMailType(id,t,rng){
   const r=(cache.requests||{})[id]; if(!r) return; const d={contacts:_reqTypeContacts(r,t).cs};
   const _all=(d.contacts||[]).filter(Boolean); const _p=_all[_reqPrimaryIdx(_all)];
   const ems=(_p&&_p.email)?[_p.email]:_all.map(c=>c&&c.email).filter(Boolean).slice(0,1);
   if(!ems.length){ if(typeof toast==='function') toast('No contact email for '+t+'.','warn'); return; }
+  if(!rng&&_reqNeedsRange(t)){ _reqPickRange(t,x=>_reqMailType(id,t,x)); return; }
   const first=(_p&&_p.email)?_p:((d.contacts||[]).find(c=>c&&c.email)||{});
   let href='mailto:'+ems.join(',');
-  try{ if(typeof reqEmailTplGet==='function'){ const tpl=reqEmailTplGet(t); const ctx={name:ems.length===1?(first.name||''):'',list_type:t,city:r.city||'',county:r.county||''};
-    href+='?subject='+encodeURIComponent(reqEmailTplFill(tpl.subject,ctx))+'&body='+encodeURIComponent(reqEmailTplFill(tpl.body,ctx)); } }catch(_){}
+  try{ if(typeof reqEmailTplGet==='function'){ const tpl=reqEmailTplGet(t); const ctx={name:ems.length===1?(first.name||''):'',list_type:t,city:r.city||'',county:r.county||'',start:rng&&rng.start,end:rng&&rng.end};
+    href+='?subject='+encodeURIComponent(reqEmailTplFill(tpl.subject,ctx))+'&body='+encodeURIComponent(reqEmailTplFill(_reqBodyWithRange(tpl.body,rng),ctx)); } }catch(_){}
   const a=document.createElement('a'); a.href=href; a.click();
 }
 window._reqMailType=_reqMailType;
@@ -70460,9 +70514,10 @@ function _reqLoadPdfLib(){
   if (window.PDFLib) return Promise.resolve(window.PDFLib);
   return new Promise(function(res,rej){ const sc=document.createElement('script'); sc.src='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js'; sc.onload=function(){ res(window.PDFLib); }; sc.onerror=function(){ rej(new Error('Could not load the PDF tool')); }; document.head.appendChild(sc); });
 }
-async function _reqDownloadForm(id,t,btnEl){
+async function _reqDownloadForm(id,t,btnEl,rng){
   const r=(cache.requests||{})[id]; const f=_reqFormFor(r,t); if(!f) return;
-  if(f.custom) return _reqCFDownload(r,t,f.custom,btnEl);
+  if(!rng){ _reqPickDates(t,x=>_reqDownloadForm(id,t,btnEl,x)); return; }
+  if(f.custom) return _reqCFDownload(r,t,f.custom,btnEl,rng);
   const orig=btnEl?btnEl.innerHTML:''; if(btnEl){ btnEl.disabled=true; btnEl.innerHTML='⏳ Form'; }
   try{
     const PDFLib=await _reqLoadPdfLib();
@@ -70474,7 +70529,7 @@ async function _reqDownloadForm(id,t,btnEl){
     const md=(d)=>(d.getMonth()+1)+'/'+d.getDate()+'/'+d.getFullYear();
     const first=new Date(now.getFullYear(),now.getMonth()-1,1), last=new Date(now.getFullYear(),now.getMonth(),0);
     let h=now.getHours(); const ap=h>=12?'pm':'am'; h=h%12||12;
-    const ctx={date:md(now), time:h+':'+pad(now.getMinutes())+ap, from:md(first), to:md(last)};
+    const ctx={date:md(now), time:h+':'+pad(now.getMinutes())+ap, from:rng?rng.start:md(first), to:rng?rng.end:md(last)};
     const vals=f.fill?f.fill(ctx):{};
     if(typeof f.draw==='function'){ const pg=doc.getPages()[0]; const hf=await doc.embedFont(PDFLib.StandardFonts.Helvetica);
       f.draw(ctx).forEach(function(d){ let sz=d.size||10; const w=hf.widthOfTextAtSize(String(d.text),sz); if(d.maxW&&w>d.maxW) sz=sz*d.maxW/w; pg.drawText(String(d.text),{x:d.x,y:d.y,size:sz,font:hf}); }); }
@@ -70482,7 +70537,7 @@ async function _reqDownloadForm(id,t,btnEl){
     if(f.sign){ try{ const sb64=((document.getElementById('req-sig-logan')||{}).textContent||'').trim(); if(sb64){ const png=await doc.embedPng(Uint8Array.from(atob(sb64),c=>c.charCodeAt(0))); const h=f.sign.h||24; doc.getPages()[0].drawImage(png,{x:f.sign.x,y:f.sign.y,width:h*png.width/png.height,height:h}); } }catch(e){ console.warn('form signature',e); } }
     if(Array.isArray(f.marks)&&f.marks.length){ try{ const pg=doc.getPages()[0]; const hf=await doc.embedFont(PDFLib.StandardFonts.HelveticaBold); f.marks.forEach(function(m){ pg.drawText('X',{x:m[0],y:m[1],size:10,font:hf}); }); }catch(e){ console.warn('form marks',e); } }
     const out=await doc.save();
-    const mon=first.toLocaleString('en-US',{month:'short'})+' '+first.getFullYear();
+    const mon=rng?rng.label:(first.toLocaleString('en-US',{month:'short'})+' '+first.getFullYear());
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([out],{type:'application/pdf'})); a.download=f.file+' - '+mon+'.pdf'; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },4000);
     if(typeof toast==='function') toast('📄 Form downloaded — now click 📧 Email and drag it in','ok');
   }catch(e){ console.warn('form:',e); if(typeof toast==='function') toast('Form failed: '+(e.message||e),'err'); }
@@ -70520,7 +70575,8 @@ function _reqCFDates(){
   const now=new Date(); const pad=n=>String(n).padStart(2,'0'); const md=d=>(d.getMonth()+1)+'/'+d.getDate()+'/'+d.getFullYear();
   const first=new Date(now.getFullYear(),now.getMonth()-1,1), last=new Date(now.getFullYear(),now.getMonth(),0);
   let h=now.getHours(); const ap=h>=12?'pm':'am'; h=h%12||12;
-  return { today:md(now), time:h+':'+pad(now.getMinutes())+ap, start:md(first), end:md(last), first:first };
+  const o=window._reqRangeNow; // set while downloading a form for a range picked in the "which dates?" box
+  return { today:md(now), time:h+':'+pad(now.getMinutes())+ap, start:o?o.start:md(first), end:o?o.end:md(last), first:first, label:o?o.label:'' };
 }
 function _reqCFFill(str,dt,me){ return String(str||'').replace(/\{(today|time|start|end|name|phone|email)\}/g,(m,k)=>dt[k]!=null?dt[k]:(me[k]!=null?me[k]:m)); }
 function _reqCFValue(kind,text,dt,me){
@@ -70615,13 +70671,13 @@ async function _reqCFBuild(pdfBytes,cfg){
   }
   return { bytes: await doc.save(), dt: dt };
 }
-async function _reqCFDownload(r,t,cf,btnEl){
+async function _reqCFDownload(r,t,cf,btnEl,rng){
   const orig=btnEl?btnEl.innerHTML:''; if(btnEl){ btnEl.disabled=true; btnEl.innerHTML='⏳ Form'; }
   try{
     const q=await sb.from('request_forms').select('pdf_b64,config,file_name').eq('id',cf.id).maybeSingle();
     if(q.error) throw q.error; if(!q.data) throw new Error('Form not found');
-    const out=await _reqCFBuild(_reqB64ToBytes(q.data.pdf_b64),q.data.config||{});
-    const mon=out.dt.first.toLocaleString('en-US',{month:'short'})+' '+out.dt.first.getFullYear();
+    window._reqRangeNow=rng||null; let out; try{ out=await _reqCFBuild(_reqB64ToBytes(q.data.pdf_b64),q.data.config||{}); } finally{ window._reqRangeNow=null; }
+    const mon=rng?rng.label:(out.dt.first.toLocaleString('en-US',{month:'short'})+' '+out.dt.first.getFullYear());
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([out.bytes],{type:'application/pdf'}));
     a.download=(r.city||'City')+' '+t+' Request - '+mon+'.pdf'; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },4000);
     if(typeof toast==='function') toast('📄 Form downloaded — now click 📧 Email and drag it in','ok');

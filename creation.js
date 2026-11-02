@@ -937,8 +937,8 @@ function _crHrDraw(body){
   const eom=(()=>{ const d=new Date(); d.setDate(0); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
   if(!H.payThru||H.payThru<=lastPaid||H.payFor!==H.who){ H.payFor=H.who; H.payThru=unpaid.some(r=>r.day<=eom)?eom:(unpaid[0]?unpaid[0].day:today); }
   const payRows=unpaid.filter(r=>r.day<=H.payThru); const payHrs=payRows.reduce((a,r)=>a+(+r.hours||0),0);
-  // week = Saturday → Friday, like the old sheet
-  const wkStart=iso=>{ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()-((d.getDay()+1)%7)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  // week = Sunday → Saturday
+  const wkStart=iso=>{ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()-d.getDay()); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
   const thisWk=wkStart(today); const wkHrs=H.rows.filter(r=>r.day>=thisWk).reduce((a,r)=>a+(+r.hours||0),0);
   const ed=H.edit||{day:today,hours:'',note:''}; const cur=H.rows.find(r=>r.day===ed.day);
   const box=(t,v,s)=>'<div style="flex:1;min-width:130px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:8px 12px"><div style="font-size:11.5px;color:var(--text-dim)">'+t+'</div><div style="font-size:20px;font-weight:800">'+v+'</div>'+(s?'<div style="font-size:11.5px;color:var(--text-dim)">'+s+'</div>':'')+'</div>';
@@ -964,14 +964,18 @@ function _crHrDraw(body){
           +(cur?'<button class="btn btn-ghost text-sm" onclick="_CR.hr.edit=null;_crHrDraw()">Cancel</button>':'')+'</div>'
       +'</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
-        +box('This week (Sat–Fri)',_crHrFmt(wkHrs)+' hrs')
+        +box('This week (Sun–Sat)',_crHrFmt(wkHrs)+' hrs')
         +box('Not paid yet',_crHrFmt(unpaidHrs)+' hrs',lastPaid?'since '+_crHrMD(lastPaid):'')
       +'</div>'
       +(H.pay.length?'<div style="margin-top:12px;font-size:12.5px"><div style="font-weight:700;margin-bottom:4px">Paid</div>'+H.pay.slice(0,8).map(p=>'<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid var(--border)"><span>through '+E(_crHrMD(p.paid_through))+'</span><span><b>'+_crHrFmt(p.hours)+'</b> hrs'+(H.admin?' <a href="#" title="Undo this payment" onclick="event.preventDefault();_crHrUnpay('+p.id+')" style="color:var(--text-dim);text-decoration:none;margin-left:6px">✕</a>':'')+'</span></div>').join('')+'</div>':'')
     +'</div>';
   // log table, newest first, grouped by pay period, with week subtotals
   const rows=H.rows.slice(); const trs=[]; let wk=null, wkSum=0;
-  const flushWk=()=>{ if(wk!==null) trs.push('<tr><td colspan="5" style="padding:4px 10px;text-align:right;font-size:11.5px;color:var(--text-dim);background:var(--panel-2)">Week of '+E(_crHrMD(wk))+' · <b style="color:var(--text)">'+_crHrFmt(wkSum)+' hrs</b></td></tr>'); };
+  const wkEnd=w=>{ const d=new Date(w+'T12:00:00'); d.setDate(d.getDate()+6); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  const flushWk=()=>{ if(wk===null) return; const end=wkEnd(wk);
+    const owed=unpaid.filter(r=>r.day<=end).reduce((a,r)=>a+(+r.hours||0),0);   // everything unpaid up to the end of this week
+    trs.push('<tr><td colspan="5" style="padding:4px 10px;text-align:right;font-size:11.5px;color:var(--text-dim);background:var(--panel-2)">Week of '+E(_crHrMD(wk))+'–'+E(_crHrMD(end))+' · <b style="color:var(--text)">'+_crHrFmt(wkSum)+' hrs</b>'
+      +(owed>0?' <span style="margin-left:10px;padding:1px 8px;border-radius:999px;background:rgba(249,115,22,.15);color:#fb923c;font-weight:700">Unpaid total: '+_crHrFmt(owed)+' hrs</span>':'')+'</td></tr>'); };
   let paidIdx=0;
   rows.forEach(r=>{
     while(paidIdx<H.pay.length&&r.day<=H.pay[paidIdx].paid_through){ flushWk(); wk=null; wkSum=0; const p=H.pay[paidIdx]; trs.push('<tr><td colspan="5" style="padding:7px 10px;font-size:12px;font-weight:700;color:#22c55e;border-top:2px solid #22c55e55">✓ Paid through '+E(_crHrMD(p.paid_through))+' — '+_crHrFmt(p.hours)+' hrs</td></tr>'); paidIdx++; }

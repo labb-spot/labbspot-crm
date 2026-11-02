@@ -611,7 +611,7 @@ function _crExRow(c){
     'Case Number': c.case_number, 'Case Type': c.case_type||'', 'Filed': c.filed||'', 'Court': c.court||'', 'Style': c.style||'',
     'Defendant / Decedent': c.defendant||'', 'Plaintiff': c.plaintiff||'', 'Plaintiff Address': c.plaintiff_address||'', 'Attorney': c.attorney||'',
     'Petitioner Count': c.petitioner_count||'', 'Status': /^2\./.test(c.sort_code||'')?'Complete':/^1\./.test(c.sort_code||'')?'Complete (unknowns)':'Incomplete',
-    'Parcel': c.parcel||'', 'Amount Owed': c.amount!=null?c.amount:'', 'Tax Sale Status': k==='ts'?_crTsStatus(c.extra):'', 'Violation / Lien': (c.extra&&(c.extra.violation||c.extra.lien))||'',
+    'Parcel': c.parcel||'', 'Amount Owed': c.amount!=null?c.amount:'', 'Tax Sale Status': k==='ts'?_crTsStatus(c.extra):'', 'Violation / Lien': (c.extra&&(c.extra.violation||c.extra.lien))||'', 'Purchaser': (k==='ul'||k==='ts')?((c.extra&&c.extra.purchaser)||''):'',
     'Latitude': g?g.lat:'', 'Longitude': g?g.lng:'', 'Place ID': g?g.place_id:'', 'Notes': c.notes||''
   };
 }
@@ -753,7 +753,7 @@ function _crQueueRender(body){
       +'<select style="'+sel+'" onchange="_CR.q.county=this.value;_CR.q.more=0;_crRender()"><option value="">All counties</option>'+act.map(c=>'<option value="'+E(c.code)+'" '+(q.county===c.code?'selected':'')+'>'+E(c.city)+' ('+E(c.county)+')</option>').join('')+'</select>'
       +'<select style="'+sel+'" onchange="_CR.q.type=this.value;_CR.q.more=0;_crRender()"><option value="">All types</option>'+Object.keys(_CR_TYPES).map(k=>'<option value="'+k+'" '+(q.type===k?'selected':'')+'>'+_CR_TYPES[k]+'</option>').join('')+'</select>'
       +'<select style="'+sel+'" onchange="_CR.q.status=this.value;_CR.q.more=0;_crRender()">'+[['todo','To do'],['recent','Recently completed (7 days)'],['unk','Done — has unknowns'],['noaddr','Done — no address found'],['done','All done'],['all','Everything']].map(o=>'<option value="'+o[0]+'" '+(q.status===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')+'</select>'
-      +'<span style="font-size:12.5px;color:var(--text-dim)" id="cr-qcount">'+list.length.toLocaleString()+' case'+(list.length===1?'':'s')+'</span>'
+      +'<span id="cr-qcount" style="display:inline-flex;align-items:center;height:30px;padding:0 12px;border:1.5px solid #60a5fa;border-radius:999px;background:rgba(96,165,250,.14);color:#93c5fd;font-size:13.5px;white-space:nowrap">'+_crQCountTxt(list.length)+'</span>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:12px;align-items:start">'
       +'<div id="cr-qlist" style="background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:6px;max-height:calc(100vh - 170px);min-height:420px;overflow-y:auto">'
@@ -790,6 +790,7 @@ async function _crOpen(id,quiet){
     _crPrefetch(id);
   }catch(e){ ed.style.opacity=''; ed.innerHTML='<div style="padding:20px;color:#f87171">'+_reqEsc(e.message||e)+'</div>'; }
 }
+function _crQCountTxt(n){ const left=(_CR.q&&(_CR.q.status||'todo')==='todo'); return '<b style="color:var(--text);font-size:15px;margin-right:5px">'+n.toLocaleString()+'</b>'+(n===1?'case':'cases')+(left?' left':''); }
 function _crEditorDirty(){ let d=false; document.querySelectorAll('#cr-editor [data-f]').forEach(el=>{ if(el.value!==el.defaultValue) d=true; }); return d; }
 window._crOpen=_crOpen;
 function _crEditor(c){
@@ -820,7 +821,8 @@ function _crEditor(c){
     if(k==='ts'){ f('Tax sale',_crTsStatus(ex)); f('Sale ID',ex.sale_id); f('Winning bid',/^nb$/i.test(String(ex.bid||''))?'No bid':money(ex.bid)); f('Assessed value',money(ex.assessed)); f('Legal',ex.legal); }
     fields=(facts.length?'<div style="display:flex;gap:10px 22px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px">'+facts.join('')+'</div>':'')
       +box('🏠','Property',fld('address','Property address',c.parcel?'Look up parcel '+c.parcel+' on the GIS / Assessor map':'Street address',ADDR,true))
-      +box('👤','Owner',fld('defendant','Owner','Deeded owner'));
+      +box('👤','Owner',fld('defendant','Owner','Deeded owner')
+        +((k==='ul'||k==='ts')?'<div style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:8px;align-items:center;margin-bottom:8px" title="Someone who has bought the property since — leave blank if no one"><div style="font-size:13.5px;font-weight:700;line-height:1.2">Purchaser</div><input data-f="purchaser" value="'+E((c.purchaser=String((ex&&ex.purchaser)||'').trim()))+'" placeholder="Who bought it since — leave blank if no one" style="'+inp+'" oninput="_crLive()"></div>':''));
   }
   else if(k==='fc') fields=box('🏠','Property',fld('address','Property address','From the Complaint — “commonly known as”',ADDR,true))
       +box('👤','Owner',fld('defendant','Defendant','Current owner — Parties to Case'))
@@ -933,7 +935,7 @@ window._crCopy=_crCopy;
 // Autosave: every change saves itself ~1 second after you stop typing. "Save & next" still saves and moves on.
 let _crAutoT=null, _crSaving=null;
 function _crSig(c){ const t=x=>String(x==null?'':x).trim(); const pets=(Array.isArray(c.petitioners)?c.petitioners:[]).map(p=>[t(p&&p.name),t(p&&p.address)]).filter(p=>p[0]||p[1]);
-  return JSON.stringify([t(c.address),t(c.defendant),t(c.plaintiff),t(c.plaintiff_address),t(c.attorney),t(c.notes),pets]); }
+  return JSON.stringify([t(c.purchaser),t(c.address),t(c.defendant),t(c.plaintiff),t(c.plaintiff_address),t(c.attorney),t(c.notes),pets]); }
 function _crAutoSoon(){ if(_crAutoT) clearTimeout(_crAutoT); const m=document.getElementById('cr-savemsg'); if(m) m.textContent='Unsaved changes…'; _crAutoT=setTimeout(()=>{ _crAutoT=null; _crSave(false,true); },1000); }
 async function _crFlush(){ if(_crAutoT){ clearTimeout(_crAutoT); _crAutoT=null; await _crSave(false,true); } else if(_crSaving){ try{ await _crSaving; }catch(_){} } }
 window._crFlush=_crFlush;
@@ -952,6 +954,7 @@ async function _crSaveNow(c,next,auto){
   const me=await _crMe(); const wasDone=_crDone(_CR.cur.sort_code)||_crScrap(_CR.cur.sort_code);
   const patch={ address:c.address, defendant:c.defendant, plaintiff:c.plaintiff||null, plaintiff_address:c.plaintiff_address||null, attorney:c.attorney, notes:c.notes||null,
     sort_code:c.sort_code, updated_at:new Date().toISOString(), claimed_by:auto?me:null, claimed_at:auto?new Date().toISOString():null };
+  { const _k=_crTypeKey(c.case_type); if((_k==='ul'||_k==='ts')&&c.purchaser!==undefined){ const ex0=Object.assign({},_CR.cur.extra||{}); const pv=String(c.purchaser||'').trim(); if(pv) ex0.purchaser=pv; else delete ex0.purchaser; patch.extra=ex0; } }
   if(_crTypeKey(c.case_type)==='pb') Object.assign(patch,{petitioners:c.petitioners,petitioner:c.petitioner,petitioner_address:c.petitioner_address,petitioner_count:c.petitioner_count});
   if((_crDone(c.sort_code)||_crScrap(c.sort_code))&&!wasDone){ patch.completed_at=new Date().toISOString(); patch.completed_by=me; }
   try{
@@ -964,7 +967,7 @@ async function _crSaveNow(c,next,auto){
       const items=[...document.querySelectorAll('#cr-qlist [data-cid]')]; const i=items.findIndex(el=>el.getAttribute('data-cid')===c.id);
       const stillIn=_crQueueList().some(x=>x.id===c.id);
       const nx=items[i+1]||null; if(!stillIn&&items[i]) items[i].remove();
-      const cnt=document.getElementById('cr-qcount'); if(cnt){ const n=_crQueueList().length; cnt.textContent=n.toLocaleString()+' case'+(n===1?'':'s'); }
+      const cnt=document.getElementById('cr-qcount'); if(cnt){ const n=_crQueueList().length; cnt.innerHTML=_crQCountTxt(n); }
       if(nx){ nx.scrollIntoView({block:'nearest'}); _crOpen(nx.getAttribute('data-cid'),true); } else { const ed=document.getElementById('cr-editor'); if(ed) ed.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">That was the last one in this view 🎉</div>'; }
     }
   }catch(e){ console.warn('creation save',e); if(msg) msg.textContent=''; if(typeof toast==='function') toast('Save failed: '+(e.message||e),'err'); }

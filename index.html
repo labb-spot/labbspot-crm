@@ -2203,6 +2203,7 @@
       </div>
       <div class="flex items-center gap-2">
         <button class="btn btn-primary text-sm" onclick="saveCurrentAsCampaign()" title="Save the currently-filtered set of properties as a named campaign — appears in the Campaigns tab where you can pick vendors and export.">💾 Save as Campaign</button>
+        <button class="btn text-sm" style="background:rgba(34,197,94,.15);color:#4ade80;border:1px solid #22c55e" onclick="saveCurrentAsLiveCampaign()" title="Save these FILTERS as a named live campaign — hit 🔄 Refresh on it in Campaigns to pull in new leads that match.">🔄 Save as Live Campaign</button>
         <button class="btn btn-ghost text-sm" onclick="renderSuggestedQueue()">🔄 Refresh</button>
         <button class="btn btn-ghost text-sm" onclick="exportSuggestedQueue()">⬇ Export filtered CSV</button>
         <button class="btn btn-ghost text-sm" style="border:1px solid #ef4444;color:#f87171;background:rgba(239,68,68,0.08)" onclick="clearSuggestedQueueFilters()" title="Reset every filter">✕ Clear filters</button>
@@ -48975,6 +48976,97 @@ async function exportCampaign(id, format) {
   }
 }
 
+// ===== 🔄 Live campaigns: a saved set of All Properties FILTERS (not a fixed list).
+// Stored in campaigns.filters (jsonb). property_ids is only re-figured when you hit 🔄 Refresh on it
+// (so nothing recalculates in the background and slows the app down).
+const _SQ_FILTER_IDS=['sq-filter-state','sq-filter-city','sq-filter-addr','sq-filter-mail','sq-filter-imported','sq-filter-contacted','sq-filter-owner','sq-filter-missing','sq-filter-sk-window','sq-flag-min','sq-flag-mode','sq-flag-inmode','sq-source-mode','sq-source-inmode','sq-list-mode','sq-list-inmode','sq-area-mode','sq-area-inmode','sq-sk-mode','sq-sk-inmode'];
+const _SQ_FILTER_SETS={flag:'_sqFlagFilters',source:'_sqSourceFilters',list:'_sqListFilters',area:'_sqAreaFilters',provider:'_sqProviderFilters'};
+function _sqCaptureFilters(){
+  const els={}; _SQ_FILTER_IDS.forEach(id=>{ const el=document.getElementById(id); if(el&&el.value!=null&&String(el.value)!=='') els[id]=String(el.value); });
+  const sets={}; Object.keys(_SQ_FILTER_SETS).forEach(k=>{ const o=window[_SQ_FILTER_SETS[k]]||{}; const on=Object.keys(o).filter(x=>o[x]); if(on.length) sets[k]=on; });
+  return { v:1, els:els, sets:sets };
+}
+// Run the All Properties filter with a saved filter set, without touching what's on screen.
+function _sqPropsFor(f){
+  const keep={}; Object.values(_SQ_FILTER_SETS).forEach(n=>{ keep[n]=window[n]; });
+  const els=(f&&f.els)||{};
+  document.getElementById=function(id){ if(_SQ_FILTER_IDS.indexOf(id)>=0) return { value: els[id]!=null?els[id]:'' }; return Document.prototype.getElementById.call(document,id); };
+  Object.keys(_SQ_FILTER_SETS).forEach(k=>{ const o={}; ((f&&f.sets&&f.sets[k])||[]).forEach(x=>{ o[x]=true; }); window[_SQ_FILTER_SETS[k]]=o; });
+  try{ return _computeFilteredMarketingProps(); }
+  finally{ delete document.getElementById; Object.keys(keep).forEach(n=>{ window[n]=keep[n]; }); }
+}
+function _sqFilterSummary(f){
+  if(!f) return ''; const e=f.els||{}, s=f.sets||{}; const out=[];
+  const grp=(lbl,k,names)=>{ const a=s[k]||[]; if(!a.length) return; const inc=(e['sq-'+k+'-inmode']||'include')==='exclude'?'not ':''; const mode=(e['sq-'+k+'-mode']||'or')==='and'?' (all)':(a.length>1?' (any)':'');
+    out.push(lbl+': '+inc+a.map(names||(x=>x)).join(', ')+mode); };
+  grp('Flags','flag'); if(+(e['sq-flag-min']||0)>=1) out.push('Stack ≥ '+e['sq-flag-min']);
+  grp('Lists','list',id=>((cache.lists||{})[id]&&cache.lists[id].name)||'list');
+  grp('Sources','source'); grp('Areas','area');
+  if((s.provider||[]).length) out.push('Skiptrace: '+((e['sq-sk-inmode']||'include')==='exclude'?'not ':'')+s.provider.join(', '));
+  const dd={'sq-filter-state':'State','sq-filter-city':'City','sq-filter-owner':'Owner','sq-filter-contacted':'Contacted','sq-filter-missing':'Missing','sq-filter-addr':'Address','sq-filter-mail':'Mailing','sq-filter-imported':'Imported (days)','sq-filter-sk-window':'Skiptraced within (days)'};
+  Object.keys(dd).forEach(id=>{ if(e[id]) out.push(dd[id]+': '+e[id]); });
+  return out.join(' · ')||'No filters (every property)';
+}
+async function saveCurrentAsLiveCampaign(){
+  if(typeof _computeFilteredMarketingProps!=='function'){ toast('Marketing view not loaded — switch to Marketing first.','warn'); return; }
+  const f=_sqCaptureFilters(); const rows=_sqPropsFor(f);
+  const name=prompt('Name this live campaign (it keeps these filters — hit 🔄 Refresh on it to pull in new leads):','Live — '+new Date().toLocaleDateString());
+  if(name===null) return; const trimmed=String(name).trim()||('Live — '+new Date().toLocaleDateString());
+  const payload={ name:trimmed, property_ids:rows.map(x=>x.p.id), vendor_names:[], notes:'', filters:f };
+  try{
+    const { data, error }=await sb.from('campaigns').insert(payload).select().single(); if(error) throw error;
+    cache.campaigns[data.id]=data;
+    toast('🔄 Live campaign saved: '+trimmed+' · '+payload.property_ids.length.toLocaleString()+' properties right now','ok');
+    if(confirm('Open the Campaigns tab?')){ goSection('marketing'); if(typeof goMarketingView==='function') goMarketingView('campaigns'); }
+  }catch(e){
+    if(e&&(/filters/i.test(e.message||'')||e.code==='42703'||e.code==='PGRST204')) alert('One-time setup: run sql/campaigns-live.sql in the Supabase SQL Editor (it adds a "filters" column to campaigns), then try again.');
+    else toast('Save failed: '+((e&&e.message)||'unknown'),'err');
+    console.error('[campaigns] live save failed:',e);
+  }
+}
+window.saveCurrentAsLiveCampaign=saveCurrentAsLiveCampaign;
+// 🔄 Refresh one live campaign: re-run its filters on everything in Data LAB now and save the new list.
+async function refreshLiveCampaign(id,btn){
+  const c=cache.campaigns[id]; if(!c||!c.filters) return;
+  if(!Object.keys(cache.properties||{}).length){ toast('Properties are still loading — try again in a moment.','warn'); return; }
+  if(btn){ btn.disabled=true; btn.textContent='Refreshing…'; }
+  await new Promise(r=>setTimeout(r,30));
+  try{
+    const ids=_sqPropsFor(c.filters).map(x=>x.p.id); const before=new Set(c.property_ids||[]); const added=ids.filter(x=>!before.has(x)).length; const gone=(c.property_ids||[]).length-(ids.length-added);
+    const now=new Date().toISOString();
+    const { error }=await sb.from('campaigns').update({ property_ids:ids, updated_at:now }).eq('id',id); if(error) throw error;
+    c.property_ids=ids; c.updated_at=now; renderCampaigns();
+    toast('🔄 '+(c.name||'Campaign')+': '+ids.length.toLocaleString()+' properties'+(added?' · +'+added.toLocaleString()+' new':'')+(gone>0?' · '+gone.toLocaleString()+' dropped off':''),'ok');
+  }catch(e){ toast('Refresh failed: '+((e&&e.message)||'unknown'),'err'); if(btn){ btn.disabled=false; btn.textContent='🔄 Refresh'; } }
+}
+window.refreshLiveCampaign=refreshLiveCampaign;
+// Put a live campaign's filters back on the All Properties view (to look at or tweak).
+function openLiveCampaignFilters(id){
+  const c=cache.campaigns[id]; if(!c||!c.filters) return; const e=c.filters.els||{}, s=c.filters.sets||{};
+  goSection('marketing'); if(typeof goMarketingView==='function') goMarketingView('lists');
+  ['sq-filter-state','sq-filter-addr','sq-filter-mail','sq-filter-imported','sq-filter-contacted','sq-filter-owner','sq-filter-missing','sq-filter-sk-window'].forEach(id2=>{ const el=document.getElementById(id2); if(el) el.value=e[id2]||''; });
+  if(typeof populateSqCityOptions==='function') populateSqCityOptions();
+  const ce=document.getElementById('sq-filter-city'); if(ce) ce.value=e['sq-filter-city']||'';
+  const fm=document.getElementById('sq-flag-min'); if(fm) fm.value=e['sq-flag-min']||'0';
+  Object.keys(_SQ_FILTER_SETS).forEach(k=>{ const o={}; (s[k]||[]).forEach(x=>{ o[x]=true; }); window[_SQ_FILTER_SETS[k]]=o; });
+  ['sk','flag','list','area','source'].forEach(k=>{ if(typeof _sqSetMode==='function') _sqSetMode(k,e['sq-'+k+'-inmode']||'include'); if(typeof _sqSetMatch==='function') _sqSetMatch(k,e['sq-'+k+'-mode']||'or'); });
+  window._mpPage=0; renderSuggestedQueue();
+  setTimeout(()=>{ const t=document.getElementById('suggested-queue-tbody'); if(t) t.closest('.panel')?.scrollIntoView({behavior:'smooth',block:'start'}); },60);
+  toast('🎯 Showing “'+(c.name||'campaign')+'” filters','ok');
+}
+window.openLiveCampaignFilters=openLiveCampaignFilters;
+// Save the filters that are on the All Properties view right now into this live campaign.
+async function updateLiveCampaignFilters(id){
+  const c=cache.campaigns[id]; if(!c) return;
+  const f=_sqCaptureFilters();
+  if(!confirm('Replace “'+(c.name||'campaign')+'” filters with what\'s selected on All Properties right now?\n\n'+_sqFilterSummary(f))) return;
+  try{ const ids=_sqPropsFor(f).map(x=>x.p.id); const now=new Date().toISOString();
+    const { error }=await sb.from('campaigns').update({ filters:f, property_ids:ids, updated_at:now }).eq('id',id); if(error) throw error;
+    c.filters=f; c.property_ids=ids; c.updated_at=now; renderCampaigns(); toast('Filters updated · '+ids.length.toLocaleString()+' properties','ok'); }
+  catch(e){ toast('Update failed: '+((e&&e.message)||'unknown'),'err'); }
+}
+window.updateLiveCampaignFilters=updateLiveCampaignFilters;
+
 function renderCampaigns() {
   const list = document.getElementById('campaigns-list');
   const empty = document.getElementById('campaigns-empty');
@@ -49041,10 +49133,13 @@ function renderCampaigns() {
     return '<div class="panel-2 p-4 mb-3" style="border:1px solid var(--border);border-radius:10px">' +
       '<div class="flex items-center justify-between flex-wrap gap-2 mb-2">' +
         '<div>' +
-          '<div style="font-weight:600;font-size:15px">' + escapeHtml(c.name || 'Untitled Campaign') + '</div>' +
-          '<div class="text-xs" style="color:var(--text-dim)">' + propCount.toLocaleString() + ' propert' + (propCount === 1 ? 'y' : 'ies') + ' · saved ' + escapeHtml(created) + '</div>' +
+          '<div style="font-weight:600;font-size:15px">' + escapeHtml(c.name || 'Untitled Campaign') + (c.filters ? ' <span title="Keeps its filters — hit 🔄 Refresh to pull in new leads" style="margin-left:6px;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;border:1px solid #22c55e;color:#4ade80;background:rgba(34,197,94,.12);vertical-align:middle">🔄 LIVE</span>' : '') + '</div>' +
+          '<div class="text-xs" style="color:var(--text-dim)">' + propCount.toLocaleString() + ' propert' + (propCount === 1 ? 'y' : 'ies') + (c.filters ? ' · last refreshed ' + escapeHtml(new Date(c.updated_at || c.created_at || 0).toLocaleString()) : ' · saved ' + escapeHtml(created)) + '</div>' +
+          (c.filters ? '<div class="text-xs" style="color:#93c5fd;margin-top:3px">🎯 ' + escapeHtml(_sqFilterSummary(c.filters)) + '</div>' : '') +
         '</div>' +
         '<div class="flex items-center gap-2 flex-wrap">' +
+          (c.filters ? '<button class="btn text-sm" style="background:rgba(34,197,94,.15);color:#4ade80;border:1px solid #22c55e" onclick="refreshLiveCampaign(\'' + c.id + '\',this)" title="Re-run the filters on everything in Data LAB now — pulls in new leads. Do this before you export.">🔄 Refresh</button>'
+ : '') +
           '<button class="btn btn-ghost text-xs" onclick="renameCampaign(\'' + c.id + '\')">✏️ Rename</button>' +
           '<button class="btn btn-primary text-sm" onclick="exportCampaign(\'' + c.id + '\',\'master\')" title="One row per property — all selected vendors\' phones (up to 10) and emails (up to 5), deduped, plus most common mailing.">⭐ Master</button>' +
           '<button class="btn text-sm" style="background:#3b82f6;color:white;border:1px solid #2563eb" onclick="exportCampaign(\'' + c.id + '\',\'stacked\')" title="One row per (vendor, property) — every selected vendor\'s skiptrace data stacked vertically.">📚 Stacked</button>' +

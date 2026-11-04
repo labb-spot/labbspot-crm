@@ -49166,7 +49166,7 @@ function renderCampaigns() {
         '<div>' +
           '<div style="font-weight:600;font-size:15px">' + escapeHtml(c.name || 'Untitled Campaign') + (c.filters ? ' <span title="Keeps its filters — hit 🔄 Refresh to pull in new leads" style="margin-left:6px;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;border:1px solid #22c55e;color:#4ade80;background:rgba(34,197,94,.12);vertical-align:middle">🔄 LIVE</span>' : '') + '</div>' +
           '<div class="text-xs" style="color:var(--text-dim)">' + propCount.toLocaleString() + ' propert' + (propCount === 1 ? 'y' : 'ies') + (c.filters ? ' · last refreshed ' + escapeHtml(new Date(c.updated_at || c.created_at || 0).toLocaleString()) : ' · saved ' + escapeHtml(created)) + '</div>' +
-          (c.filters ? '<div class="text-xs" style="color:#93c5fd;margin-top:3px">🎯 ' + escapeHtml(_sqFilterSummary(c.filters)) + '</div>' : '') +
+
         '</div>' +
         '<div class="flex items-center gap-2 flex-wrap">' +
           (c.filters ? '<button class="btn text-sm" style="background:rgba(34,197,94,.15);color:#4ade80;border:1px solid #22c55e" onclick="refreshLiveCampaign(\'' + c.id + '\',this)" title="Re-run the filters on everything in Data LAB now — pulls in new leads. Do this before you export.">🔄 Refresh</button>'
@@ -49178,6 +49178,7 @@ function renderCampaigns() {
           '<button class="btn btn-ghost text-xs" style="border:1px solid #ef4444;color:#f87171" onclick="deleteCampaign(\'' + c.id + '\')">🗑 Delete</button>' +
         '</div>' +
       '</div>' +
+      (c.filters ? '<div class="text-xs" style="color:#93c5fd;margin:-2px 0 4px">🎯 ' + escapeHtml(_sqFilterSummary(c.filters)) + '</div>' : '') +
       '<div style="margin-top:8px">' +
         '<div class="text-xs mb-1" style="color:var(--text-dim)">Include vendors in export (click chips to toggle — leave all off for every vendor):</div>' +
         '<div style="display:flex;flex-wrap:wrap;gap:5px">' + vendorChips + '</div>' +

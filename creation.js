@@ -979,6 +979,7 @@ async function _crSaveNow(c,next,auto){
   if((_crDone(c.sort_code)||_crScrap(c.sort_code))&&!wasDone){ patch.completed_at=new Date().toISOString(); patch.completed_by=me; }
   try{
     const up=await sb.from('court_cases').update(patch).eq('id',c.id); if(up.error) throw up.error;
+    if(!wasDone&&me&&me!=='someone'&&!(_CR._logged=_CR._logged||new Set()).has(_crIsoDay(0)+'|'+c.id)){ _CR._logged.add(_crIsoDay(0)+'|'+c.id); try{ sb.from('creation_activity').upsert({email:me,day:_crIsoDay(0),case_id:String(c.id)},{onConflict:'email,day,case_id',ignoreDuplicates:true}).then(()=>{},()=>{}); }catch(_){} }
     _CR.cur=Object.assign(_CR.cur,patch); _CR.full[c.id]=_CR.cur;
     const lc=_CR.cases.find(x=>x.id===c.id); if(lc){ lc.sort_code=c.sort_code; if(patch.completed_at){ lc.completed_at=patch.completed_at; lc.completed_by=patch.completed_by; } lc.claimed_by=patch.claimed_by; }
     const row=document.querySelector('#cr-qlist [data-cid="'+c.id+'"] .cr-badge'); if(row) row.outerHTML=_crStatusPill(c.sort_code,true);
@@ -1048,7 +1049,7 @@ async function _crHrRender(body){
       for(let f=0;;f+=1000){ const q=await sb.from('work_hours').select('email').range(f,f+999); if(q.error) throw q.error; (q.data||[]).forEach(r=>w.add(r.email)); if(!q.data||q.data.length<1000) break; }
       H.workers=[...w].filter(Boolean).sort(); if(!H.who||!H.workers.includes(H.who)) H.who=H.workers[0]||'';
     } else H.who=me;
-    H.rows=[]; H.pay=[]; H.done={};
+    H.rows=[]; H.pay=[]; H.done={}; H.worked={}; H.inDone={};
     if(H.who){
       for(let f=0;;f+=1000){ const q=await sb.from('work_hours').select('*').eq('email',H.who).order('day',{ascending:false}).range(f,f+999); if(q.error) throw q.error; H.rows=H.rows.concat(q.data||[]); if(!q.data||q.data.length<1000) break; }
       const p=await sb.from('work_pay').select('*').eq('email',H.who).order('paid_through',{ascending:false}); if(p.error) throw p.error; H.pay=p.data||[];
@@ -1056,6 +1057,12 @@ async function _crHrRender(body){
       const since=new Date(Date.now()-90*864e5).toISOString();
       for(let f=0;;f+=1000){ const q=await sb.from('court_cases').select('completed_at').eq('completed_by',H.who).gte('completed_at',since).range(f,f+999); if(q.error) break;
         (q.data||[]).forEach(r=>{ const d=new Date(r.completed_at); const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); H.done[k]=(H.done[k]||0)+1; }); if(!q.data||q.data.length<1000) break; }
+      // cases this person changed while they were still unfinished (per day)
+      for(let f=0;;f+=1000){ const q=await sb.from('creation_activity').select('day').eq('email',H.who).gte('day',since.slice(0,10)).range(f,f+999); if(q.error) break;
+        (q.data||[]).forEach(r=>{ H.worked[r.day]=(H.worked[r.day]||0)+1; }); if(!q.data||q.data.length<1000) break; }
+      // cases that came in already complete from an import (nobody's credit) — separate total per day
+      for(let f=0;;f+=1000){ const q=await sb.from('court_cases').select('completed_at').is('completed_by',null).not('completed_at','is',null).gte('completed_at',since).range(f,f+999); if(q.error) break;
+        (q.data||[]).forEach(r=>{ const d=new Date(r.completed_at); const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); H.inDone[k]=(H.inDone[k]||0)+1; }); if(!q.data||q.data.length<1000) break; }
     }
   }catch(e){ body.innerHTML='<div style="padding:20px;color:#f87171">'+E(e.message||e)+(/work_(hours|pay)/.test(e.message||'')?' — run creation-hours.sql once in Supabase.':'')+'</div>'; return; }
   _crHrDraw(body);
@@ -1107,18 +1114,18 @@ function _crHrDraw(body){
   const wkEnd=w=>{ const d=new Date(w+'T12:00:00'); d.setDate(d.getDate()+6); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
   const flushWk=()=>{ if(wk===null) return; const end=wkEnd(wk);
     const owed=unpaid.filter(r=>r.day<=end).reduce((a,r)=>a+(+r.hours||0),0);   // everything unpaid up to the end of this week
-    trs.push('<tr><td colspan="5" style="padding:4px 10px;text-align:right;font-size:11.5px;color:var(--text-dim);background:var(--panel-2)">Week of '+E(_crHrMD(wk))+'–'+E(_crHrMD(end))+' · <b style="color:var(--text)">'+_crHrFmt(wkSum)+' hrs</b>'
+    trs.push('<tr><td colspan="7" style="padding:4px 10px;text-align:right;font-size:11.5px;color:var(--text-dim);background:var(--panel-2)">Week of '+E(_crHrMD(wk))+'–'+E(_crHrMD(end))+' · <b style="color:var(--text)">'+_crHrFmt(wkSum)+' hrs</b>'
       +(owed>0?' <span style="margin-left:10px;padding:1px 8px;border-radius:999px;background:rgba(249,115,22,.15);color:#fb923c;font-weight:700">Unpaid total: '+_crHrFmt(owed)+' hrs</span>':'')+'</td></tr>'); };
   let paidIdx=0;
   rows.forEach(r=>{
-    while(paidIdx<H.pay.length&&r.day<=H.pay[paidIdx].paid_through){ flushWk(); wk=null; wkSum=0; const p=H.pay[paidIdx]; trs.push('<tr><td colspan="5" style="padding:7px 10px;font-size:12px;font-weight:700;color:#22c55e;border-top:2px solid #22c55e55">✓ Paid through '+E(_crHrMD(p.paid_through))+' — '+_crHrFmt(p.hours)+' hrs</td></tr>'); paidIdx++; }
+    while(paidIdx<H.pay.length&&r.day<=H.pay[paidIdx].paid_through){ flushWk(); wk=null; wkSum=0; const p=H.pay[paidIdx]; trs.push('<tr><td colspan="7" style="padding:7px 10px;font-size:12px;font-weight:700;color:#22c55e;border-top:2px solid #22c55e55">✓ Paid through '+E(_crHrMD(p.paid_through))+' — '+_crHrFmt(p.hours)+' hrs</td></tr>'); paidIdx++; }
     const w=wkStart(r.day); if(w!==wk){ flushWk(); wk=w; wkSum=0; } wkSum+=(+r.hours||0);
     const un=!lastPaid||r.day>lastPaid;
-    trs.push('<tr onclick="_crHrPick(\''+r.day+'\')" style="cursor:pointer;border-top:1px solid var(--border)'+(H.edit&&H.edit.day===r.day?';background:rgba(96,165,250,.12)':'')+'"><td style="padding:6px 10px;white-space:nowrap;width:44px;color:var(--text-dim)">'+_crHrDay(r.day)+'</td><td style="padding:6px 10px;white-space:nowrap;width:70px">'+E(_crHrMD(r.day))+'</td><td style="padding:6px 10px;white-space:nowrap;width:60px;font-weight:700;'+(un?'':'color:var(--text-dim)')+'">'+_crHrFmt(r.hours)+'</td><td style="padding:6px 10px;white-space:nowrap;width:70px;color:var(--text-dim)">'+(H.done[r.day]?H.done[r.day]+' cases':'')+'</td><td style="padding:6px 10px;color:var(--text-dim);font-size:12px">'+E(r.note||'')+'</td></tr>');
+    trs.push('<tr onclick="_crHrPick(\''+r.day+'\')" style="cursor:pointer;border-top:1px solid var(--border)'+(H.edit&&H.edit.day===r.day?';background:rgba(96,165,250,.12)':'')+'"><td style="padding:6px 10px;white-space:nowrap;width:44px;color:var(--text-dim)">'+_crHrDay(r.day)+'</td><td style="padding:6px 10px;white-space:nowrap;width:70px">'+E(_crHrMD(r.day))+'</td><td style="padding:6px 10px;white-space:nowrap;width:60px;font-weight:700;'+(un?'':'color:var(--text-dim)')+'">'+_crHrFmt(r.hours)+'</td><td style="padding:6px 10px;white-space:nowrap;width:95px;color:var(--text-dim)">'+(H.inDone[r.day]?H.inDone[r.day].toLocaleString():'')+'</td><td style="padding:6px 10px;white-space:nowrap;width:100px;color:#4ade80;font-weight:700">'+(H.done[r.day]||'')+'</td><td style="padding:6px 10px;white-space:nowrap;width:70px;color:#93c5fd;font-weight:700">'+(H.worked[r.day]||'')+'</td><td style="padding:6px 10px;color:var(--text-dim);font-size:12px">'+E(r.note||'')+'</td></tr>');
   });
   flushWk();
-  html+='<div style="max-height:620px;overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'+['Day','Date','Hours','Done','Notes'].map(h=>'<th style="position:sticky;top:0;background:var(--panel);padding:7px 10px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase">'+h+'</th>').join('')+'</tr></thead><tbody>'
-    +(trs.length?trs.join(''):'<tr><td colspan="5" style="padding:30px;text-align:center;color:var(--text-dim)">No hours logged yet.</td></tr>')+'</tbody></table></div></div>';
+  html+='<div style="max-height:620px;overflow:auto;border:1px solid var(--border);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'+[['Day',''],['Date',''],['Hours',''],['Pre-Finished','Cases that arrived already complete from an import — nobody\'s credit'],['Post-Finished','Cases this person finished (were unfinished, now done)'],['Worked','Unfinished cases this person changed that day — done or not'],['Notes','']].map(h=>'<th title="'+h[1]+'" style="position:sticky;top:0;background:var(--panel);padding:7px 10px;text-align:left;font-size:11px;color:var(--text-dim);text-transform:uppercase;white-space:nowrap'+(h[1]?';cursor:help':'')+'">'+h[0]+'</th>').join('')+'</tr></thead><tbody>'
+    +(trs.length?trs.join(''):'<tr><td colspan="7" style="padding:30px;text-align:center;color:var(--text-dim)">No hours logged yet.</td></tr>')+'</tbody></table></div></div>';
   body.innerHTML=html;
 }
 function _crHrPick(day){ const H=_CR.hr; if(!day) return; const r=H.rows.find(x=>x.day===day); H.edit={day:day,hours:r?_crHrFmt(r.hours):'',note:r?r.note||'':''}; _crHrDraw(); const h=document.getElementById('cr-hr-hrs'); if(h) h.focus(); }

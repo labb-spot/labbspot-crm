@@ -20427,21 +20427,27 @@ function uwThreePlaysHtml(u) {
     return `<span style="text-align:left">${icon}</span><span style="color:${color};font-weight:600;text-align:left">${val.toFixed(1)}%</span>`;
   };
   // Monthly cashflow cell — color by threshold (≥200 green, ≥0 amber, else red)
-  const moCells = (icon, val, struck) => {
+  const moCells = (icon, val, struck, why) => {
     if (!isFinite(val)) {
       return `<span style="text-align:left">${icon}</span><span style="color:var(--text-dim);font-weight:600;text-align:left">—</span>`;
     }
     const color = struck ? 'var(--text-dim)' : (val >= 200 ? '#10b981' : (val >= 0 ? '#f59e0b' : '#ef4444'));
     const sign  = val < 0 ? '-$' : '$';
     const decoration = struck ? ';text-decoration:line-through;opacity:0.6' : '';
-    const title = struck ? 'LTV cap binds — the smart-sized loan exceeds the lender LTV ceiling, so this financing mode isn\'t viable as-is.' : '';
+    const title = struck ? (why ? why : 'LTV cap binds — the smart-sized loan exceeds the lender LTV ceiling, so this financing mode isn\'t viable as-is.') : '';
     return `<span style="text-align:left${decoration}">${icon}</span><span style="color:${color};font-weight:600;text-align:left${decoration}" title="${title}">${sign}${Math.abs(Math.round(val)).toLocaleString()}/m</span>`;
   };
   // 4-column inline-grid (icon | value | icon | value) × 3 rows = 12 cells.
   // Outer text-align:center keeps the whole block centered under the column header.
   return `<div style="font-size:10px;color:var(--text-dim);margin-top:3px;display:inline-grid;grid-template-columns:16px 50px 16px 50px;gap:2px 4px;line-height:1.25;column-gap:8px">
     ${profitCells('📜', w, '')}${pctCells('💵', cashCap)}
-    ${profitCells('📋', wtSpread, '', wtDisqualified)}${moCells('🔑', parseFloat(u.data && u.data._tkRentalMo), false)}
+    ${profitCells('📋', wtSpread, '', wtDisqualified)}${moCells('🔑', parseFloat(u.data && u.data._tkRentalMo), (function(){
+      // Turn-key is crossed out when the renovation is more than 5% of ARV (the ⚙️ "BRRRR if rehab ≥ %" setting) — then it's a BRRRR, not turn-key.
+      try { const d = u.data || {}; const N = v => { const x = parseFloat(String(v == null ? '' : v).replace(/[$,]/g, '')); return isFinite(x) ? x : 0; };
+        const arv = (typeof _uwComputeArvFromData === 'function' ? _uwComputeArvFromData(d) : 0) || N(u.arv);
+        const reno = N(d['uw-rehab-override']) || N(u.renovation_budget);
+        const pct = (typeof _uwGetStratSettings === 'function') ? N(_uwGetStratSettings().brrrrPct) || 5 : 5;
+        return arv > 0 && reno > arv * pct / 100; } catch (_) { return false; } })(), 'Renovation is more than 5% of ARV — this is a BRRRR, not a turn-key rental.')}
     ${profitCells('🏗️', f, '')}${moCells('🔁', isFinite(r) ? r / 12 : r, !!(u.data && u.data._rfLtvBinds))}
   </div>`;
 }

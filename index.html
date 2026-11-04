@@ -5590,9 +5590,10 @@
         </div>
         <span class="uw-tbchip" id="uw-hot-strategy-chips" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px;display:inline-flex" title="Strategy fit — Hold (rental), Flip, Assign (wholesale), or Novate (list it on the MLS for the seller). Click to filter Hot deals by their best fit.">
           <button type="button" id="uw-hot-strat-hold" onclick="_uwHotSetStrategy('hold')" style="padding:0 14px;height:36px;border:none;cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">🏠 Hold</button>
-          <button type="button" id="uw-hot-strat-flip" onclick="_uwHotSetStrategy('flip')" style="padding:0 14px;height:36px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">🔨 Flip</button>
+          
           <button type="button" id="uw-hot-strat-assign" onclick="_uwHotSetStrategy('assign')" style="padding:0 14px;height:36px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">🤝 Assign</button>
           <button type="button" id="uw-hot-strat-novate" onclick="_uwHotSetStrategy('novate')" style="padding:0 14px;height:36px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600" title="Novate — list it on the MLS for the seller: ARV minus selling costs, rehab and the seller's price leaves at least your minimum spread">📋 Novate</button>
+          <button type="button" id="uw-hot-strat-flip" onclick="_uwHotSetStrategy('flip')" style="padding:0 14px;height:36px;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text-dim);font-weight:600">🔨 Flip</button>
         </span>
         <div class="flex items-center gap-2 flex-wrap">
           <select id="uw-hot-source-filter" onchange="renderUnderwriteList()" style="width:130px" title="Filter by where the deal came from">
@@ -5742,7 +5743,8 @@
     const spread = target - sell - hold - price;
     const novOk = arv > 0 && spread >= D('novateSpread');
     out.tests.novate = { ok:novOk, val:spread, txt:arv>0 ? ('Target resale '+k$(target)+' ('+D('novateSalePct')+'% of ARV − repairs '+k$(usedRehab)+') − agents + closing '+k$(sell)+' − holding/cleanout '+k$(hold)+' − price '+k$(price)+' = spread '+k$(spread)+' (need '+k$(D('novateSpread'))+')') : 'No ARV' };
-    out.s = holdOk ? 'hold' : flipOk ? 'flip' : assignOk ? 'assign' : novOk ? 'novate' : null;
+    // Order = least risk first: Hold → Wholesale (Assign) → Novate → Flip (most risky, last)
+    out.s = holdOk ? 'hold' : assignOk ? 'assign' : novOk ? 'novate' : flipOk ? 'flip' : null;
     return out;
   }
   window._uwDealStrategyInfo = _uwDealStrategyInfo;

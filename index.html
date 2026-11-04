@@ -5612,6 +5612,7 @@
           <input id="uw-hot-date-from" type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="From (imported on or after)">
           <input id="uw-hot-date-to"   type="date" oninput="renderUnderwriteList()" style="width:140px;display:none" title="To (imported on or before)">
           <input id="uw-hot-search" placeholder="Search by Street Address, City, or Contact Name" oninput="renderUnderwriteList()" style="width:200px;min-width:160px">
+          <button class="btn btn-ghost text-sm" onclick="uwExportArvPrice()" title="Download a CSV of EVERY active deal that has an ARV and some price (Accepted, Offer or Asking — asking prices from GHL submissions count). Ignores the Hot rules." style="white-space:nowrap">⬇</button>
           <button class="btn btn-ghost text-sm" onclick="uwRescanHotProfits()" title="Rescan only the deals matching your current Hot ⚙️ setting — reloads each and re-saves with current math (Exit Margins, Budget, preview values)." style="white-space:nowrap;border:1px solid rgba(239,68,68,0.4);color:#fca5a5">🔄 Rescan</button>
         </div>
       </div>
@@ -10962,6 +10963,33 @@ async function _uwSyncMotivatedLeads(opts) {
   }
 }
 window._uwSyncMotivatedLeads = _uwSyncMotivatedLeads;
+
+// ⬇ Export every active deal that has an ARV AND a price (Accepted → Offer → Asking; asking includes GHL submissions).
+// Not limited to Hot — every deal in Underwriting that has both numbers.
+function uwExportArvPrice(){
+  const N=v=>{ const x=parseFloat(String(v==null?'':v).replace(/[$,\s]/g,'')); return isFinite(x)&&x>0?x:0; };
+  const deals=Object.values(cache.underwrites||{}).filter(u=>u&&!u.deleted_at);
+  const rows=[];
+  deals.forEach(u=>{ const d=u.data||{};
+    const arv=(typeof _uwComputeArvFromData==='function'?_uwComputeArvFromData(d):0)||N(u.arv);
+    const acc=N(d['uw-accepted']), off=N(d['uw-offer']), ask=N(d['uw-asking']);
+    const price=acc||off||ask; if(!arv||!price) return;
+    const name=d['uw-contact-name']||d['uw-owner-name']||d['uw-seller-name']||u.contact_name||[d._sourceFirstName,d._sourceLastName].filter(Boolean).join(' ');
+    rows.push({
+      'Address':u.address||d['uw-address']||'', 'City':u.city||d['uw-city']||'', 'State':u.state||d['uw-state']||'', 'Zip':u.zip||d['uw-zip']||'',
+      'Type':(function(){ let t; try{ t=window._uwEffectiveLeadTypes?window._uwEffectiveLeadTypes(u):new Set(); }catch(_){ t=new Set(); } return ['owner','partner','agent'].filter(x=>t.has(x)).map(x=>x[0].toUpperCase()+x.slice(1)).join(' + '); })(),
+      'ARV':Math.round(arv), 'Price':Math.round(price),
+      'Rehab':(N(d['uw-rehab-flip'])||N(d['uw-rehab-rental']))?Math.round(N(d['uw-rehab-flip'])||N(d['uw-rehab-rental'])):'',
+      'Uploaded':u.created_at?String(u.created_at).slice(0,10):''
+    }); });
+  if(!rows.length){ if(typeof toast==='function') toast('No deals have both an ARV and a price yet.','warn'); return; }
+  const cols=Object.keys(rows[0]); const q=v=>{ v=String(v==null?'':v); return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  const csv=[cols.join(',')].concat(rows.map(r=>cols.map(c=>q(r[c])).join(','))).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download='Deals with ARV + Price - '+new Date().toISOString().slice(0,10)+'.csv'; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },3000);
+  if(typeof toast==='function') toast('⬇ Exported '+rows.length.toLocaleString()+' of '+deals.length.toLocaleString()+' deals (the rest are missing an ARV or a price)','ok');
+}
+window.uwExportArvPrice=uwExportArvPrice;
 
 // ===== Auto-track incoming leads as Contact Book entries =====
 // For every deal that arrived from a call-tool Result (_source ===

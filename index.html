@@ -4910,8 +4910,8 @@
            deal is loaded; per-deal overrides are persisted via UW_FIELDS. -->
       <div data-uw-slot="wt-sale-pct"><label class="text-xs">Resale %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-sale-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="75"></span></label></div>
       <div data-uw-slot="wt-rehab-pct"><label class="text-xs" title="Wholetail rehab (capital invested) as a % of the full flip rehab. Default 60% — a light clean-out + cosmetic touch-up vs a full flip.">Cap % of Rehab<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-rehab-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="60"></span></label></div>
-      <div data-uw-slot="wt-nov-sale-pct"><label class="text-xs" title="Novation resale as a % of ARV. Default 85%.">Resale %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-nov-sale-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="85"></span></label></div>
-      <div data-uw-slot="wt-nov-rehab-amt"><label class="text-xs" title="Novation rehab budget (flat dollar amount). Default $5,000 — minor touch-ups to get the seller's home list-ready.">Rehab ($)<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-nov-rehab-amt" step="500" oninput="uwRecalc()" style="width:100%" placeholder="5,000"></span></label></div>
+      <div data-uw-slot="wt-nov-sale-pct"><label class="text-xs" title="Novation resale as a % of ARV. Leave blank to use the ⚙️ funnel setting (90%).">Resale %<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-nov-sale-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="85"></span></label></div>
+      <div data-uw-slot="wt-nov-rehab-amt"><label class="text-xs" title="Novation repairs. Leave blank to use this deal's manual rehab budget (or $5,000 if none).">Rehab ($)<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-nov-rehab-amt" step="500" oninput="uwRecalc()" style="width:100%" placeholder="5,000"></span></label></div>
       <div data-uw-slot="wt-cap-pct"><label class="text-xs">Capital Invested (% of ARV)<span class="uw-pct" style="margin-top:4px;display:block"><input type="number" id="uw-wt-cap-pct" step="1" oninput="uwRecalc()" style="width:100%" placeholder="10"></span></label></div>
       <div data-uw-slot="wt-reno-mo"><label class="text-xs">Renovation Time (mo)<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-wt-reno-mo" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="1"></span></label></div>
       <div data-uw-slot="wt-listed-mo"><label class="text-xs">Listing Time (mo)<span class="uw-num" style="margin-top:4px;display:block"><input type="number" id="uw-wt-listed-mo" step="0.5" oninput="uwRecalc()" style="width:100%" placeholder="2"></span></label></div>
@@ -5646,7 +5646,7 @@
   // Keep/Flip/Assign rules are finalized.
   window._uwHotStrategy = window._uwHotStrategy || '';
   // ---- Editable strategy thresholds (chips only) ----
-  const _uwStratDefaults = { holdMo:100, holdYear:1945, holdCrime:'C', holdMaxLeftIn:5000, flipCrime:'C', flipProfit:30000, assignCap:15, assignFlip:20000, assignFee:10000, novateSpread:15000, novateSalePct:90, novateSellPct:8, novateHoldPct:2, brrrrPct:5, budgetMode:'manual' };
+  const _uwStratDefaults = { holdMo:100, holdYear:1945, holdCrime:'C', holdMaxLeftIn:5000, flipCrime:'C', flipProfit:30000, assignCap:15, assignFlip:20000, assignFee:10000, novateSpread:15000, novateSalePct:90, novateAgentPct:6, novateClosePct:3, novateHoldPct:2, novateHoldMin:5000, brrrrPct:5, budgetMode:'manual' };
   const _uwCrimeRank = { A:1, B:2, C:3, D:4, F:5 };
   // Funnel settings are SHARED — stored in app_config (column_mappings.strat_settings) so everyone sees the same.
   // Falls back to this browser's old local copy until a shared copy exists.
@@ -5738,10 +5738,10 @@
     const assignOk = capB >= D('assignCap') || flipB >= D('assignFlip');
     out.tests.assign = { ok:assignOk, val:flipB, txt:'At buyer price '+k$(price+fee)+' (+'+k$(fee)+' fee): cash-on-cash ~'+capB.toFixed(1)+'% (need '+D('assignCap')+'%) or flip '+k$(flipB)+' (need '+k$(D('assignFlip'))+')' };
     // NOVATE — spread = sale (90% of ARV) − repairs − selling costs (on the sale) − holding/cleanout − price
-    const sale = arv * D('novateSalePct') / 100, sell = sale * D('novateSellPct') / 100, hold = arv * D('novateHoldPct') / 100;
-    const spread = sale - usedRehab - sell - hold - price;
+    const sale = arv * D('novateSalePct') / 100, target = Math.max(0, sale - usedRehab), sell = target * (D('novateAgentPct') + D('novateClosePct')) / 100, hold = Math.max(D('novateHoldMin'), arv * D('novateHoldPct') / 100);
+    const spread = target - sell - hold - price;
     const novOk = arv > 0 && spread >= D('novateSpread');
-    out.tests.novate = { ok:novOk, val:spread, txt:arv>0 ? ('Sale '+k$(sale)+' ('+D('novateSalePct')+'% of ARV) − repairs '+k$(usedRehab)+' − selling '+k$(sell)+' − holding/cleanout '+k$(hold)+' − price '+k$(price)+' = spread '+k$(spread)+' (need '+k$(D('novateSpread'))+')') : 'No ARV' };
+    out.tests.novate = { ok:novOk, val:spread, txt:arv>0 ? ('Target resale '+k$(target)+' ('+D('novateSalePct')+'% of ARV − repairs '+k$(usedRehab)+') − agents + closing '+k$(sell)+' − holding/cleanout '+k$(hold)+' − price '+k$(price)+' = spread '+k$(spread)+' (need '+k$(D('novateSpread'))+')') : 'No ARV' };
     out.s = holdOk ? 'hold' : flipOk ? 'flip' : assignOk ? 'assign' : novOk ? 'novate' : null;
     return out;
   }
@@ -11013,6 +11013,26 @@ async function _uwSyncMotivatedLeads(opts) {
 }
 window._uwSyncMotivatedLeads = _uwSyncMotivatedLeads;
 
+// 📋 Novation profit for the deals-list Exit Margins cell — same math as the Nova breakdown / Novate chip:
+// resale (90% ARV) − payoff (lower of asking/accepted) − repairs − selling (8% of resale) − holding/cleanout (2% ARV)
+function _uwNovProfit(u){
+  const d = (u && u.data) || {};
+  const N = v => { const x = parseFloat(String(v == null ? '' : v).replace(/[$,]/g, '')); return isFinite(x) ? x : 0; };
+  const S = (typeof _uwGetStratSettings === 'function') ? _uwGetStratSettings() : {};
+  const arv = (typeof _uwComputeArvFromData === 'function' ? _uwComputeArvFromData(d) : 0) || N(u && u.arv);
+  const prices = [N(d['uw-accepted'] || (u && u.accepted)), N(d['uw-asking'] || (u && u.asking))].filter(x => x > 0);
+  if (!arv || !prices.length) return NaN;
+  const payoff = Math.min.apply(null, prices);
+  const salePct = N(d['uw-wt-nov-sale-pct']) || N(S.novateSalePct) || 90;
+  const repairs = N(d['uw-wt-nov-rehab-amt']) || N(d['uw-rehab-override']) || 5000;
+  const sale = arv * salePct / 100;
+  const sellPct = (S.novateAgentPct != null ? N(S.novateAgentPct) : 6) + (S.novateClosePct != null ? N(S.novateClosePct) : 3), holdPct = (S.novateHoldPct != null ? N(S.novateHoldPct) : 2);
+  const target = Math.max(0, sale - repairs);   // 90% ARV − repairs = target resale (sold as-is)
+  const holdMin = (S.novateHoldMin != null ? N(S.novateHoldMin) : 5000);
+  return target - payoff - target * sellPct / 100 - Math.max(holdMin, arv * holdPct / 100);
+}
+window._uwNovProfit = _uwNovProfit;
+
 // ⬇ Export every active deal that has an ARV AND a price (Accepted → Offer → Asking; asking includes GHL submissions).
 // Not limited to Hot — every deal in Underwriting that has both numbers.
 function uwExportArvPrice(){
@@ -14472,19 +14492,35 @@ function uwComputeExits(ctx) {
   // Novation has its OWN assumptions (separate from Cash/Financed): resale %
   // defaults to 90, and rehab is a flat $ figure (default $5,000), not a % of
   // the flip rehab — a novation is typically list-ready with minor touch-ups.
-  const wtNovSalePct   = _wtVal('uw-wt-nov-sale-pct', 85);
+  // Novation (same rule as the 📋 Novate funnel chip — numbers come from the shared ⚙️ funnel settings):
+  //   Profit = resale (90% ARV) − seller payoff − repairs − selling costs (8% of resale) − holding/cleanout & office (2% ARV)
+  //   Seller payoff = the LOWER of Asking (incl. GHL) and Accepted — never your Offer.
+  //   Repairs = this deal's Rehab ($) box if typed, else its manual rehab budget, else $5,000.
+  const _novS = (typeof _uwGetStratSettings === 'function') ? _uwGetStratSettings() : {};
+  const _novNum = (v, d) => { const n = parseFloat(String(v == null ? '' : v).replace(/[$,]/g, '')); return isFinite(n) ? n : d; };
+  const wtNovSalePct   = _wtVal('uw-wt-nov-sale-pct', _novNum(_novS.novateSalePct, 90));
   const wtNovSale      = arv * (wtNovSalePct / 100);
-  const wtNovRehab     = _wtVal('uw-wt-nov-rehab-amt', 5000);
-  // Selling costs for novation scale with the novation resale price.
-  const wtNovSaleSellClose    = wtNovSale * 0.015;
-  const wtNovSaleBuyClose     = wtNovSale * 0.015;
-  const wtNovSaleClosingTotal = wtNovSaleSellClose + wtNovSaleBuyClose;
-  const wtNovSellAgent        = wtNovSale * (sellAgentPct / 100);
-  const wtNovBuyerAgent       = wtNovSale * (buyAgentPct  / 100);
-  const wtNovAgentTotal       = wtNovSellAgent + wtNovBuyerAgent;
-  const wtNovProfit     = wtNovSale - buyPrice - wtNovRehab - wtNovSaleClosingTotal - wtNovAgentTotal;
+  const _novManual     = _novNum((document.getElementById('uw-rehab-override') || {}).value, 0);
+  const wtNovRehab     = _wtVal('uw-wt-nov-rehab-amt', _novManual > 0 ? _novManual : 5000);
+  const wtNovAgentPct  = _novNum(_novS.novateAgentPct, 6);
+  const wtNovClosePct  = _novNum(_novS.novateClosePct, 3);
+  const wtNovSellPct   = wtNovAgentPct + wtNovClosePct;
+  const wtNovHoldPct   = _novNum(_novS.novateHoldPct, 2);
+  const _novPrices     = [accepted, asking].filter(x => x > 0);
+  const wtNovPayoff    = _novPrices.length ? Math.min.apply(null, _novPrices) : buyPrice;
+  // Target resale = 90% of ARV minus the repairs (sold as-is — the buyer prices the repairs in)
+  const wtNovTarget    = Math.max(0, wtNovSale - wtNovRehab);
+  const wtNovAgents    = wtNovTarget * (wtNovAgentPct / 100);
+  const wtNovClosing   = wtNovTarget * (wtNovClosePct / 100);
+  const wtNovSelling   = wtNovAgents + wtNovClosing;
+  const wtNovHoldMin   = _novNum(_novS.novateHoldMin, 5000);
+  const wtNovHolding   = Math.max(wtNovHoldMin, arv * (wtNovHoldPct / 100));   // 2% of ARV, but never under $5k
+  // kept for anything else that reads these names
+  const wtNovSaleSellClose = 0, wtNovSaleBuyClose = 0, wtNovSaleClosingTotal = 0, wtNovSellAgent = 0, wtNovBuyerAgent = 0;
+  const wtNovAgentTotal = wtNovSelling;
+  const wtNovProfit     = wtNovTarget - wtNovPayoff - wtNovSelling - wtNovHolding;
   const wtNovAnnualized = wtNovProfit > 0 ? wtNovProfit * (12 / wholetailMonths) : 0;
-  const wtNovCapital    = wtNovRehab;
+  const wtNovCapital    = wtNovHolding;   // you don't do the repairs — only holding / cleanout / office
   window._3p_wtNov = (typeof wtNovProfit === 'number') ? wtNovProfit : null;
   // Mode resolution — picks Cash / Financed / Novation view. Mirrors the Flip
   // pattern so `wholetailProfit`, `wholetailAnnualized`, and `wholetailCapital`
@@ -15365,11 +15401,11 @@ function uwComputeExits(ctx) {
           // dropped entirely rather than shown as "—". Resale %, seller payoff,
           // rehab ($), and selling costs only.
           return [
-            ['Resale Value @ ' + wtNovSalePct + '% ARV', fmt(wtNovSale)],
-            ['Seller payoff (buy price)', fmt(buyPrice)],
-            ['Rehab', fmt(wtNovRehab)],
-            ['Selling costs', fmt((wtNovSaleClosingTotal || 0) + (wtNovAgentTotal || 0))],
-            ['Capital tied up', fmt(wholetailCapital)],
+            ['Target resale (' + wtNovSalePct + '% ARV − repairs)', fmt(wtNovTarget)],
+            ['Seller payoff', fmt(wtNovPayoff)],
+            ['Agents + closing (' + wtNovSellPct + '%)', fmt(wtNovSelling)],
+            ['Holding, cleanout & office (' + wtNovHoldPct + '%)', fmt(wtNovHolding)],
+            ['Money in', fmt(wholetailCapital)],
           ];
         }
         const _rows = [
@@ -15437,20 +15473,20 @@ function uwComputeExits(ctx) {
         ]},
       ] : (wholetailMode === 'novation' ? [
         { title: '💰 Novation Math', rows: [
-          ['Resale @ ' + wtNovSalePct + '% ARV', fmt(wtNovSale)],
-          ['Seller payoff (buy price)', '−' + fmt(buyPrice)],
-          ['Rehab', '−' + fmt(wtNovRehab)],
-          ['Resale closing (3%)', '−' + fmt(wtNovSaleClosingTotal)],
-          ['Agent commissions (' + (sellAgentPct + buyAgentPct) + '%)', '−' + fmt(wtNovAgentTotal)],
-          ['💰 Your Money In (rehab only)', fmt(wtNovCapital), 'redhl'],
+          ['ARV × ' + wtNovSalePct + '%', fmt(wtNovSale)],
+          ['Repairs (buyer prices them in — sold as-is)', '−' + fmt(wtNovRehab)],
+          ['🎯 Target resale value', fmt(wtNovTarget), 'blue'],
+          ['Seller payoff (lower of asking / accepted)', '−' + fmt(wtNovPayoff)],
+          ['Agent commissions (' + wtNovAgentPct + '% of target resale)', '−' + fmt(wtNovAgents)],
+          ['Closing fees (' + wtNovClosePct + '% of target resale)', '−' + fmt(wtNovClosing)],
+          ['💰 Total Capital Invested (Clean-Out · ' + wtNovHoldPct + '% of ARV, min ' + fmt(wtNovHoldMin) + ')', '−' + fmt(wtNovHolding), 'redhl'],
           ['Net profit', fmt(wtNovProfit), 'profit'],
         ]},
         { title: '🏷️ Selling Costs', rows: [
-          ['Resale seller closing (1.5%)', fmt(wtNovSaleSellClose)],
-          ['Resale buyer closing (1.5%)', fmt(wtNovSaleBuyClose)],
-          ['Resale buyer agent (' + buyAgentPct + '%)', fmt(wtNovBuyerAgent)],
-          ['Resale seller agent (' + sellAgentPct + '%)', fmt(wtNovSellAgent)],
-          ['Total selling', fmt(wtNovSaleClosingTotal + wtNovAgentTotal), 'profit'],
+          ['Buyer agent (' + (wtNovAgentPct / 2) + '%)', fmt(wtNovAgents / 2)],
+          ['Seller agent (' + (wtNovAgentPct / 2) + '%)', fmt(wtNovAgents / 2)],
+          ['Buyer closing (' + (wtNovClosePct / 2) + '%)', fmt(wtNovClosing / 2)],
+          ['Seller closing (' + (wtNovClosePct / 2) + '%)', fmt(wtNovClosing / 2)],
         ]},
       ] : [
         { title: '💰 Resale Math', rows: [
@@ -20351,7 +20387,7 @@ function uwThreePlaysHtml(u) {
   const r = parseFloat(u.refi_rental_annualized);
   // Right column: 3 metrics
   const cashCap = parseFloat(u.cash_rental_cap_pct);
-  const wtSpread = parseFloat(u.wholetail_profit);
+  const wtSpread = (typeof _uwNovProfit === 'function') ? _uwNovProfit(u) : NaN;   // 📋 novation profit (replaces the old wholetail number)
   const finMo = parseFloat(u.financed_rental_monthly);
   // Wholetail disqualification: 60% of full rehab budget > $30/sqft.
   // Strikethrough the wholetail profit when this rule binds (heavy rehab
@@ -20366,7 +20402,7 @@ function uwThreePlaysHtml(u) {
   const _wtRehabImplied = 0.6 * (parseFloat(u.renovation_budget) || 0);
   // If sqft is missing/zero we can't evaluate the rule — leave wholetail visible
   // (don't strikethrough). Better to under-flag than over-flag.
-  const wtDisqualified = _wtSqft > 0 && _wtRehabImplied > _wtSqft * 30;
+  const wtDisqualified = false;   // novation has no sqft/rehab disqualifier
   const hasAny = isFinite(w) || isFinite(f) || isFinite(r) || isFinite(cashCap) || isFinite(wtSpread) || isFinite(finMo);
   if (!hasAny) return '';
   const fmtK = (n) => {
@@ -20405,7 +20441,7 @@ function uwThreePlaysHtml(u) {
   // Outer text-align:center keeps the whole block centered under the column header.
   return `<div style="font-size:10px;color:var(--text-dim);margin-top:3px;display:inline-grid;grid-template-columns:16px 50px 16px 50px;gap:2px 4px;line-height:1.25;column-gap:8px">
     ${profitCells('📜', w, '')}${pctCells('💵', cashCap)}
-    ${profitCells('🎨', wtSpread, '', wtDisqualified)}${moCells('🔑', parseFloat(u.data && u.data._tkRentalMo), false)}
+    ${profitCells('📋', wtSpread, '', wtDisqualified)}${moCells('🔑', parseFloat(u.data && u.data._tkRentalMo), false)}
     ${profitCells('🏗️', f, '')}${moCells('🔁', isFinite(r) ? r / 12 : r, !!(u.data && u.data._rfLtvBinds))}
   </div>`;
 }
@@ -20467,6 +20503,7 @@ function _uwCollect() {
   UW_FIELDS.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
+    if (el.type === 'file') return;   // file pickers can't be saved/restored (browser blocks it) — skip
     // Checkboxes store their on/off state in `.checked`, not `.value`. Persist
     // as '1'/'0' strings so the same JSONB field round-trips cleanly.
     if (el.type === 'checkbox') data[id] = el.checked ? '1' : '0';
@@ -20760,7 +20797,7 @@ function _uwApply(data) {
     const el = document.getElementById(id);
     if (!el) return;
     if (el.type === 'checkbox') el.checked = false;
-    else el.value = '';
+    else if (el.type !== 'file') el.value = '';
   });
   // ----- DIAGNOSTIC: Main Picture Upload — log what we got from the DB -----
   if (data['uw-main-pic']) {
@@ -20772,6 +20809,7 @@ function _uwApply(data) {
     if (id === '_customChecklist' || id === '_checklistLayout' || id === '_rehab' || id === '_sectionOrder' || id === '_needsHelp' || id === '_inChecking' || id === '_flipMode' || id === '_rentalMode' || id === '_wholetailMode') return; // handled above
     const el = document.getElementById(id);
     if (!el) return;
+    if (el.type === 'file') return;   // browser won't let a file picker be filled in — skip it
     // Mirror image of _uwCollect — checkboxes are stored as '1'/'0' strings.
     if (el.type === 'checkbox') el.checked = (val === '1' || val === true);
     else el.value = val || '';
@@ -23029,13 +23067,17 @@ async function uwLoadById(id) {
   // subtab the user clicked from (offered, inspection, contracted, closed, etc.).
   // Overwriting it to analyzing/analyzed sent Back to the wrong tab.
   goUwView('calculator');
-  try { _uwApply(u.data); }
+  // Drop any saved value for a FILE picker (e.g. the main-photo chooser) — the browser refuses to set those
+  // and the whole deal failed to load.
+  let _applyData = u.data;
+  try { if (u.data && typeof u.data === 'object') { _applyData = Object.assign({}, u.data); Object.keys(_applyData).forEach(function (k) { const el = document.getElementById(k); if (el && el.type === 'file') delete _applyData[k]; }); } } catch (_) {}
+  try { _uwApply(_applyData); }
   catch (e) {
     // A half-applied deal is how the screen ends up mixed. Leave no save target
     // and tell the user to reopen, instead of pointing saves at this id.
     try { console.error('[uwLoad] apply failed for', id, e); } catch(_){}
     _uwCurrentId = null;
-    if (typeof toast === 'function') toast('⚠ This deal didn\'t load fully — click ← Back and reopen it.', 'err');
+    if (typeof toast === 'function') toast('⚠ This deal didn\'t load fully — click ← Back and reopen it. (' + String((e && e.message) || e).slice(0, 140) + ')', 'err');
     return;
   }
   _uwCurrentId = id;
@@ -68284,7 +68326,7 @@ window._uwOpenHotSettings = function(){
     g('fs-holdMo').value=D.holdMo; g('fs-holdYear').value=D.holdYear; g('fs-holdCrime').value=D.holdCrime;
     g('fs-flipProfit').value=D.flipProfit; g('fs-assignCap').value=D.assignCap;
     g('fs-assignFlip').value=D.assignFlip; g('fs-brrrrPct').value=D.brrrrPct;
-    ['assignFee','novateSpread','novateSalePct','novateSellPct','novateHoldPct','holdMaxLeftIn','flipCrime'].forEach(function(k){ if(g('fs-'+k)) g('fs-'+k).value=D[k]; });
+    ['assignFee','novateSpread','novateSalePct','novateAgentPct','novateClosePct','novateHoldPct','novateHoldMin','holdMaxLeftIn','flipCrime'].forEach(function(k){ if(g('fs-'+k)) g('fs-'+k).value=D[k]; });
   };
 };
 // ---- Funnel (Hold/Flip/Assign) threshold fields inside the Hot settings modal ----
@@ -68320,10 +68362,7 @@ function _uwFunnelSettingsHTML(){
     '<label style="'+row+'"><span style="'+lbl+';flex:1">…OR min flip profit $</span><input type="number" id="fs-assignFlip" value="'+s.assignFlip+'" style="'+inp+'"></label>' +
     '<label style="'+row+'" title="Both tests above are run at the buyer\'s price = your price + this fee"><span style="'+lbl+';flex:1">Your assignment fee $</span><input type="number" id="fs-assignFee" value="'+(s.assignFee!=null?s.assignFee:10000)+'" style="'+inp+'"></label>' +
     '<div style="font-weight:600;font-size:12px;color:#fcd34d;margin:10px 0 2px">📋 NOVATE</div>' +
-    '<label style="'+row+'"><span style="'+lbl+';flex:1">Min spread $ (sale − repairs − selling − holding − price)</span><input type="number" id="fs-novateSpread" value="'+(s.novateSpread!=null?s.novateSpread:15000)+'" style="'+inp+'"></label>' +
-    '<label style="'+row+'"><span style="'+lbl+';flex:1">Sale price % of ARV</span><input type="number" id="fs-novateSalePct" value="'+(s.novateSalePct!=null?s.novateSalePct:90)+'" style="'+inp+'"></label>' +
-    '<label style="'+row+'"><span style="'+lbl+';flex:1">Selling costs % of sale price (agent + closing)</span><input type="number" id="fs-novateSellPct" value="'+(s.novateSellPct!=null?s.novateSellPct:8)+'" style="'+inp+'"></label>' +
-    '<label style="'+row+'"><span style="'+lbl+';flex:1">Holding + cleanout % of ARV</span><input type="number" id="fs-novateHoldPct" value="'+(s.novateHoldPct!=null?s.novateHoldPct:2)+'" style="'+inp+'"></label>' +
+    '<label style="'+row+'" title="The deal\'s own Nova math (90% ARV − repairs, 6% agents, 3% closing, clean-out 2% / min $5k) decides the profit — this is the least you\'ll take."><span style="'+lbl+';flex:1">Your novation fee $ (min profit)</span><input type="number" id="fs-novateSpread" value="'+(s.novateSpread!=null?s.novateSpread:15000)+'" style="'+inp+'"></label>' +
     '<div style="font-weight:600;font-size:12px;color:var(--text-dim);margin:10px 0 2px">⚖️ TURN-KEY vs BRRRR</div>' +
     '<label style="'+row+'"><span style="'+lbl+';flex:1">BRRRR if rehab ≥ this % of ARV</span><input type="number" id="fs-brrrrPct" value="'+s.brrrrPct+'" style="'+inp+'"></label>' +
     '</div>';
@@ -68343,8 +68382,10 @@ function _uwCollectFunnelSettings(box){
     assignFee:     numOr(g('fs-assignFee'),     _uwStratDefaults.assignFee),
     novateSpread:  numOr(g('fs-novateSpread'),  _uwStratDefaults.novateSpread),
     novateSalePct: numOr(g('fs-novateSalePct'), _uwStratDefaults.novateSalePct),
-    novateSellPct: numOr(g('fs-novateSellPct'), _uwStratDefaults.novateSellPct),
+    novateAgentPct: numOr(g('fs-novateAgentPct'), _uwStratDefaults.novateAgentPct),
+    novateClosePct: numOr(g('fs-novateClosePct'), _uwStratDefaults.novateClosePct),
     novateHoldPct: numOr(g('fs-novateHoldPct'), _uwStratDefaults.novateHoldPct),
+    novateHoldMin: numOr(g('fs-novateHoldMin'), _uwStratDefaults.novateHoldMin),
     brrrrPct:   numOr(g('fs-brrrrPct'),   _uwStratDefaults.brrrrPct),
     budgetMode: (function(){ var el=box.querySelector('#fs-budget'); return (el && el.getAttribute('data-mode')) || _uwStratDefaults.budgetMode; })()
   };

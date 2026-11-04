@@ -2959,18 +2959,6 @@
   </div>
 
 
-  <!-- List contact coverage (energy bars) -->
-  <div class="panel p-5 mb-4">
-    <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
-      <div>
-        <div class="font-semibold text-lg">Contact Coverage By List</div>
-        <div class="text-xs text-[var(--text-dim)]">How many properties in each list you have reached at least once (any result counts). The red Unmatched bar shows results whose address did not link to a property in any of your lists.</div>
-      </div>
-
-    </div>
-    <div id="list-coverage-body"></div>
-  </div>
-
   <!-- Motivated-to-Owner ratio by property tag -->
   <div class="panel p-5 mb-4">
     <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
@@ -2983,6 +2971,29 @@
     </div>
     <div id="motivated-by-tag-debug" style="display:none;margin-bottom:12px;padding:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;max-height:300px;overflow:auto"></div>
     <div id="motivated-by-tag-body"></div>
+  </div>
+
+  <!-- Tag contact coverage (energy bars) -->
+  <div class="panel p-5 mb-4">
+    <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+      <div>
+        <div class="font-semibold text-lg">Contact Coverage By Tag</div>
+        <div class="text-xs text-[var(--text-dim)]">How many properties with each tag (Code Violations, Foreclosure, Eviction…) you have reached at least once (any result counts). A property with several tags counts under each one.</div>
+      </div>
+    </div>
+    <div id="tag-coverage-body"></div>
+  </div>
+
+  <!-- List contact coverage (energy bars) -->
+  <div class="panel p-5 mb-4">
+    <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+      <div>
+        <div class="font-semibold text-lg">Contact Coverage By List</div>
+        <div class="text-xs text-[var(--text-dim)]">How many properties in each list you have reached at least once (any result counts). The red Unmatched bar shows results whose address did not link to a property in any of your lists.</div>
+      </div>
+
+    </div>
+    <div id="list-coverage-body"></div>
   </div>
 
   <!-- Disposition breakdown per list -->
@@ -58601,6 +58612,7 @@ function renderResults() {
   setR('r-heat-slot1-sub', rHot ? Math.round(rHotSlot1/rHot*100) + '% of hot' : '—');
   setR('r-heat-unknown', rUnknown.toLocaleString());
   if (typeof renderDispMatrix === 'function') renderDispMatrix();
+  if (typeof renderTagCoverage === 'function') renderTagCoverage();
   if (typeof renderListCoverage === 'function') renderListCoverage();
   if (typeof renderMotivatedByTag === 'function') renderMotivatedByTag();
   if (typeof renderMotivatedByCounty === 'function') renderMotivatedByCounty();
@@ -60275,6 +60287,42 @@ function computeDispMatrixRows() {
 }
 
 // ---------- Contact coverage energy bars per list ----------
+function renderTagCoverage() {
+  var container = document.getElementById('tag-coverage-body');
+  if (!container) return;
+  var properties = cache.properties || {};
+  var total = {}, contacted = {};
+  Object.values(properties).forEach(function (p) {
+    var f = (p && p.flags) || {};
+    Object.keys(f).forEach(function (t) { if (f[t]) total[t] = (total[t] || 0) + 1; });
+  });
+  var reached = new Set();
+  Object.values(cache.results || {}).forEach(function (r) { if (r && r.property_id) reached.add(r.property_id); });
+  reached.forEach(function (pid) {
+    var p = properties[pid]; var f = (p && p.flags) || {};
+    Object.keys(f).forEach(function (t) { if (f[t]) contacted[t] = (contacted[t] || 0) + 1; });
+  });
+  var entries = Object.keys(total).map(function (t) { var c = contacted[t] || 0; return { name: t, total: total[t], contacted: c, pct: total[t] ? c / total[t] : 0 }; })
+    .sort(function (a, b) { return (b.pct - a.pct) || (b.total - a.total); });
+  if (!entries.length) { container.innerHTML = '<div class="text-center text-[var(--text-dim)] py-6">No tagged properties yet.</div>'; return; }
+  function barColor(pct) { if (pct >= 0.75) return '#10b981'; if (pct >= 0.40) return '#22d3ee'; if (pct >= 0.15) return '#6366f1'; return '#475569'; }
+  function renderBar(pct, color) {
+    var w = Math.max(0, Math.min(100, Math.round(pct * 1000) / 10)); var ticks = '';
+    for (var i = 1; i < 20; i++) ticks += '<div style="position:absolute;left:' + (i * 5) + '%;top:0;bottom:0;width:1px;background:rgba(0,0,0,0.25)"></div>';
+    return '<div style="height:14px;border-radius:7px;overflow:hidden;background:#0f172a;border:1px solid rgba(255,255,255,0.05);position:relative">'
+      + '<div style="width:' + w + '%;height:100%;background:linear-gradient(90deg, ' + color + ', ' + color + 'dd);transition:width 0.5s ease;box-shadow:0 0 10px ' + color + '55 inset"></div>' + ticks + '</div>';
+  }
+  container.innerHTML = entries.map(function (e) {
+    var color = barColor(e.pct);
+    return '<div style="margin-bottom:14px">'
+      + '<div class="flex items-center justify-between mb-1" style="font-size:13px;gap:12px">'
+      + '<div class="font-medium" title="' + escapeHtml(e.name) + '" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(e.name) + '</div>'
+      + '<div class="text-[var(--text-dim)]" style="white-space:nowrap"><b style="color:var(--text)">' + e.contacted.toLocaleString() + '</b><span> / ' + e.total.toLocaleString() + ' contacted</span>'
+      + '<span style="margin-left:8px;color:' + color + ';font-weight:600">' + (e.pct * 100).toFixed(1) + '%</span></div></div>'
+      + renderBar(e.pct, color) + '</div>';
+  }).join('');
+}
+window.renderTagCoverage = renderTagCoverage;
 function renderListCoverage() {
   var container = document.getElementById('list-coverage-body');
   if (!container) return;

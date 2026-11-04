@@ -14868,7 +14868,8 @@ function uwComputeExits(ctx) {
   const rfPiti  = rfPi + rtTaxFin + rtIns;
   const rfDscr  = rfPiti > 0 ? rent / rfPiti : 0;
   // Track whether the smart-sized refi loan exceeds the LTV cap.
-  const _rfLtvBinds = (_rfLoanNeededForOut - _rfLtvCapLoan) > 10000;
+  // Crossed out in the deal list whenever ANY money is left in after the refi (loan needed > LTV cap).
+  const _rfLtvBinds = (_rfLoanNeededForOut - _rfLtvCapLoan) > 1;
   window._3p_rfLtvBinds = !!_rfLtvBinds;
   const rfCloseCost = rfLoan * (rfClosePct / 100);
   const rfOrigCost  = rfLoan * (rfOrigPct  / 100);

@@ -14881,6 +14881,7 @@ function uwComputeExits(ctx) {
   const rfCashOut      = Math.max(0, rfCashFromRefi - rfInitialOut); // bonus above what you put up
   const rfLeftIn       = Math.max(0, rfInitialOut - rfCashFromRefi); // capital still trapped
   window._3p_rfLeftIn = (typeof rfLeftIn === 'number' && isFinite(rfLeftIn)) ? rfLeftIn : null;   // saved for the Hold chip
+  window._3p_rfLtvPct = (typeof rfLtvPct === 'number' && isFinite(rfLtvPct)) ? rfLtvPct : null;
   // ----- Ongoing monthly cashflow (post-refi) -----
   const rfMonthlyExp     = rfPi + rtTaxFin + rtIns + rtVac + rtMaint + rtCapex + rtPm;
   const rfCashflow       = rent - rfMonthlyExp;
@@ -14888,6 +14889,20 @@ function uwComputeExits(ctx) {
   const rfDscrRes = rfMonthlyExp > 0 ? rent / rfMonthlyExp : 0;
   const rfAnnualCashflow = rfCashflow * 12;
   window._3p_refiAnnual = rfAnnualCashflow;
+  // Pull-out amounts for the deal-list hover (cash back to you at the refi closing,
+  // after paying off the initial loan + refi costs): (a) at the 70% LTV cap loan,
+  // (b) at the biggest loan that still cashflows $0/mo after reserves (also ≤ LTV cap).
+  try {
+    const _pullAt = (L) => L * _rfNetCloseFactor - rfHmLoan - rfUwFee;
+    const _maxPI0 = rent - (rtTaxFin + rtIns + rtVac + rtMaint + rtCapex + rtPm);
+    let _loan0 = 0;
+    if (_maxPI0 > 0) _loan0 = (rfRate > 0) ? (_maxPI0 * (1 - Math.pow(1 + rfRate, -rfN)) / rfRate) : (_maxPI0 * rfN);
+    _loan0 = Math.min(_loan0, _rfLtvCapLoan);
+    const _pL = _pullAt(_rfLtvCapLoan), _p0 = _pullAt(_loan0);
+    window._3p_rfPullLtv = isFinite(_pL) ? _pL : null;
+    window._3p_rfPull0cf = isFinite(_p0) ? _p0 : null;
+    window._3p_rfCashIn  = isFinite(rfInitialOut) ? rfInitialOut : null;
+  } catch (e) { window._3p_rfPullLtv = window._3p_rfPull0cf = window._3p_rfCashIn = null; }
 
   // ===== Enriched Appreciation projection (per-mode) =====
   // Builds an Appreciation section for a SINGLE mode, so each exit's detail shows
@@ -20451,14 +20466,14 @@ function uwThreePlaysHtml(u) {
     return `<span style="text-align:left">${icon}</span><span style="color:${color};font-weight:600;text-align:left">${val.toFixed(1)}%</span>`;
   };
   // Monthly cashflow cell — color by threshold (≥200 green, ≥0 amber, else red)
-  const moCells = (icon, val, struck, why) => {
+  const moCells = (icon, val, struck, why, okWhy) => {
     if (!isFinite(val)) {
       return `<span style="text-align:left">${icon}</span><span style="color:var(--text-dim);font-weight:600;text-align:left">—</span>`;
     }
     const color = struck ? 'var(--text-dim)' : (val >= 200 ? '#10b981' : (val >= 0 ? '#f59e0b' : '#ef4444'));
     const sign  = val < 0 ? '-$' : '$';
     const decoration = struck ? ';text-decoration:line-through;opacity:0.6' : '';
-    const title = struck ? (why ? why : 'LTV cap binds — the smart-sized loan exceeds the lender LTV ceiling, so this financing mode isn\'t viable as-is.') : '';
+    const title = struck ? (why ? why : 'LTV cap binds — the smart-sized loan exceeds the lender LTV ceiling, so this financing mode isn\'t viable as-is.') : (okWhy || '');
     return `<span style="text-align:left${decoration}">${icon}</span><span style="color:${color};font-weight:600;text-align:left${decoration}" title="${title}">${sign}${Math.abs(Math.round(val)).toLocaleString()}/m</span>`;
   };
   // 4-column inline-grid (icon | value | icon | value) × 3 rows = 12 cells.
@@ -20471,8 +20486,16 @@ function uwThreePlaysHtml(u) {
         const arv = (typeof _uwComputeArvFromData === 'function' ? _uwComputeArvFromData(d) : 0) || N(u.arv);
         const reno = N(d['uw-rehab-override']) || N(u.renovation_budget);
         const pct = (typeof _uwGetStratSettings === 'function') ? N(_uwGetStratSettings().brrrrPct) || 5 : 5;
-        return arv > 0 && reno > arv * pct / 100; } catch (_) { return false; } })(), 'Renovation is more than 5% of ARV — this is a BRRRR, not a turn-key rental.')}
-    ${profitCells('🏗️', f, '')}${moCells('🔁', isFinite(r) ? r / 12 : r, !!(u.data && u.data._rfLtvBinds))}
+        return arv > 0 && reno > arv * pct / 100; } catch (_) { return false; } })(), (function(){ try { const d = u.data || {}; const N = v => { const x = parseFloat(String(v == null ? '' : v).replace(/[$,]/g, '')); return isFinite(x) ? x : 0; };
+        const arv = (typeof _uwComputeArvFromData === 'function' ? _uwComputeArvFromData(d) : 0) || N(u.arv); const reno = N(d['uw-rehab-override']) || N(u.renovation_budget);
+        const pct = (typeof _uwGetStratSettings === 'function') ? N(_uwGetStratSettings().brrrrPct) || 5 : 5;
+        return '$' + Math.round(reno).toLocaleString() + ' / $' + Math.round(arv * pct / 100).toLocaleString() + ' max budget for turn-key (' + pct + '% of ARV)'; } catch (_) { return ''; } })())}
+    ${profitCells('🏗️', f, '')}${moCells('🔁', isFinite(r) ? r / 12 : r, !!(u.data && u.data._rfLtvBinds), (function(){ const d = u.data || {}; const li = parseFloat(d._rfLeftIn); const lp = parseFloat(d._rfLtvPct) || 70;
+      return isFinite(li) && li > 0 ? ('$' + Math.round(li).toLocaleString() + ' required to leave in at ' + lp + '% LTV') : ('Money would be left in after the refi at ' + lp + '% LTV (open or rescan the deal to see the amount)'); })(), (function(){ const d = u.data || {}; const lp = parseFloat(d._rfLtvPct) || 70;
+             const a = parseFloat(d._rfPullLtv), b = parseFloat(d._rfPull0cf), ci = parseFloat(d._rfCashIn);
+             const f = (x) => (x < 0 ? '-$' : '$') + Math.abs(Math.round(x)).toLocaleString();
+             if (!isFinite(a) && !isFinite(b)) return 'Open or rescan the deal to see how much you can pull out';
+             return (isFinite(a) ? 'Pull out ' + f(a) + ' at ' + lp + '% LTV' : '') + (isFinite(a) && isFinite(b) ? ' · ' : '') + (isFinite(b) ? f(b) + ' at $0/mo cashflow' : '') + (isFinite(ci) && ci > 0 ? ' (your cash in: ' + f(ci) + ')' : ''); })())}
   </div>`;
 }
 
@@ -20574,6 +20597,8 @@ function _uwCollect() {
   // Turn-Key monthly cashflow for the deals-list Exit Margins cell (stored in jsonb — no DB column needed).
   if (typeof window._3p_tkRentalMo === 'number' && isFinite(window._3p_tkRentalMo)) data._tkRentalMo = window._3p_tkRentalMo;
   if (typeof window._3p_rfLeftIn === 'number' && isFinite(window._3p_rfLeftIn)) data._rfLeftIn = Math.round(window._3p_rfLeftIn);
+  if (typeof window._3p_rfLtvPct === 'number' && isFinite(window._3p_rfLtvPct)) data._rfLtvPct = window._3p_rfLtvPct;
+  ['rfPullLtv','rfPull0cf','rfCashIn'].forEach(function(k){ const v = window['_3p_' + k]; if (typeof v === 'number' && isFinite(v)) data['_' + k] = v; });
   // Also capture key computed values so they're searchable in the list.
   // Mode-aware: in Listed mode the saved ARV comes from the Listed-real
   // override / display, NOT the Sold-side fields. This way the list/preview

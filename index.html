@@ -69527,7 +69527,7 @@ async function _uwOpenAccountsModal(id){
     +_brow([_lfield('Start Date','startDate','','date'),_lfield('Payoff Date','payoffDate','','date'),_lfield('Payment Date','paymentDate','e.g. 1st'),_lselect('Payment Type','paymentType',['Auto-Pay','Manual Pay']),_lfield('Loan Size','loanSize','$'),_lfield('After Repair Value','afterRepairValue','$')])
     +_brow([_lfield('Origination Points','points','e.g. 1'),_lfield('Additional Fees','addlFees','$'),_lfield('Interest Rate','annualRate','e.g. 6.5'),_lfield('Monthly Payment','monthlyPayment','$')])
     +'</div>';
-  box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="font-weight:800;font-size:16px">🧾 Account Info</div><div style="display:flex;align-items:center;gap:10px"><button id="acc-save" style="background:var(--brand,#6366f1);color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700">Save</button><button id="acc-x" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer">✕</button></div></div>'
+  box.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="font-weight:800;font-size:16px">🧾 Account Info</div><div style="display:flex;align-items:center;gap:10px"><button id="acc-save" style="background:var(--brand,#6366f1);color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:700">Save</button><button id="acc-x" title="Close" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.45);color:#f87171;font-size:15px;cursor:pointer;line-height:1;border-radius:8px;padding:5px 10px">✕</button></div></div>'
    +'<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Utility, insurance &amp; service accounts for '+_maEsc(u.address||'this property')+'. Saved with the deal.</div>'
    +'<div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><tbody>'+rows+'</tbody></table></div>'
    +_bridgeHtml
@@ -69535,30 +69535,25 @@ async function _uwOpenAccountsModal(id){
    +'';
   ov.appendChild(box); document.body.appendChild(ov);
   var close=function(){ ov.remove(); };
-  // Unsaved-changes guard: closing with edits asks Save / Don't save / Keep editing.
-  var _accDirty=false;
-  box.addEventListener('input',function(){ _accDirty=true; });
-  box.addEventListener('change',function(){ _accDirty=true; });
+  // Exit prompt (same as Applicants): every close asks Save & Exit / Do Not Save & Exit / Cancel.
   var tryClose=function(){
-    if(!_accDirty){ close(); return; }
-    if(box.querySelector('#acc-unsaved')) return;
-    var pop=document.createElement('div'); pop.id='acc-unsaved';
-    pop.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:100000';
-    pop.innerHTML='<div style="background:var(--surface,#151a2b);border:1px solid var(--border);border-radius:12px;padding:20px 22px;max-width:360px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.5)">'
-      +'<div style="font-weight:800;font-size:15px;margin-bottom:6px">Save changes?</div>'
-      +'<div style="font-size:12px;color:var(--text-dim);margin-bottom:16px">You edited this account info. Save before closing?</div>'
-      +'<div style="display:flex;justify-content:flex-end;gap:8px">'
-      +'<button data-u="keep" style="background:none;border:none;color:var(--text-dim);padding:8px 10px;cursor:pointer">Keep editing</button>'
-      +'<button data-u="discard" style="background:none;border:1px solid #ef4444;color:#fca5a5;border-radius:8px;padding:8px 14px;cursor:pointer">Don\'t save</button>'
-      +'<button data-u="save" style="background:var(--brand,#6366f1);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:700">Save</button>'
+    if(document.getElementById('acc-exit-dlg')) return;
+    var dlg=document.createElement('div'); dlg.id='acc-exit-dlg';
+    dlg.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;padding:20px';
+    dlg.innerHTML='<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px 22px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.5)">'
+      +'<div style="font-weight:800;font-size:15px;margin-bottom:6px">Close account info</div>'
+      +'<div style="font-size:13px;color:var(--text-dim);margin-bottom:16px">Do you want to save your changes before exiting?</div>'
+      +'<div style="display:flex;flex-direction:column;gap:8px">'
+      +'<button data-act="save" style="background:var(--brand,#6366f1);color:#fff;border:none;border-radius:8px;padding:9px 0;cursor:pointer;font-size:13px;font-weight:700">💾 Save &amp; Exit</button>'
+      +'<button data-act="nosave" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.45);color:#f87171;border-radius:8px;padding:9px 0;cursor:pointer;font-size:13px;font-weight:700">Do Not Save &amp; Exit</button>'
+      +'<button data-act="cancel" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:8px 0;cursor:pointer;font-size:13px;font-weight:600">Cancel</button>'
       +'</div></div>';
-    box.appendChild(pop);
-    pop.onclick=function(e){
-      var act=e.target && e.target.getAttribute && e.target.getAttribute('data-u');
-      if(e.target===pop || act==='keep'){ e.stopPropagation(); pop.remove(); return; }
-      if(act==='discard'){ e.stopPropagation(); pop.remove(); close(); return; }
-      if(act==='save'){ e.stopPropagation(); pop.remove(); box.querySelector('#acc-save').click(); }
-    };
+    document.body.appendChild(dlg);
+    var kill=function(){ if(dlg&&dlg.parentNode) dlg.parentNode.removeChild(dlg); };
+    dlg.onclick=function(e){ if(e.target===dlg) kill(); };
+    dlg.querySelector('[data-act="cancel"]').onclick=kill;
+    dlg.querySelector('[data-act="nosave"]').onclick=function(){ kill(); close(); };
+    dlg.querySelector('[data-act="save"]').onclick=function(){ kill(); box.querySelector('#acc-save').click(); };
   };
   ov.onclick=function(e){ if(e.target===ov) tryClose(); };
   box.querySelector('#acc-x').onclick=tryClose;
@@ -69774,7 +69769,7 @@ window._uwOpenApplicantsModal = function(id, startView){
   box.style.cssText='background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;width:min(1120px,97vw);box-shadow:0 12px 40px rgba(0,0,0,0.45)';
   ov.appendChild(box); document.body.appendChild(ov);
   var close=function(){ ov.remove(); };
-  ov.onclick=function(e){ if(e.target===ov) close(); };
+  ov.onclick=function(e){ if(e.target!==ov) return; var x=box.querySelector('#appl-x'); if(x) x.click(); else close(); };
   var openIdx = -1;  // start collapsed — list shows names only; click a name to open its card
   // The editable detail body for the currently-open applicant.
   function bodyHtml(a,i){

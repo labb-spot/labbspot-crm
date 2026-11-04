@@ -136,7 +136,7 @@ function _crTrackerHtml(){
       +(window.CR_LIMITED?'':'<span draggable="true" ondragstart="_crDragStart(event,\''+E(c.code)+'\')" ondragend="_crDragEnd()" title="Drag to reorder" style="cursor:grab;color:var(--text-dim);font-size:13px;padding:0 4px 0 0;user-select:none;letter-spacing:-2px">⋮⋮</span>')+(_crHasReq()?'<button type="button" onclick="_crReqToggle(\''+E(c.code)+'\')" title="Show this city’s Requests (list types, connections)" style="background:none;border:none;cursor:pointer;font-size:11px;padding:0 5px 0 0;color:'+(_CR.reqOpen[c.code]?'#a5b4fc':'var(--text-dim)')+';display:inline-block;transform:rotate('+(_CR.reqOpen[c.code]?'90':'0')+'deg);transition:transform .15s">▶</button>':'')+'<button type="button" onclick="_crCountyEdit(\''+E(c.code)+'\')" title="Edit county — active, GIS link" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 4px 0 0;opacity:.7">⚙️</button>'+_crCodeBadge(c)+'<b>'+E(c.city)+'</b> <span style="color:var(--text-dim);font-size:12px">'+E(c.county)+'</span></td>'
       +'<td style="text-align:center;white-space:nowrap;overflow:hidden">'+(c.assessor_url?'<a href="'+E(c.assessor_url)+'" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none" title="'+E(c.assessor_url)+'">🗺️</a>':'<button type="button" onclick="_crCountyEdit(\''+E(c.code)+'\')" title="Add this county’s GIS / Assessor link" style="background:none;border:1px dashed var(--border);border-radius:6px;color:var(--text-dim);font-size:13px;line-height:1;cursor:pointer;width:26px;height:22px;padding:0;display:inline-flex;align-items:center;justify-content:center">+</button>')+'</td>'
       +cell(b,'fc',p.fc,c.code)+cell(b,'pb',p.pb,c.code)
-      +cell(b,'ev',p.ev,c.code)+_CR_LISTS.map(k=>lcell(b[k],k,p[k],c.code)).join('')+'</tr>'+(_crHasReq()&&_CR.reqOpen[c.code]?_crReqPanel(c):''); };
+      +cell(b,'ev',p.ev,c.code)+_CR_LISTS.map(k=>lcell(b[k],k,(k==='cv'||k==='ul')?_crListMonth(c,k,p[k]):p[k],c.code)).join('')+'</tr>'+(_crHasReq()&&_CR.reqOpen[c.code]?_crReqPanel(c):''); };
   const th='padding:6px;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--text-dim);text-align:center';
   const grp=(t,col,n)=>'<th colspan="'+(n||3)+'" style="'+th+';color:'+col+';border-bottom:2px solid '+col+';border-left:2px solid var(--border);">'+t+'</th>';
   const lcard=k=>{ const x=tot[k], p=_crPct(x.d,x.t); return '<div style="flex:1;min-width:150px;background:var(--panel-2);border:1px solid var(--border);border-top:3px solid '+_CR_COL[k]+';border-radius:10px;padding:10px 12px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text-dim)">'+_CR_TYPES[k]+'</div><div style="font-size:20px;font-weight:800">'+x.d.toLocaleString()+' <span style="font-size:13px;color:var(--text-dim);font-weight:600">/ '+x.t.toLocaleString()+'</span></div><div style="font-size:12px;font-weight:700"><span style="color:'+_crPctColor(p,x.t)+'">'+(x.t?p.toFixed(1)+'% complete':'—')+'</span>'+(x.s?'<span style="color:var(--text-dim);font-weight:600"> · </span><span style="color:#94a3b8">'+x.s.toLocaleString()+' scrapped</span>':'')+'</div></div>'; };
@@ -232,7 +232,17 @@ function _crReqHook(){
 }
 // Saves go through the same Requests functions (they re-read the row first and change only that one field), then the panel refreshes in place.
 function _crReqRepaint(code){ const c=_CR.counties.find(x=>x.code===code)||(_CR.reqExtra||{})[code]; const tr=document.getElementById('cr-req-'+code); if(c&&tr){ tr.outerHTML=_crReqPanel(c); _crReqFit(); } }
-async function _crReqDate(code,id,t,key,inp){ if(typeof _reqSetDate!=='function') return; await _reqSetDate(id,t,key,inp); _crReqRepaint(code); }
+async function _crReqDate(code,id,t,key,inp){ if(typeof _reqSetDate!=='function') return; await _reqSetDate(id,t,key,inp); if(key==='received'&&_CR.tab==='tracker') _crRender(); else _crReqRepaint(code); }
+// Code Violation / Utility Lien "Month" = the month of the Rcvd date in this city's Requests
+// (whichever is later: that, or a month you set by hand).
+function _crRcvdMonth(c,k){
+  try{ if(!_crHasReq()||!(typeof cache!=='undefined'&&cache.requests)) return '';
+    const r=c._req||_crReqCity(c); if(!r||!r.lists) return '';
+    const re=k==='cv'?/code\s*viol/i:/utility\s*lien/i; let best='';
+    Object.keys(r.lists).forEach(t=>{ if(!re.test(t)) return; const v=String((r.lists[t]||{}).received||''); if(/^\d{4}-\d{2}/.test(v)&&v>best) best=v; });
+    return best?best.slice(0,7):''; }catch(_){ return ''; }
+}
+function _crListMonth(c,k,manual){ const r=_crRcvdMonth(c,k); const m=String(manual||''); return (r&&r>=m.slice(0,7))?r:manual; }
 async function _crReqConn(code,id,t,sel){ if(typeof _reqLinkOffice!=='function') return; await _reqLinkOffice(id,t,sel); _crReqRepaint(code); }
 window._crReqDate=_crReqDate; window._crReqConn=_crReqConn;
 async function _crReqAddType(){ _crReqHook(); try{ await requestAddType(); }catch(e){ console.warn(e); } if(_CR.tab==='tracker') _crRender(); }
@@ -257,7 +267,8 @@ async function _crDrop(e,tr){
 }
 window._crDragStart=_crDragStart; window._crDragEnd=_crDragEnd; window._crDragOver=_crDragOver; window._crDrop=_crDrop;
 // "Set all" — one date for every ACTIVE county's Pulled-to, per list type.
-function _crSetAllBtn(k){ return (k==='ts'?'Year':_CR_LISTS.indexOf(k)>=0?'Month':'Pulled to')+' <button type="button" onclick="_crSetAllOpen(\''+k+'\',this)" title="Set every active county\'s '+(_CR_TYPES[k])+' Pulled-to date at once" style="margin-left:4px;height:20px;padding:0 6px;font-size:10px;font-weight:800;border:1px solid var(--border);background:var(--panel);color:#60a5fa;border-radius:5px;cursor:pointer;text-transform:none;letter-spacing:0">Set all</button>'; }
+function _crSetAllBtn(k){ if(_CR_LISTS.indexOf(k)>=0) return (k==='ts'?'Year':'Month');   // no Set all for city / county lists
+  return (k==='ts'?'Year':_CR_LISTS.indexOf(k)>=0?'Month':'Pulled to')+' <button type="button" onclick="_crSetAllOpen(\''+k+'\',this)" title="Set every active county\'s '+(_CR_TYPES[k])+' Pulled-to date at once" style="margin-left:4px;height:20px;padding:0 6px;font-size:10px;font-weight:800;border:1px solid var(--border);background:var(--panel);color:#60a5fa;border-radius:5px;cursor:pointer;text-transform:none;letter-spacing:0">Set all</button>'; }
 function _crIsoDay(off){ const d=new Date(); d.setDate(d.getDate()+(off||0)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 // Month / year choices for the list types (code violations + utility liens by month, tax sale by year).
 function _crPullOpts(k,v){

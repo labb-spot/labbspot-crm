@@ -60504,6 +60504,7 @@ function renderMotivatedByTag() {
     const _d = String(r.disposition || '').toLowerCase();
     if (_d.indexOf('different language') !== -1) return;
     const isMot = motCheck(r.disposition);
+    const isFu = isMot || /follow|\bf\/?u\b/i.test(_d);   // motivated OR follow-up
     // Only matched rows can have tags; unmatched go straight to No Tag.
     let anyTag = false;
     if (r.property_id) {
@@ -60512,24 +60513,30 @@ function renderMotivatedByTag() {
         Object.keys(p.flags).forEach(tag => {
           if (!p.flags[tag]) return;
           anyTag = true;
-          if (!byTag[tag]) byTag[tag] = { owners: new Set(), motivated: new Set() };
+          if (!byTag[tag]) byTag[tag] = { owners: new Set(), motivated: new Set(), fu: new Set() };
           byTag[tag].owners.add(k);
           if (isMot) byTag[tag].motivated.add(k);
+          if (isFu) byTag[tag].fu.add(k);
         });
       }
     }
     if (!anyTag) {
-      if (!byTag['No Tag']) byTag['No Tag'] = { owners: new Set(), motivated: new Set() };
+      if (!byTag['No Tag']) byTag['No Tag'] = { owners: new Set(), motivated: new Set(), fu: new Set() };
       byTag['No Tag'].owners.add(k);
       if (isMot) byTag['No Tag'].motivated.add(k);
+      if (isFu) byTag['No Tag'].fu.add(k);
     }
   });
+  // Faded bar BEHIND the motivated bar = motivated + follow-ups combined.
+  function fuLabel(e){ return e.fuOnly > 0 ? '<span title="Owners with a Follow Up result (not motivated yet) — combined with motivated" style="margin-left:10px;color:#93c5fd;opacity:.85">+' + e.fuOnly.toLocaleString() + ' follow up · <b>' + (e.pct2 * 100).toFixed(1) + '%</b></span>' : ''; }
+  function fuBar(e, color){ if (!(e.fuOnly > 0)) return ''; const w = Math.max(3, Math.min(100, Math.round(e.pct2 * 100 * 10) / 10)); return '<div title="Motivated + follow up: ' + (e.pct2 * 100).toFixed(1) + '%" style="position:absolute;left:0;top:0;bottom:0;width:' + w + '%;background:' + color + ';opacity:.28"></div>'; }
   const MIN_OWNERS = 5;
   let entries = Object.keys(byTag).map(tag => {
     const owners = byTag[tag].owners.size;
     const motivated = byTag[tag].motivated.size;
     const pct = owners > 0 ? motivated / owners : 0;
-    return { tag, owners, motivated, pct };
+    const both = byTag[tag].fu ? byTag[tag].fu.size : motivated;
+    return { tag, owners, motivated, pct, fuOnly: Math.max(0, both - motivated), pct2: owners > 0 ? both / owners : 0 };
   });
   const totalTags = entries.length;
   // Always keep 'No Tag' visible (even below MIN_OWNERS).
@@ -60584,10 +60591,12 @@ function renderMotivatedByTag() {
       +     '<b style="color:var(--text)">' + e.motivated.toLocaleString() + '</b>'
       +     '<span> / ' + e.owners.toLocaleString() + ' owners</span>'
       +     '<span style="margin-left:8px;color:' + color + ';font-weight:600">' + pctLabel + '%</span>'
+      +     fuLabel(e)
       +   '</div>'
       + '</div>'
       + '<div style="height:14px;border-radius:7px;overflow:hidden;background:#0f172a;border:1px solid rgba(255,255,255,0.05);position:relative">'
-      +   '<div style="width:' + barW + '%;height:100%;background:linear-gradient(90deg, ' + color + ', ' + color + 'dd);transition:width 0.5s ease;box-shadow:0 0 10px ' + color + '55 inset"></div>'
+      +   fuBar(e, color)
+      +   '<div style="position:relative;width:' + barW + '%;height:100%;background:linear-gradient(90deg, ' + color + ', ' + color + 'dd);transition:width 0.5s ease;box-shadow:0 0 10px ' + color + '55 inset"></div>'
       + '</div>'
       + '</div>';
   }).join('');
@@ -60630,10 +60639,12 @@ function renderMotivatedByTag() {
       +       '<b style="color:var(--text)">' + e.motivated.toLocaleString() + '</b>'
       +       '<span> / ' + e.owners.toLocaleString() + ' owners</span>'
       +       '<span style="margin-left:8px;color:' + color + ';font-weight:600">' + pctLabel + '%</span>'
+      +       fuLabel(e)
       +     '</div>'
       +   '</div>'
       +   '<div style="height:14px;border-radius:7px;overflow:hidden;background:#0f172a;border:1px solid rgba(255,255,255,0.05);position:relative;opacity:0.85">'
-      +     '<div style="width:' + barW + '%;height:100%;background:linear-gradient(90deg, ' + color + ', ' + color + 'dd)"></div>'
+      +     fuBar(e, color)
+      +     '<div style="position:relative;width:' + barW + '%;height:100%;background:linear-gradient(90deg, ' + color + ', ' + color + 'dd)"></div>'
       +   '</div>'
       + '</div>'
       + '</div>';

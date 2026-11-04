@@ -14290,6 +14290,9 @@ function uwComputeExits(ctx) {
   // insurance ~$150/mo). This avoids depending on the flip card's editable
   // inputs (which compute later in this function).
   const _wsFlMonths           = (function () {
+    // Respect the hold-time override (same one the Flip card uses) when it's set.
+    const o = parseFloat(document.getElementById('uw-proj-months-override')?.value);
+    if (isFinite(o) && o > 0) return o;
     const r = parseFloat(document.getElementById('uw-fl-reno-mo')?.value);
     const l = parseFloat(document.getElementById('uw-fl-listed-mo')?.value);
     return (isFinite(r) ? r : 2) + (isFinite(l) ? l : 3);

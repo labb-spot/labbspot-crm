@@ -117,14 +117,26 @@ function _crPctColor(p,t){ return !t?'var(--text-dim)':p>=100?'#22c55e':p>=90?'#
 const _CR_COLW=[250,50, 150,110,80, 150,110,80, 150,110,80, 150,100,70, 150,100,70, 110,100,70];
 const _CR_COLS='<colgroup>'+_CR_COLW.map(w=>'<col style="width:'+w+'px">').join('')+'</colgroup>';
 const _CR_TBL='table-layout:fixed;width:'+_CR_COLW.reduce((a,b)=>a+b,0)+'px;border-collapse:separate;border-spacing:0;font-size:13px';
+// Pulled-to freshness colors. Court dates: green = today/yesterday, yellow = up to 7 days, red = older.
+// List months: green = this month, yellow = last month, red = 2+ months ago.
+function _crDayCol(v){ if(!/^\d{4}-\d{2}-\d{2}/.test(String(v||''))) return ''; const t=new Date(); t.setHours(0,0,0,0);
+  const d=new Date(+v.slice(0,4),+v.slice(5,7)-1,+v.slice(8,10)); const n=Math.round((t-d)/864e5);
+  return n<=1?'#22c55e':n<=7?'#facc15':'#ef4444'; }
+function _crMonCol(v){ v=String(v||'');
+  if(/^\d{4}$/.test(v)) return (+v>=new Date().getFullYear())?'#22c55e':'#ef4444';   /* tax sale year: green this year, red older */
+  if(!/^\d{4}-\d{2}/.test(v)) return ''; const t=new Date();
+  const n=(t.getFullYear()*12+t.getMonth())-(+v.slice(0,4)*12+(+v.slice(5,7)-1));
+  return n<=0?'#22c55e':n===1?'#facc15':'#ef4444'; }
+function _crPullTint(inp){ const c=_crDayCol(inp.value); inp.style.color=c||'var(--text-dim)'; inp.style.borderColor=c?c+'99':''; }
+window._crPullTint=_crPullTint;
 function _crTrackerHtml(){
   const E=_reqEsc; const by=_crStats(); const fmt=d=>d?_reqFmtDate(d):'—';
   const cell=(b,k,pulled,code)=>{ const x=b[k]; const p=_crPct(x.d,x.t);
-    return '<td style="text-align:center;padding:4px 4px;border-left:2px solid var(--border);"><input type="date" value="'+(pulled||'')+'" title="Pulled to — change it when you pull" onchange="_crSetPulled(\''+code+'\',\''+k+'\',this)" style="height:28px;width:128px;font-size:12px;padding:0 5px;border-radius:6px;color:var(--text-dim)"></td>'
+    return '<td style="text-align:center;padding:4px 4px;border-left:2px solid var(--border);"><input type="date" value="'+(pulled||'')+'" title="Pulled to — change it when you pull" onchange="_crPullTint(this);_crSetPulled(\''+code+'\',\''+k+'\',this)" style="height:28px;width:128px;font-size:12px;padding:0 5px;border-radius:6px;color:'+(_crDayCol(pulled)||'var(--text-dim)')+(_crDayCol(pulled)?';border-color:'+_crDayCol(pulled)+'99;font-weight:600':'')+'"></td>'
       +'<td style="text-align:center;padding:7px 6px"><b>'+x.d.toLocaleString()+'</b><span style="color:var(--text-dim)"> / '+x.t.toLocaleString()+'</span></td>'
       +'<td style="text-align:center;padding:7px 6px;font-weight:700;color:'+_crPctColor(p,x.t)+'">'+(x.t?p.toFixed(1)+'%':'—')+'</td>'; };
   const _zeusOn=code=>{ const c=_CR.counties.find(x=>x.code===code); return !!(c&&c.pulled&&c.pulled._zeus); };
-  const lpull=(k,v,code)=>'<button type="button" title="'+(k==='ts'?'Tax sale year pulled'+(_zeusOn(code)?' — on Zeus':''):'Month you last pulled this list')+'" onclick="_crPickOpen(this,\''+k+'\',\''+code+'\')" style="height:28px;font-size:12px;padding:0 8px;border-radius:6px;border:'+(k==='ts'&&_zeusOn(code)?'1.5px solid #facc15':'1px solid var(--border)')+';background:var(--panel-2);color:'+(v?'var(--text)':'var(--text-dim)')+';cursor:pointer;width:'+(k==='ts'?80:104)+'px;display:inline-flex;align-items:center;justify-content:space-between;gap:4px"><span>'+_crPullLbl(v)+'</span><span style="opacity:.6;font-size:10px">▾</span></button>';
+  const lpull=(k,v,code)=>'<button type="button" title="'+(k==='ts'?'Tax sale year pulled'+(_zeusOn(code)?' — on Zeus':''):'Month you last pulled this list')+'" onclick="_crPickOpen(this,\''+k+'\',\''+code+'\')" style="height:28px;font-size:12px;padding:0 8px;border-radius:6px;border:'+(k==='ts'&&_zeusOn(code)?'1.5px solid #facc15':_crMonCol(v)?'1px solid '+_crMonCol(v)+'99':'1px solid var(--border)')+';background:var(--panel-2);color:'+(_crMonCol(v)||(v?'var(--text)':'var(--text-dim)'))+';'+(_crMonCol(v)?'font-weight:600;':'')+'cursor:pointer;width:'+(k==='ts'?80:104)+'px;display:inline-flex;align-items:center;justify-content:space-between;gap:4px"><span>'+_crPullLbl(v)+'</span><span style="opacity:.6;font-size:10px">▾</span></button>';
   const lcell=(x,k,pv,code)=>{ const p=_crPct(x.d,x.t); return '<td style="text-align:center;padding:4px 4px;border-left:2px solid var(--border);">'+lpull(k,pv,code)+'</td><td style="text-align:center;padding:7px 6px"><b>'+x.d.toLocaleString()+'</b><span style="color:var(--text-dim)"> / '+x.t.toLocaleString()+'</span></td><td style="text-align:center;padding:7px 6px;font-weight:700;color:'+_crPctColor(p,x.t)+'">'+(x.t?p.toFixed(1)+'%':'—')+'</td>'; };
   const empty={fc:{d:0,t:0},pb:{d:0,t:0,u:0},ev:{d:0,t:0},cv:{d:0,t:0,s:0},ul:{d:0,t:0,s:0},ts:{d:0,t:0,s:0},scrap:0,all:0};
   const act=_CR.counties.filter(c=>c.active), ina=_CR.counties.filter(c=>!c.active);

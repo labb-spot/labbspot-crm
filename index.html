@@ -3681,8 +3681,8 @@
           <div class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start;margin-left:32px;margin-right:auto" title="70% Rule = (ARV × 70%) − Rehab Budget">70% Rule<div id="uw-70-rule" class="font-mono mt-1" style="font-size:14px">—</div></div>
         </div>
         <div class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start" title="Suggested opening offer — 75% of Max Offer. Leaves negotiation room while staying under your worst-case ceiling.">Suggested Offer<div id="uw-suggested" class="font-mono mt-1" style="font-size:14px;color:#3b82f6;font-weight:700">—</div></div>
-        <div class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start" title="Highest price you can pay and still walk away with a $20,000 wholesale assignment fee (Cash Buyer's MAO − $20,000).">Max Offer<div id="uw-max" class="font-mono mt-1" style="font-size:14px;color:#10b981;font-weight:700">—</div></div>
-        <div class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start" title="Commission = 15% × (Max Offer − Accepted Price). If Accepted Price is blank, Asking Price is used instead. Negative when accepted/asking is above max offer (deal is too expensive to assign with this fee).">Commission<div id="uw-commission" class="font-mono mt-1" style="font-size:14px;color:#3b82f6">—</div></div>
+        <div class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start" title="Highest price you can pay and still walk away with a $20,000 wholesale assignment fee (Cash Buyer's MAO − $20,000).">Max Cash Offer<div id="uw-max" class="font-mono mt-1" style="font-size:14px;color:#10b981;font-weight:700">—</div></div>
+        <div class="text-xs" style="display:flex;flex-direction:column;justify-content:flex-start" title="Highest seller price that still leaves your novation fee: (ARV × 90% − repairs) − 6% agents − 3% closing − clean-out (2% of ARV, min $5k) − your novation fee.">Max Novation Offer<div id="uw-max-nova" class="font-mono mt-1" style="font-size:14px;color:#a78bfa;font-weight:700">—</div><div id="uw-commission" style="display:none"></div></div>
       </div>
     </div>
 
@@ -13522,6 +13522,27 @@ function uwRecalc() {
         ') = $' + Math.round(commission).toLocaleString()
       : 'Fills once Max Offer and Accepted (or Asking) Price are computed.';
   }
+  // Max Novation Offer — same Nova math as the breakdown, solved for the seller price that leaves your novation fee.
+  try {
+    const _mnEl = document.getElementById('uw-max-nova');
+    if (_mnEl) {
+      const _N = v => { const x = parseFloat(String(v == null ? '' : v).replace(/[$,]/g, '')); return isFinite(x) ? x : 0; };
+      const _S = (typeof _uwGetStratSettings === 'function') ? _uwGetStratSettings() : {};
+      const _d = (k, def) => (_S[k] != null && _S[k] !== '') ? _N(_S[k]) : def;
+      const _salePct = _N((document.getElementById('uw-wt-nov-sale-pct') || {}).value) || 90;
+      const _repairs = _N((document.getElementById('uw-wt-nov-rehab-amt') || {}).value) || _N((document.getElementById('uw-rehab-override') || {}).value) || 5000;
+      const _target = Math.max(0, arv * _salePct / 100 - _repairs);
+      const _sell = _target * (_d('novateAgentPct', 6) + _d('novateClosePct', 3)) / 100;
+      const _hold = Math.max(_d('novateHoldMin', 5000), arv * _d('novateHoldPct', 2) / 100);
+      const _fee = _d('novateSpread', 15000);
+      const _mno = _target - _sell - _hold - _fee;
+      if (arv > 0) {
+        _mnEl.textContent = (_mno < 0 ? '−' : '') + _uwFmt$(Math.abs(_mno));
+        _mnEl.style.color = _mno > 0 ? '#a78bfa' : '#ef4444';
+        _mnEl.title = 'Target resale ' + _uwFmt$(_target) + ' (' + _salePct + '% ARV − repairs ' + _uwFmt$(_repairs) + ') − selling ' + _uwFmt$(_sell) + ' − clean-out ' + _uwFmt$(_hold) + ' − your fee ' + _uwFmt$(_fee) + ' = ' + _uwFmt$(_mno);
+      } else { _mnEl.textContent = '—'; _mnEl.style.color = 'var(--text-dim)'; _mnEl.title = 'Fills once the deal has an ARV.'; }
+    }
+  } catch (_) {}
   // Offer-field placeholder is intentionally left empty — the Suggested
   // Offer value is already surfaced separately in the "Suggested Offer"
   // stat below the field, so duplicating it inside the bubble was visually
@@ -21256,6 +21277,9 @@ async function uwSave(manual) {
   // Defaults to false if the calc hasn't exposed them yet (avoid stale true values).
   data._finLtvBinds = !!window._3p_finLtvBinds;
   data._rfLtvBinds  = !!window._3p_rfLtvBinds;
+  // The merge-save above already built _saveData from `data` — copy these computed values into it too,
+  // otherwise they never reach the database (that's why the list kept showing an old Max Offer).
+  if (_saveData && _saveData !== data) { _saveData._maxOffer = data._maxOffer; _saveData._finLtvBinds = data._finLtvBinds; _saveData._rfLtvBinds = data._rfLtvBinds; }
   // The asking/accepted values already live in data['uw-asking'] and
   // data['uw-accepted'] (saved via _uwCollect's UW_FIELDS loop) so no extra
   // copy needed here.
@@ -31737,7 +31761,7 @@ function _hrShowDealModal(id) {
   const asking   = parseFloat(String(data['uw-asking']   || u.asking   || 0).replace(/,/g,'')) || 0;
   const arv      = (typeof _uwComputeArvFromData === 'function' ? _uwComputeArvFromData(data) : 0) || u.arv || 0;
   const rent     = (typeof _uwComputeRentFromData === 'function' ? _uwComputeRentFromData(data) : 0) || 0;
-  const maxOffer = parseFloat(u.max_offer || data._maxOffer || 0) ||
+  const maxOffer = parseFloat(((data && data._maxOffer != null && data._maxOffer !== '') ? data._maxOffer : u.max_offer) || 0) ||
                    (typeof _uwComputeMaxOfferFromData === 'function' ? _uwComputeMaxOfferFromData(data) : 0);
   const profit = Number(u.best_profit) || 0;
   const isRental = /rental/i.test(u.best_exit || '');
@@ -46759,7 +46783,7 @@ function renderUnderwriteList() {
       _route('pricePct', _arvC > 0 && _lowestPrice > 0 && _lowestPrice <= (_S.pricePct / 100) * _arvC);
       _route('underArv', _arvC > 0 && _lowestPrice > 0 && (_arvC - _lowestPrice) >= _S.underArv);
       {
-        const _mo = parseFloat(u.max_offer || data._maxOffer || 0) ||
+        const _mo = parseFloat(((data && data._maxOffer != null && data._maxOffer !== '') ? data._maxOffer : u.max_offer) || 0) ||
           (typeof _uwComputeMaxOfferFromData === 'function' ? _uwComputeMaxOfferFromData(data) : 0);
         const _gap = (_mo > 0 && _lowestPrice > 0) ? Math.abs(_mo - _lowestPrice) : Infinity;
         _route('withinDollar', _mo > 0 && _lowestPrice > 0 && _gap <= _S.withinDollar);
@@ -46776,7 +46800,7 @@ function renderUnderwriteList() {
     const _hotPacket = (u.packet_status || '').trim();
     if (_hotOffer === 'Closed' || _hotOffer === 'Dropped' || _hotPacket === 'Closed') return false;
     const asking   = parseFloat(String(data['uw-asking'] || u.asking || 0).replace(/,/g,'')) || 0;
-    const maxOffer = parseFloat(u.max_offer || data._maxOffer || 0) ||
+    const maxOffer = parseFloat(((data && data._maxOffer != null && data._maxOffer !== '') ? data._maxOffer : u.max_offer) || 0) ||
                      (typeof _uwComputeMaxOfferFromData === 'function' ? _uwComputeMaxOfferFromData(data) : 0);
     if (asking <= 0 || maxOffer <= 0) return false;
     // GATE A: rehab gate — skip if nobody has priced or checked any rehab.
@@ -46952,7 +46976,7 @@ function renderUnderwriteList() {
         else              inner = '<span style="color:#ef4444;font-weight:700;font-size:16px">?</span>';    // neither → red ?
         return '<td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums">' + inner + '</td>';
       })()}
-      <td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums">${fmt$(parseFloat(u.max_offer || (u.data && u.data._maxOffer) || 0) || _uwComputeMaxOfferFromData(u.data))}</td>
+      <td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums">${fmt$(parseFloat(((u.data && u.data._maxOffer != null && u.data._maxOffer !== '') ? u.data._maxOffer : u.max_offer) || 0) || _uwComputeMaxOfferFromData(u.data))}</td>
       <td style="padding:8px 10px;text-align:center;font-variant-numeric:tabular-nums;line-height:1.25"><div>${fmt$(_uwComputeArvFromData(u.data) || u.arv)}</div><div style="font-size:11px;color:var(--text-dim)" title="Projected monthly rent">${fmt$(_uwComputeRentFromData(u.data))}/m</div></td>
       <td style="padding:8px 4px;vertical-align:middle;text-align:center">${uwThreePlaysHtml(u)}</td>
       <td style="padding:8px 10px;text-align:left">${(function(){

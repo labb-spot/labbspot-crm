@@ -15222,7 +15222,9 @@ function uwComputeExits(ctx) {
   // Max baseline (matches wsBuyMax + headline Max Offer cascade). The original
   // cashBuyerMAO-based number set above is replaced; downstream cascade gates
   // (wholetail ≥ 2× wholesale, flip ≥ 3× wholesale, etc.) inherit the new value.
-  wholesaleProfit     = Math.max(0, flFinBuyMaxBasis - buyPrice - wholesaleDoubleCloseFee);
+  // Assignment fee = Cash Buyer Max Offer (shown on the card) − your contract price,
+  // so the card's math always adds up. (Previously anchored to the Financed Flip Max.)
+  wholesaleProfit     = Math.max(0, cashBuyerMAO - buyPrice - wholesaleDoubleCloseFee);
   window._3p_wholesale = wholesaleProfit;
   wholesaleAnnualized = wholesaleProfit > 0 ? wholesaleProfit * (365 / wholesaleDays) : 0;
   // Cash vs financed differ ONLY by the financing-cost adjustments (origination + interest)

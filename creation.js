@@ -469,7 +469,9 @@ _CR.paste=_CR.paste||{ rows:null, text:'' };
 function _crPasteRender(body){
   const E=_reqEsc; const P=_CR.paste; const mode=_CR.addMode||'mycase';
   const pill=(m,t)=>'<div class="subtab'+(mode===m?' active':'')+'" onclick="_CR.addMode=\''+m+'\';_crRender()" style="display:inline-flex;align-items:center;white-space:nowrap">'+t+'</div>';
-  const head='<div class="panel p-1" style="display:inline-flex;gap:4px;margin-bottom:12px">'+pill('mycase','⚖️ Paste from MyCase')+pill('list','📥 Import a list (Excel / CSV)')+'</div>';
+  const head='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><div class="panel p-1" style="display:inline-flex;gap:4px">'+pill('mycase','⚖️ Paste from MyCase')+pill('list','📥 Import a list (Excel / CSV)')+'</div>'
+    +'<div class="panel p-1" style="display:inline-flex;gap:4px">'+pill('history','🕘 History')+'</div></div>';
+  if(mode==='history'){ _CR.hist.rows=null; body.innerHTML=head+'<div id="cr-hist"><div style="padding:20px;color:var(--text-dim)">Loading…</div></div>'; _crHistRender(document.getElementById('cr-hist')); return; }
   if(mode==='list'){ body.innerHTML=head+'<div id="cr-li"></div>'; _crLiRender(document.getElementById('cr-li')); return; }
   body.innerHTML=head+'<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:14px;align-items:stretch">'
     +'<div style="display:flex;flex-direction:column;min-height:420px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div style="font-size:14px;font-weight:700;flex:1">1. Paste MyCase results</div><button type="button" class="btn btn-ghost text-sm" onclick="_CR.paste={rows:null,text:\'\'};_crRender()">Clear</button></div>'
@@ -493,7 +495,7 @@ async function _crPasteRead(){
     if(have.has(c.case_number)) c._st='have'; else if(!_crKeepType(c.case_type)) c._st='skip';
     else { c.sort_code=_crSort(c)||'0'+(_CR_SFX[_crTypeKey(c.case_type)]||''); c._st=_crScrap(c.sort_code)?'scrap':'new'; } });
   const ignored=rows.filter(r=>r._st==='skip').length; rows=rows.filter(r=>r._st!=='skip');
-  P.rows=rows;
+  P.rows=rows; P.ignored=ignored;
   const n=k=>rows.filter(r=>r._st===k).length;
   const counties=[...new Set(rows.filter(r=>r._st==='new'||r._st==='have'||r._st==='scrap').map(r=>r.county_code))];
   const types=[...new Set(rows.filter(r=>r._st!=='skip').map(r=>_crTypeKey(r.case_type)).filter(Boolean))];
@@ -522,6 +524,8 @@ async function _crPasteSave(btn){
       if(d){ const byC={}; P.rows.filter(r=>r._st!=='skip').forEach(r=>{ const k=_crTypeKey(r.case_type); if(k){ (byC[r.county_code]=byC[r.county_code]||{})[k]=1; } });
         await Promise.all(Object.keys(byC).map(code=>{ const c=_CR.counties.find(x=>x.code===code); if(!c) return null; const pulled=Object.assign({},c.pulled||{}); Object.keys(byC[code]).forEach(k=>{ pulled[k]=d; }); return _crSaveCounty(code,{pulled:pulled}); })); }
     }
+    _crLogImport({ kind:'paste', added:add.filter(r=>r._st==='new').length, scrap:add.filter(r=>r._st==='scrap').length, have:P.rows.filter(r=>r._st==='have').length, ignored:P.ignored||0,
+      counties:[...new Set(add.map(r=>r.county_code))], cases:add.map(r=>r.case_number) });
     await _crLoad(true);
     if(typeof toast==='function') toast('📋 Added '+add.length+' case'+(add.length===1?'':'s')+' — they’re in the Work Queue','ok');
     _CR.paste={rows:null,text:''}; _crRender();
@@ -1471,12 +1475,68 @@ async function _crLiSave(btn){
     const recs=add.map(r=>{ const o=Object.assign({},r); delete o._st; delete o._id; return o; });
     let fixed=0; for(const r of fixes){ const up=await sb.from('court_cases').update({sort_code:r.sort_code,extra:r.extra,status:r.status,completed_at:(_crDone(r.sort_code)||_crScrap(r.sort_code))?(r.completed_at||new Date().toISOString()):null,updated_at:new Date().toISOString()}).eq('id',r._id); if(!up.error) fixed++; if(fixed%25===0) btn.textContent='Fixing… '+fixed+' / '+fixes.length; }
     for(let i=0;i<recs.length;i+=500){ const up=await sb.from('court_cases').upsert(recs.slice(i,i+500),{onConflict:'case_number',ignoreDuplicates:true}); if(up.error) throw up.error; btn.textContent='Adding… '+Math.min(i+500,recs.length)+' / '+recs.length; }
+    _crLogImport({ kind:'list', file:L.file||'', label:(L.P&&L.P.label)||'', added:add.length, fixed:fixed, have:(L.recs||[]).filter(r=>r._st==='have').length,
+      counties:[...new Set(add.concat(fixes).map(r=>r.county_code).filter(Boolean))], cases:add.map(r=>r.case_number).filter(Boolean) });
     await _crLoad(true);
     toast('📥 Added '+add.length.toLocaleString()+(fixed?' · updated '+fixed:'')+' — '+add.filter(r=>r._st==='todo').length.toLocaleString()+' need an address in the Work Queue','ok');
     _CR.li={ recs:null, fmt:'', county:L.county, file:'' }; _crRender();
   }catch(e){ btn.disabled=false; btn.textContent='Try again'; toast('Add failed: '+(e.message||e)+(/parcel|amount|extra/.test(e.message||'')?' — run creation-lists.sql in Supabase first':''),'err'); }
 }
 window._crLiSave=_crLiSave;
+
+// ----- 🕘 History of pastes + list imports (kept in app_config.column_mappings.creation_import_history) -----
+async function _crLogImport(e){
+  try{
+    e.at=new Date().toISOString(); e.by=await _crMe(); e.cases=(e.cases||[]).slice(0,600);
+    const r=await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle(); if(r.error) throw r.error;
+    const cm=Object.assign({},(r.data&&r.data.column_mappings)||{});
+    const arr=Array.isArray(cm.creation_import_history)?cm.creation_import_history.slice():[];
+    arr.unshift(e); cm.creation_import_history=arr.slice(0,100);
+    await sb.from('app_config').update({column_mappings:cm,updated_at:new Date().toISOString()}).eq('id',1);
+  }catch(err){ console.warn('import history log',err); }
+}
+_CR.hist=_CR.hist||{ open:-1 };
+async function _crHistRender(el,useCache){
+  if(!el) return; const E=_reqEsc; let arr=[];
+  let all;
+  if(useCache&&_CR.hist.rows){ all=_CR.hist.rows; } else {
+  try{ const r=await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle(); arr=(r.data&&r.data.column_mappings&&r.data.column_mappings.creation_import_history)||[]; }catch(_){}
+  // Older batches (before the log existed): cases grouped by when they were added.
+  let older=[];
+  try{
+    const since=arr.length?arr[arr.length-1].at:null;
+    let q=sb.from('court_cases').select('case_number,county_code,created_at').order('created_at',{ascending:false}).limit(5000);
+    if(since) q=q.lt('created_at',since);
+    const r=await q; if(!r.error){ const m=new Map(); (r.data||[]).forEach(c=>{ if(!c.created_at) return; const k=c.created_at.slice(0,16); const g=m.get(k)||{at:c.created_at,cases:[],counties:new Set()}; g.cases.push(c.case_number); g.counties.add(c.county_code); m.set(k,g); });
+      older=[...m.values()].slice(0,40).map(g=>({kind:'older',at:g.at,added:g.cases.length,counties:[...g.counties].filter(Boolean),cases:g.cases})); }
+  }catch(_){}
+  all=arr.concat(older); _CR.hist.rows=all; }
+  if(!all.length){ el.innerHTML='<div style="padding:30px;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:10px">No pastes or imports yet.</div>'; return; }
+  const city=c=>{ const x=(_CR.counties||[]).find(k=>k.code===c); return x?x.city:c; };
+  const when=t=>{ const d=new Date(t); return isNaN(d)?'':d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})+' · '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}); };
+  const byCase={}; (_CR.cases||[]).forEach(c=>{ byCase[c.case_number]=c; });
+  const pill=(t,col)=>'<span style="font-size:11.5px;font-weight:700;color:'+col+';background:'+col+'1f;border:1px solid '+col+'55;border-radius:999px;padding:2px 8px;white-space:nowrap">'+t+'</span>';
+  el.innerHTML='<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:10px">Every MyCase paste and list import, newest first. Click one to see the cases it added.</div>'
+   +'<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">'+all.map((h,i)=>{
+     const icon=h.kind==='paste'?'⚖️ MyCase paste':h.kind==='list'?'📥 '+(h.label||'List import'):'🗂 Added';
+     const sub=h.kind==='list'&&h.file?'<span style="color:var(--text-dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px">'+E(h.file)+'</span>':'';
+     const stats=[pill(String(h.added||0)+' added','#22c55e')];
+     if(h.scrap) stats.push(pill(h.scrap+' scrap','#ef4444'));
+     if(h.fixed) stats.push(pill(h.fixed+' updated','#60a5fa'));
+     if(h.have) stats.push(pill(h.have+' already here','#94a3b8'));
+     if(h.ignored) stats.push(pill(h.ignored+' ignored','#94a3b8'));
+     const open=_CR.hist.open===i;
+     const list=open?'<div style="padding:8px 12px 12px 12px;background:var(--panel-2);border-top:1px solid var(--border)">'+((h.cases&&h.cases.length)?'<div style="max-height:300px;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tbody>'+h.cases.map(cn=>{ const c=byCase[cn]; return '<tr style="border-top:1px solid var(--border);'+(c?'cursor:pointer':'')+'" '+(c?'onclick="_crOpenAny(\''+E(c.id)+'\')"':'')+'><td style="padding:5px 8px;white-space:nowrap;font-weight:600">'+E(cn)+'</td><td style="padding:5px 8px;color:var(--text-dim)">'+E(c?(c.style||c.address||''):'')+'</td><td style="padding:5px 8px;white-space:nowrap;color:var(--text-dim)">'+E(c?(c.address||''):'')+'</td></tr>'; }).join('')+'</tbody></table></div>':'<div style="font-size:12.5px;color:var(--text-dim)">No new cases were added.</div>')+'</div>':'';
+     return '<div style="border-top:'+(i?'1px solid var(--border)':'none')+'"><div onclick="_CR.hist.open=(_CR.hist.open==='+i+'?-1:'+i+');_crHistRender(document.getElementById(\'cr-hist\'),true)" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:9px 12px;cursor:pointer;font-size:13px">'
+       +'<span style="width:12px;color:var(--text-dim)">'+(open?'▾':'▸')+'</span>'
+       +'<span style="font-weight:700;white-space:nowrap">'+E(icon)+'</span>'+sub
+       +'<span style="color:var(--text-dim);font-size:12px">'+E((h.counties||[]).map(city).join(', '))+'</span>'
+       +'<span style="flex:1"></span>'+stats.join('')
+       +'<span style="color:var(--text-dim);font-size:12px;white-space:nowrap;min-width:150px;text-align:right">'+E(when(h.at))+(h.by?' · '+E(String(h.by).split('@')[0]):'')+'</span>'
+     +'</div>'+list+'</div>';
+   }).join('')+'</div>';
+}
+window._crHistRender=_crHistRender;
 
 // ↻ Refresh: spin the icon + dim the current view while it re-pulls, so you can see it working (nothing changes size).
 async function _crRefresh(btn){

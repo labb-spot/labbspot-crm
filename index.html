@@ -10050,6 +10050,13 @@ const _LABB_ROUTE=(()=>{ try{ const q=new URLSearchParams(location.search).get('
   return (localStorage.getItem('labb_route')==='proxy'&&location.protocol==='https:')?'proxy':'direct'; }catch(_){ return 'direct'; } })();
 try{ const _lr=document.getElementById('login-route'); if(_lr) _lr.checked=(_LABB_ROUTE==='proxy'); }catch(_){}
 window._labbSetRoute=function(on){ try{ if(on) localStorage.setItem('labb_route','proxy'); else localStorage.removeItem('labb_route'); }catch(_){} location.reload(); };
+// Auto-switch: if supabase.co can't be reached from this connection (blocked by the internet provider —
+// the reason some employees needed a VPN), turn on the overseas route automatically and reload once.
+if(_LABB_ROUTE==='direct'&&location.protocol==='https:'){ (async()=>{ let ok=false;
+  for(let i=0;i<2&&!ok;i++){ try{ const c=new AbortController(); const t=setTimeout(()=>c.abort(),6000);
+    await fetch(SUPABASE_URL+'/auth/v1/health',{headers:{apikey:SUPABASE_KEY},signal:c.signal,cache:'no-store'}); clearTimeout(t); ok=true; }catch(_){ } }
+  if(!ok){ try{ if(!sessionStorage.getItem('labb_route_auto')){ sessionStorage.setItem('labb_route_auto','1'); localStorage.setItem('labb_route','proxy'); location.reload(); } }catch(_){} }
+})(); }
 // In overseas mode every request (data, login, files) is rewritten to go through /sbx on this site; live updates stay direct.
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, _LABB_ROUTE==='proxy' ? { global:{ fetch:(u,o)=>{ const s=(typeof u==='string')?u:(u&&u.url)||String(u); return fetch(s.indexOf(SUPABASE_URL)===0?location.origin+'/sbx'+s.slice(SUPABASE_URL.length):u,o); } } } : undefined);
 

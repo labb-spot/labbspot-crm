@@ -1167,6 +1167,7 @@
       <div class="subtab" id="mkt-pill-overview" onclick="goResView('overview')" title="Results overview & analytics.">📊 Overview</div>
     </div>
     <div class="flex items-center gap-1 panel p-1 w-fit" style="margin-left:auto">
+      <div class="subtab" id="mkt-pill-access" onclick="if(typeof _crAccessOpen==='function')_crAccessOpen()" title="Who sees what — Creation-only and Records &amp; Overview-only logins">👥 Access</div>
       <div class="subtab" id="mkt-pill-diagnose" onclick="diagnoseLists()" title="Inspect DB row counts across every table">🔍 Diagnose</div>
     </div>
   </div>
@@ -53770,7 +53771,11 @@ async function loadAllFromDB() {
   // Wrap each fetch with progress reporting so the boot screen shows what's
   // currently in flight + done. Tables are queued first so user sees the full
   // list right away.
-  const tableNames = ['properties','lists','property_lists','vendors','skiptrace_records','skip_uploads','phones','emails','app_config'];
+  // Records & Overview-only logins skip what those two pages never use (deals, contacts, emails,
+  // mailing addresses, rehab price books) so their load is lighter and that data never reaches them.
+  const _RO = !!window.RECORDS_ONLY;
+  const tableNames = _RO ? ['properties','lists','property_lists','vendors','skiptrace_records','skip_uploads','phones','app_config']
+                         : ['properties','lists','property_lists','vendors','skiptrace_records','skip_uploads','phones','emails','app_config'];
   if (typeof setBootLoaderTable === 'function') tableNames.forEach(n => setBootLoaderTable(n, 'queued'));
   const tracked = (name, fn) => async () => {
     const t0 = Date.now();
@@ -53870,7 +53875,8 @@ async function loadAllFromDB() {
     // Contacts: fetch in the background at boot too, so its status check flips
     // to ✓ on its own instead of waiting until Underwriting/Dispositions is opened.
     // loadContacts() sets its own 'loaded'/'error' status.
-    try { if (typeof loadContacts === 'function') loadContacts(); } catch (e) { console.warn('boot loadContacts:', e); }
+    if (!_RO) { try { if (typeof loadContacts === 'function') loadContacts(); } catch (e) { console.warn('boot loadContacts:', e); } }
+    else { cache.contacts = cache.contacts || {}; if (typeof _setLazyStatus === 'function') { _setLazyStatus('contacts', 'loaded', 0); _setLazyStatus('emails', 'loaded', 0); } }
     safe(tracked('phones', () => fetchAll('phones')), []).then(rows => {
       cache.phones = {};
       (rows || []).forEach(ph => { cache.phones[ph.id] = ph; });
@@ -53878,7 +53884,7 @@ async function loadAllFromDB() {
       if (typeof _setLazyStatus === 'function') _setLazyStatus('phones', 'loaded', (rows||[]).length);
       _rerenderAfterLazy();
     }).catch(() => { if (typeof _setLazyStatus === 'function') _setLazyStatus('phones', 'error'); });
-    safe(tracked('emails', () => fetchAll('emails')), []).then(rows => {
+    if (!_RO) safe(tracked('emails', () => fetchAll('emails')), []).then(rows => {
       cache.emails = {};
       (rows || []).forEach(em => { cache.emails[em.id] = em; });
       _bgRehydrateProps();
@@ -53887,7 +53893,7 @@ async function loadAllFromDB() {
     }).catch(() => { if (typeof _setLazyStatus === 'function') _setLazyStatus('emails', 'error'); });
     // Mailing addresses (accumulated history, like phones/emails). safe() → []
     // if the table doesn't exist yet, so the app loads fine before the SQL is run.
-    safe(tracked('mailing_addresses', () => fetchAll('mailing_addresses')), []).then(rows => {
+    if (!_RO) safe(tracked('mailing_addresses', () => fetchAll('mailing_addresses')), []).then(rows => {
       cache.mailingAddresses = {};
       (rows || []).forEach(ma => { cache.mailingAddresses[ma.id] = ma; });
       _bgRehydrateProps();
@@ -53911,7 +53917,8 @@ async function loadAllFromDB() {
   }
 
   // Underwrites — soft load, table may not exist yet (pre-migration)
-  if (typeof loadUnderwrites === 'function') {
+  if (_RO) { cache.underwrites = cache.underwrites || {}; }
+  else if (typeof loadUnderwrites === 'function') {
     try { await loadUnderwrites(); } catch (e) { console.warn('underwrites load skipped:', e.message); }
   }
 
@@ -53938,6 +53945,7 @@ async function loadAllFromDB() {
 
   // Pull the global Rehab Calculator $/SF price book from the cloud so the
   // calculator starts in sync on any device. Safe no-op if cloud is empty.
+  if (_RO) return;
   if (typeof _uwRehabPriceBookHydrateFromCloud === 'function') _uwRehabPriceBookHydrateFromCloud();
   // Global Quick-Preset overrides (Cosmetic…Monster item lists) — shared by team.
   if (typeof window._rcHydratePresets === 'function') window._rcHydratePresets();
@@ -57431,8 +57439,10 @@ async function handleLogin(e) {
       return false;
     }
     if (typeof _crIsCreationOnly === 'function' && data && data.user && await _crIsCreationOnly(data.user.email)) { location.replace('creation.html'); return false; }
+    const _ro = typeof _crIsRecordsOnly === 'function' && data && data.user && await _crIsRecordsOnly(data.user.email);
+    if (_ro) _roApply();
     hideLoginOverlay();
-    if (typeof boot === 'function') boot();
+    if (typeof boot === 'function') { const _b = boot(); if (_ro) Promise.resolve(_b).then(_roLand, _roLand); }
   } catch (ex) {
     busy.style.display = 'none';
     err.style.display = '';
@@ -57456,6 +57466,40 @@ async function logoutApp() {
   try { await sb.auth.signOut(); } catch (e) {}
   window.location.reload();
 }
+// ===== Records-only logins (app_config.column_mappings.records_only_emails, set in Creation ▸ 👥 Access) =====
+// They only get Marketing ▸ Records + Overview: every other tab, header button and sub-tab is hidden,
+// navigation elsewhere bounces back to Records, and Clear / batch geocoding are hidden.
+function _roApply() {
+  if (window.RECORDS_ONLY) return; window.RECORDS_ONLY = true;
+  document.documentElement.classList.add('ro-mode');
+  const st = document.createElement('style'); st.id = 'ro-mode-css';
+  st.textContent = 'html.ro-mode #section-tabs-row{display:none!important}'
+    + 'html.ro-mode #top-bar > div:last-child > *:not(#ro-logout){display:none!important}'
+    + 'html.ro-mode #mkt-subbar > div > *:not(.ro-keep){display:none!important}'
+    + 'html.ro-mode button[onclick="clearAllResults()"]{display:none!important}'
+    + 'html.ro-mode .ro-hide{display:none!important}';
+  document.head.appendChild(st);
+  const mark = () => {
+    const rp = document.getElementById('mkt-pill-records'); if (rp && rp.parentElement) rp.parentElement.classList.add('ro-keep');
+    const geo = [...document.querySelectorAll('[data-resview-panel="records"] .panel')].find(p => /Batch geocode unmatched/.test(p.textContent || '')); if (geo) geo.classList.add('ro-hide');
+    const tb = document.querySelector('#top-bar > div:last-child');
+    if (tb && !document.getElementById('ro-logout')) { const b = document.createElement('button'); b.id = 'ro-logout'; b.className = 'btn btn-ghost text-sm'; b.textContent = '🚪 Log Out'; b.style.cssText = 'color:#f87171;border:1px solid rgba(248,113,113,0.4)'; b.onclick = () => logoutApp(); tb.appendChild(b); }
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mark); else mark();
+  // Only these tables are ever read for a Records-only login — any other table comes back empty,
+  // so deals, buyers, contacts, court cases etc. are never downloaded to their browser.
+  try {
+    const ALLOW = new Set(['results','properties','lists','property_lists','vendors','skiptrace_records','skip_uploads','phones','app_config','agents','agent_daily_stats']);
+    const _empty = () => { const res = { data: [], error: null, count: 0 }; let px;
+      px = new Proxy(function () {}, { get(t, k) { if (k === 'then') return (a, b) => Promise.resolve(res).then(a, b);
+        if (k === 'single' || k === 'maybeSingle') return () => Promise.resolve({ data: null, error: null }); return () => px; } }); return px; };
+    if (typeof sb !== 'undefined' && sb && !sb._roWrapped) { const _of = sb.from.bind(sb); sb.from = t => ALLOW.has(t) ? _of(t) : _empty(); sb._roWrapped = true; }
+  } catch (e) { console.warn('records-only table filter:', e); }
+  const _toRecords = () => { try { goResView('records'); } catch (_) {} };
+  window.goSection = function () { _toRecords(); };
+  window.goMarketingView = function () { _toRecords(); };
+}
+function _roLand() { if (!window.RECORDS_ONLY) return; try { goResView('records'); } catch (_) {} setTimeout(() => { try { goResView('records'); } catch (_) {} }, 1500); }
 async function checkSessionAndBoot() {
   // Update the boot loader text immediately so the user sees we got past the
   // initial HTML default ("Connecting to Supabase…").
@@ -57471,9 +57515,11 @@ async function checkSessionAndBoot() {
     const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
     if (session) {
       if (typeof _crIsCreationOnly === 'function' && session.user && await _crIsCreationOnly(session.user.email)) { location.replace('creation.html'); return; }
+      const _ro = typeof _crIsRecordsOnly === 'function' && session.user && await _crIsRecordsOnly(session.user.email);
+      if (_ro) _roApply();
       setText('Authenticated · loading data…');
       hideLoginOverlay();
-      if (typeof boot === 'function') boot();
+      if (typeof boot === 'function') { const _b = boot(); if (_ro) Promise.resolve(_b).then(_roLand, _roLand); }
     } else {
       setText('Not signed in');
       showLoginOverlay();

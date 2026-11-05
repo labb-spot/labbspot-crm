@@ -79,8 +79,7 @@ function _crRender(){
       +'<div class="panel p-1" style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap">'+tabs.map(t=>'<div class="subtab'+(_CR.tab===t[0]?' active':'')+'" onclick="_crTab(\''+t[0]+'\')" style="display:inline-flex;align-items:center;white-space:nowrap;'+(soon[t[0]]?'opacity:.55':'')+'">'+t[1]+'</div>').join('')+'</div>'
       +'<div class="panel p-1" style="display:inline-flex;align-items:center"><div class="subtab'+(_CR.tab==='hours'?' active':'')+'" onclick="_crTab(\'hours\')" style="display:inline-flex;align-items:center;white-space:nowrap">⏱ Hours</div></div>'
       +'<div style="margin-left:auto;display:flex;gap:8px">'
-        +(window.CR_LIMITED?'':'<button class="btn btn-ghost text-sm" onclick="_crAccessOpen()" title="Who gets the Creation-only page">👥 Access</button>'
-          +'<label class="btn btn-ghost text-sm" style="cursor:pointer" title="One-time: bring cases in from your Combined sheet (CSV). Skips case numbers already here.">📥 Import sheet<input type="file" accept=".csv,text/csv" style="display:none" onchange="_crImportCsv(this)"></label>')
+        +(window.CR_LIMITED?'':'<label class="btn btn-ghost text-sm" style="cursor:pointer" title="One-time: bring cases in from your Combined sheet (CSV). Skips case numbers already here.">📥 Import sheet<input type="file" accept=".csv,text/csv" style="display:none" onchange="_crImportCsv(this)"></label>')
         +(!window.CR_LIMITED&&typeof reqEmailTplOpen==='function'?'<button class="btn btn-ghost text-sm" onclick="reqEmailTplOpen()" title="Request-email templates (one per list type)">✉️ Emails</button>'
           +(typeof reqFormOpen==='function'?'<button class="btn btn-ghost text-sm" onclick="reqFormOpen()" title="Ready-to-paste text for website request forms">📝 Forms</button>':'')
           +(typeof requestAddType==='function'?'<button class="btn btn-ghost text-sm" onclick="_crReqAddType()" title="Add a list type to every Requests city">+ List Type</button>':'')
@@ -1032,8 +1031,16 @@ async function _crAccessList(){
 }
 async function _crIsCreationOnly(email){ if(!email) return false; const l=await _crAccessList(); return l.indexOf(String(email).toLowerCase().trim())>=0; }
 window._crIsCreationOnly=_crIsCreationOnly;
+// Emails in app_config.column_mappings.records_only_emails only get Marketing ▸ Records + Overview.
+async function _crRecordsOnlyList(){
+  try{ const r=await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle();
+    const l=(r.data&&r.data.column_mappings&&r.data.column_mappings.records_only_emails)||[];
+    return Array.isArray(l)?l.map(x=>String(x).toLowerCase().trim()).filter(Boolean):[]; }catch(_){ return []; }
+}
+async function _crIsRecordsOnly(email){ if(!email) return false; const l=await _crRecordsOnlyList(); return l.indexOf(String(email).toLowerCase().trim())>=0; }
+window._crIsRecordsOnly=_crIsRecordsOnly;
 async function _crAccessOpen(){
-  const E=_reqEsc; const list=await _crAccessList();
+  const E=_reqEsc; const list=await _crAccessList(); const rlist=await _crRecordsOnlyList();
   const old=document.getElementById('cr-access-pop'); if(old) old.remove();
   const ov=document.createElement('div'); ov.id='cr-access-pop';
   ov.style.cssText='position:fixed;inset:0;z-index:100003;background:rgba(0,0,0,0.55);display:flex;align-items:flex-start;justify-content:center;padding:60px 16px';
@@ -1041,19 +1048,23 @@ async function _crAccessOpen(){
     +'<div style="font-weight:800;font-size:16px;margin-bottom:6px">👥 Creation-only logins</div>'
     +'<div style="font-size:13px;color:var(--text-dim);margin-bottom:10px">People with these emails only get the Creation page (All Cases, Tracker, Work Queue, Paste, Scrap, Unknown) — no Export, geocoding or Import sheet, and none of the rest of Data LAB. One email per line. Your own login is never limited.</div>'
     +'<textarea id="cr-access-list" rows="6" placeholder="employee@labbllc.com" style="width:100%;box-sizing:border-box;font-size:14px;padding:8px 10px;border-radius:8px;margin-bottom:12px">'+E(list.join('\n'))+'</textarea>'
+    +'<div style="font-weight:800;font-size:16px;margin-bottom:6px">📋 Records &amp; Overview-only logins</div>'
+    +'<div style="font-size:13px;color:var(--text-dim);margin-bottom:10px">People with these emails only see Marketing ▸ <b>Records</b> and <b>Overview</b> (call results) — no other tabs, no Clear, no geocoding. One email per line.</div>'
+    +'<textarea id="cr-access-rlist" rows="4" placeholder="caller@labbllc.com" style="width:100%;box-sizing:border-box;font-size:14px;padding:8px 10px;border-radius:8px;margin-bottom:12px">'+E(rlist.join('\n'))+'</textarea>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn btn-primary text-sm" id="cr-access-save">💾 Save</button><button type="button" class="btn btn-ghost text-sm" data-x="1" style="border:1px solid #ef4444;color:#f87171">Cancel</button></div></div>';
   document.body.appendChild(ov);
   ov.querySelector('[data-x]').onclick=()=>ov.remove(); ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
   ov.querySelector('#cr-access-save').onclick=async function(){
     const emails=ov.querySelector('#cr-access-list').value.split(/[\s,;]+/).map(x=>x.toLowerCase().trim()).filter(x=>/@/.test(x));
+    const remails=ov.querySelector('#cr-access-rlist').value.split(/[\s,;]+/).map(x=>x.toLowerCase().trim()).filter(x=>/@/.test(x));
     this.disabled=true; this.textContent='Saving…';
     try{
       let me=''; try{ const u=await sb.auth.getUser(); me=((u&&u.data&&u.data.user&&u.data.user.email)||'').toLowerCase(); }catch(_){}
-      if(me&&emails.indexOf(me)>=0){ alert('That list includes your own email ('+me+') — you’d lock yourself out of the full Data LAB. Remove it first.'); this.disabled=false; this.textContent='💾 Save'; return; }
+      if(me&&(emails.indexOf(me)>=0||remails.indexOf(me)>=0)){ alert('That list includes your own email ('+me+') — you’d lock yourself out of the full Data LAB. Remove it first.'); this.disabled=false; this.textContent='💾 Save'; return; }
       const r=await sb.from('app_config').select('column_mappings').eq('id',1).maybeSingle(); if(r.error) throw r.error;
-      const cm=Object.assign({},(r.data&&r.data.column_mappings)||{}); cm.creation_only_emails=emails;
+      const cm=Object.assign({},(r.data&&r.data.column_mappings)||{}); cm.creation_only_emails=emails; cm.records_only_emails=remails;
       const up=await sb.from('app_config').update({column_mappings:cm,updated_at:new Date().toISOString()}).eq('id',1); if(up.error) throw up.error;
-      ov.remove(); if(typeof toast==='function') toast('Creation-only logins saved ('+emails.length+')','ok');
+      ov.remove(); if(typeof toast==='function') toast('Logins saved — Creation-only: '+emails.length+' · Records-only: '+remails.length,'ok');
     }catch(e){ this.disabled=false; this.textContent='💾 Save'; if(typeof toast==='function') toast('Save failed: '+(e.message||e),'err'); }
   };
 }

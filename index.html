@@ -6775,6 +6775,7 @@
         <div style="font-weight:700;font-size:24px" id="contractor-modal-title">👷 Add Contractor</div>
         <div class="flex items-center" style="gap:10px;flex-wrap:wrap">
           <button type="button" id="contractor-verified-btn" data-state="unknown" onclick="contractorCycleVerifiedBtn()" style="height:34px;padding:0 14px;background:rgba(156,163,175,0.15);border:1px solid rgba(156,163,175,0.5);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:#9ca3af;box-sizing:border-box;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease" title="Click to cycle: ? Unknown → ✓ Verified → ✗ Unverified">? Unknown</button>
+          <button class="btn btn-ghost" id="ghl-btn-contractor" onclick="_ghlAddFromModal('contractor',this)" style="height:34px;padding:0 10px;min-width:104px;justify-content:center;font-size:13px;color:#34d399;border:1px solid rgba(16,185,129,0.45);box-sizing:border-box;line-height:1;white-space:nowrap" title="Add or update this contact in GoHighLevel (tagged so your workflows can run)">➕ GHL</button>
           <button class="btn btn-ghost" onclick="contractorDeleteFromModal()" id="contractor-delete-btn" style="height:34px;padding:0 14px;font-size:13px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none;box-sizing:border-box;line-height:1" title="Delete this entry">🗑 Delete</button>
           <button class="btn btn-ghost" onclick="contractorCloseAddModal()" style="height:34px;padding:0 14px;font-size:13px;box-sizing:border-box;line-height:1" title="Discard changes and close">Cancel</button>
           <button class="btn btn-primary" onclick="contractorSaveNew()" id="contractor-add-save-btn" style="height:34px;padding:0 18px;font-size:13px;font-weight:600;box-sizing:border-box;line-height:1" title="Save">💾 Save Contractor</button>
@@ -7476,6 +7477,7 @@
              Replaces the old ✕ close button + bottom button bar. -->
         <div class="flex items-center" style="gap:10px;flex-wrap:wrap">
           <button type="button" id="buyer-add-verified-btn" data-state="true" onclick="buyerCycleQualified()" style="height:34px;padding:0 14px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.5);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:#10b981;box-sizing:border-box;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s ease" title="Click to cycle status: Qualified → Unqualified → Unknown. Defaults to Qualified on new buyers.">✓ Qualified</button>
+          <button class="btn btn-ghost" id="ghl-btn-buyer" onclick="_ghlAddFromModal('buyer',this)" style="height:34px;padding:0 10px;min-width:104px;justify-content:center;font-size:13px;color:#34d399;border:1px solid rgba(16,185,129,0.45);box-sizing:border-box;line-height:1;white-space:nowrap" title="Add or update this contact in GoHighLevel (tagged so your workflows can run)">➕ GHL</button>
           <button class="btn btn-ghost" onclick="buyerDeleteFromModal()" id="buyer-delete-btn" style="height:34px;padding:0 14px;font-size:13px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none;box-sizing:border-box;line-height:1" title="Delete this buyer">🗑 Delete</button>
           <button class="btn btn-ghost" onclick="buyerCloseAddModal()" style="height:34px;padding:0 14px;font-size:13px;box-sizing:border-box;line-height:1" title="Discard changes and close">Cancel</button>
           <button class="btn btn-primary" onclick="buyerSaveNew()" id="buyer-add-save-btn" style="height:34px;padding:0 18px;font-size:13px;font-weight:600;box-sizing:border-box;line-height:1" title="Save this buyer">💾 Save</button>
@@ -7781,6 +7783,7 @@
         <div style="font-weight:700;font-size:22px;flex-shrink:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="handyman-modal-title">🔧 Add Handyman</div>
         <div class="flex items-center" style="gap:8px;flex-wrap:nowrap;flex-shrink:0">
           <button type="button" id="handyman-verified-btn" onclick="_toggleVerifiedHeaderBtn('handyman')" style="height:34px;padding:0 12px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-dim);box-sizing:border-box;white-space:nowrap;display:inline-flex;align-items:center;gap:6px" title="Toggle Verified status">○ Unverified</button>
+          <button class="btn btn-ghost" id="ghl-btn-handyman" onclick="_ghlAddFromModal('handyman',this)" style="height:34px;padding:0 10px;min-width:104px;justify-content:center;font-size:13px;color:#34d399;border:1px solid rgba(16,185,129,0.45);box-sizing:border-box;line-height:1;white-space:nowrap" title="Add or update this contact in GoHighLevel (tagged so your workflows can run)">➕ GHL</button>
           <button class="btn btn-ghost" onclick="handymanDeleteFromModal()" id="handyman-delete-btn" style="height:34px;padding:0 12px;font-size:13px;color:#f87171;border:1px solid rgba(239,68,68,0.4);display:none;box-sizing:border-box;line-height:1" title="Delete this entry">🗑 Delete</button>
           <button class="btn btn-ghost" onclick="handymanCloseAddModal()" style="height:34px;padding:0 12px;font-size:13px;box-sizing:border-box;line-height:1" title="Discard changes and close">Cancel</button>
           <button class="btn btn-primary" onclick="handymanSaveNew()" id="handyman-add-save-btn" style="height:34px;padding:0 16px;font-size:13px;font-weight:600;box-sizing:border-box;line-height:1" title="Save">💾 Save</button>
@@ -32906,6 +32909,95 @@ function handymanOpenAddModal(editId) {
 window.handymanOpenAddModal = handymanOpenAddModal;
 function handymanCloseAddModal() { const m = document.getElementById('handyman-add-modal'); if (m) m.style.display = 'none'; }
 window.handymanCloseAddModal = handymanCloseAddModal;
+// ➕ GHL on the Buyer / Contractor / Handyman popups → edge function ghl-add-contact.
+// Buyers are tagged "buyer". Contractors are tagged "contractor".
+// Handymen are contractors too: tagged "contractor" + "handyman".
+async function _ghlAddFromModal(kind, btn) {
+  const v = id => ((document.getElementById(id) || {}).value || '').trim();
+  const list = t => String(t || '').split(/[,;\/]+/).map(x => x.trim()).filter(Boolean);
+  let body;
+  if (kind === 'buyer') {
+    const entity = v('buyer-add-company'), contact = v('buyer-add-name');
+    const mail = (document.querySelector('#buyer-add-mailing-grid input') || {}).value || '';
+    body = { name: contact || entity, companyName: (contact && entity !== contact) ? entity : '', phone: v('buyer-add-phone'), email: v('buyer-add-email'), address: mail.trim(), tags: ['buyer'] };
+  } else if (kind === 'contractor') {
+    body = { name: v('contractor-add-name'), companyName: v('contractor-add-company'), phone: v('contractor-add-phone'), email: v('contractor-add-email'),
+             city: v('contractor-add-city'), state: v('contractor-add-state'), tags: ['contractor'], services: list(v('contractor-add-services')).join(', '), specializedServices: list(v('contractor-add-specialized')).join(', '),
+             specialty: list(v('contractor-add-services')).concat(list(v('contractor-add-specialized'))).join(', ') };   // services go in fields, not tags
+  } else {
+    body = { name: v('handyman-add-name'), companyName: v('handyman-add-company'), phone: v('handyman-add-phone'), email: v('handyman-add-email'),
+             city: v('handyman-add-city'), state: v('handyman-add-state'), tags: ['contractor', 'handyman'], services: list(v('handyman-add-trades')).join(', '), specializedServices: 'Handyman', specialty: ['Handyman'].concat(list(v('handyman-add-trades'))).join(', ') };
+  }
+  if (!(body.name || body.companyName) || !(body.phone || body.email)) { if (typeof toast === 'function') toast('Add a name and a phone or email first.', 'warn'); return; }
+  body.source = 'Data LAB';
+  const o = btn ? btn.innerHTML : ''; if (btn) { btn.style.width = btn.offsetWidth + 'px'; btn.style.justifyContent = 'center'; btn.style.overflow = 'hidden'; btn.disabled = true; btn.innerHTML = '⏳'; }   // keep the button the same size while it works
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Not connected');
+    const r = await sb.functions.invoke('ghl-add-contact', { body });
+    if (r.error) { let m = r.error.message || String(r.error); try { const j = await r.error.context.json(); if (j && j.error) m = j.error; } catch (_) {} throw new Error(m); }
+    if (r.data && r.data.error) throw new Error(r.data.error);
+    if (typeof toast === 'function') toast('✅ ' + (body.name || body.companyName) + ' is in GHL (' + body.tags.join(', ') + ')', 'ok');
+    const recId = ((document.getElementById(kind + '-edit-id') || {}).value || '').trim();
+    if (recId) await _ghlMarkAdded(kind, recId);
+    if (btn) { btn.disabled = false; btn.style.width = ''; }
+    _ghlPaint(kind);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.innerHTML = o; }
+    const msg = String(e && e.message || e);
+    if (typeof toast === 'function') toast('GHL add failed: ' + (/not found|404|Failed to send/i.test(msg) ? 'the ghl-add-contact function isn’t set up in Supabase yet.' : msg), 'err');
+  }
+}
+window._ghlAddFromModal = _ghlAddFromModal;
+// Remember who's been added (shared with the team): app_config.column_mappings.ghl_added = { buyer:{id:date}, contractor:{…}, handyman:{…} }
+function _ghlAddedMap() { try { return (cache && cache.config && cache.config.column_mappings && cache.config.column_mappings.ghl_added) || {}; } catch (_) { return {}; } }
+async function _ghlMarkAdded(kind, id) {
+  try {
+    const r = await sb.from('app_config').select('column_mappings').eq('id', 1).maybeSingle(); if (r.error) throw r.error;
+    const cm = Object.assign({}, (r.data && r.data.column_mappings) || {});
+    const g = Object.assign({}, cm.ghl_added || {}); g[kind] = Object.assign({}, g[kind] || {}); g[kind][id] = new Date().toISOString(); cm.ghl_added = g;
+    const u = await sb.from('app_config').update({ column_mappings: cm, updated_at: new Date().toISOString() }).eq('id', 1); if (u.error) throw u.error;
+    if (cache && cache.config) { cache.config.column_mappings = cache.config.column_mappings || {}; cache.config.column_mappings.ghl_added = g; }
+  } catch (e) { console.warn('ghl added mark', e); }
+}
+// Button look: "✓ In GHL" (green) once this record was added; "➕ GHL" otherwise. Still clickable to re-send/update.
+function _ghlPaint(kind) {
+  const btn = document.getElementById('ghl-btn-' + kind); if (!btn) return;
+  const id = ((document.getElementById(kind + '-edit-id') || {}).value || '').trim();
+  const at = id && (_ghlAddedMap()[kind] || {})[id];
+  btn.style.width = ''; btn.disabled = false;
+  if (at) {
+    btn.innerHTML = '✓ In GHL'; btn.style.background = 'rgba(16,185,129,0.18)'; btn.style.color = '#34d399';
+    btn.title = 'Added to GHL on ' + new Date(at).toLocaleDateString() + ' — click to send again (updates the contact)';
+  } else {
+    btn.innerHTML = '➕ GHL'; btn.style.background = ''; btn.style.color = '#34d399';
+    btn.title = 'Add or update this contact in GoHighLevel (tagged so your workflows can run)';
+  }
+}
+window._ghlPaint = _ghlPaint;
+// Repaint whenever a Buyer / Contractor / Handyman popup opens.
+function _ghlWrapOpeners() {
+  ['buyer', 'contractor', 'handyman'].forEach(function (k) {
+    const fn = k + 'OpenAddModal', orig = window[fn];
+    if (typeof orig === 'function' && !orig._ghlWrapped) {
+      const w = function () { const r = orig.apply(this, arguments); setTimeout(function () { _ghlPaint(k); }, 0); return r; };
+      w._ghlWrapped = true; window[fn] = w;
+    }
+  });
+}
+setTimeout(_ghlWrapOpeners, 0); document.addEventListener('DOMContentLoaded', _ghlWrapOpeners); window.addEventListener('load', _ghlWrapOpeners);
+// Also repaint whenever the popup is shown (some openers get replaced later, so watch the popup itself).
+(function () {
+  function watch() {
+    ['buyer', 'contractor', 'handyman'].forEach(function (k) {
+      const m = document.getElementById(k + '-add-modal'); if (!m || m._ghlObs) return;
+      m._ghlObs = new MutationObserver(function () { if (m.style.display !== 'none' && !m.classList.contains('hidden')) setTimeout(function () { _ghlPaint(k); }, 0); });
+      m._ghlObs.observe(m, { attributes: true, attributeFilter: ['style', 'class'] });
+      const hid = document.getElementById(k + '-edit-id');
+      if (hid && !hid._ghlObs) { hid._ghlObs = new MutationObserver(function () { _ghlPaint(k); }); hid._ghlObs.observe(hid, { attributes: true, attributeFilter: ['value'] }); }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch); else watch();
+})();
 async function handymanSaveNew() {
   const $ = (id) => document.getElementById(id);
   const editId = ($('handyman-edit-id')?.value || '').trim();

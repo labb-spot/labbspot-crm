@@ -872,7 +872,8 @@ function _crEditor(c){
   else fields=box('🏠','Property',fld('address','Property address','Search the decedent on the Assessor map → TruePeople → else Unknown',ADDR,true))
       +box('🕊️','Estate',fld('defendant','Decedent','Last known owner')+fld('attorney','Attorney',''))
       +box('👥','Petitioners <span id="cr-petc" style="text-transform:none;letter-spacing:0;color:var(--text)"></span>','<div style="font-size:12px;color:var(--text-dim);margin:-2px 0 6px">Petitioner / personal rep / executor — one row per person.</div><div id="cr-pets"></div>'
-        +'<button type="button" onclick="_crPetAdd()" style="height:32px;padding:0 12px;font-size:12.5px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:8px;cursor:pointer;margin-bottom:10px">+ Add petitioner</button>');
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button type="button" onclick="_crPetAdd()" style="height:32px;padding:0 12px;font-size:12.5px;font-weight:700;color:var(--brand);background:transparent;border:1px dashed var(--brand);border-radius:8px;cursor:pointer">+ Add petitioner</button>'
+        +'<button type="button" onclick="_crPetUnknown()" title="No petitioner needed / couldn\'t find one — marks it Unknown so the case can be finished" style="height:32px;padding:0 12px;font-size:12.5px;font-weight:700;color:var(--text-dim);background:transparent;border:1px solid var(--border);border-radius:8px;cursor:pointer">Unknown</button></div>');
   ed.innerHTML='<div style="background:var(--panel-2);border:1px solid var(--border);border-top:4px solid '+col+';border-radius:12px;padding:14px 16px">'
     +'<div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">'
       +'<div style="flex:1;min-width:240px"><div style="font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:'+col+'">'+E(_CR_TYPES[k]||'')+' · '+E(cty.city||'')+'</div>'
@@ -933,6 +934,9 @@ function _crPetPaint(){
 }
 function _crPetAdd(){ _CR.pets=_CR.pets||[]; _CR.pets.push({name:'',address:''}); _crPetPaint(); const ins=document.querySelectorAll('#cr-pets input'); if(ins.length>=2) ins[ins.length-2].focus(); _crLive(); }
 window._crPetAdd=_crPetAdd;
+// Petitioner not needed / not found → one "Unknown" row, so the case finishes as "Done · unknowns".
+function _crPetUnknown(){ _CR.pets=[{name:'Unknown',address:'Unknown'}]; _crPetPaint(); _crLive(); }
+window._crPetUnknown=_crPetUnknown;
 function _crSetF(k,v){ const el=document.querySelector('#cr-editor [data-f="'+k+'"]'); if(el){ el.value=v; _crLive(); } }
 window._crSetF=_crSetF;
 function _crCollect(){

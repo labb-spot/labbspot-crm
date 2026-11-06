@@ -21461,6 +21461,10 @@ async function uwSave(manual) {
           }
         }
       }
+      // Custom rehab presets are saved on their own (_uwRtSavePresets). If one was created/deleted while this
+      // save was in flight, the copy we read above is stale — always write the current list so it isn't wiped.
+      try { const _cd = cache.underwrites && cache.underwrites[_uwCurrentId] && cache.underwrites[_uwCurrentId].data;
+            if (_cd && Array.isArray(_cd._customRehabPresets) && payload && payload.data) payload.data._customRehabPresets = _cd._customRehabPresets; } catch(_){}
       result = await _uwWrite(payload, p => sb.from('underwrites').update(p).eq('id', _uwCurrentId).select().maybeSingle());
     } else {
       // NEW DEAL (no active id). Only an explicit Save Now (manual) may create
@@ -22992,6 +22996,7 @@ async function _uwRtSaveField(id, field, value){
     if(sel.error) throw sel.error;
     var d = (sel.data && sel.data.data && typeof sel.data.data==='object') ? sel.data.data : {};
     d[field] = value;
+    try { var _cdp = cache.underwrites && cache.underwrites[id] && cache.underwrites[id].data; if(field!=='_customRehabPresets' && _cdp && Array.isArray(_cdp._customRehabPresets)) d._customRehabPresets = _cdp._customRehabPresets; } catch(_){}   // never drop a just-saved custom preset
     var upd = await sb.from('underwrites').update({ data:d, updated_at:new Date().toISOString(), updated_session:_UW_SESSION_ID }).eq('id', id).select('updated_at');
     if(upd.error) throw upd.error;
     if(cache.underwrites && cache.underwrites[id]) cache.underwrites[id].data = d;
@@ -48442,6 +48447,24 @@ function _ownerForExport(p) {
   return { first: '', last: '' };
 }
 function _ownerFirst(p) { return _ownerForExport(p).first; }
+// ---- Dialer exports (Master / Stacked / Top 3) ----
+// List type(s) for a property: the named categories it matches (Probate, Code Violation…),
+// else its active flags, else its list names. Shown in a "List Type" column (comma-separated, so GHL's import can map it straight to Tags).
+function _exportListType(p) {
+  try {
+    const cats = (typeof LIST_TYPE_CATEGORIES !== 'undefined' ? LIST_TYPE_CATEGORIES : []).filter(c => !c._isOther && _propMatchesCategory(p, c)).map(c => c.label);
+    if (cats.length) return cats.join(', ');
+    const fl = (p && p.flags && typeof p.flags === 'object') ? Object.keys(p.flags).filter(k => p.flags[k] === true) : [];
+    if (fl.length) return fl.join(', ');
+    return (p._lists || []).map(l => (cache.lists[l] || {}).name).filter(Boolean).join(', ');
+  } catch (_) { return ''; }
+}
+// Probate: the owner on record is the person who passed away — never put their name in the dialer.
+function _isProbateProp(p) {
+  try { const c = (LIST_TYPE_CATEGORIES || []).find(x => x.label === 'Probate'); return !!(c && _propMatchesCategory(p, c)); } catch (_) { return false; }
+}
+function _dialerFirst(p) { return _isProbateProp(p) ? '' : _ownerFirst(p); }
+function _dialerLast(p)  { return _isProbateProp(p) ? '' : _ownerLast(p); }
 function _ownerLast(p)  { return _ownerForExport(p).last; }
 
 function downloadVendorCsv(vendorId) {
@@ -48477,7 +48500,7 @@ function downloadVendorCsv(vendorId) {
     'Address', 'City', 'State', 'Zip',
     'Phone 1', 'Phone 2', 'Phone 3', 'Phone 4',
     'Email 1', 'Email 2',
-    'Mailing Address', 'Mail City', 'Mail State', 'Mail Zip',
+    'Mailing Address', 'Mail City', 'Mail State', 'Mail Zip', 'List Type',
   ];
 
   const rows = [];
@@ -48487,8 +48510,8 @@ function downloadVendorCsv(vendorId) {
     const phones = phonesByProp[pid] || [];
     const emails = emailsByProp[pid] || [];
     rows.push([
-      _ownerFirst(p),
-      _ownerLast(p),
+      _dialerFirst(p),
+      _dialerLast(p),
       p.street || '',
       p.city || '',
       p.state || '',
@@ -48503,6 +48526,7 @@ function downloadVendorCsv(vendorId) {
       p.mail_city || '',
       p.mail_state || '',
       p.mail_zip || '',
+      _exportListType(p),
     ]);
   });
 
@@ -48617,7 +48641,7 @@ function downloadTop3List() {
     'Phone 1', 'Phone 1 Vendor',
     'Phone 2', 'Phone 2 Vendor',
     'Phone 3', 'Phone 3 Vendor',
-    'Mailing Address', 'Mail City', 'Mail State', 'Mail Zip', 'Phone Count'];
+    'Mailing Address', 'Mail City', 'Mail State', 'Mail Zip', 'Phone Count', 'List Type'];
 
   const rows = [];
   allProps.forEach(p => {
@@ -48628,13 +48652,13 @@ function downloadTop3List() {
     if (mailByProp && mailByProp[p.id]) mail = mailByProp[p.id];
     else if (typeof getMailForProp === 'function') mail = getMailForProp(p) || null;
     if (!mail) mail = { mail_street: p.mail_street, mail_city: p.mail_city, mail_state: p.mail_state, mail_zip: p.mail_zip };
-    const row = [_ownerFirst(p), _ownerLast(p), p.street || '', p.city || '', p.state || '', p.zip || ''];
+    const row = [_dialerFirst(p), _dialerLast(p), p.street || '', p.city || '', p.state || '', p.zip || ''];
     for (let i = 0; i < MAX_PHONES; i++) {
       row.push(phones[i]?.num || '');
       row.push(phones[i] && phones[i].vendors ? Array.from(phones[i].vendors).sort().join('; ') : '');
     }
     row.push(mail?.mail_street || '', mail?.mail_city || '', mail?.mail_state || '', mail?.mail_zip || '');
-    row.push(phoneCountTotal);
+    row.push(phoneCountTotal, _exportListType(p));
     rows.push(row);
   });
 
@@ -48698,7 +48722,7 @@ function downloadStackedList() {
     'Address', 'City', 'State', 'Zip',
     'Phone 1', 'Phone 2', 'Phone 3', 'Phone 4',
     'Email 1', 'Email 2',
-    'Mailing Address', 'Mail City', 'Mail State', 'Mail Zip',
+    'Mailing Address', 'Mail City', 'Mail State', 'Mail Zip', 'List Type',
   ];
 
   const rows = [];
@@ -48719,8 +48743,8 @@ function downloadStackedList() {
       const emails = bucket.emails;
       rows.push([
         vname,
-        _ownerFirst(p),
-        _ownerLast(p),
+        _dialerFirst(p),
+        _dialerLast(p),
         p.street || '',
         p.city || '',
         p.state || '',
@@ -48735,6 +48759,7 @@ function downloadStackedList() {
         p.mail_city || '',
         p.mail_state || '',
         p.mail_zip || '',
+        _exportListType(p),
       ]);
     });
   });
@@ -48841,7 +48866,7 @@ function downloadMasterList() {
   for (let i = 1; i <= MAX_PHONES; i++) { headers.push('Phone ' + i); headers.push('Phone ' + i + ' Vendor'); }
   for (let i = 1; i <= MAX_EMAILS; i++) { headers.push('Email ' + i); headers.push('Email ' + i + ' Vendor'); }
   headers.push('Mailing Address', 'Mail City', 'Mail State', 'Mail Zip');
-  headers.push('Phone Count', 'Email Count'); // bonus columns so user can see how rich each row is
+  headers.push('Phone Count', 'Email Count', 'List Type'); // bonus columns so user can see how rich each row is
 
   const rows = [];
   let totalPhones = 0, totalEmails = 0, propsWithMail = 0;
@@ -48863,8 +48888,8 @@ function downloadMasterList() {
     if (!mail) mail = { mail_street: p.mail_street, mail_city: p.mail_city, mail_state: p.mail_state, mail_zip: p.mail_zip };
     if (mail && (mail.mail_street || mail.mail_city || mail.mail_zip)) propsWithMail++;
     const row = [
-      _ownerFirst(p),
-      _ownerLast(p),
+      _dialerFirst(p),
+      _dialerLast(p),
       p.street || '',
       p.city || '',
       p.state || '',
@@ -48879,7 +48904,7 @@ function downloadMasterList() {
       row.push(emails[i] && emails[i].vendors ? Array.from(emails[i].vendors).sort().join('; ') : '');
     }
     row.push(mail?.mail_street || '', mail?.mail_city || '', mail?.mail_state || '', mail?.mail_zip || '');
-    row.push(phoneCountTotal, emailCountTotal);
+    row.push(phoneCountTotal, emailCountTotal, _exportListType(p));
     rows.push(row);
   });
 
